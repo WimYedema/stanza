@@ -2,3 +2,5 @@
 spikes/out/
 word-examples/
 __pycache__/
+node_modules/
+dist/

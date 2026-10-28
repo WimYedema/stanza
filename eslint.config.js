@@ -1,0 +1,36 @@
+import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
+
+const restrictImports = (group, message) => ({
+  'no-restricted-imports': ['error', { patterns: [{ group, message }] }],
+});
+
+export default tseslint.config(
+  { ignores: ['**/dist/**', '.venv/**', 'spikes/**', 'word-examples/**', '*.config.*'] },
+  eslint.configs.recommended,
+  tseslint.configs.strictTypeChecked,
+  {
+    languageOptions: {
+      parserOptions: {
+        project: ['packages/*/tsconfig.json', 'packages/*/tsconfig.test.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: ['packages/core/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', 'node:*'],
+      'core must not import other packages or Node built-ins.',
+    ),
+  },
+  {
+    files: ['packages/format/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', 'node:*'],
+      'format may import only @phrase/core and no Node built-ins.',
+    ),
+  },
+);

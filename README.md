@@ -7,15 +7,14 @@
 - `docs/BACKLOG.md` lists the prioritized work items with relative sizes.
 - `docs/SPIKE_FINDINGS.md` records what the DOCX round-trip and TOC spikes showed.
 
-## Recommended next documents
+## Development
 
-Create ADRs only as implementation decisions become real. The first useful records are likely:
+Requires Node 22 or later.
 
-1. Editor framework selection.
-2. Canonical model independent of the editor framework.
-3. No direct formatting.
-4. Typed stylesheet and dual compilation.
-5. DOCX as publication output.
-6. Local-first operation without a mandatory backend.
-7. Stable IDs and structural cross-references.
-8. Git-friendly native storage.
+```text
+npm install
+npm run check    build, typecheck tests, test, lint, format check
+npm test         tests only
+```
+
+Packages live in `packages/`. Architecture decisions are recorded in `docs/adr/`.

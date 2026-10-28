@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.phrase.md text eol=lf
+*.docx binary
+*.png binary
