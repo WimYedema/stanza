@@ -356,6 +356,7 @@ Accepted:
 - ADR 0001: Markdown dialect. Also covers Git-native text storage and stable IDs.
 - ADR 0002: host environment and dependency policy. Also covers local-first operation with no required backend and DOCX as output.
 - ADR 0003: editor state and the domain model. Also covers the canonical domain model independent of ProseMirror.
+- ADR 0004: domain document model.
 
 Still to capture:
 
