@@ -1,0 +1,4 @@
+.venv/
+spikes/out/
+word-examples/
+__pycache__/
