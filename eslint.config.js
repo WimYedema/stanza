@@ -33,4 +33,12 @@ export default tseslint.config(
       'format may import only @phrase/core and no Node built-ins.',
     ),
   },
+  {
+    files: ['packages/export-docx/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', 'node:*'],
+      'export-docx may import only @phrase/core and no Node built-ins.',
+    ),
+  },
 );

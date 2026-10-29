@@ -6,6 +6,7 @@ export default defineConfig({
     // Tests run against source, so they do not need a build first.
     alias: {
       '@phrase/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
+      '@phrase/format': fileURLToPath(new URL('./packages/format/src/index.ts', import.meta.url)),
     },
   },
   test: {

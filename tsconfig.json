@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "packages/core" }, { "path": "packages/format" }]
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/format" },
+    { "path": "packages/export-docx" }
+  ]
 }
