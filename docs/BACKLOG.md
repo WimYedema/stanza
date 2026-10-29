@@ -16,10 +16,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 8. [S] - ADR: editor state versus domain model (convert at save and load). Update the architecture document: Markdown storage, remove the Tiptap conversion idea, add the VS Code host.
 9. [S] - Repository scaffold: strict TypeScript, test runner, lint, and a package boundary so the domain imports nothing else.
 10. [M] - Domain document model, Markdown parser and serializer, deterministic round-trip tests.
+11. [S] - Tooling to assign missing IDs without changing unrelated content.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-11. [S] - Tooling to assign missing IDs without changing unrelated content.
 12. [M] - Typed stylesheet: named paragraph, character, and table styles, inheritance, contextual variants, user-defined character styles, cycle and missing-base diagnostics.
 13. [S] - Validation and diagnostics model: unknown style, missing variant, unsupported or direct formatting, broken reference.
 14. [S] - Metadata model: document metadata as YAML front matter and shared settings in a project file, validated.
