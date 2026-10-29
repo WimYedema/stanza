@@ -27,6 +27,7 @@ export type {
   Text,
 } from './document.js';
 export { normalizeDocument, normalizeInlines } from './normalize.js';
+export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
 export {
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,

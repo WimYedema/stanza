@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { Mark } from './document.js';
-import { isStyleName, type StyleName } from './style-name.js';
 import {
   markAllowed,
   resolveCharacterStyle,
@@ -9,53 +8,8 @@ import {
   resolveTextProps,
 } from './style-resolution.js';
 import { validateStylesheet } from './style-validation.js';
-import {
-  RESERVED_PARAGRAPH_STYLES,
-  RESERVED_TABLE_STYLE,
-  type CharacterStyle,
-  type ParagraphStyle,
-  type Stylesheet,
-  type TableStyle,
-} from './stylesheet.js';
-
-function n(value: string): StyleName {
-  if (!isStyleName(value)) throw new Error(`invalid style name ${value}`);
-  return value;
-}
-
-const plainStyle: ParagraphStyle = { text: {}, paragraph: {}, variants: {} };
-
-interface Parts {
-  readonly paragraph?: Record<string, ParagraphStyle | undefined>;
-  readonly character?: Record<string, CharacterStyle>;
-  readonly table?: Record<string, TableStyle>;
-  readonly colors?: Record<string, string>;
-  readonly fonts?: Record<string, readonly string[]>;
-}
-
-/** A stylesheet that has every reserved style, with the given parts on top. */
-function sheet(parts: Parts = {}): Stylesheet {
-  const paragraph = new Map<StyleName, ParagraphStyle>(
-    RESERVED_PARAGRAPH_STYLES.map((name) => [name, plainStyle]),
-  );
-  for (const [name, style] of Object.entries(parts.paragraph ?? {})) {
-    if (style === undefined) paragraph.delete(n(name));
-    else paragraph.set(n(name), style);
-  }
-  const table = new Map<StyleName, TableStyle>([[RESERVED_TABLE_STYLE, {}]]);
-  for (const [name, style] of Object.entries(parts.table ?? {})) table.set(n(name), style);
-  return {
-    tokens: {
-      colors: new Map(Object.entries(parts.colors ?? {})),
-      fonts: new Map(Object.entries(parts.fonts ?? {})),
-    },
-    paragraphStyles: paragraph,
-    characterStyles: new Map(
-      Object.entries(parts.character ?? {}).map(([name, style]) => [n(name), style]),
-    ),
-    tableStyles: table,
-  };
-}
+import { RESERVED_TABLE_STYLE, type Stylesheet } from './stylesheet.js';
+import { n, plainStyle, sheet } from './stylesheet.testing.js';
 
 const hex = (value: string) => ({ kind: 'hex', hex: value }) as const;
 const token = (name: string) => ({ kind: 'token', name }) as const;
