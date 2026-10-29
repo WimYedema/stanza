@@ -27,3 +27,36 @@ export type {
   Text,
 } from './document.js';
 export { normalizeDocument, normalizeInlines } from './normalize.js';
+export {
+  RESERVED_PARAGRAPH_STYLES,
+  RESERVED_TABLE_STYLE,
+  VARIANT_MARKS,
+  type Alignment,
+  type Border,
+  type CharacterStyle,
+  type ColorValue,
+  type FontValue,
+  type HeaderRow,
+  type LineSpacing,
+  type ParagraphProps,
+  type ParagraphStyle,
+  type Stylesheet,
+  type TableBorders,
+  type TableStyle,
+  type TextProps,
+  type Tokens,
+  type VariantDeclaration,
+  type VariantMark,
+} from './stylesheet.js';
+export {
+  inheritanceChain,
+  markAllowed,
+  resolveCharacterStyle,
+  resolveParagraphStyle,
+  resolveTableStyle,
+  resolveTextProps,
+  type InheritanceChain,
+  type ResolvedParagraphStyle,
+  type ResolvedTableStyle,
+} from './style-resolution.js';
+export { validateStylesheet } from './style-validation.js';

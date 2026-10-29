@@ -1,0 +1,154 @@
+import type { Diagnostic } from './diagnostic.js';
+import { inheritanceChain } from './style-resolution.js';
+import type { StyleName } from './style-name.js';
+import {
+  RESERVED_PARAGRAPH_STYLES,
+  RESERVED_TABLE_STYLE,
+  VARIANT_MARKS,
+  type Border,
+  type ColorValue,
+  type FontValue,
+  type ParagraphProps,
+  type Stylesheet,
+  type TextProps,
+} from './stylesheet.js';
+
+const HEX_COLOR = /^#[0-9A-F]{6}$/;
+
+/** Checks everything about a stylesheet that does not depend on how it was written down. */
+export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const error = (code: string, message: string, path: string): void => {
+    diagnostics.push({ severity: 'error', code, message, path });
+  };
+
+  const checkColor = (value: ColorValue | undefined, path: string): void => {
+    if (value === undefined) return;
+    if (value.kind === 'token') {
+      if (!stylesheet.tokens.colors.has(value.name)) {
+        error('unknown-token', `There is no color token "${value.name}".`, path);
+      }
+    } else if (!HEX_COLOR.test(value.hex)) {
+      error('invalid-value', `"${value.hex}" is not a #RRGGBB color.`, path);
+    }
+  };
+  const checkFont = (value: FontValue | undefined, path: string): void => {
+    if (value === undefined) return;
+    if (value.kind === 'token') {
+      if (!stylesheet.tokens.fonts.has(value.name)) {
+        error('unknown-token', `There is no font token "${value.name}".`, path);
+      }
+    } else if (value.families.length === 0 || value.families.some((family) => family === '')) {
+      error('invalid-value', 'A font needs at least one family name.', path);
+    }
+  };
+  const checkPositive = (value: number | undefined, path: string): void => {
+    if (value !== undefined && !(Number.isFinite(value) && value > 0)) {
+      error('invalid-value', 'The value must be greater than zero.', path);
+    }
+  };
+  const checkNotNegative = (value: number | undefined, path: string): void => {
+    if (value !== undefined && !(Number.isFinite(value) && value >= 0)) {
+      error('invalid-value', 'The value must not be negative.', path);
+    }
+  };
+  const checkFinite = (value: number | undefined, path: string): void => {
+    if (value !== undefined && !Number.isFinite(value)) {
+      error('invalid-value', 'The value must be a number.', path);
+    }
+  };
+
+  const checkText = (props: TextProps, path: string): void => {
+    checkFont(props.font, `${path}.font`);
+    checkPositive(props.sizePt, `${path}.size`);
+    checkColor(props.color, `${path}.color`);
+    checkColor(props.highlight, `${path}.highlight`);
+  };
+  const checkParagraph = (props: ParagraphProps, path: string): void => {
+    checkNotNegative(props.spaceBeforePt, `${path}.space-before`);
+    checkNotNegative(props.spaceAfterPt, `${path}.space-after`);
+    checkNotNegative(props.indentLeftPt, `${path}.indent-left`);
+    checkFinite(props.firstLineIndentPt, `${path}.first-line-indent`);
+    checkColor(props.background, `${path}.background`);
+    if (props.lineSpacing !== undefined) {
+      checkPositive(
+        props.lineSpacing.rule === 'multiple' ? props.lineSpacing.factor : props.lineSpacing.pt,
+        `${path}.line-spacing`,
+      );
+    }
+  };
+  const checkBorder = (border: Border | undefined, path: string): void => {
+    if (border === undefined) return;
+    checkPositive(border.widthPt, `${path}.width`);
+    checkColor(border.color, `${path}.color`);
+  };
+
+  for (const [name, hex] of stylesheet.tokens.colors) {
+    checkColor({ kind: 'hex', hex }, `tokens.colors.${name}`);
+  }
+  for (const [name, families] of stylesheet.tokens.fonts) {
+    checkFont({ kind: 'families', families }, `tokens.fonts.${name}`);
+  }
+
+  for (const required of RESERVED_PARAGRAPH_STYLES) {
+    if (!stylesheet.paragraphStyles.has(required)) {
+      error(
+        'missing-reserved-style',
+        `Paragraph style "${required}" is required.`,
+        `paragraph-styles.${required}`,
+      );
+    }
+  }
+  if (!stylesheet.tableStyles.has(RESERVED_TABLE_STYLE)) {
+    error(
+      'missing-reserved-style',
+      `Table style "${RESERVED_TABLE_STYLE}" is required.`,
+      `table-styles.${RESERVED_TABLE_STYLE}`,
+    );
+  }
+
+  const checkInheritance = (
+    styles: ReadonlyMap<StyleName, { readonly basedOn?: StyleName }>,
+    section: string,
+  ): void => {
+    for (const name of styles.keys()) {
+      const result = inheritanceChain(styles, name);
+      if (result.ok) continue;
+      const path = `${section}.${name}.based-on`;
+      if (result.problem === 'style-cycle') {
+        error('style-cycle', `"${name}" is based on itself through "${result.name}".`, path);
+      } else {
+        error('unknown-base-style', `The base style "${result.name}" does not exist.`, path);
+      }
+    }
+  };
+  checkInheritance(stylesheet.paragraphStyles, 'paragraph-styles');
+  checkInheritance(stylesheet.characterStyles, 'character-styles');
+  checkInheritance(stylesheet.tableStyles, 'table-styles');
+
+  for (const [name, style] of stylesheet.paragraphStyles) {
+    const path = `paragraph-styles.${name}`;
+    checkText(style.text, path);
+    checkParagraph(style.paragraph, path);
+    for (const mark of VARIANT_MARKS) {
+      const variant = style.variants[mark];
+      if (variant !== undefined && variant !== null) checkText(variant, `${path}.variants.${mark}`);
+    }
+  }
+  for (const [name, style] of stylesheet.characterStyles) {
+    checkText(style.text, `character-styles.${name}`);
+  }
+  for (const [name, style] of stylesheet.tableStyles) {
+    const path = `table-styles.${name}`;
+    checkBorder(style.border?.outer, `${path}.border.outer`);
+    checkBorder(style.border?.insideHorizontal, `${path}.border.inside-horizontal`);
+    checkBorder(style.border?.insideVertical, `${path}.border.inside-vertical`);
+    if (style.headerRow !== undefined) {
+      checkText(style.headerRow.text, `${path}.header-row`);
+      checkColor(style.headerRow.background, `${path}.header-row.background`);
+    }
+    checkNotNegative(style.cellPaddingPt, `${path}.cell-padding`);
+  }
+
+  return diagnostics;
+}

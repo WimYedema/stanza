@@ -8,5 +8,7 @@ export interface Diagnostic {
   readonly message: string;
   /** One-based line in the source text, when known. */
   readonly line?: number;
+  /** Location inside a structured file, such as `paragraph-styles.heading-1.size`. */
+  readonly path?: string;
   readonly nodeId?: NodeId;
 }

@@ -358,6 +358,7 @@ Accepted:
 - ADR 0003: editor state and the domain model. Also covers the canonical domain model independent of ProseMirror.
 - ADR 0004: domain document model.
 - ADR 0005: Markdown dialect and normal form, implementation details.
+- ADR 0006: typed stylesheet.
 
 Still to capture:
 
