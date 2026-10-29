@@ -8,6 +8,7 @@ import {
 import type { Block, Document, Inline, List, ListItemBlock, Table } from './document.js';
 import { numberHeadings } from './heading-numbering.js';
 import type { NodeId } from './ids.js';
+import { PAGE_TEMPLATE_FIELD, resolvePageTemplate } from './page-template.js';
 import type { StyleName } from './style-name.js';
 import {
   resolveParagraphStyle,
@@ -61,6 +62,25 @@ export function validateDocument(
   };
 
   const idPaths = new Map<NodeId, string>();
+
+  const template = document.meta.fields[PAGE_TEMPLATE_FIELD];
+  if (typeof template === 'object') {
+    report(
+      'error',
+      'field-type-mismatch',
+      `The field "${PAGE_TEMPLATE_FIELD}" must be a string, not a list.`,
+      PAGE_TEMPLATE_FIELD,
+    );
+  } else if (template !== undefined && template !== '') {
+    if (resolvePageTemplate(stylesheet, template) === undefined) {
+      report(
+        'error',
+        'unknown-page-template',
+        `The page template "${template}" does not exist.`,
+        PAGE_TEMPLATE_FIELD,
+      );
+    }
+  }
 
   const checkNotNumbered = (style: StyleName, path: string, id: NodeId | undefined): void => {
     if (paragraphStyle(style)?.paragraph.numbered === true) {

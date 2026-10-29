@@ -97,11 +97,28 @@ export interface Tokens {
   readonly fonts: ReadonlyMap<string, readonly string[]>;
 }
 
+export type PageSize = 'A4' | 'Letter';
+
+export interface PageMargins {
+  readonly topPt: number;
+  readonly rightPt: number;
+  readonly bottomPt: number;
+  readonly leftPt: number;
+}
+
+/** The page of a document: its size and margins. Header and footer slots are a later addition. */
+export interface PageTemplate {
+  readonly size: PageSize;
+  readonly margins: PageMargins;
+}
+
 export interface Stylesheet {
   readonly tokens: Tokens;
   readonly paragraphStyles: ReadonlyMap<StyleName, ParagraphStyle>;
   readonly characterStyles: ReadonlyMap<StyleName, CharacterStyle>;
   readonly tableStyles: ReadonlyMap<StyleName, TableStyle>;
+  /** Named page templates, keyed like styles. May be empty (ADR 0016). */
+  readonly pageTemplates: ReadonlyMap<StyleName, PageTemplate>;
 }
 
 function styleName(value: string): StyleName {
@@ -125,3 +142,12 @@ export const RESERVED_PARAGRAPH_STYLES: readonly StyleName[] = [
 
 /** The table style every stylesheet must define. */
 export const RESERVED_TABLE_STYLE: StyleName = styleName('table');
+
+/** The page template that documents use unless they select another. */
+export const DEFAULT_PAGE_TEMPLATE_NAME: StyleName = styleName('page');
+
+/** The page of a stylesheet that declares no `page` template: A4 with 2.54 cm margins. */
+export const BUILT_IN_PAGE_TEMPLATE: PageTemplate = {
+  size: 'A4',
+  margins: { topPt: 72, rightPt: 72, bottomPt: 72, leftPt: 72 },
+};

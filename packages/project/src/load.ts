@@ -1,5 +1,6 @@
 import {
   collectBlockIds,
+  resolvePageTemplate,
   type Document,
   type NodeId,
   type ProjectSettings,
@@ -75,6 +76,21 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
   diagnostics.push(...inFile(settings.stylesheet, parsedStylesheet.diagnostics));
   if (hasErrors(parsedStylesheet.diagnostics)) return stopped(settings);
   const { stylesheet } = parsedStylesheet;
+
+  const defaultTemplate = settings.defaults.pageTemplate;
+  if (
+    defaultTemplate !== undefined &&
+    resolvePageTemplate(stylesheet, defaultTemplate) === undefined
+  ) {
+    diagnostics.push({
+      file: PROJECT_FILE,
+      severity: 'error',
+      code: 'unknown-page-template',
+      message: `The page template "${defaultTemplate}" does not exist in the stylesheet.`,
+      path: 'defaults.page-template',
+    });
+    return stopped(settings);
+  }
 
   const paths = await findDocuments(storage);
   if (paths.length === 0) {

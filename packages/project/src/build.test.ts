@@ -58,6 +58,31 @@ describe('buildProject', () => {
     expect(creator('build/documents/reference.docx')).toBe('A. Writer');
   });
 
+  it('uses the default page template of the project, unless a document selects another', async () => {
+    const files = exampleProject();
+    files['phrase.yaml'] = (files['phrase.yaml'] ?? '').replace(
+      "  classification: 'Internal'",
+      "  classification: 'Internal'\n  page-template: 'page-letter'",
+    );
+    files['documents/reference.phrase.md'] = (files['documents/reference.phrase.md'] ?? '').replace(
+      'document-number: "EX-002"',
+      'document-number: "EX-002"\npage-template: "page"',
+    );
+    const storage = memoryStorage(files);
+    const result = await buildProject(storage, options);
+    expect(result.diagnostics).toEqual([]);
+    const pageSize = (path: string): string => {
+      const parts = unzipSync(storage.written.get(path) ?? new Uint8Array());
+      return (
+        /<w:pgSz w:w="(\d+)"/.exec(
+          strFromU8(parts['word/document.xml'] ?? new Uint8Array()),
+        )?.[1] ?? ''
+      );
+    };
+    expect(pageSize('build/documents/introduction.docx')).toBe('12240');
+    expect(pageSize('build/documents/reference.docx')).toBe('11906');
+  });
+
   it('writes nothing when a document has an error', async () => {
     const files = {
       ...exampleProject(),

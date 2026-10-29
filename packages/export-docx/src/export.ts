@@ -1,5 +1,8 @@
 import {
+  BUILT_IN_PAGE_TEMPLATE,
+  PAGE_TEMPLATE_FIELD,
   numberHeadings,
+  resolvePageTemplate,
   validateDocument,
   validateStylesheet,
   type Diagnostic,
@@ -9,7 +12,7 @@ import {
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext } from './content.js';
 import { ListNumbering } from './list-numbering.js';
-import { PAGE } from './page.js';
+import { pageGeometry } from './page.js';
 import { finishPackage } from './package.js';
 import { RunStyles } from './run-styles.js';
 import { wordStyleId } from './style-ids.js';
@@ -49,8 +52,16 @@ export async function exportDocx(
       ...stylesheet.tableStyles.keys(),
     ].map(wordStyleId),
   );
+  const selected = document.meta.fields[PAGE_TEMPLATE_FIELD];
+  const template =
+    resolvePageTemplate(
+      stylesheet,
+      typeof selected === 'string' && selected !== '' ? selected : undefined,
+    ) ?? BUILT_IN_PAGE_TEMPLATE;
+  const page = pageGeometry(template);
   const context: BuildContext = {
     stylesheet,
+    page,
     runs: new RunStyles(stylesheet, ids, diagnostics),
     lists: new ListNumbering(stylesheet, ids, diagnostics),
     headingLabels: numberHeadings(document, stylesheet).labels,
@@ -75,14 +86,14 @@ export async function exportDocx(
       {
         properties: {
           page: {
-            size: { width: PAGE.widthTwips, height: PAGE.heightTwips },
+            size: { width: page.widthTwips, height: page.heightTwips },
             margin: {
-              top: PAGE.marginTwips,
-              right: PAGE.marginTwips,
-              bottom: PAGE.marginTwips,
-              left: PAGE.marginTwips,
-              header: PAGE.headerTwips,
-              footer: PAGE.footerTwips,
+              top: page.marginTopTwips,
+              right: page.marginRightTwips,
+              bottom: page.marginBottomTwips,
+              left: page.marginLeftTwips,
+              header: page.headerTwips,
+              footer: page.footerTwips,
             },
           },
         },

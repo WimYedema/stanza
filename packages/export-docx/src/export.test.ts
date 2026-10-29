@@ -361,6 +361,58 @@ describe('exportDocx tables', () => {
   });
 });
 
+describe('exportDocx pages', () => {
+  const page = (documentXml: string): string =>
+    /<w:pgSz [^>]*\/><w:pgMar [^>]*\/>/.exec(documentXml)?.[0] ?? '';
+
+  it('writes A4 with 2.54 cm margins without a template', async () => {
+    const { documentXml } = await build('Text.\n');
+    expect(page(documentXml)).toMatch(/<w:pgSz w:w="11906" w:h="16838"/);
+    expect(page(documentXml)).toMatch(
+      /<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/,
+    );
+  });
+
+  it('writes the page of the template that the document selects', async () => {
+    const { documentXml } = await build('Text.\n', stylesheet, 'page-template: "page-letter"\n');
+    expect(page(documentXml)).toMatch(/<w:pgSz w:w="12240" w:h="15840"/);
+    // 54 pt and 90 pt margins.
+    expect(page(documentXml)).toMatch(
+      /<w:pgMar w:top="1080" w:right="1800" w:bottom="1080" w:left="1800"/,
+    );
+  });
+
+  it('uses the template called page when it exists, and the built-in page when not', async () => {
+    const letterAsDefault = parseStylesheet(
+      STYLESHEET_TEXT.replace('size: A4', 'size: Letter'),
+    ).stylesheet;
+    expect(page((await build('Text.\n', letterAsDefault)).documentXml)).toMatch(/w:w="12240"/);
+    const noTemplates = parseStylesheet(
+      STYLESHEET_TEXT.slice(0, STYLESHEET_TEXT.indexOf('page-templates:')),
+    ).stylesheet;
+    expect(noTemplates.pageTemplates.size).toBe(0);
+    expect(page((await build('Text.\n', noTemplates)).documentXml)).toMatch(/w:w="11906"/);
+  });
+
+  it('narrows a table in a list item to the text width of the template', async () => {
+    const { documentXml } = await build(
+      '- one\n\n  | A |\n  | --- |\n  | b |\n',
+      stylesheet,
+      'page-template: "page-letter"\n',
+    );
+    // The text is 8640 twips wide on this page, and the item text starts at 720.
+    expect(documentXml).toMatch(/<w:tblW [^>]*w:w="91.67%"/);
+  });
+
+  it('refuses a template that does not exist', async () => {
+    const result = await exportDocx(read('Text.\n', 'page-template: "nope"\n'), stylesheet, {
+      timestamp: TIMESTAMP,
+    });
+    expect(result.bytes).toBeUndefined();
+    expect(codes(result.diagnostics)).toEqual(['unknown-page-template']);
+  });
+});
+
 describe('exportDocx diagnostics', () => {
   it('refuses a document that does not validate', async () => {
     const result = await exportDocx(read('<!-- phrase: .missing -->\nText.\n'), stylesheet, {

@@ -12,6 +12,8 @@ export interface FieldDeclaration {
 export interface ProjectDefaults {
   readonly classification?: string;
   readonly authors?: readonly string[];
+  /** The page template of documents that do not select one. */
+  readonly pageTemplate?: string;
 }
 
 export interface ProjectSettings {
@@ -29,16 +31,22 @@ export const HARDCODED_FIELD_NAMES: readonly string[] = [
   'title',
   'authors',
   'classification',
+  'page-template',
 ];
 
 /** The metadata a document effectively has: its own values, then the project's defaults. */
 export function applyDefaults(settings: ProjectSettings, meta: DocumentMeta): DocumentMeta {
   const classification = meta.classification ?? settings.defaults.classification;
   const authors = meta.authors ?? settings.defaults.authors;
+  const pageTemplate = meta.fields['page-template'] ?? settings.defaults.pageTemplate;
   return {
     ...meta,
     ...(classification !== undefined ? { classification } : {}),
     ...(authors !== undefined ? { authors } : {}),
+    fields: {
+      ...meta.fields,
+      ...(pageTemplate !== undefined ? { 'page-template': pageTemplate } : {}),
+    },
   };
 }
 
@@ -82,7 +90,7 @@ export function validateMetadata(
     }
   }
   for (const name of Object.keys(meta.fields)) {
-    if (!declared.has(name)) {
+    if (!declared.has(name) && !HARDCODED_FIELD_NAMES.includes(name)) {
       report(
         'warning',
         'undeclared-field',

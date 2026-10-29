@@ -1,5 +1,6 @@
 import type { Diagnostic } from './diagnostic.js';
 import { BODY_STYLE } from './default-styles.js';
+import { MIN_TEXT_AREA_PT, PAGE_SIZES, PAGE_SIZE_NAMES } from './page-template.js';
 import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
 import type { StyleName } from './style-name.js';
 import {
@@ -149,6 +150,31 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
   }
   for (const [name, style] of stylesheet.characterStyles) {
     checkText(style.text, `character-styles.${name}`);
+  }
+  for (const [name, template] of stylesheet.pageTemplates) {
+    const path = `page-templates.${name}`;
+    const { margins } = template;
+    const sides = [
+      ['top', margins.topPt],
+      ['right', margins.rightPt],
+      ['bottom', margins.bottomPt],
+      ['left', margins.leftPt],
+    ] as const;
+    for (const [side, value] of sides) checkNotNegative(value, `${path}.margins.${side}`);
+    if (!PAGE_SIZE_NAMES.includes(template.size)) {
+      error('invalid-value', 'Expected the size A4 or Letter.', `${path}.size`);
+    } else if (sides.every(([, value]) => Number.isFinite(value) && value >= 0)) {
+      const page = PAGE_SIZES[template.size];
+      const width = page.widthPt - margins.leftPt - margins.rightPt;
+      const height = page.heightPt - margins.topPt - margins.bottomPt;
+      if (width < MIN_TEXT_AREA_PT || height < MIN_TEXT_AREA_PT) {
+        error(
+          'invalid-value',
+          `The margins must leave a text area of at least ${String(MIN_TEXT_AREA_PT)} pt each way.`,
+          `${path}.margins`,
+        );
+      }
+    }
   }
   for (const [name, style] of stylesheet.tableStyles) {
     const path = `table-styles.${name}`;

@@ -115,6 +115,24 @@ describe('loadProject', () => {
     expect(summary(loaded.diagnostics)).toEqual(['documents/twice.phrase.md: duplicate-id']);
   });
 
+  it('reports a default page template that the stylesheet does not have, and stops', async () => {
+    const files = exampleProject();
+    files['phrase.yaml'] = (files['phrase.yaml'] ?? '').replace(
+      "  classification: 'Internal'",
+      "  classification: 'Internal'\n  page-template: 'missing'",
+    );
+    const loaded = await loadProject(memoryStorage(files));
+    expect(loaded.diagnostics).toEqual([
+      expect.objectContaining({
+        file: 'phrase.yaml',
+        code: 'unknown-page-template',
+        path: 'defaults.page-template',
+      }),
+    ]);
+    expect(loaded.settings).toBeDefined();
+    expect(loaded.documents).toEqual([]);
+  });
+
   it('warns about a project without documents', async () => {
     const files = exampleProject();
     delete files['documents/introduction.phrase.md'];

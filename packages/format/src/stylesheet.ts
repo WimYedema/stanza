@@ -1,4 +1,6 @@
 import {
+  BUILT_IN_PAGE_TEMPLATE,
+  PAGE_SIZE_NAMES,
   isStyleName,
   validateStylesheet,
   VARIANT_MARKS,
@@ -10,6 +12,9 @@ import {
   type FontValue,
   type HeaderRow,
   type LineSpacing,
+  type PageMargins,
+  type PageSize,
+  type PageTemplate,
   type ParagraphProps,
   type ParagraphStyle,
   type StyleName,
@@ -65,6 +70,7 @@ const EMPTY: Stylesheet = {
   paragraphStyles: new Map(),
   characterStyles: new Map(),
   tableStyles: new Map(),
+  pageTemplates: new Map(),
 };
 
 function readName(map: Data, key: string, path: string, report: Report): StyleName | undefined {
@@ -285,6 +291,40 @@ function readTableStyle(map: Data, path: string, report: Report): TableStyle {
   return style;
 }
 
+const MARGIN_SIDES = ['top', 'right', 'bottom', 'left'] as const;
+
+function readPageTemplate(map: Data, path: string, report: Report): PageTemplate {
+  checkKeys(map, ['size', 'margins'], path, report);
+  let size: PageSize = BUILT_IN_PAGE_TEMPLATE.size;
+  const given = map['size'];
+  if (given !== undefined) {
+    const found = PAGE_SIZE_NAMES.find((name) => name === given);
+    if (found === undefined) {
+      report('invalid-value', 'Expected the size A4 or Letter.', join(path, 'size'));
+    } else {
+      size = found;
+    }
+  }
+
+  const margins: Mutable<PageMargins> = { ...BUILT_IN_PAGE_TEMPLATE.margins };
+  if (map['margins'] !== undefined) {
+    const here = join(path, 'margins');
+    const sides = asMap(map['margins'], here, report);
+    if (sides !== undefined) {
+      checkKeys(sides, MARGIN_SIDES, here, report);
+      const top = readNumber(sides, 'top', here, report);
+      if (top !== undefined) margins.topPt = top;
+      const right = readNumber(sides, 'right', here, report);
+      if (right !== undefined) margins.rightPt = right;
+      const bottom = readNumber(sides, 'bottom', here, report);
+      if (bottom !== undefined) margins.bottomPt = bottom;
+      const left = readNumber(sides, 'left', here, report);
+      if (left !== undefined) margins.leftPt = left;
+    }
+  }
+  return { size, margins };
+}
+
 /** Reads every entry of a section, keyed by style name, and decodes each with `read`. */
 function readSection<T>(
   data: Data,
@@ -361,7 +401,14 @@ export function parseStylesheet(source: string): StylesheetParseResult {
 
   checkKeys(
     data,
-    ['phrase-format', 'tokens', 'paragraph-styles', 'character-styles', 'table-styles'],
+    [
+      'phrase-format',
+      'tokens',
+      'paragraph-styles',
+      'character-styles',
+      'table-styles',
+      'page-templates',
+    ],
     '',
     report,
   );
@@ -382,6 +429,12 @@ export function parseStylesheet(source: string): StylesheetParseResult {
       report,
     ),
     tableStyles: readSection(data, 'table-styles', (m, p) => readTableStyle(m, p, report), report),
+    pageTemplates: readSection(
+      data,
+      'page-templates',
+      (m, p) => readPageTemplate(m, p, report),
+      report,
+    ),
   };
 
   // The meaning of a stylesheet is only checked once it has been read without errors.

@@ -1,6 +1,6 @@
 # ADR 0013: Code blocks and tables in list items
 
-Status: Accepted
+Status: Accepted. The text width comes from the page template (ADR 0016).
 
 ## Context
 

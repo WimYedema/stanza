@@ -1,6 +1,6 @@
 # ADR 0007: Project file and metadata declarations
 
-Status: Accepted
+Status: Accepted. The default page template and the built-in `page-template` field: ADR 0016.
 
 ## Context
 

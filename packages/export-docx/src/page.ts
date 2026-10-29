@@ -1,14 +1,34 @@
-/**
- * The page the exporter writes: A4 with 2.54 cm margins, which is also the library's default.
- * Writing it down makes the text width a fact of ours, until page templates provide it.
- */
-export const PAGE = {
-  widthTwips: 11906,
-  heightTwips: 16838,
-  marginTwips: 1440,
-  headerTwips: 708,
-  footerTwips: 708,
-} as const;
+import { PAGE_SIZES, type PageTemplate } from '@phrase/core';
 
-/** The width of the text area, in twips. */
-export const TEXT_WIDTH_TWIPS = PAGE.widthTwips - 2 * PAGE.marginTwips;
+/** The page of a document in twips, as the library wants it. */
+export interface PageGeometry {
+  readonly widthTwips: number;
+  readonly heightTwips: number;
+  readonly marginTopTwips: number;
+  readonly marginRightTwips: number;
+  readonly marginBottomTwips: number;
+  readonly marginLeftTwips: number;
+  /** The distance of header and footer from the edge, which is the library's 1.25 cm. */
+  readonly headerTwips: number;
+  readonly footerTwips: number;
+  /** The width of the text area. */
+  readonly textWidthTwips: number;
+}
+
+const twips = (pt: number): number => Math.round(pt * 20);
+
+export function pageGeometry(template: PageTemplate): PageGeometry {
+  const size = PAGE_SIZES[template.size];
+  const { margins } = template;
+  return {
+    widthTwips: twips(size.widthPt),
+    heightTwips: twips(size.heightPt),
+    marginTopTwips: twips(margins.topPt),
+    marginRightTwips: twips(margins.rightPt),
+    marginBottomTwips: twips(margins.bottomPt),
+    marginLeftTwips: twips(margins.leftPt),
+    headerTwips: 708,
+    footerTwips: 708,
+    textWidthTwips: twips(size.widthPt - margins.leftPt - margins.rightPt),
+  };
+}

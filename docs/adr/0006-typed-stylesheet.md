@@ -1,6 +1,6 @@
 # ADR 0006: Typed stylesheet
 
-Status: Accepted
+Status: Accepted. Page templates added by ADR 0016.
 
 ## Context
 

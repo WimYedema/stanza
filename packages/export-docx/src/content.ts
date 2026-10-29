@@ -34,12 +34,13 @@ import {
   type ParagraphChild,
 } from 'docx';
 import { MAX_LIST_LEVEL, type ListNumbering } from './list-numbering.js';
-import { TEXT_WIDTH_TWIPS } from './page.js';
+import type { PageGeometry } from './page.js';
 import type { RunContext, RunStyles } from './run-styles.js';
 import { wordStyleId, wordStyleName } from './style-ids.js';
 
 export interface BuildContext {
   readonly stylesheet: Stylesheet;
+  readonly page: PageGeometry;
   readonly runs: RunStyles;
   readonly lists: ListNumbering;
   /** The number of each top-level block, as `numberHeadings` gives them. */
@@ -327,7 +328,7 @@ function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): 
     width:
       indentTwips > 0
         ? {
-            size: percent(TEXT_WIDTH_TWIPS - indentTwips, TEXT_WIDTH_TWIPS),
+            size: percent(context.page.textWidthTwips - indentTwips, context.page.textWidthTwips),
             type: WidthType.PERCENTAGE,
           }
         : { size: 100, type: WidthType.PERCENTAGE },

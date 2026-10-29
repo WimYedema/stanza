@@ -13,6 +13,7 @@ phrase-format: 1
 title: "Export sample"
 authors:
   - "Example Author"
+page-template: "page-letter"
 ---
 
 <!-- phrase: #k7m2q9x4zb -->

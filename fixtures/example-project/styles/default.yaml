@@ -114,3 +114,12 @@ table-styles:
     based-on: table
     border:
       inside-vertical: { width: 0.5, color: rule }
+
+page-templates:
+  page:
+    size: A4
+    margins: { top: 72, right: 72, bottom: 72, left: 72 }
+
+  page-letter:
+    size: Letter
+    margins: { top: 54, right: 90, bottom: 54, left: 90 }

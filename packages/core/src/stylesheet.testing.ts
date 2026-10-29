@@ -2,6 +2,7 @@ import {
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
   type CharacterStyle,
+  type PageTemplate,
   type ParagraphStyle,
   type Stylesheet,
   type TableStyle,
@@ -22,6 +23,7 @@ export interface Parts {
   readonly paragraph?: Record<string, ParagraphStyle | undefined>;
   readonly character?: Record<string, CharacterStyle>;
   readonly table?: Record<string, TableStyle>;
+  readonly pageTemplates?: Record<string, PageTemplate>;
   readonly colors?: Record<string, string>;
   readonly fonts?: Record<string, readonly string[]>;
 }
@@ -47,5 +49,8 @@ export function sheet(parts: Parts = {}): Stylesheet {
       Object.entries(parts.character ?? {}).map(([name, style]) => [n(name), style]),
     ),
     tableStyles: table,
+    pageTemplates: new Map(
+      Object.entries(parts.pageTemplates ?? {}).map(([name, template]) => [n(name), template]),
+    ),
   };
 }

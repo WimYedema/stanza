@@ -37,10 +37,12 @@ function readDefaults(data: Data, report: Report): ProjectDefaults {
   if (raw === undefined) return {};
   const map = asMap(raw, 'defaults', report);
   if (map === undefined) return {};
-  checkKeys(map, ['classification', 'authors'], 'defaults', report);
+  checkKeys(map, ['classification', 'authors', 'page-template'], 'defaults', report);
   const result: Mutable<ProjectDefaults> = {};
   const classification = readString(map, 'classification', 'defaults', report);
   if (classification !== undefined) result.classification = classification;
+  const pageTemplate = readString(map, 'page-template', 'defaults', report);
+  if (pageTemplate !== undefined) result.pageTemplate = pageTemplate;
   const authors = map['authors'];
   if (authors !== undefined) {
     if (isNonEmptyStringList(authors)) result.authors = authors;

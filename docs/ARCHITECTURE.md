@@ -369,6 +369,7 @@ Accepted:
 - ADR 0013: code blocks and tables in list items.
 - ADR 0014: project package and command line.
 - ADR 0015: the format command.
+- ADR 0016: page templates.
 
 Still to capture:
 

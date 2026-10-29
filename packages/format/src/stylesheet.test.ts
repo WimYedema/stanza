@@ -80,6 +80,16 @@ describe('the default stylesheet fixture', () => {
     });
   });
 
+  it('reads the page templates', () => {
+    expect([...result.stylesheet.pageTemplates]).toEqual([
+      ['page', { size: 'A4', margins: { topPt: 72, rightPt: 72, bottomPt: 72, leftPt: 72 } }],
+      [
+        'page-letter',
+        { size: 'Letter', margins: { topPt: 54, rightPt: 90, bottomPt: 54, leftPt: 90 } },
+      ],
+    ]);
+  });
+
   it('reads the cell style of table styles', () => {
     expect(result.stylesheet.tableStyles.get(name('table'))?.cellStyle).toBe('table-cell');
     expect(result.stylesheet.tableStyles.get(name('table-grid'))?.cellStyle).toBeUndefined();
@@ -135,6 +145,38 @@ describe('parseStylesheet', () => {
       ['unknown-property', 'paragraph-styles.body.variants.underline'],
       ['unknown-property', 'paragraph-styles.body.variants.strong.weight'],
       ['unknown-property', 'character-styles.marker.bolder'],
+    ]);
+  });
+
+  it('reads a page template with the built-in values for what it leaves out', () => {
+    const source = sheet('page-templates:\n  small:\n    margins: { left: 36 }\n  empty: {}');
+    const { stylesheet, diagnostics } = parseStylesheet(source);
+    expect(diagnostics).toEqual([]);
+    expect(stylesheet.pageTemplates.get(name('small'))).toEqual({
+      size: 'A4',
+      margins: { topPt: 72, rightPt: 72, bottomPt: 72, leftPt: 36 },
+    });
+    expect(stylesheet.pageTemplates.get(name('empty'))?.size).toBe('A4');
+  });
+
+  it('reports bad page templates', () => {
+    const source = sheet(
+      [
+        'page-templates:',
+        '  a:',
+        '    size: A3',
+        '  b:',
+        '    margins: { top: wide, middle: 3 }',
+        '    orientation: landscape',
+        '  Bad_Name: {}',
+      ].join('\n'),
+    );
+    expect(problems(source)).toEqual([
+      ['invalid-value', 'page-templates.a.size'],
+      ['unknown-property', 'page-templates.b.orientation'],
+      ['unknown-property', 'page-templates.b.margins.middle'],
+      ['invalid-type', 'page-templates.b.margins.top'],
+      ['invalid-name', 'page-templates.Bad_Name'],
     ]);
   });
 

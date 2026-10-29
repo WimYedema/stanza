@@ -34,6 +34,17 @@ describe('parseProject', () => {
     expect(result.settings.defaults).toEqual({});
   });
 
+  it('reads the default page template', () => {
+    const result = parseProject(
+      'phrase-format: 1\nstylesheet: s.yaml\ndefaults:\n  page-template: page-letter\n',
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.settings.defaults).toEqual({ pageTemplate: 'page-letter' });
+    expect(codes('phrase-format: 1\nstylesheet: s.yaml\ndefaults:\n  page-template: 3\n')).toEqual([
+      'invalid-type@defaults.page-template',
+    ]);
+  });
+
   it('treats an empty metadata-fields mapping as declaring nothing allowed', () => {
     const result = parseProject('phrase-format: 1\nstylesheet: s.yaml\nmetadata-fields: {}\n');
     expect(result.settings.fields?.size).toBe(0);

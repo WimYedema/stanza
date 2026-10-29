@@ -30,6 +30,13 @@ export { normalizeDocument, normalizeInlines } from './normalize.js';
 export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
 export { collectBlockIds, type BlockId } from './document-ids.js';
+export {
+  MIN_TEXT_AREA_PT,
+  PAGE_SIZES,
+  PAGE_SIZE_NAMES,
+  PAGE_TEMPLATE_FIELD,
+  resolvePageTemplate,
+} from './page-template.js';
 export { numberHeadings, type HeadingNumbers } from './heading-numbering.js';
 export {
   HARDCODED_FIELD_NAMES,
@@ -43,6 +50,8 @@ export {
   type ProjectSettings,
 } from './project.js';
 export {
+  BUILT_IN_PAGE_TEMPLATE,
+  DEFAULT_PAGE_TEMPLATE_NAME,
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
   VARIANT_MARKS,
@@ -53,6 +62,9 @@ export {
   type FontValue,
   type HeaderRow,
   type LineSpacing,
+  type PageMargins,
+  type PageSize,
+  type PageTemplate,
   type ParagraphProps,
   type ParagraphStyle,
   type Stylesheet,
