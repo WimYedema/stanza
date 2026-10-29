@@ -29,6 +29,16 @@ export type {
 export { normalizeDocument, normalizeInlines } from './normalize.js';
 export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
 export {
+  HARDCODED_FIELD_NAMES,
+  applyDefaults,
+  validateMetadata,
+  validateProjectSettings,
+  type FieldDeclaration,
+  type FieldType,
+  type ProjectDefaults,
+  type ProjectSettings,
+} from './project.js';
+export {
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
   VARIANT_MARKS,

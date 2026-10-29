@@ -359,6 +359,7 @@ Accepted:
 - ADR 0004: domain document model.
 - ADR 0005: Markdown dialect and normal form, implementation details.
 - ADR 0006: typed stylesheet.
+- ADR 0007: project file and metadata declarations.
 
 Still to capture:
 

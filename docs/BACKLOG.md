@@ -19,10 +19,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 11. [S] - Tooling to assign missing IDs without changing unrelated content.
 12. [M] - Typed stylesheet: named paragraph, character, and table styles, inheritance, contextual variants, user-defined character styles, cycle and missing-base diagnostics.
 13. [S] - Validation and diagnostics model: unknown style, missing variant, unsupported or direct formatting, broken reference.
+14. [S] - Metadata model: document metadata as YAML front matter and shared settings in a project file, validated.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-14. [S] - Metadata model: document metadata as YAML front matter and shared settings in a project file, validated.
 15. [S] - Verify the `docx` library covers our needs: table styles, autofit and relative column widths, repeated header rows, TOC cached entries, bookmark names. Escalate if it falls short.
 16. [L] - DOCX adapter, first slice: paragraphs, headings, strong, emphasis, code, links, named styles, structural tests.
 17. [S] - DOCX: bookmarks named after node IDs on referenceable nodes.

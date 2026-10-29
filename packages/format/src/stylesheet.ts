@@ -20,8 +20,21 @@ import {
   type VariantDeclaration,
   type VariantMark,
 } from '@phrase/core';
-import { parseDocument } from 'yaml';
-import { FORMAT_VERSION } from './front-matter.js';
+import {
+  KEBAB_CASE,
+  asMap,
+  checkKeys,
+  describe,
+  isNonEmptyStringList,
+  join,
+  readBoolean,
+  readFormatVersion,
+  readNumber,
+  readYamlRoot,
+  type Data,
+  type Mutable,
+  type Report,
+} from './yaml-decode.js';
 
 export interface StylesheetParseResult {
   readonly stylesheet: Stylesheet;
@@ -29,10 +42,6 @@ export interface StylesheetParseResult {
   /** The `phrase-format` value found in the file, when there was one. */
   readonly formatVersion: number | undefined;
 }
-
-type Mutable<T> = { -readonly [K in keyof T]: T[K] };
-type Report = (code: string, message: string, path: string) => void;
-type Data = Readonly<Record<string, unknown>>;
 
 const TEXT_KEYS = ['font', 'size', 'bold', 'italic', 'underline', 'color', 'highlight'] as const;
 const PARAGRAPH_KEYS = [
@@ -49,7 +58,6 @@ const PARAGRAPH_KEYS = [
 ] as const;
 const ALIGNMENTS: readonly string[] = ['left', 'center', 'right', 'justify'];
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
-const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 const EMPTY: Stylesheet = {
   tokens: { colors: new Map(), fonts: new Map() },
@@ -57,49 +65,6 @@ const EMPTY: Stylesheet = {
   characterStyles: new Map(),
   tableStyles: new Map(),
 };
-
-function join(path: string, key: string): string {
-  return path === '' ? key : `${path}.${key}`;
-}
-
-function describe(value: unknown): string {
-  if (value === null || value === undefined) {
-    return 'nothing (a `#` starts a comment in YAML, so quote color values)';
-  }
-  return Array.isArray(value) ? 'a list' : typeof value;
-}
-
-function asMap(value: unknown, path: string, report: Report): Data | undefined {
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return value as Data;
-  }
-  report('invalid-type', `Expected a mapping, found ${describe(value)}.`, path);
-  return undefined;
-}
-
-function checkKeys(map: Data, allowed: readonly string[], path: string, report: Report): void {
-  for (const key of Object.keys(map)) {
-    if (!allowed.includes(key)) {
-      report('unknown-property', `Unknown property "${key}".`, join(path, key));
-    }
-  }
-}
-
-function readNumber(map: Data, key: string, path: string, report: Report): number | undefined {
-  const value = map[key];
-  if (value === undefined) return undefined;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  report('invalid-type', `Expected a number, found ${describe(value)}.`, join(path, key));
-  return undefined;
-}
-
-function readBoolean(map: Data, key: string, path: string, report: Report): boolean | undefined {
-  const value = map[key];
-  if (value === undefined) return undefined;
-  if (typeof value === 'boolean') return value;
-  report('invalid-type', `Expected true or false, found ${describe(value)}.`, join(path, key));
-  return undefined;
-}
 
 function readName(map: Data, key: string, path: string, report: Report): StyleName | undefined {
   const value = map[key];
@@ -124,12 +89,6 @@ function colorOf(value: unknown, path: string, report: Report): ColorValue | und
 
 function readColor(map: Data, key: string, path: string, report: Report): ColorValue | undefined {
   return map[key] === undefined ? undefined : colorOf(map[key], join(path, key), report);
-}
-
-function isNonEmptyStringList(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string')
-  );
 }
 
 function isAlignment(value: unknown): value is Alignment {
@@ -387,26 +346,12 @@ function readTokens(data: Data, report: Report): Stylesheet['tokens'] {
 
 /** Reads a stylesheet. Problems in the file are reported and the rest is still read. */
 export function parseStylesheet(source: string): StylesheetParseResult {
-  const text = source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   const diagnostics: Diagnostic[] = [];
   const report: Report = (code, message, path) => {
     diagnostics.push({ severity: 'error', code, message, path });
   };
 
-  const document = parseDocument(text);
-  for (const error of document.errors) {
-    diagnostics.push({
-      severity: 'error',
-      code: 'invalid-yaml',
-      message: error.message,
-      ...(error.linePos !== undefined ? { line: error.linePos[0].line } : {}),
-    });
-  }
-  if (document.errors.length > 0)
-    return { stylesheet: EMPTY, diagnostics, formatVersion: undefined };
-
-  const root: unknown = document.toJS();
-  const data = asMap(root, '', report);
+  const data = readYamlRoot(source, diagnostics);
   if (data === undefined) return { stylesheet: EMPTY, diagnostics, formatVersion: undefined };
 
   checkKeys(
@@ -415,22 +360,7 @@ export function parseStylesheet(source: string): StylesheetParseResult {
     '',
     report,
   );
-  const version = data['phrase-format'];
-  const formatVersion =
-    typeof version === 'number' && Number.isInteger(version) ? version : undefined;
-  if (formatVersion === undefined) {
-    report(
-      'format-version-missing',
-      'The file must contain a whole number "phrase-format".',
-      'phrase-format',
-    );
-  } else if (formatVersion !== FORMAT_VERSION) {
-    report(
-      'format-version-unsupported',
-      `Format version ${String(formatVersion)} is not supported (expected ${String(FORMAT_VERSION)}).`,
-      'phrase-format',
-    );
-  }
+  const formatVersion = readFormatVersion(data, report);
 
   const stylesheet: Stylesheet = {
     tokens: readTokens(data, report),
