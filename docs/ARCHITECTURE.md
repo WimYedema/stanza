@@ -362,6 +362,7 @@ Accepted:
 - ADR 0007: project file and metadata declarations.
 - ADR 0008: DOCX export mapping.
 - ADR 0009: DOCX bookmarks.
+- ADR 0010: DOCX lists.
 
 Still to capture:
 

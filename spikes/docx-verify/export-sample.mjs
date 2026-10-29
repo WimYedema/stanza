@@ -30,6 +30,23 @@ first line
 
 <!-- phrase: .cover-title -->
 Cover title style
+
+- Bullet one with **strong** text
+
+  A second paragraph of the first bullet.
+
+  - Nested bullet
+    1. Numbered inside a nested bullet
+    2. Second numbered
+  - Another nested bullet
+- Bullet two
+
+1. First numbered
+   - A bullet inside a numbered item
+2. Second numbered
+
+1) A separate numbered list starts at 1 again
+2) Second item
 `;
 const parsed = parseDocument(source);
 const result = await exportDocx(parsed.document, sheet.stylesheet, { timestamp: new Date() });

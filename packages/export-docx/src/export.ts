@@ -7,6 +7,7 @@ import {
 } from '@phrase/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext } from './content.js';
+import { ListNumbering } from './list-numbering.js';
 import { makeDeterministic } from './package.js';
 import { RunStyles } from './run-styles.js';
 import { wordStyleId } from './style-ids.js';
@@ -48,6 +49,7 @@ export async function exportDocx(
   const context: BuildContext = {
     stylesheet,
     runs: new RunStyles(stylesheet, ids, diagnostics),
+    lists: new ListNumbering(stylesheet, ids, diagnostics),
     diagnostics,
   };
   const children = buildBlocks(document.blocks, context);
@@ -60,9 +62,10 @@ export async function exportDocx(
       ? { creator: authors.join('; '), lastModifiedBy: authors.join('; ') }
       : {}),
     styles: {
-      paragraphStyles: declared.paragraphStyles,
+      paragraphStyles: [...declared.paragraphStyles, ...context.lists.styles()],
       characterStyles: [...declared.characterStyles, ...context.runs.styles()],
     },
+    ...(context.lists.config().length > 0 ? { numbering: { config: context.lists.config() } } : {}),
     sections: [{ children }],
   });
   const packed = new Uint8Array(await Packer.toArrayBuffer(file));

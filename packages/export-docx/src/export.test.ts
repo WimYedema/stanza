@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Diagnostic } from '@phrase/core';
+import type { Diagnostic, List, Text } from '@phrase/core';
 import { parseDocument, parseStylesheet } from '@phrase/format';
-import { exportDocx } from './export.js';
+import { exportDocx, type ExportResult } from './export.js';
 
 const STYLESHEET_TEXT = readFileSync(
   new URL('../../../fixtures/stylesheet/default.yaml', import.meta.url),
@@ -34,6 +34,7 @@ async function build(body: string, sheet = stylesheet, front = '') {
     documentXml: text('word/document.xml'),
     stylesXml: text('word/styles.xml'),
     coreXml: text('docProps/core.xml'),
+    numberingXml: text('word/numbering.xml'),
     relsXml: text('word/_rels/document.xml.rels'),
   };
 }
@@ -178,7 +179,7 @@ describe('exportDocx', () => {
   });
 
   it('gives identical bytes for the same input, whatever the clock says', async () => {
-    const body = `${heading('Title')}A **b** [l](https://example.com) <span class="marker">m</span>.\n`;
+    const body = `${heading('Title')}A **b** [l](https://example.com) <span class="marker">m</span>.\n\n- one\n  1. two\n`;
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2030-01-01T00:00:00Z'));
     const first = await build(body);
@@ -190,7 +191,7 @@ describe('exportDocx', () => {
 
 describe('exportDocx diagnostics', () => {
   it('reports blocks it cannot map yet, without producing a package', async () => {
-    const document = read('* one\n* two\n');
+    const document = read('<!-- phrase: #k7m2q9x4zb -->\n| a | b |\n| - | - |\n| 1 | 2 |\n');
     const result = await exportDocx(document, stylesheet, { timestamp: TIMESTAMP });
     expect(result.bytes).toBeUndefined();
     expect(result.diagnostics).toEqual([
@@ -225,6 +226,122 @@ describe('exportDocx diagnostics', () => {
     expect(result.bytes).toBeUndefined();
     expect(result.diagnostics).toEqual([
       expect.objectContaining({ code: 'style-id-collision', path: 'paragraph-styles.heading1' }),
+    ]);
+  });
+});
+
+/** The style, level and list of each numbered paragraph, in document order. */
+function numbered(documentXml: string): { style: string; level: string; list: string }[] {
+  return [
+    ...documentXml.matchAll(
+      /<w:pStyle w:val="(\w+)"\/><w:numPr><w:ilvl w:val="(\d)"\/><w:numId w:val="(\d+)"\/>/g,
+    ),
+  ].map(([, style = '', level = '', list = '']) => ({ style, level, list }));
+}
+
+function styleXml(stylesXml: string, id: string): string {
+  return new RegExp(`<w:style [^>]*w:styleId="${id}".*?</w:style>`, 's').exec(stylesXml)?.[0] ?? '';
+}
+
+describe('exportDocx lists', () => {
+  it('writes list items as numbered paragraphs of the list style, nested ones a level deeper', async () => {
+    const { documentXml } = await build('- one\n  - nested\n- two\n');
+    const items = numbered(documentXml);
+    expect(items.map((item) => [item.style, item.level])).toEqual([
+      ['ListBulleted', '0'],
+      ['ListBulleted', '1'],
+      ['ListBulleted', '0'],
+    ]);
+    expect(new Set(items.map((item) => item.list)).size).toBe(1);
+  });
+
+  it('defines markers and indents from the list style, level by level', async () => {
+    const { numberingXml } = await build('- one\n  - nested\n\n1. first\n   1. sub\n');
+    expect(numberingXml).toContain('<w:lvlText w:val="\u2022"/>');
+    expect(numberingXml).toContain('<w:lvlText w:val="\u25E6"/>');
+    expect(numberingXml).toContain('<w:numFmt w:val="decimal"/>');
+    expect(numberingXml).toContain('<w:numFmt w:val="lowerLetter"/>');
+    // 36 pt left indent and an 18 pt hanging indent, one more step for each level.
+    expect(numberingXml).toMatch(/<w:ind w:left="720" w:hanging="360"\/>/);
+    expect(numberingXml).toMatch(/<w:ind w:left="1440" w:hanging="360"\/>/);
+    expect(numberingXml).toMatch(/<w:ind w:left="2160" w:hanging="360"\/>/);
+  });
+
+  it('starts every top-level list again, and lets a nested list of another kind count on its own', async () => {
+    const { documentXml } = await build('1. a\n   - bullet\n\n1) b\n');
+    const [first, nested, second] = numbered(documentXml);
+    expect(first?.style).toBe('ListNumbered');
+    expect(nested?.style).toBe('ListBulleted');
+    expect(second?.style).toBe('ListNumbered');
+    expect(new Set([first?.list, nested?.list, second?.list]).size).toBe(3);
+  });
+
+  it('indents further paragraphs of an item with a generated style and no marker', async () => {
+    const { documentXml, stylesXml } = await build(
+      '- one\n\n  more text\n\n  - nested\n\n    deeper\n',
+    );
+    expect(documentXml).toContain('<w:pStyle w:val="ListBulletedContinue1"/>');
+    expect(documentXml).toContain('<w:pStyle w:val="ListBulletedContinue2"/>');
+    expect(numbered(documentXml)).toHaveLength(2);
+    const style = styleXml(stylesXml, 'ListBulletedContinue2');
+    expect(style).toContain('<w:basedOn w:val="ListBulleted"/>');
+    expect(style).toMatch(
+      /<w:ind w:left="1440" w:hanging="0"\/>|<w:ind w:hanging="0" w:left="1440"\/>/,
+    );
+  });
+
+  it('writes the marker of an item that starts with a nested list or has no text', async () => {
+    const { documentXml } = await build('- - nested\n');
+    expect(numbered(documentXml).map((item) => item.level)).toEqual(['0', '1']);
+  });
+
+  it('formats marks against the list style', async () => {
+    const { documentXml } = await build('- **strong** item\n');
+    expect(documentXml).toContain('<w:rStyle w:val="ListBulletedStrong"/>');
+  });
+
+  it('puts the ID of a list in a bookmark on its first paragraph only', async () => {
+    const { documentXml } = await build('<!-- phrase: #k7m2q9x4zb -->\n- one\n- two\n');
+    expect(documentXml.match(/<w:bookmarkStart /g)).toHaveLength(1);
+    expect(documentXml).toMatch(/<w:numPr>.*?<\/w:pPr><w:bookmarkStart [^>]*phrase_k7m2q9x4zb/);
+  });
+
+  it('reports blocks in list items that it cannot map yet, with the path of the block', async () => {
+    const result = await exportDocx(read('- one\n\n  ```\n  code\n  ```\n'), stylesheet, {
+      timestamp: TIMESTAMP,
+    });
+    expect(result.bytes).toBeUndefined();
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'docx-unsupported-block',
+        path: 'blocks[0].items[0].blocks[1]',
+      }),
+    ]);
+  });
+
+  it('supports the nine levels of Word and reports deeper nesting', async () => {
+    const text: Text = { type: 'text', text: 'x', marks: [] };
+    const nest = (depth: number): List => ({
+      type: 'list',
+      kind: 'bulleted',
+      items: [
+        {
+          blocks: [{ type: 'paragraph', content: [text] }, ...(depth > 1 ? [nest(depth - 1)] : [])],
+        },
+      ],
+    });
+    const make = (depth: number): Promise<ExportResult> =>
+      exportDocx({ meta: { fields: {} }, blocks: [nest(depth)] }, stylesheet, {
+        timestamp: TIMESTAMP,
+      });
+    expect((await make(9)).bytes).toBeDefined();
+    const tooDeep = await make(10);
+    expect(tooDeep.bytes).toBeUndefined();
+    expect(tooDeep.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'docx-list-too-deep',
+        path: expect.stringContaining('.items[0]') as string,
+      }),
     ]);
   });
 });
