@@ -1,6 +1,6 @@
 # ADR 0012: DOCX tables and page breaks in styles
 
-Status: Accepted
+Status: Accepted. Tables in list items added by ADR 0013.
 
 ## Context
 

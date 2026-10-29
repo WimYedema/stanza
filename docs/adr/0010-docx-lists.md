@@ -1,6 +1,6 @@
 # ADR 0010: DOCX lists
 
-Status: Accepted
+Status: Accepted. Blocks in list items extended by ADR 0013.
 
 ## Context
 

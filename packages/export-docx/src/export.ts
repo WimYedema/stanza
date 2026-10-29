@@ -9,6 +9,7 @@ import {
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext } from './content.js';
 import { ListNumbering } from './list-numbering.js';
+import { PAGE } from './page.js';
 import { finishPackage } from './package.js';
 import { RunStyles } from './run-styles.js';
 import { wordStyleId } from './style-ids.js';
@@ -70,7 +71,24 @@ export async function exportDocx(
       characterStyles: [...declared.characterStyles, ...context.runs.styles()],
     },
     ...(context.lists.config().length > 0 ? { numbering: { config: context.lists.config() } } : {}),
-    sections: [{ children }],
+    sections: [
+      {
+        properties: {
+          page: {
+            size: { width: PAGE.widthTwips, height: PAGE.heightTwips },
+            margin: {
+              top: PAGE.marginTwips,
+              right: PAGE.marginTwips,
+              bottom: PAGE.marginTwips,
+              left: PAGE.marginTwips,
+              header: PAGE.headerTwips,
+              footer: PAGE.footerTwips,
+            },
+          },
+        },
+        children,
+      },
+    ],
   });
   const packed = new Uint8Array(await Packer.toArrayBuffer(file));
   return {

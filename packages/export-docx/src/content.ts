@@ -34,6 +34,7 @@ import {
   type ParagraphChild,
 } from 'docx';
 import { MAX_LIST_LEVEL, type ListNumbering } from './list-numbering.js';
+import { TEXT_WIDTH_TWIPS } from './page.js';
 import type { RunContext, RunStyles } from './run-styles.js';
 import { wordStyleId, wordStyleName } from './style-ids.js';
 
@@ -130,7 +131,26 @@ function textBlock(
   return paragraphOf(style, idsOf(block), children);
 }
 
-function codeBlock(block: CodeBlock): Paragraph {
+interface ItemPosition {
+  readonly listStyle: StyleName;
+  readonly level: number;
+}
+
+/** A paragraph that continues a list item: the style indented under the text of the item. */
+function inItem(
+  style: StyleName,
+  ids: readonly NodeId[],
+  children: ParagraphChild[],
+  item: ItemPosition,
+  context: BuildContext,
+): Paragraph {
+  return new Paragraph({
+    style: context.lists.continuationStyle(style, item.listStyle, item.level),
+    children: inBookmarks(ids, children),
+  });
+}
+
+function codeBlock(block: CodeBlock, context: BuildContext, item?: ItemPosition): Paragraph {
   const style = block.style ?? CODE_STYLE;
   const runs = block.text
     .split('\n')
@@ -138,7 +158,9 @@ function codeBlock(block: CodeBlock): Paragraph {
       (line, index) =>
         new TextRun({ children: textChildren(line), ...(index > 0 ? { break: 1 } : {}) }),
     );
-  return paragraphOf(style, idsOf(block), runs);
+  return item === undefined
+    ? paragraphOf(style, idsOf(block), runs)
+    : inItem(style, idsOf(block), runs, item, context);
 }
 
 function unsupported(block: Block | ListItemBlock, path: string, context: BuildContext): void {
@@ -166,7 +188,7 @@ function buildList(
   parent: Parent | undefined,
   path: string,
   context: BuildContext,
-): Paragraph[] {
+): (Paragraph | Table)[] {
   if (level > MAX_LIST_LEVEL) {
     context.diagnostics.push({
       severity: 'error',
@@ -181,7 +203,7 @@ function buildList(
   const reference = context.lists.reference(style, list.kind);
   const instance = parent?.reference === reference ? parent.instance : context.lists.newInstance();
   const position: ListPosition = { reference, level, instance };
-  const paragraphs: Paragraph[] = [];
+  const paragraphs: (Paragraph | Table)[] = [];
   let pending = idsOf(list);
 
   list.items.forEach((item, itemIndex) => {
@@ -194,22 +216,33 @@ function buildList(
       paragraphs.push(paragraphOf(firstStyle, [...pending, ...idsOf(first)], children, position));
       pending = [];
       next = 1;
-    } else if (first === undefined || first.type === 'list') {
-      // An item that starts with a nested list, or is empty, still has its marker.
+    } else {
+      // An item that is empty or starts with something other than text still has its marker.
       paragraphs.push(paragraphOf(style, pending, [], position));
       pending = [];
     }
+    const here: ItemPosition = { listStyle: style, level };
     item.blocks.forEach((block, blockIndex) => {
       if (blockIndex < next) return;
       const blockPath = `${itemPath}.blocks[${String(blockIndex)}]`;
-      if (block.type === 'paragraph') {
-        paragraphs.push(continuation(block, style, level, context));
-      } else if (block.type === 'list') {
-        paragraphs.push(
-          ...buildList(block, level + 1, { reference, instance }, blockPath, context),
-        );
-      } else {
-        unsupported(block, blockPath, context);
+      switch (block.type) {
+        case 'paragraph':
+          paragraphs.push(continuation(block, here, context));
+          break;
+        case 'code':
+          paragraphs.push(codeBlock(block, context, here));
+          break;
+        case 'table':
+          paragraphs.push(buildTable(block, context, context.lists.textIndent(style, level)));
+          break;
+        case 'list':
+          paragraphs.push(
+            ...buildList(block, level + 1, { reference, instance }, blockPath, context),
+          );
+          break;
+        case 'phrase':
+          unsupported(block, blockPath, context);
+          break;
       }
     });
   });
@@ -217,19 +250,9 @@ function buildList(
 }
 
 /** A further paragraph of a list item, indented under the item's text without a marker. */
-function continuation(
-  block: ParagraphBlock,
-  listStyle: StyleName,
-  level: number,
-  context: BuildContext,
-): Paragraph {
-  const style = block.style ?? listStyle;
-  const children = inlineChildren(block.content, style, context);
-  if (block.style !== undefined) return paragraphOf(block.style, idsOf(block), children);
-  return new Paragraph({
-    style: context.lists.continuationStyle(listStyle, level),
-    children: inBookmarks(idsOf(block), children),
-  });
+function continuation(block: ParagraphBlock, item: ItemPosition, context: BuildContext): Paragraph {
+  const style = block.style ?? item.listStyle;
+  return inItem(style, idsOf(block), inlineChildren(block.content, style, context), item, context);
 }
 
 /** `weight / total` as a percentage with two decimals, the form Word reads for relative widths. */
@@ -254,9 +277,10 @@ function tableCell(
 
 /**
  * Maps a table. The style's header-row text and background come from its first-row formatting;
- * header cells format their marks against a base that includes the header text properties.
+ * header cells format their marks against a base that includes the header text properties. A
+ * table in a list item is indented under the item's text, and narrowed to stay in the margin.
  */
-function buildTable(table: TableBlock, context: BuildContext): Table {
+function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): Table {
   const styleName = table.style ?? RESERVED_TABLE_STYLE;
   const resolved = resolveTableStyle(context.stylesheet, styleName);
   const cellStyle = resolved?.cellStyle ?? BODY_STYLE;
@@ -300,9 +324,28 @@ function buildTable(table: TableBlock, context: BuildContext): Table {
     style: wordStyleId(styleName),
     tableLook: { firstRow: header !== undefined, noHBand: true, noVBand: true },
     layout: TableLayoutType.AUTOFIT,
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width:
+      indentTwips > 0
+        ? {
+            size: percent(TEXT_WIDTH_TWIPS - indentTwips, TEXT_WIDTH_TWIPS),
+            type: WidthType.PERCENTAGE,
+          }
+        : { size: 100, type: WidthType.PERCENTAGE },
+    ...(indentTwips > 0 ? { indent: { size: indentTwips, type: WidthType.DXA } } : {}),
     rows: [headerRow, ...rows],
   });
+}
+
+/** Word joins two tables that touch, and wants a paragraph after a table at the end. */
+function separateTables(children: readonly (Paragraph | Table)[]): (Paragraph | Table)[] {
+  const spacer = (): Paragraph => new Paragraph({ style: wordStyleId(BODY_STYLE) });
+  const result: (Paragraph | Table)[] = [];
+  for (const child of children) {
+    if (child instanceof Table && result.at(-1) instanceof Table) result.push(spacer());
+    result.push(child);
+  }
+  if (result.at(-1) instanceof Table) result.push(spacer());
+  return result;
 }
 
 /** Maps the blocks of a document. Blocks that cannot be mapped yet are reported and left out. */
@@ -319,22 +362,18 @@ export function buildBlocks(
         paragraphs.push(textBlock(block, context.headingLabels[index], context));
         break;
       case 'code':
-        paragraphs.push(codeBlock(block));
+        paragraphs.push(codeBlock(block, context));
         break;
       case 'list':
         paragraphs.push(...buildList(block, 0, undefined, path, context));
         break;
       case 'table':
         paragraphs.push(buildTable(block, context));
-        // Word joins two tables that touch, and wants a paragraph after a table at the end.
-        if (blocks[index + 1] === undefined || blocks[index + 1]?.type === 'table') {
-          paragraphs.push(new Paragraph({ style: wordStyleId(BODY_STYLE) }));
-        }
         break;
       case 'phrase':
         unsupported(block, path, context);
         break;
     }
   });
-  return paragraphs;
+  return separateTables(paragraphs);
 }

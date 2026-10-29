@@ -190,8 +190,8 @@ Publication features that depend on page layout are the hardest to generate reli
 
 | Tier | Features |
 |---|---|
-| Initial | Table of contents with depth, header and footer slots with tokens, page numbers, A4 and Letter with margins, cover page from metadata, table styles, numbered headings, captions, cross-reference text |
-| Later | Landscape sections, cover template, table of figures, glossary, minimal bibliography |
+| Initial | Table of contents with depth, header and footer slots with tokens, page numbers, A4 and Letter with margins, cover page from metadata, table styles, numbered headings, cross-reference text |
+| Later | Images and captions, boxes and their placement, landscape sections, cover template, table of figures, glossary, minimal bibliography |
 | Not planned | Index, page-number cross-references, columns, odd and even headers, per-page overrides, custom list or number definitions |
 
 Page breaks are a layout concern handled by styles and templates, not by content. Word asks the reader whether to update fields when a document with page-number fields is opened; this was tested and is accepted. A table of contents without page numbers remains available for readers who must never see that prompt.
@@ -201,11 +201,10 @@ Page breaks are a layout concern handled by styles and templates, not by content
 The first usable version should demonstrate:
 
 - paragraphs and headings;
-- a table of contents, headers and footers, page numbers, numbered headings and captions, within the publication constraints above;
+- a table of contents, headers and footers, page numbers, and numbered headings, within the publication constraints above;
 - semantic strong, emphasis, code, and links;
 - ordered and unordered lists;
 - simple tables with named table styles;
-- images and captions;
 - a cover page and page templates, with page breaks left to styling;
 - a typed stylesheet with inheritance and contextual variants;
 - browser rendering from that stylesheet;

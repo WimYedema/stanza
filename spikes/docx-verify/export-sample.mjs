@@ -49,6 +49,25 @@ Cover title style
   - Another nested bullet
 - Bullet two
 
+  A code block inside the bullet:
+
+  \`\`\`
+  first line
+  second line
+  \`\`\`
+
+  A table inside the bullet:
+
+  | Name | Kind |
+  | --- | --- |
+  | **Alpha** | text |
+
+  - A nested bullet with a table:
+
+    | Name | Kind |
+    | --- | --- |
+    | Beta | number |
+
 1. First numbered
    - A bullet inside a numbered item
 2. Second numbered

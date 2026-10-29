@@ -27,10 +27,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 19. [M] - Heading numbering: hierarchical decimal numbers computed in `core` from a `numbered` style property, written as literal text in the DOCX export.
 20. [M] - DOCX: tables, with table styles written as XML and `page-break-before` written into paragraph styles.
 22. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters. The dialect half was done with item 10; the exporter half was done with item 20.
+21. [S] - DOCX: code blocks and tables inside list items (continuation indent, table indent and width).
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-21. [S] - DOCX: code blocks and tables inside list items (continuation indent, table indent and width).
 23. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
 24. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
 25. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.

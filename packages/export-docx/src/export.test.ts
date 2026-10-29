@@ -333,16 +333,17 @@ describe('exportDocx tables', () => {
     );
   });
 
-  it('keeps a table in a list item unsupported for now, with the path of the block', async () => {
-    const document = read('- one\n\n  | A |\n  | --- |\n  | b |\n');
-    const result = await exportDocx(document, stylesheet, { timestamp: TIMESTAMP });
-    expect(result.bytes).toBeUndefined();
-    expect(result.diagnostics).toContainEqual(
-      expect.objectContaining({
-        code: 'docx-unsupported-block',
-        path: 'blocks[0].items[0].blocks[1]',
-      }),
+  it('writes a table in a list item indented under the text and narrowed to the margin', async () => {
+    const { documentXml } = await build(
+      '- one\n\n  | A | B |\n  | --- | --- |\n  | c | d |\n\n  - nested\n\n    | X |\n    | --- |\n    | y |\n',
     );
+    const tables = [...documentXml.matchAll(/<w:tblPr>.*?<\/w:tblPr>/g)].map((m) => m[0]);
+    expect(tables).toHaveLength(2);
+    // 36 pt is 720 twips, and the text is 9026 twips wide: (9026 - 720) / 9026.
+    expect(tables[0]).toMatch(/<w:tblInd [^>]*w:w="720"/);
+    expect(tables[0]).toMatch(/<w:tblW [^>]*w:w="92.02%"/);
+    expect(tables[1]).toMatch(/<w:tblInd [^>]*w:w="1440"/);
+    expect(tables[1]).toMatch(/<w:tblW [^>]*w:w="84.05%"/);
   });
 
   it('separates tables that touch, and ends the document with a paragraph', async () => {
@@ -468,17 +469,37 @@ describe('exportDocx lists', () => {
     expect(documentXml).toMatch(/<w:numPr>.*?<\/w:pPr><w:bookmarkStart [^>]*phrase_k7m2q9x4zb/);
   });
 
-  it('reports blocks in list items that it cannot map yet, with the path of the block', async () => {
-    const result = await exportDocx(read('- one\n\n  ```\n  code\n  ```\n'), stylesheet, {
-      timestamp: TIMESTAMP,
-    });
-    expect(result.bytes).toBeUndefined();
-    expect(result.diagnostics).toEqual([
-      expect.objectContaining({
-        code: 'docx-unsupported-block',
-        path: 'blocks[0].items[0].blocks[1]',
-      }),
-    ]);
+  it('indents a code block in a list item under the text, in the style of the block', async () => {
+    const { documentXml, stylesXml } = await build(
+      '- one\n\n  ```\n  first\n  second\n  ```\n\n  - nested\n\n    ```\n    deeper\n    ```\n\n1. numbered\n\n   ```\n   code\n   ```\n',
+    );
+    expect(documentXml).toContain('<w:pStyle w:val="CodeInListBulleted1"/>');
+    expect(documentXml).toContain('<w:pStyle w:val="CodeInListBulleted2"/>');
+    expect(documentXml).toContain('<w:pStyle w:val="CodeInListNumbered1"/>');
+    const style = styleXml(stylesXml, 'CodeInListBulleted2');
+    expect(style).toContain('<w:basedOn w:val="Code"/>');
+    expect(style).toMatch(
+      /<w:ind w:left="1440" w:hanging="0"\/>|<w:ind w:hanging="0" w:left="1440"\/>/,
+    );
+    expect(documentXml.match(/<w:br\/>/g)).toHaveLength(1);
+  });
+
+  it('writes the marker of an item that starts with a code block or a table', async () => {
+    const { documentXml } = await build('- ```\n  code\n  ```\n');
+    expect(numbered(documentXml)).toHaveLength(1);
+    expect(documentXml).toContain('<w:pStyle w:val="CodeInListBulleted1"/>');
+  });
+
+  it('indents a further paragraph with its own style under the text of the item', async () => {
+    const { documentXml } = await build('- one\n\n  <!-- phrase: .cover-title -->\n  Title\n');
+    expect(documentXml).toContain('<w:pStyle w:val="CoverTitleInListBulleted1"/>');
+  });
+
+  it('ends a document that ends with a table in a list item with a paragraph', async () => {
+    const { documentXml } = await build('- one\n\n  | A |\n  | --- |\n  | b |\n');
+    expect(documentXml).toMatch(
+      /<\/w:tbl><w:p><w:pPr><w:pStyle w:val="Normal"\/><\/w:pPr><\/w:p><w:sectPr>/,
+    );
   });
 
   it('supports the nine levels of Word and reports deeper nesting', async () => {

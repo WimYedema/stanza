@@ -365,6 +365,7 @@ Accepted:
 - ADR 0010: DOCX lists.
 - ADR 0011: heading numbering.
 - ADR 0012: DOCX tables and page breaks in styles.
+- ADR 0013: code blocks and tables in list items.
 
 Still to capture:
 

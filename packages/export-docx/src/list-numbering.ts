@@ -61,9 +61,21 @@ export class ListNumbering {
     return reference;
   }
 
-  /** The paragraph style for further paragraphs of a list item at a level. */
-  continuationStyle(style: StyleName, level: number): string {
-    const id = `${wordStyleId(style)}Continue${String(level + 1)}`;
+  /** Where the text of a list item at a level starts, in twips. */
+  textIndent(listStyle: StyleName, level: number): number {
+    return this.indents(listStyle).left * (level + 1);
+  }
+
+  /**
+   * The paragraph style for a block that continues a list item at a level: the style of the block,
+   * with the indent of the item's text and no hanging indent.
+   */
+  continuationStyle(style: StyleName, listStyle: StyleName, level: number): string {
+    const number = String(level + 1);
+    const same = style === listStyle;
+    const id = same
+      ? `${wordStyleId(style)}Continue${number}`
+      : `${wordStyleId(style)}In${wordStyleId(listStyle)}${number}`;
     if (!this.continuations.has(id)) {
       if (this.declaredIds.has(id)) {
         this.diagnostics.push({
@@ -74,9 +86,11 @@ export class ListNumbering {
       }
       this.continuations.set(id, {
         id,
-        name: `${wordStyleName(style)} Continue ${String(level + 1)}`,
+        name: same
+          ? `${wordStyleName(style)} Continue ${number}`
+          : `${wordStyleName(style)} In ${wordStyleName(listStyle)} ${number}`,
         basedOn: wordStyleId(style),
-        paragraph: { indent: { left: this.indents(style).left * (level + 1), hanging: 0 } },
+        paragraph: { indent: { left: this.textIndent(listStyle, level), hanging: 0 } },
       });
     }
     return id;
