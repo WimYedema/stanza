@@ -1,6 +1,6 @@
 # ADR 0001: Native Markdown dialect
 
-Status: Accepted
+Status: Accepted. Details added by ADR 0005.
 
 ## Context
 

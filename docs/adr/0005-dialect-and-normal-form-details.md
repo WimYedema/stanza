@@ -1,6 +1,6 @@
 # ADR 0005: Markdown dialect and normal form, implementation details
 
-Status: Proposed
+Status: Accepted
 
 ## Context
 

@@ -357,6 +357,7 @@ Accepted:
 - ADR 0002: host environment and dependency policy. Also covers local-first operation with no required backend and DOCX as output.
 - ADR 0003: editor state and the domain model. Also covers the canonical domain model independent of ProseMirror.
 - ADR 0004: domain document model.
+- ADR 0005: Markdown dialect and normal form, implementation details.
 
 Still to capture:
 

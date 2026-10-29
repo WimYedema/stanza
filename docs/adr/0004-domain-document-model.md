@@ -1,6 +1,6 @@
 # ADR 0004: Domain document model
 
-Status: Accepted
+Status: Accepted. Normal form refined by ADR 0005.
 
 ## Context
 
