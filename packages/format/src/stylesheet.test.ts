@@ -1,5 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { markAllowed, resolveTextProps, type Mark, type StyleName } from '@phrase/core';
+import {
+  markAllowed,
+  resolveParagraphStyle,
+  resolveTextProps,
+  type Mark,
+  type StyleName,
+} from '@phrase/core';
 import { describe, expect, it } from 'vitest';
 import { parseStylesheet } from './stylesheet.js';
 
@@ -74,6 +80,16 @@ describe('the default stylesheet fixture', () => {
     });
   });
 
+  it('numbers heading levels 1 to 3 through inheritance', () => {
+    const numbered = (style: string) =>
+      resolveParagraphStyle(result.stylesheet, name(style))?.paragraph.numbered;
+    expect(result.stylesheet.paragraphStyles.get(name('heading-1'))?.paragraph.numbered).toBe(true);
+    expect(numbered('heading-3')).toBe(true);
+    expect(numbered('heading-4')).toBe(false);
+    expect(numbered('heading-6')).toBe(false);
+    expect(numbered('body')).toBeUndefined();
+  });
+
   it('applies the rules of the stylesheet', () => {
     const { stylesheet } = result;
     expect(markAllowed(stylesheet, name('body'), 'strong')).toBe(true);
@@ -115,6 +131,11 @@ describe('parseStylesheet', () => {
       ['unknown-property', 'paragraph-styles.body.variants.strong.weight'],
       ['unknown-property', 'character-styles.marker.bolder'],
     ]);
+  });
+
+  it('reports a numbered property that is not true or false', () => {
+    const source = sheet('').replace('  body: {}', '  body:\n    numbered: sometimes');
+    expect(problems(source)).toEqual([['invalid-type', 'paragraph-styles.body.numbered']]);
   });
 
   it('reports values of the wrong type', () => {

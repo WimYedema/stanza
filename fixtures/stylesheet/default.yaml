@@ -26,6 +26,7 @@ paragraph-styles:
     based-on: body
     size: 18
     bold: true
+    numbered: true
     color: heading
     space-before: 24
     space-after: 8
@@ -47,6 +48,7 @@ paragraph-styles:
   heading-4:
     based-on: heading-3
     italic: true
+    numbered: false
 
   heading-5:
     based-on: heading-4

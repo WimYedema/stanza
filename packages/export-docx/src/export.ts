@@ -1,4 +1,5 @@
 import {
+  numberHeadings,
   validateDocument,
   validateStylesheet,
   type Diagnostic,
@@ -50,6 +51,7 @@ export async function exportDocx(
     stylesheet,
     runs: new RunStyles(stylesheet, ids, diagnostics),
     lists: new ListNumbering(stylesheet, ids, diagnostics),
+    headingLabels: numberHeadings(document, stylesheet).labels,
     diagnostics,
   };
   const children = buildBlocks(document.blocks, context);

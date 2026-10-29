@@ -32,7 +32,7 @@ describe('checkDocumentText', () => {
   });
 
   it('numbers reading problems by line and points to the model for the others', () => {
-    const text = `${HEADER}Text\n\n---\n\n## No ID\n`;
+    const text = `${HEADER}Text\n\n---\n\n# No ID\n`;
     expect(checkDocumentText(text, stylesheet).diagnostics).toEqual([
       expect.objectContaining({ code: 'thematic-break-unsupported', line: 7 }),
       expect.objectContaining({ code: 'missing-id', path: 'blocks[1]' }),

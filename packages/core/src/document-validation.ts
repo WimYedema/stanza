@@ -1,21 +1,19 @@
 import type { Diagnostic } from './diagnostic.js';
+import {
+  BODY_STYLE as BODY,
+  CODE_STYLE,
+  LIST_STYLES,
+  defaultHeadingStyle as headingStyle,
+} from './default-styles.js';
 import type { Block, Document, Inline, List, ListItemBlock, Table } from './document.js';
+import { numberHeadings } from './heading-numbering.js';
 import type { NodeId } from './ids.js';
-import { isStyleName, type StyleName } from './style-name.js';
+import type { StyleName } from './style-name.js';
 import { resolveParagraphStyle, type ResolvedParagraphStyle } from './style-resolution.js';
 import type { Stylesheet } from './stylesheet.js';
 
 /** Kinds of phrase block that the exporters understand. None are defined yet. */
 export const KNOWN_PHRASE_KINDS: readonly string[] = [];
-
-function styleName(value: string): StyleName {
-  if (!isStyleName(value)) throw new Error(`Invalid style name "${value}".`);
-  return value;
-}
-
-const BODY = styleName('body');
-const LIST_STYLES = { bulleted: styleName('list-bulleted'), numbered: styleName('list-numbered') };
-const HEADING_STYLES = [1, 2, 3, 4, 5, 6].map((level) => styleName(`heading-${String(level)}`));
 
 interface Context {
   /** The paragraph style that paragraphs directly inside a list item use. */
@@ -59,6 +57,18 @@ export function validateDocument(
   };
 
   const idPaths = new Map<NodeId, string>();
+
+  const checkNotNumbered = (style: StyleName, path: string, id: NodeId | undefined): void => {
+    if (paragraphStyle(style)?.paragraph.numbered === true) {
+      report(
+        'warning',
+        'numbering-not-applicable',
+        `The style "${style}" numbers headings, so it has no effect on this block.`,
+        path,
+        id,
+      );
+    }
+  };
 
   const checkInlines = (content: readonly Inline[], style: StyleName, path: string): void => {
     const resolvedStyle = paragraphStyle(style);
@@ -166,14 +176,20 @@ export function validateDocument(
         break;
       case 'paragraph':
         checkInlines(block.content, style ?? context.listStyle ?? BODY, `${path}.content`);
+        // A paragraph that takes its style from the list was checked with the list.
+        if (style !== undefined || context.listStyle === undefined) {
+          checkNotNumbered(style ?? BODY, path, block.id);
+        }
         break;
       case 'list':
+        checkNotNumbered(style ?? LIST_STYLES[block.kind], path, block.id);
         checkList(block, path, style);
         break;
       case 'table':
         checkTable(block, path, block.id);
         break;
       case 'code':
+        checkNotNumbered(style ?? CODE_STYLE, path, block.id);
         break;
       case 'phrase':
         if (!KNOWN_PHRASE_KINDS.includes(block.kind)) {
@@ -203,9 +219,6 @@ export function validateDocument(
   document.blocks.forEach((block, index) => {
     checkBlock(block, `blocks[${String(index)}]`, {});
   });
+  diagnostics.push(...numberHeadings(document, stylesheet).diagnostics);
   return diagnostics;
-}
-
-function headingStyle(level: number): StyleName {
-  return HEADING_STYLES[level - 1] ?? BODY;
 }

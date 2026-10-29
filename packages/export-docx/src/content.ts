@@ -1,5 +1,8 @@
 import {
-  isStyleName,
+  BODY_STYLE,
+  CODE_STYLE,
+  LIST_STYLES,
+  defaultHeadingStyle,
   resolveParagraphStyle,
   type Block,
   type CodeBlock,
@@ -23,6 +26,8 @@ export interface BuildContext {
   readonly stylesheet: Stylesheet;
   readonly runs: RunStyles;
   readonly lists: ListNumbering;
+  /** The number of each top-level block, as `numberHeadings` gives them. */
+  readonly headingLabels: readonly (string | undefined)[];
   readonly diagnostics: Diagnostic[];
 }
 
@@ -31,15 +36,6 @@ interface ListPosition {
   readonly level: number;
   readonly instance: number;
 }
-
-function styleName(value: string): StyleName {
-  if (!isStyleName(value)) throw new Error(`Invalid style name "${value}".`);
-  return value;
-}
-
-const BODY = styleName('body');
-const CODE = styleName('code');
-const LIST_STYLES = { bulleted: styleName('list-bulleted'), numbered: styleName('list-numbered') };
 
 /** The text of a run, with tab characters written as Word tabs. */
 function textChildren(text: string): (string | Tab)[] {
@@ -109,14 +105,21 @@ function inBookmarks(ids: readonly NodeId[], children: ParagraphChild[]): Paragr
 const idsOf = (block: { readonly id?: NodeId }): NodeId[] =>
   block.id === undefined ? [] : [block.id];
 
-function textBlock(block: Heading | ParagraphBlock, context: BuildContext): Paragraph {
+function textBlock(
+  block: Heading | ParagraphBlock,
+  label: string | undefined,
+  context: BuildContext,
+): Paragraph {
   const style =
-    block.style ?? (block.type === 'heading' ? styleName(`heading-${String(block.level)}`) : BODY);
-  return paragraphOf(style, idsOf(block), inlineChildren(block.content, style, context), context);
+    block.style ?? (block.type === 'heading' ? defaultHeadingStyle(block.level) : BODY_STYLE);
+  const content = inlineChildren(block.content, style, context);
+  // The number is literal text, not a Word field, and the heading's style formats it.
+  const children = label === undefined ? content : [new TextRun(`${label} `), ...content];
+  return paragraphOf(style, idsOf(block), children, context);
 }
 
 function codeBlock(block: CodeBlock, context: BuildContext): Paragraph {
-  const style = block.style ?? CODE;
+  const style = block.style ?? CODE_STYLE;
   const runs = block.text
     .split('\n')
     .map(
@@ -227,7 +230,7 @@ export function buildBlocks(blocks: readonly Block[], context: BuildContext): Pa
     switch (block.type) {
       case 'heading':
       case 'paragraph':
-        paragraphs.push(textBlock(block, context));
+        paragraphs.push(textBlock(block, context.headingLabels[index], context));
         break;
       case 'code':
         paragraphs.push(codeBlock(block, context));

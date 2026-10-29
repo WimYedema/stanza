@@ -38,6 +38,8 @@ export interface ParagraphProps {
   readonly keepWithNext?: boolean;
   readonly keepTogether?: boolean;
   readonly pageBreakBefore?: boolean;
+  /** Headings in this style get a number (ADR 0011). Inherited like other properties. */
+  readonly numbered?: boolean;
   readonly background?: ColorValue;
 }
 

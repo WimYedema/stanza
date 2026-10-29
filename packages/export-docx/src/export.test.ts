@@ -189,6 +189,44 @@ describe('exportDocx', () => {
   });
 });
 
+/** The text of each paragraph, in document order. */
+function paragraphTexts(documentXml: string): string[] {
+  return [...documentXml.matchAll(/<w:p>(.*?)<\/w:p>/g)].map(([, inner = '']) =>
+    [...inner.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map((m) => m[1]).join(''),
+  );
+}
+
+describe('exportDocx heading numbers', () => {
+  it('writes hierarchical numbers as literal text before the heading', async () => {
+    const { documentXml } = await build('# A\n\n## B\n\n## C\n\n### D\n\n# E\n');
+    expect(paragraphTexts(documentXml)).toEqual(['1 A', '1.1 B', '1.2 C', '1.2.1 D', '2 E']);
+    expect(documentXml).not.toContain('<w:fldChar');
+  });
+
+  it('numbers only the styles that ask for it', async () => {
+    const { documentXml } = await build('# A\n\n#### Deep\n\nText\n');
+    expect(paragraphTexts(documentXml)).toEqual(['1 A', 'Deep', 'Text']);
+  });
+
+  it('formats the number with the style of the heading, not as a mark', async () => {
+    const { documentXml } = await build('# A *b*\n');
+    expect(documentXml).toContain('<w:r><w:t xml:space="preserve">1 </w:t></w:r>');
+  });
+
+  it('puts the number inside the bookmark of the heading', async () => {
+    const { documentXml } = await build(heading('Title'));
+    expect(documentXml).toMatch(
+      /<w:bookmarkStart [^>]*phrase_k7m2q9x4zb[^>]*\/><w:r><w:t xml:space="preserve">1 <\/w:t><\/w:r>/,
+    );
+  });
+
+  it('exports a skipped level with the warning', async () => {
+    const { documentXml, result } = await build('# A\n\n### C\n');
+    expect(paragraphTexts(documentXml)).toEqual(['1 A', '1.0.1 C']);
+    expect(codes(result.diagnostics)).toContain('heading-level-skipped');
+  });
+});
+
 describe('exportDocx diagnostics', () => {
   it('reports blocks it cannot map yet, without producing a package', async () => {
     const document = read('<!-- phrase: #k7m2q9x4zb -->\n| a | b |\n| - | - |\n| 1 | 2 |\n');

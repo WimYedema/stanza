@@ -55,6 +55,7 @@ const PARAGRAPH_KEYS = [
   'keep-together',
   'page-break-before',
   'background',
+  'numbered',
 ] as const;
 const ALIGNMENTS: readonly string[] = ['left', 'center', 'right', 'justify'];
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
@@ -173,6 +174,8 @@ function readParagraph(map: Data, path: string, report: Report): ParagraphProps 
   if (pageBreak !== undefined) props.pageBreakBefore = pageBreak;
   const background = readColor(map, 'background', path, report);
   if (background !== undefined) props.background = background;
+  const numbered = readBoolean(map, 'numbered', path, report);
+  if (numbered !== undefined) props.numbered = numbered;
   return props;
 }
 

@@ -363,6 +363,7 @@ Accepted:
 - ADR 0008: DOCX export mapping.
 - ADR 0009: DOCX bookmarks.
 - ADR 0010: DOCX lists.
+- ADR 0011: heading numbering.
 
 Still to capture:
 

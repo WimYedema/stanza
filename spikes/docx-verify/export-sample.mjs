@@ -21,6 +21,14 @@ authors:
 <!-- phrase: #a1b2c3d4e5 -->
 ## Second level
 
+<!-- phrase: #b2c3d4e5f6 -->
+### Third level
+
+#### Fourth level is not numbered
+
+<!-- phrase: #c3d4e5f6g7 -->
+# Another first level
+
 Body text with **strong**, *emphasis*, \`code\`, ***both***, a [link](https://example.com) and a <span class="muted">muted</span> word.
 
 \`\`\`

@@ -24,10 +24,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 16. [L] - DOCX adapter, first slice: paragraphs, headings, strong, emphasis, code, links, named styles, structural tests.
 17. [S] - DOCX: bookmarks named after node IDs on referenceable nodes.
 18. [M] - DOCX: lists (bulleted and numbered, nested, several paragraphs per item) with fixed Word numbering definitions generated from the list styles.
+19. [M] - Heading numbering: hierarchical decimal numbers computed in `core` from a `numbered` style property, written as literal text in the DOCX export.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-19. [M] - Heading numbering: hierarchical decimal numbers computed in `core` from a `numbered` style property, written as literal text in the DOCX export.
 20. [M] - DOCX: tables. Also write styles as XML through `externalStyles` (table styles need it), and use that to put `page-break-before` into paragraph styles, replacing the per-paragraph workaround of ADR 0008 (new ADR, since 0008 is accepted).
 21. [S] - DOCX: code blocks inside list items (continuation indent).
 22. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters.
