@@ -6,6 +6,7 @@ import {
   type Mark,
   type StyleName,
   type Stylesheet,
+  type TextProps,
 } from '@phrase/core';
 import type { ICharacterStyleOptions, IRunStylePropertiesOptions } from 'docx';
 import { runProps } from './docx-props.js';
@@ -76,6 +77,18 @@ export function splitToggles(
 }
 
 /**
+ * Text properties that a container, such as a table header row, adds to the paragraph style, and
+ * the words that keep the generated styles of that container apart from those of body text.
+ */
+export interface RunContext {
+  /** Added to the IDs of generated styles, such as `TableHeader`. */
+  readonly id: string;
+  /** Added to their names, such as `Table Header`. */
+  readonly name: string;
+  readonly base: TextProps;
+}
+
+/**
  * Chooses the formatting of runs: one generated character style for each combination of paragraph
  * style, marks and character styles that occurs, holding only what differs from the paragraph.
  */
@@ -88,20 +101,20 @@ export class RunStyles {
     private readonly diagnostics: Diagnostic[],
   ) {}
 
-  format(paragraphStyle: StyleName, marks: readonly Mark[]): RunFormat {
+  format(paragraphStyle: StyleName, marks: readonly Mark[], context?: RunContext): RunFormat {
     const canonical = canonicalMarks(marks);
     if (canonical.marks.length === 0) return {};
     const paragraph = resolveParagraphStyle(this.stylesheet, paragraphStyle);
-    const full = resolveTextProps(this.stylesheet, paragraphStyle, canonical.marks);
+    const full = resolveTextProps(this.stylesheet, paragraphStyle, canonical.marks, context?.base);
     if (paragraph === undefined || full === undefined) return {};
 
     const tokens = this.stylesheet.tokens;
-    const base = runProps(tokens, paragraph.text);
+    const base = runProps(tokens, { ...paragraph.text, ...context?.base });
     const { style, direct } = splitToggles(different(runProps(tokens, full), base), base);
     if (Object.keys(style).length === 0) return direct;
 
-    const id = wordStyleId(paragraphStyle) + canonical.segments.join('');
-    const key = `${paragraphStyle}|${canonical.segments.join('|')}`;
+    const id = wordStyleId(paragraphStyle) + (context?.id ?? '') + canonical.segments.join('');
+    const key = `${paragraphStyle}|${context?.id ?? ''}|${canonical.segments.join('|')}`;
     const existing = this.generated.get(id);
     if (existing === undefined) {
       if (this.declaredIds.has(id)) this.collision(id, paragraphStyle);
@@ -109,7 +122,9 @@ export class RunStyles {
         key,
         options: {
           id,
-          name: [wordStyleName(paragraphStyle), ...canonical.displayNames].join(' '),
+          name: [wordStyleName(paragraphStyle), context?.name, ...canonical.displayNames]
+            .filter((part) => part !== undefined)
+            .join(' '),
           run: style,
         },
       });

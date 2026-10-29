@@ -1,5 +1,6 @@
 import type { Diagnostic } from './diagnostic.js';
-import { inheritanceChain } from './style-resolution.js';
+import { BODY_STYLE } from './default-styles.js';
+import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
 import type { StyleName } from './style-name.js';
 import {
   RESERVED_PARAGRAPH_STYLES,
@@ -14,6 +15,17 @@ import {
 } from './stylesheet.js';
 
 const HEX_COLOR = /^#[0-9A-F]{6}$/;
+
+const TEXT_KEYS_YAML = {
+  font: 'font',
+  sizePt: 'size',
+  bold: 'bold',
+  italic: 'italic',
+  underline: 'underline',
+  color: 'color',
+  highlight: 'highlight',
+} as const satisfies Record<keyof TextProps, string>;
+const TEXT_KEYS = Object.keys(TEXT_KEYS_YAML) as (keyof TextProps)[];
 
 /** Checks everything about a stylesheet that does not depend on how it was written down. */
 export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[] {
@@ -148,6 +160,31 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
       checkColor(style.headerRow.background, `${path}.header-row.background`);
     }
     checkNotNegative(style.cellPaddingPt, `${path}.cell-padding`);
+    if (style.cellStyle !== undefined && !stylesheet.paragraphStyles.has(style.cellStyle)) {
+      error(
+        'unknown-cell-style',
+        `The cell style "${style.cellStyle}" is not a paragraph style.`,
+        `${path}.cell-style`,
+      );
+    }
+  }
+
+  // Word lets a paragraph style win over the table style, so a header property that the cell style
+  // also sets would silently not apply.
+  for (const name of stylesheet.tableStyles.keys()) {
+    const table = resolveTableStyle(stylesheet, name);
+    const cell = resolveParagraphStyle(stylesheet, table?.cellStyle ?? BODY_STYLE);
+    if (table?.headerRow === undefined || cell === undefined) continue;
+    for (const key of TEXT_KEYS) {
+      if (table.headerRow.text[key] !== undefined && cell.text[key] !== undefined) {
+        diagnostics.push({
+          severity: 'warning',
+          code: 'header-property-overridden',
+          message: `The cell style "${cell.name}" also sets this property, so Word will not apply it in the header row.`,
+          path: `table-styles.${name}.header-row.${TEXT_KEYS_YAML[key]}`,
+        });
+      }
+    }
   }
 
   return diagnostics;

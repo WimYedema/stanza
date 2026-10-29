@@ -80,6 +80,11 @@ describe('the default stylesheet fixture', () => {
     });
   });
 
+  it('reads the cell style of table styles', () => {
+    expect(result.stylesheet.tableStyles.get(name('table'))?.cellStyle).toBe('table-cell');
+    expect(result.stylesheet.tableStyles.get(name('table-grid'))?.cellStyle).toBeUndefined();
+  });
+
   it('numbers heading levels 1 to 3 through inheritance', () => {
     const numbered = (style: string) =>
       resolveParagraphStyle(result.stylesheet, name(style))?.paragraph.numbered;

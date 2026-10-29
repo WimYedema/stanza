@@ -122,13 +122,21 @@ describe('exportDocx', () => {
     expect(documentXml).toContain('<w:tab/>');
   });
 
-  it('carries page-break-before on paragraphs, which a style cannot hold', async () => {
+  it('writes page-break-before into the style, ahead of the other paragraph properties', async () => {
     const sheet = parseStylesheet(
-      STYLESHEET_TEXT.replace('page-break-before: false', 'page-break-before: true'),
+      STYLESHEET_TEXT.replace('page-break-before: false', 'page-break-before: true').replace(
+        'keep-with-next: true',
+        'keep-with-next: true\n    page-break-before: true',
+      ),
     ).stylesheet;
     const { documentXml, stylesXml } = await build('<!-- phrase: .cover-title -->\nCover\n', sheet);
-    expect(documentXml).toContain('<w:pageBreakBefore/>');
-    expect(stylesXml).not.toContain('<w:pageBreakBefore');
+    expect(documentXml).not.toContain('pageBreakBefore');
+    expect(styleXml(stylesXml, 'CoverTitle')).toMatch(/<w:pPr><w:pageBreakBefore\/>/);
+    expect(styleXml(stylesXml, 'Heading1')).toMatch(
+      /<w:pPr><w:keepNext\/>(?:<w:keepLines\/>)?<w:pageBreakBefore\/>/,
+    );
+    // Heading2 inherits the break from Heading1 through basedOn, and does not repeat it.
+    expect(styleXml(stylesXml, 'Heading2')).not.toContain('pageBreakBefore');
   });
 
   it('wraps the content of a block that has an ID in a bookmark named after it', async () => {
@@ -179,7 +187,7 @@ describe('exportDocx', () => {
   });
 
   it('gives identical bytes for the same input, whatever the clock says', async () => {
-    const body = `${heading('Title')}A **b** [l](https://example.com) <span class="marker">m</span>.\n\n- one\n  1. two\n`;
+    const body = `${heading('Title')}A **b** [l](https://example.com) <span class="marker">m</span>.\n\n- one\n  1. two\n\n| a | b |\n| - | - |\n| *c* | d |\n`;
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2030-01-01T00:00:00Z'));
     const first = await build(body);
@@ -227,16 +235,132 @@ describe('exportDocx heading numbers', () => {
   });
 });
 
-describe('exportDocx diagnostics', () => {
-  it('reports blocks it cannot map yet, without producing a package', async () => {
-    const document = read('<!-- phrase: #k7m2q9x4zb -->\n| a | b |\n| - | - |\n| 1 | 2 |\n');
-    const result = await exportDocx(document, stylesheet, { timestamp: TIMESTAMP });
-    expect(result.bytes).toBeUndefined();
-    expect(result.diagnostics).toEqual([
-      expect.objectContaining({ code: 'docx-unsupported-block', path: 'blocks[0]' }),
+const TABLE = '| Name | Description |\n| --- | --- |\n| a | first |\n| b | second |\n';
+
+describe('exportDocx tables', () => {
+  it('writes a table with its style, a repeating header row and rows that stay whole', async () => {
+    const { documentXml } = await build(TABLE);
+    expect(documentXml).toContain('<w:tblStyle w:val="Table"/>');
+    expect(documentXml).toMatch(/<w:tblLook [^>]*w:firstRow="true"/);
+    expect(documentXml.match(/<w:tr>/g)).toHaveLength(3);
+    expect(documentXml.match(/<w:tblHeader\/>/g)).toHaveLength(1);
+    expect(documentXml.match(/<w:cantSplit\/>/g)).toHaveLength(3);
+    expect(paragraphTexts(documentXml)).toEqual([
+      'Name',
+      'Description',
+      'a',
+      'first',
+      'b',
+      'second',
+      '',
     ]);
   });
 
+  it('writes cell text in the cell style of the table style', async () => {
+    const { documentXml } = await build(TABLE);
+    expect(documentXml.match(/<w:pStyle w:val="TableCell"\/>/g)).toHaveLength(6);
+  });
+
+  it('does not repeat the header row when the style says not to', async () => {
+    const sheet = parseStylesheet(
+      STYLESHEET_TEXT.replace('repeat: true', 'repeat: false'),
+    ).stylesheet;
+    const { documentXml } = await build(TABLE, sheet);
+    expect(documentXml).not.toContain('<w:tblHeader');
+  });
+
+  it('writes the table style from the resolved stylesheet', async () => {
+    const { stylesXml } = await build(TABLE);
+    const table = styleXml(stylesXml, 'Table');
+    expect(table).toMatch(/<w:style [^>]*w:type="table"/);
+    expect(table).toContain('<w:basedOn w:val="TableNormal"/>');
+    // 0.75 pt outside and 0.5 pt between rows, in eighths of a point.
+    expect(table).toMatch(/<w:top w:val="single" w:sz="6" w:space="0" w:color="BFBFBF"\/>/);
+    expect(table).toMatch(/<w:insideH w:val="single" w:sz="4" w:space="0" w:color="BFBFBF"\/>/);
+    expect(table).not.toContain('insideV');
+    // 4 pt padding on every side.
+    expect(table.match(/w:w="80" w:type="dxa"/g)).toHaveLength(4);
+    expect(table).toMatch(
+      /<w:tblStylePr w:type="firstRow"><w:rPr><w:b\/><w:bCs\/><\/w:rPr><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"\/><\/w:tcPr>/,
+    );
+  });
+
+  it('writes inherited properties into the derived table style and keeps it independent', async () => {
+    const { stylesXml, documentXml } = await build(
+      '<!-- phrase: .table-grid -->\n| A |\n| --- |\n| b |\n',
+    );
+    const grid = styleXml(stylesXml, 'TableGrid');
+    expect(grid).toContain('insideV');
+    expect(grid).toContain('insideH');
+    expect(grid).toContain('<w:tblStylePr w:type="firstRow">');
+    expect(grid).not.toMatch(/<w:basedOn w:val="Table"\/>/);
+    expect(documentXml).toContain('<w:tblStyle w:val="TableGrid"/>');
+    // table-grid names no cell style, so it inherits the one of table.
+    expect(documentXml).toContain('<w:pStyle w:val="TableCell"/>');
+  });
+
+  it('writes relative widths as percentages, and none for an autofit table', async () => {
+    const weighted = await build(
+      '<!-- phrase: widths="30 70" -->\n| A | B |\n| - | - |\n| 1 | 2 |\n',
+    );
+    expect(weighted.documentXml.match(/<w:tcW [^>]*w:w="30%"/g)).toHaveLength(2);
+    expect(weighted.documentXml.match(/<w:tcW [^>]*w:w="70%"/g)).toHaveLength(2);
+    const autofit = await build(TABLE);
+    expect(autofit.documentXml).not.toContain('<w:tcW w:type="pct" w:w="');
+    for (const { documentXml } of [weighted, autofit]) {
+      expect(documentXml).toMatch(/<w:tblW [^>]*w:type="pct"/);
+      expect(documentXml).toContain('<w:tblLayout w:type="autofit"/>');
+    }
+  });
+
+  it('formats marks in header cells against the header text, so a bold header stays bold', async () => {
+    const { documentXml, stylesXml } = await build(
+      '| **Name** | *Kind* |\n| --- | --- |\n| **x** | y |\n',
+    );
+    // The header is bold through the table style, so strong adds nothing there, and a character
+    // style with a bold would switch the bold off.
+    expect(documentXml).toContain('<w:rStyle w:val="TableCellStrong"/>');
+    expect(documentXml.match(/<w:rStyle w:val="TableCellStrong"\/>/g)).toHaveLength(1);
+    expect(documentXml).toContain('<w:rStyle w:val="TableCellTableHeaderEmphasis"/>');
+    expect(styleXml(stylesXml, 'TableCellTableHeaderEmphasis')).toContain('<w:i/>');
+  });
+
+  it('puts the ID of a table in a bookmark around the first header cell', async () => {
+    const { documentXml } = await build(`<!-- phrase: #k7m2q9x4zb -->\n${TABLE}`);
+    expect(documentXml.match(/<w:bookmarkStart /g)).toHaveLength(1);
+    expect(documentXml).toMatch(
+      /<w:bookmarkStart [^>]*phrase_k7m2q9x4zb[^>]*\/><w:r><w:t[^>]*>Name<\/w:t><\/w:r><w:bookmarkEnd/,
+    );
+  });
+
+  it('keeps a table in a list item unsupported for now, with the path of the block', async () => {
+    const document = read('- one\n\n  | A |\n  | --- |\n  | b |\n');
+    const result = await exportDocx(document, stylesheet, { timestamp: TIMESTAMP });
+    expect(result.bytes).toBeUndefined();
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: 'docx-unsupported-block',
+        path: 'blocks[0].items[0].blocks[1]',
+      }),
+    );
+  });
+
+  it('separates tables that touch, and ends the document with a paragraph', async () => {
+    const { documentXml } = await build(`${TABLE}\n| X |\n| --- |\n| y |\n`);
+    expect(documentXml).toMatch(
+      /<\/w:tbl><w:p><w:pPr><w:pStyle w:val="Normal"\/><\/w:pPr><\/w:p><w:tbl>/,
+    );
+    expect(documentXml).toMatch(
+      /<\/w:tbl><w:p><w:pPr><w:pStyle w:val="Normal"\/><\/w:pPr><\/w:p><w:sectPr>/,
+    );
+    const text = await build(`${TABLE}\nAfter.\n`);
+    expect(text.documentXml).not.toMatch(
+      /<\/w:tbl><w:p><w:pPr><w:pStyle w:val="Normal"\/><\/w:pPr><\/w:p>/,
+    );
+  });
+});
+
+describe('exportDocx diagnostics', () => {
   it('refuses a document that does not validate', async () => {
     const result = await exportDocx(read('<!-- phrase: .missing -->\nText.\n'), stylesheet, {
       timestamp: TIMESTAMP,

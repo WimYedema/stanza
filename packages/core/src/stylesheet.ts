@@ -83,6 +83,8 @@ export interface HeaderRow {
 
 export interface TableStyle {
   readonly basedOn?: StyleName;
+  /** The paragraph style of the text in cells. Absent means `body`. */
+  readonly cellStyle?: StyleName;
   readonly border?: TableBorders;
   readonly headerRow?: HeaderRow;
   readonly cellPaddingPt?: number;

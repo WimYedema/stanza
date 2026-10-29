@@ -25,12 +25,12 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 17. [S] - DOCX: bookmarks named after node IDs on referenceable nodes.
 18. [M] - DOCX: lists (bulleted and numbered, nested, several paragraphs per item) with fixed Word numbering definitions generated from the list styles.
 19. [M] - Heading numbering: hierarchical decimal numbers computed in `core` from a `numbered` style property, written as literal text in the DOCX export.
+20. [M] - DOCX: tables, with table styles written as XML and `page-break-before` written into paragraph styles.
+22. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters. The dialect half was done with item 10; the exporter half was done with item 20.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-20. [M] - DOCX: tables. Also write styles as XML through `externalStyles` (table styles need it), and use that to put `page-break-before` into paragraph styles, replacing the per-paragraph workaround of ADR 0008 (new ADR, since 0008 is accepted).
-21. [S] - DOCX: code blocks inside list items (continuation indent).
-22. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters.
+21. [S] - DOCX: code blocks and tables inside list items (continuation indent, table indent and width).
 23. [M] - DOCX: images and captions.
 24. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
 25. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.

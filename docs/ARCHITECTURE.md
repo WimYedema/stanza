@@ -364,6 +364,7 @@ Accepted:
 - ADR 0009: DOCX bookmarks.
 - ADR 0010: DOCX lists.
 - ADR 0011: heading numbering.
+- ADR 0012: DOCX tables and page breaks in styles.
 
 Still to capture:
 

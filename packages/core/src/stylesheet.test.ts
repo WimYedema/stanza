@@ -150,6 +150,19 @@ describe('resolveTableStyle', () => {
   it('returns only what is defined', () => {
     expect(resolveTableStyle(sheet(), RESERVED_TABLE_STYLE)).toEqual({ name: 'table' });
   });
+
+  it('inherits the cell style and lets a style replace it', () => {
+    const stylesheet = sheet({
+      paragraph: { cell: plainStyle },
+      table: {
+        table: { cellStyle: n('cell') },
+        'table-b': { basedOn: n('table') },
+        'table-c': { basedOn: n('table'), cellStyle: n('body') },
+      },
+    });
+    expect(resolveTableStyle(stylesheet, n('table-b'))?.cellStyle).toBe('cell');
+    expect(resolveTableStyle(stylesheet, n('table-c'))?.cellStyle).toBe('body');
+  });
 });
 
 describe('resolveTextProps', () => {
@@ -199,6 +212,12 @@ describe('resolveTextProps', () => {
   it('returns undefined for an unknown paragraph style', () => {
     expect(resolveTextProps(stylesheet, n('unknown'), [])).toBeUndefined();
   });
+
+  it('puts the base of a container between the paragraph style and the variants', () => {
+    expect(
+      resolveTextProps(stylesheet, n('body'), [strong], { color: hex('#112233'), italic: true }),
+    ).toEqual({ sizePt: 10, color: hex('#112233'), italic: true, bold: true });
+  });
 });
 
 describe('validateStylesheet', () => {
@@ -207,6 +226,25 @@ describe('validateStylesheet', () => {
 
   it('accepts a stylesheet with the reserved styles', () => {
     expect(validateStylesheet(sheet())).toEqual([]);
+  });
+
+  it('reports a cell style that is not a paragraph style', () => {
+    const stylesheet = sheet({ table: { table: { cellStyle: n('gone') } } });
+    expect(problems(stylesheet)).toEqual([['unknown-cell-style', 'table-styles.table.cell-style']]);
+  });
+
+  it('warns about header properties that the cell style also sets', () => {
+    const stylesheet = sheet({
+      paragraph: { body: { ...plainStyle, text: { sizePt: 10 } } },
+      table: { table: { headerRow: { text: { bold: true, sizePt: 12 } } } },
+    });
+    expect(validateStylesheet(stylesheet)).toEqual([
+      expect.objectContaining({
+        severity: 'warning',
+        code: 'header-property-overridden',
+        path: 'table-styles.table.header-row.size',
+      }),
+    ]);
   });
 
   it('requires the reserved styles', () => {

@@ -135,6 +135,17 @@ describe('validateDocument', () => {
     ]);
   });
 
+  it('checks table cells against the cell style of the table style', () => {
+    const withCellStyle = sheet({
+      paragraph: { 'table-cell': plainStyle },
+      table: { table: { cellStyle: n('table-cell') } },
+    });
+    const cell = table({ header: [{ content: [run('H', strong)] }], rows: [] });
+    expect(validateDocument(documentOf(cell), withCellStyle).map((d) => [d.code, d.path])).toEqual([
+      ['mark-not-allowed', 'blocks[0].header[0]'],
+    ]);
+  });
+
   it('reports unknown styles and character styles', () => {
     const unknownMarker: Mark = { type: 'style', name: n('nope') };
     expect(

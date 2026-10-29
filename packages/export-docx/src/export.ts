@@ -9,10 +9,11 @@ import {
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext } from './content.js';
 import { ListNumbering } from './list-numbering.js';
-import { makeDeterministic } from './package.js';
+import { finishPackage } from './package.js';
 import { RunStyles } from './run-styles.js';
 import { wordStyleId } from './style-ids.js';
-import { checkStyleIds, declaredStyles } from './styles.js';
+import { checkStyleIds, declaredStyles, pageBreakStyles } from './styles.js';
+import { tableStylesXml } from './table-styles.js';
 
 export interface ExportOptions {
   /** Written into the package, so the same inputs give the same bytes. */
@@ -63,6 +64,7 @@ export async function exportDocx(
     ...(authors !== undefined
       ? { creator: authors.join('; '), lastModifiedBy: authors.join('; ') }
       : {}),
+    externalStyles: tableStylesXml(stylesheet),
     styles: {
       paragraphStyles: [...declared.paragraphStyles, ...context.lists.styles()],
       characterStyles: [...declared.characterStyles, ...context.runs.styles()],
@@ -71,5 +73,11 @@ export async function exportDocx(
     sections: [{ children }],
   });
   const packed = new Uint8Array(await Packer.toArrayBuffer(file));
-  return { bytes: makeDeterministic(packed, options.timestamp), diagnostics };
+  return {
+    bytes: finishPackage(packed, {
+      timestamp: options.timestamp,
+      pageBreaks: pageBreakStyles(stylesheet),
+    }),
+    diagnostics,
+  };
 }

@@ -77,6 +77,11 @@ paragraph-styles:
   list-numbered:
     based-on: list-bulleted
 
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
   cover-title:
     based-on: body
     size: 28
@@ -95,6 +100,7 @@ character-styles:
 
 table-styles:
   table:
+    cell-style: table-cell
     border:
       outer: { width: 0.75, color: rule }
       inside-horizontal: { width: 0.5, color: rule }

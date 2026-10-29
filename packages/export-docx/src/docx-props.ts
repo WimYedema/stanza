@@ -20,13 +20,13 @@ type Writable<T> = { -readonly [K in keyof T]: T[K] };
 const twips = (pt: number): number => Math.round(pt * 20);
 
 /** `RRGGBB` for a color value, or undefined when a token is missing. */
-function colorHex(tokens: Tokens, color: ColorValue): string | undefined {
+export function colorHex(tokens: Tokens, color: ColorValue): string | undefined {
   const value = color.kind === 'hex' ? color.hex : tokens.colors.get(color.name);
   return value?.replace(/^#/, '').toUpperCase();
 }
 
 /** DOCX uses the first family of a font. */
-function fontFamily(tokens: Tokens, font: FontValue): string | undefined {
+export function fontFamily(tokens: Tokens, font: FontValue): string | undefined {
   return font.kind === 'families' ? font.families[0] : tokens.fonts.get(font.name)?.[0];
 }
 

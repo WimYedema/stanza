@@ -9,8 +9,12 @@ import type { Block, Document, Inline, List, ListItemBlock, Table } from './docu
 import { numberHeadings } from './heading-numbering.js';
 import type { NodeId } from './ids.js';
 import type { StyleName } from './style-name.js';
-import { resolveParagraphStyle, type ResolvedParagraphStyle } from './style-resolution.js';
-import type { Stylesheet } from './stylesheet.js';
+import {
+  resolveParagraphStyle,
+  resolveTableStyle,
+  type ResolvedParagraphStyle,
+} from './style-resolution.js';
+import { RESERVED_TABLE_STYLE, type Stylesheet } from './stylesheet.js';
 
 /** Kinds of phrase block that the exporters understand. None are defined yet. */
 export const KNOWN_PHRASE_KINDS: readonly string[] = [];
@@ -101,7 +105,12 @@ export function validateDocument(
     }
   };
 
-  const checkTable = (table: Table, path: string, id: NodeId | undefined): void => {
+  const checkTable = (
+    table: Table,
+    path: string,
+    id: NodeId | undefined,
+    cellStyle: StyleName,
+  ): void => {
     const columns = table.header.length;
     if (columns === 0) report('error', 'table-no-columns', 'A table needs a header row.', path, id);
     table.rows.forEach((row, index) => {
@@ -125,11 +134,15 @@ export function validateDocument(
       );
     }
     table.header.forEach((cell, index) => {
-      checkInlines(cell.content, BODY, `${path}.header[${String(index)}]`);
+      checkInlines(cell.content, cellStyle, `${path}.header[${String(index)}]`);
     });
     table.rows.forEach((row, rowIndex) => {
       row.forEach((cell, index) => {
-        checkInlines(cell.content, BODY, `${path}.rows[${String(rowIndex)}][${String(index)}]`);
+        checkInlines(
+          cell.content,
+          cellStyle,
+          `${path}.rows[${String(rowIndex)}][${String(index)}]`,
+        );
       });
     });
   };
@@ -186,7 +199,12 @@ export function validateDocument(
         checkList(block, path, style);
         break;
       case 'table':
-        checkTable(block, path, block.id);
+        checkTable(
+          block,
+          path,
+          block.id,
+          resolveTableStyle(stylesheet, style ?? RESERVED_TABLE_STYLE)?.cellStyle ?? BODY,
+        );
         break;
       case 'code':
         checkNotNumbered(style ?? CODE_STYLE, path, block.id);

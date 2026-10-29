@@ -48,12 +48,57 @@ function renumberBookmarks(files: Files): void {
 }
 
 /**
- * Makes a package a pure function of its content. The library stamps the core properties and the
- * zip entries with the current time and uses random relationship IDs and shared counters, so
- * those are rewritten.
+ * The library cannot write `pageBreakBefore` into a paragraph style, so it is added to the
+ * generated styles. In a style's `pPr` it comes after `pStyle`, `keepNext` and `keepLines`.
  */
-export function makeDeterministic(bytes: Uint8Array, timestamp: Date): Uint8Array {
+function addPageBreaks(files: Files, pageBreaks: ReadonlyMap<string, boolean>): void {
+  const styles = files['word/styles.xml'];
+  if (styles === undefined || pageBreaks.size === 0) return;
+  let text = strFromU8(styles);
+  for (const [id, on] of pageBreaks) {
+    const element = on ? '<w:pageBreakBefore/>' : '<w:pageBreakBefore w:val="0"/>';
+    const style = new RegExp(`(<w:style [^>]*w:styleId="${id}"[^>]*>)(.*?)(</w:style>)`, 's');
+    text = text.replace(style, (_whole, open: string, inner: string, close: string) => {
+      const properties = /<w:pPr>(.*?)<\/w:pPr>/s.exec(inner);
+      if (properties?.[1] !== undefined) {
+        const content = properties[1];
+        const lead =
+          /^(?:<w:pStyle[^>]*\/>)?(?:<w:keepNext[^>]*\/>)?(?:<w:keepLines[^>]*\/>)?/.exec(
+            content,
+          )?.[0];
+        const at = lead?.length ?? 0;
+        const patched = `<w:pPr>${content.slice(0, at)}${element}${content.slice(at)}</w:pPr>`;
+        return `${open}${inner.replace(properties[0], patched)}${close}`;
+      }
+      const empty = '<w:pPr/>';
+      if (inner.includes(empty))
+        return `${open}${inner.replace(empty, `<w:pPr>${element}</w:pPr>`)}${close}`;
+      // A style's `pPr` comes before its `rPr`.
+      const at = inner.search(/<w:rPr>|<w:rPr\/>/);
+      const block = `<w:pPr>${element}</w:pPr>`;
+      const patched = at < 0 ? inner + block : inner.slice(0, at) + block + inner.slice(at);
+      return `${open}${patched}${close}`;
+    });
+  }
+  files['word/styles.xml'] = strToU8(text);
+}
+
+export interface FinishOptions {
+  /** Written into the package, so the same inputs give the same bytes. */
+  readonly timestamp: Date;
+  /** Word style IDs whose own `page-break-before` is set, and its value. */
+  readonly pageBreaks: ReadonlyMap<string, boolean>;
+}
+
+/**
+ * Finishes a package: adds what the library cannot write, and makes it a pure function of its
+ * content. The library stamps the core properties and the zip entries with the current time and
+ * uses random relationship IDs and shared counters, so those are rewritten.
+ */
+export function finishPackage(bytes: Uint8Array, options: FinishOptions): Uint8Array {
+  const { timestamp } = options;
   const files = unzipSync(bytes);
+  addPageBreaks(files, options.pageBreaks);
   const core = files['docProps/core.xml'];
   if (core !== undefined) {
     const iso = timestamp.toISOString();

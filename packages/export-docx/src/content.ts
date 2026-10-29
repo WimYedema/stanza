@@ -2,8 +2,9 @@ import {
   BODY_STYLE,
   CODE_STYLE,
   LIST_STYLES,
+  RESERVED_TABLE_STYLE,
   defaultHeadingStyle,
-  resolveParagraphStyle,
+  resolveTableStyle,
   type Block,
   type CodeBlock,
   type Diagnostic,
@@ -16,11 +17,25 @@ import {
   type Paragraph as ParagraphBlock,
   type StyleName,
   type Stylesheet,
+  type Table as TableBlock,
+  type TableCell as TableCellBlock,
 } from '@phrase/core';
-import { Bookmark, ExternalHyperlink, Paragraph, Tab, TextRun, type ParagraphChild } from 'docx';
+import {
+  Bookmark,
+  ExternalHyperlink,
+  Paragraph,
+  Tab,
+  Table,
+  TableCell,
+  TableLayoutType,
+  TableRow,
+  TextRun,
+  WidthType,
+  type ParagraphChild,
+} from 'docx';
 import { MAX_LIST_LEVEL, type ListNumbering } from './list-numbering.js';
-import type { RunStyles } from './run-styles.js';
-import { wordStyleId } from './style-ids.js';
+import type { RunContext, RunStyles } from './run-styles.js';
+import { wordStyleId, wordStyleName } from './style-ids.js';
 
 export interface BuildContext {
   readonly stylesheet: Stylesheet;
@@ -50,6 +65,7 @@ function inlineChildren(
   content: readonly Inline[],
   style: StyleName,
   context: BuildContext,
+  runContext?: RunContext,
 ): ParagraphChild[] {
   const children: ParagraphChild[] = [];
   let index = 0;
@@ -62,7 +78,7 @@ function inlineChildren(
       (inline) =>
         new TextRun({
           children: textChildren(inline.text),
-          ...context.runs.format(style, inline.marks),
+          ...context.runs.format(style, inline.marks, runContext),
         }),
     );
     if (link === undefined) children.push(...runs);
@@ -81,16 +97,12 @@ function paragraphOf(
   style: StyleName,
   ids: readonly NodeId[],
   children: ParagraphChild[],
-  context: BuildContext,
   numbering?: ListPosition,
 ): Paragraph {
-  const pageBreakBefore = resolveParagraphStyle(context.stylesheet, style)?.paragraph
-    .pageBreakBefore;
   return new Paragraph({
     style: wordStyleId(style),
     children: inBookmarks(ids, children),
     ...(numbering !== undefined ? { numbering: { ...numbering, custom: true } } : {}),
-    ...(pageBreakBefore === true ? { pageBreakBefore } : {}),
   });
 }
 
@@ -115,10 +127,10 @@ function textBlock(
   const content = inlineChildren(block.content, style, context);
   // The number is literal text, not a Word field, and the heading's style formats it.
   const children = label === undefined ? content : [new TextRun(`${label} `), ...content];
-  return paragraphOf(style, idsOf(block), children, context);
+  return paragraphOf(style, idsOf(block), children);
 }
 
-function codeBlock(block: CodeBlock, context: BuildContext): Paragraph {
+function codeBlock(block: CodeBlock): Paragraph {
   const style = block.style ?? CODE_STYLE;
   const runs = block.text
     .split('\n')
@@ -126,7 +138,7 @@ function codeBlock(block: CodeBlock, context: BuildContext): Paragraph {
       (line, index) =>
         new TextRun({ children: textChildren(line), ...(index > 0 ? { break: 1 } : {}) }),
     );
-  return paragraphOf(style, idsOf(block), runs, context);
+  return paragraphOf(style, idsOf(block), runs);
 }
 
 function unsupported(block: Block | ListItemBlock, path: string, context: BuildContext): void {
@@ -179,14 +191,12 @@ function buildList(
     if (first?.type === 'paragraph') {
       const firstStyle = first.style ?? style;
       const children = inlineChildren(first.content, firstStyle, context);
-      paragraphs.push(
-        paragraphOf(firstStyle, [...pending, ...idsOf(first)], children, context, position),
-      );
+      paragraphs.push(paragraphOf(firstStyle, [...pending, ...idsOf(first)], children, position));
       pending = [];
       next = 1;
     } else if (first === undefined || first.type === 'list') {
       // An item that starts with a nested list, or is empty, still has its marker.
-      paragraphs.push(paragraphOf(style, pending, [], context, position));
+      paragraphs.push(paragraphOf(style, pending, [], position));
       pending = [];
     }
     item.blocks.forEach((block, blockIndex) => {
@@ -215,16 +225,92 @@ function continuation(
 ): Paragraph {
   const style = block.style ?? listStyle;
   const children = inlineChildren(block.content, style, context);
-  if (block.style !== undefined) return paragraphOf(block.style, idsOf(block), children, context);
+  if (block.style !== undefined) return paragraphOf(block.style, idsOf(block), children);
   return new Paragraph({
     style: context.lists.continuationStyle(listStyle, level),
     children: inBookmarks(idsOf(block), children),
   });
 }
 
+/** `weight / total` as a percentage with two decimals, the form Word reads for relative widths. */
+function percent(weight: number, total: number): `${number}%` {
+  return `${String(Math.round((weight / total) * 10000) / 100)}%` as `${number}%`;
+}
+
+function tableCell(
+  cell: TableCellBlock,
+  style: StyleName,
+  ids: readonly NodeId[],
+  width: `${number}%` | undefined,
+  context: BuildContext,
+  runContext?: RunContext,
+): TableCell {
+  const children = inBookmarks(ids, inlineChildren(cell.content, style, context, runContext));
+  return new TableCell({
+    ...(width !== undefined ? { width: { size: width, type: WidthType.PERCENTAGE } } : {}),
+    children: [new Paragraph({ style: wordStyleId(style), children })],
+  });
+}
+
+/**
+ * Maps a table. The style's header-row text and background come from its first-row formatting;
+ * header cells format their marks against a base that includes the header text properties.
+ */
+function buildTable(table: TableBlock, context: BuildContext): Table {
+  const styleName = table.style ?? RESERVED_TABLE_STYLE;
+  const resolved = resolveTableStyle(context.stylesheet, styleName);
+  const cellStyle = resolved?.cellStyle ?? BODY_STYLE;
+  const header = resolved?.headerRow;
+  const runContext: RunContext | undefined =
+    header === undefined
+      ? undefined
+      : {
+          id: `${wordStyleId(styleName)}Header`,
+          name: `${wordStyleName(styleName)} Header`,
+          base: header.text,
+        };
+  const total = table.widths?.reduce((sum, weight) => sum + weight, 0);
+  const width = (column: number): `${number}%` | undefined => {
+    const weight = table.widths?.[column];
+    return weight === undefined || total === undefined ? undefined : percent(weight, total);
+  };
+
+  const headerRow = new TableRow({
+    ...(header?.repeat === true ? { tableHeader: true } : {}),
+    cantSplit: true,
+    children: table.header.map((cell, column) =>
+      tableCell(
+        cell,
+        cellStyle,
+        column === 0 ? idsOf(table) : [],
+        width(column),
+        context,
+        runContext,
+      ),
+    ),
+  });
+  const rows = table.rows.map(
+    (row) =>
+      new TableRow({
+        cantSplit: true,
+        children: row.map((cell, column) => tableCell(cell, cellStyle, [], width(column), context)),
+      }),
+  );
+  return new Table({
+    style: wordStyleId(styleName),
+    tableLook: { firstRow: header !== undefined, noHBand: true, noVBand: true },
+    layout: TableLayoutType.AUTOFIT,
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [headerRow, ...rows],
+  });
+}
+
 /** Maps the blocks of a document. Blocks that cannot be mapped yet are reported and left out. */
-export function buildBlocks(blocks: readonly Block[], context: BuildContext): Paragraph[] {
-  const paragraphs: Paragraph[] = [];
+export function buildBlocks(
+  blocks: readonly Block[],
+  context: BuildContext,
+): (Paragraph | Table)[] {
+  const paragraphs: (Paragraph | Table)[] = [];
   blocks.forEach((block, index) => {
     const path = `blocks[${String(index)}]`;
     switch (block.type) {
@@ -233,12 +319,18 @@ export function buildBlocks(blocks: readonly Block[], context: BuildContext): Pa
         paragraphs.push(textBlock(block, context.headingLabels[index], context));
         break;
       case 'code':
-        paragraphs.push(codeBlock(block, context));
+        paragraphs.push(codeBlock(block));
         break;
       case 'list':
         paragraphs.push(...buildList(block, 0, undefined, path, context));
         break;
       case 'table':
+        paragraphs.push(buildTable(block, context));
+        // Word joins two tables that touch, and wants a paragraph after a table at the end.
+        if (blocks[index + 1] === undefined || blocks[index + 1]?.type === 'table') {
+          paragraphs.push(new Paragraph({ style: wordStyleId(BODY_STYLE) }));
+        }
+        break;
       case 'phrase':
         unsupported(block, path, context);
         break;

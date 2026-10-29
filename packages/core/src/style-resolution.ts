@@ -124,8 +124,11 @@ export function resolveTableStyle(
   const headerRow = mergeHeaderRows(result.chain.map((style) => style.headerRow));
   const padding = result.chain.map((style) => style.cellPaddingPt).filter((p) => p !== undefined);
   const cellPaddingPt = padding[padding.length - 1];
+  const cellStyles = result.chain.map((style) => style.cellStyle).filter((s) => s !== undefined);
+  const cellStyle = cellStyles[cellStyles.length - 1];
   return {
     name,
+    ...(cellStyle !== undefined ? { cellStyle } : {}),
     ...(border !== undefined ? { border } : {}),
     ...(headerRow !== undefined ? { headerRow } : {}),
     ...(cellPaddingPt !== undefined ? { cellPaddingPt } : {}),
@@ -142,17 +145,19 @@ export function markAllowed(stylesheet: Stylesheet, style: StyleName, mark: Vari
 }
 
 /**
- * The text properties of a run: the paragraph style's, then the variant of each mark, then each
- * character style. Marks that the paragraph style does not allow add nothing.
+ * The text properties of a run: the paragraph style's, then `base` if given (properties that a
+ * container such as a table header row adds to the paragraph style), then the variant of each
+ * mark, then each character style. Marks that the paragraph style does not allow add nothing.
  */
 export function resolveTextProps(
   stylesheet: Stylesheet,
   paragraphStyle: StyleName,
   marks: readonly Mark[],
+  base: TextProps = {},
 ): TextProps | undefined {
   const paragraph = resolveParagraphStyle(stylesheet, paragraphStyle);
   if (paragraph === undefined) return undefined;
-  let props = paragraph.text;
+  let props = { ...paragraph.text, ...base };
   for (const mark of marks) {
     if (isVariantMark(mark.type)) props = { ...props, ...paragraph.variants[mark.type] };
   }

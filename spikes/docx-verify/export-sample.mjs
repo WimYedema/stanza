@@ -55,6 +55,16 @@ Cover title style
 
 1) A separate numbered list starts at 1 again
 2) Second item
+
+<!-- phrase: #d4e5f6g7h8 .table-grid widths="20 20 60" -->
+| **Name** | *Kind* | Description |
+| --- | --- | --- |
+| **Alpha** | text | A cell with \`code\`, a [link](https://example.com) and a <span class="marker">marker</span> |
+| Beta | number | A short cell |
+
+| Autofit | Table |
+| --- | --- |
+| Columns | follow content |
 `;
 const parsed = parseDocument(source);
 const result = await exportDocx(parsed.document, sheet.stylesheet, { timestamp: new Date() });

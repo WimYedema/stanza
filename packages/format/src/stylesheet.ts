@@ -243,10 +243,12 @@ function readBorder(map: Data, key: string, path: string, report: Report): Borde
 }
 
 function readTableStyle(map: Data, path: string, report: Report): TableStyle {
-  checkKeys(map, ['based-on', 'border', 'header-row', 'cell-padding'], path, report);
+  checkKeys(map, ['based-on', 'cell-style', 'border', 'header-row', 'cell-padding'], path, report);
   const style: Mutable<TableStyle> = {};
   const basedOn = readName(map, 'based-on', path, report);
   if (basedOn !== undefined) style.basedOn = basedOn;
+  const cellStyle = readName(map, 'cell-style', path, report);
+  if (cellStyle !== undefined) style.cellStyle = cellStyle;
 
   if (map['border'] !== undefined) {
     const here = join(path, 'border');

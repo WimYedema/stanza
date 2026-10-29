@@ -74,3 +74,14 @@ export function declaredStyles(stylesheet: Stylesheet): {
     ),
   };
 }
+
+/** The Word styles whose own `page-break-before` is set; the library cannot write it into a style. */
+export function pageBreakStyles(stylesheet: Stylesheet): ReadonlyMap<string, boolean> {
+  return new Map(
+    [...stylesheet.paragraphStyles].flatMap(([name, style]) =>
+      style.paragraph.pageBreakBefore === undefined
+        ? []
+        : [[wordStyleId(name), style.paragraph.pageBreakBefore] as const],
+    ),
+  );
+}
