@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { parseStylesheet } from './stylesheet.js';
 
 const fixture = readFileSync(
-  new URL('../../../fixtures/stylesheet/default.yaml', import.meta.url),
+  new URL('../../../fixtures/example-project/styles/default.yaml', import.meta.url),
   'utf8',
 );
 

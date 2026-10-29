@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseProject } from './project.js';
 
 const fixture = readFileSync(
-  new URL('../../../fixtures/project/phrase.yaml', import.meta.url),
+  new URL('../../../fixtures/example-project/phrase.yaml', import.meta.url),
   'utf8',
 );
 

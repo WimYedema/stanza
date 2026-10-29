@@ -6,7 +6,7 @@ import { parseDocument, parseStylesheet } from '@phrase/format';
 import { exportDocx, type ExportResult } from './export.js';
 
 const STYLESHEET_TEXT = readFileSync(
-  new URL('../../../fixtures/stylesheet/default.yaml', import.meta.url),
+  new URL('../../../fixtures/example-project/styles/default.yaml', import.meta.url),
   'utf8',
 );
 const stylesheet = parseStylesheet(STYLESHEET_TEXT).stylesheet;

@@ -41,4 +41,20 @@ export default tseslint.config(
       'export-docx may import only @phrase/core and no Node built-ins.',
     ),
   },
+  {
+    files: ['packages/project/src/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.testing.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', '!@phrase/format', '!@phrase/export-docx', 'node:*'],
+      'project may import core, format, and export-docx, and no Node built-ins.',
+    ),
+  },
+  {
+    files: ['packages/cli/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', '!@phrase/project'],
+      'cli may import only core and project.',
+    ),
+  },
 );

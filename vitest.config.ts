@@ -7,6 +7,10 @@ export default defineConfig({
     alias: {
       '@phrase/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
       '@phrase/format': fileURLToPath(new URL('./packages/format/src/index.ts', import.meta.url)),
+      '@phrase/export-docx': fileURLToPath(
+        new URL('./packages/export-docx/src/index.ts', import.meta.url),
+      ),
+      '@phrase/project': fileURLToPath(new URL('./packages/project/src/index.ts', import.meta.url)),
     },
   },
   test: {

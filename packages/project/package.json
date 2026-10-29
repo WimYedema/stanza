@@ -1,0 +1,26 @@
+{
+  "name": "@phrase/project",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@phrase/core": "*",
+    "@phrase/export-docx": "*",
+    "@phrase/format": "*"
+  },
+  "devDependencies": {
+    "fflate": "^0.8.3"
+  },
+  "scripts": {
+    "typecheck:tests": "tsc -p tsconfig.test.json"
+  }
+}

@@ -4,7 +4,7 @@ import { exportDocx } from '../../packages/export-docx/dist/index.js';
 import { parseDocument, parseStylesheet } from '../../packages/format/dist/index.js';
 
 // Emphasis in a heading also switches bold off, which a character style cannot express.
-const sheetText = readFileSync(new URL('../../fixtures/stylesheet/default.yaml', import.meta.url), 'utf8')
+const sheetText = readFileSync(new URL('../../fixtures/example-project/styles/default.yaml', import.meta.url), 'utf8')
   .replace(/\r\n/g, '\n')
   .replace('emphasis: { italic: true }\n\n  heading-2', 'emphasis: { italic: true, bold: false }\n\n  heading-2');
 const sheet = parseStylesheet(sheetText);

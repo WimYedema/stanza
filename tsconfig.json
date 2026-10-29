@@ -3,6 +3,8 @@
   "references": [
     { "path": "packages/core" },
     { "path": "packages/format" },
-    { "path": "packages/export-docx" }
+    { "path": "packages/export-docx" },
+    { "path": "packages/project" },
+    { "path": "packages/cli" }
   ]
 }

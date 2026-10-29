@@ -95,7 +95,7 @@ export function validateMetadata(
 }
 
 /** A project-relative path: forward slashes, not absolute, no `..`, not empty. */
-function isSafeRelativePath(path: string): boolean {
+export function isSafeRelativePath(path: string): boolean {
   if (path === '' || path.includes('\\') || path.startsWith('/') || /^[A-Za-z]:/.test(path)) {
     return false;
   }

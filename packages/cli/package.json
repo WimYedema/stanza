@@ -1,0 +1,19 @@
+{
+  "name": "@phrase/cli",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "bin": {
+    "phrase": "./dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@phrase/core": "*",
+    "@phrase/project": "*"
+  },
+  "scripts": {
+    "typecheck:tests": "tsc -p tsconfig.test.json"
+  }
+}

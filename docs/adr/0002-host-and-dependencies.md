@@ -1,6 +1,6 @@
 # ADR 0002: Host environment and dependency policy
 
-Status: Accepted
+Status: Accepted. Package list extended by ADR 0014.
 
 ## Context
 

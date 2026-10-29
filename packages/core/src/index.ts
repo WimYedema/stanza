@@ -29,10 +29,12 @@ export type {
 export { normalizeDocument, normalizeInlines } from './normalize.js';
 export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
+export { collectBlockIds, type BlockId } from './document-ids.js';
 export { numberHeadings, type HeadingNumbers } from './heading-numbering.js';
 export {
   HARDCODED_FIELD_NAMES,
   applyDefaults,
+  isSafeRelativePath,
   validateMetadata,
   validateProjectSettings,
   type FieldDeclaration,

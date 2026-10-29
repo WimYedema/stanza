@@ -5,11 +5,14 @@ import { parseProject } from './project.js';
 import { parseStylesheet } from './stylesheet.js';
 
 const { stylesheet } = parseStylesheet(
-  readFileSync(new URL('../../../fixtures/stylesheet/default.yaml', import.meta.url), 'utf8'),
+  readFileSync(
+    new URL('../../../fixtures/example-project/styles/default.yaml', import.meta.url),
+    'utf8',
+  ),
 );
 
 const { settings } = parseProject(
-  readFileSync(new URL('../../../fixtures/project/phrase.yaml', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../../fixtures/example-project/phrase.yaml', import.meta.url), 'utf8'),
 );
 
 const HEADER = '---\nphrase-format: 1\n---\n\n';
