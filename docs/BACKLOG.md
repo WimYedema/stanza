@@ -31,37 +31,37 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 ## Phase 3: Pipeline (CLI, no editor)
 
 21. [S] - DOCX: code blocks and tables inside list items (continuation indent, table indent and width).
-23. [M] - DOCX: images and captions.
-24. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
-25. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
-26. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
-27. [S] - CLI: validate and build commands, reproducible output (dates from metadata or release).
-28. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
-29. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
-30. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
+23. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
+24. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
+25. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
+26. [S] - CLI: validate and build commands, reproducible output (dates from metadata or release).
+27. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
+28. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
+29. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
 
 ## Phase 4: Collections and references
 
-31. [M] - Project model: multiple documents, shared stylesheet, document order.
-32. [M] - Reference index: resolve, find incoming, find broken. Cross-document references with computed display text.
-33. [M] - Numbering across a project (headings, figures, tables, appendices).
+30. [M] - Project model: multiple documents, shared stylesheet, document order.
+31. [M] - Reference index: resolve, find incoming, find broken. Cross-document references with computed display text.
+32. [M] - Numbering across a project (headings, figures, tables, appendices).
 
 ## Phase 5: Editor and review
 
-34. [S] - Compile the typed stylesheet to scoped browser CSS.
-35. [L] - Tiptap schema and editor adapter: semantic commands, paste normalisation, no direct formatting.
-36. [S] - Unique-ID handling for new nodes in the editor.
-37. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
-38. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
-39. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
-40. [M] - Show imported comments next to the content in the editor.
+33. [S] - Compile the typed stylesheet to scoped browser CSS.
+34. [L] - Tiptap schema and editor adapter: semantic commands, paste normalisation, no direct formatting.
+35. [S] - Unique-ID handling for new nodes in the editor.
+36. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
+37. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
+38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
+39. [M] - Show imported comments next to the content in the editor.
 
 ## Later
 
-41. [L] - PDF adapter (ADR first; Typst is the leading candidate).
-42. [S] - Semantic change summary by stable ID.
-43. [M] - Glossary of referenceable terms.
-44. [M] - Landscape sections.
+40. [L] - PDF adapter (ADR first; Typst is the leading candidate).
+41. [S] - Semantic change summary by stable ID.
+42. [M] - Glossary of referenceable terms.
+43. [M] - Landscape sections.
+44. [L] - Images, captions, and boxes: figures with captions, and boxes (framed or call-out blocks, such as the cover title of ADR 0006) with placement. Needs a design discussion first: box placement and floating content are outside the vision today, so a vision update and an ADR come before any code.
 45. [S] - Table of figures and tables.
 46. [M] - Minimal bibliography with a fixed citation style.
 47. [M] - Browser host (VS Code web or standalone) behind the storage port.
