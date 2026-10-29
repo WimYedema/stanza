@@ -130,6 +130,37 @@ describe('exportDocx', () => {
     expect(stylesXml).not.toContain('<w:pageBreakBefore');
   });
 
+  it('wraps the content of a block that has an ID in a bookmark named after it', async () => {
+    const { documentXml } = await build(`${heading('Title')}Text.\n`);
+    expect(documentXml).toMatch(
+      /<w:p><w:pPr><w:pStyle w:val="Heading1"\/><\/w:pPr><w:bookmarkStart [^>]*w:name="phrase_k7m2q9x4zb"[^>]*w:id="1"[^>]*\/><w:r>.*<\/w:r><w:bookmarkEnd w:id="1"\/><\/w:p>/,
+    );
+    expect(documentXml.match(/<w:bookmarkStart /g)).toHaveLength(1);
+  });
+
+  it('names bookmarks so that they start with a letter, and numbers them in document order', async () => {
+    const { documentXml } = await build(
+      '<!-- phrase: #0123456789 -->\n# First\n\n<!-- phrase: #a1b2c3d4e5 -->\nA paragraph.\n\n<!-- phrase: #zzzzzzzzzz -->\n## Third\n',
+    );
+    const starts = [...documentXml.matchAll(/<w:bookmarkStart [^>]*>/g)].map((m) => m[0]);
+    expect(starts).toHaveLength(3);
+    expect(starts[0]).toContain('w:name="phrase_0123456789"');
+    expect(starts[1]).toContain('w:name="phrase_a1b2c3d4e5"');
+    expect(starts.map((tag) => /w:id="(\d+)"/.exec(tag)?.[1])).toEqual(['1', '2', '3']);
+    expect(documentXml.match(/<w:bookmarkEnd w:id="[123]"\/>/g)).toHaveLength(3);
+  });
+
+  it('restarts bookmark numbers in every export', async () => {
+    await build(heading('One'));
+    const { documentXml } = await build(heading('Two'));
+    expect(documentXml).toMatch(/<w:bookmarkStart [^>]*w:id="1"/);
+  });
+
+  it('writes no bookmark for a block without an ID', async () => {
+    const { documentXml } = await build('Text.\n');
+    expect(documentXml).not.toContain('bookmark');
+  });
+
   it('writes the title and authors into the core properties', async () => {
     const { coreXml } = await build(
       'Text.\n',

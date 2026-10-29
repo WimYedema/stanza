@@ -7,11 +7,12 @@ import {
   type Heading,
   type Inline,
   type LinkMark,
+  type NodeId,
   type Paragraph as ParagraphBlock,
   type StyleName,
   type Stylesheet,
 } from '@phrase/core';
-import { ExternalHyperlink, Paragraph, Tab, TextRun, type ParagraphChild } from 'docx';
+import { Bookmark, ExternalHyperlink, Paragraph, Tab, TextRun, type ParagraphChild } from 'docx';
 import type { RunStyles } from './run-styles.js';
 import { wordStyleId } from './style-ids.js';
 
@@ -64,8 +65,14 @@ function inlineChildren(
   return children;
 }
 
+/** Word bookmark names must start with a letter, and IDs can start with a digit. */
+export function bookmarkName(id: NodeId): string {
+  return `phrase_${id}`;
+}
+
 function paragraphOf(
   style: StyleName,
+  id: NodeId | undefined,
   children: ParagraphChild[],
   context: BuildContext,
 ): Paragraph {
@@ -73,7 +80,7 @@ function paragraphOf(
     .pageBreakBefore;
   return new Paragraph({
     style: wordStyleId(style),
-    children,
+    children: id === undefined ? children : [new Bookmark({ id: bookmarkName(id), children })],
     ...(pageBreakBefore === true ? { pageBreakBefore } : {}),
   });
 }
@@ -81,7 +88,7 @@ function paragraphOf(
 function textBlock(block: Heading | ParagraphBlock, context: BuildContext): Paragraph {
   const style =
     block.style ?? (block.type === 'heading' ? styleName(`heading-${String(block.level)}`) : BODY);
-  return paragraphOf(style, inlineChildren(block.content, style, context), context);
+  return paragraphOf(style, block.id, inlineChildren(block.content, style, context), context);
 }
 
 function codeBlock(block: CodeBlock, context: BuildContext): Paragraph {
@@ -92,7 +99,7 @@ function codeBlock(block: CodeBlock, context: BuildContext): Paragraph {
       (line, index) =>
         new TextRun({ children: textChildren(line), ...(index > 0 ? { break: 1 } : {}) }),
     );
-  return paragraphOf(style, runs, context);
+  return paragraphOf(style, block.id, runs, context);
 }
 
 /** Maps the blocks of a document. Blocks that cannot be mapped yet are reported and left out. */

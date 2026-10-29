@@ -31,9 +31,26 @@ function renumberRelationships(files: Files): void {
   }
 }
 
+/** The library numbers bookmarks from a counter shared by every export; they restart at 1. */
+function renumberBookmarks(files: Files): void {
+  const document = files['word/document.xml'];
+  if (document === undefined) return;
+  const numbers = new Map<string, number>();
+  const text = strFromU8(document).replace(
+    /<w:bookmark(Start|End)\b[^>]*>/g,
+    (tag: string, kind: string) =>
+      tag.replace(/ w:id="(\d+)"/, (_whole, id: string) => {
+        if (kind === 'Start' && !numbers.has(id)) numbers.set(id, numbers.size + 1);
+        return ` w:id="${String(numbers.get(id) ?? id)}"`;
+      }),
+  );
+  files['word/document.xml'] = strToU8(text);
+}
+
 /**
  * Makes a package a pure function of its content. The library stamps the core properties and the
- * zip entries with the current time and uses random relationship IDs, so those are rewritten.
+ * zip entries with the current time and uses random relationship IDs and shared counters, so
+ * those are rewritten.
  */
 export function makeDeterministic(bytes: Uint8Array, timestamp: Date): Uint8Array {
   const files = unzipSync(bytes);
@@ -48,6 +65,7 @@ export function makeDeterministic(bytes: Uint8Array, timestamp: Date): Uint8Arra
     );
   }
   renumberRelationships(files);
+  renumberBookmarks(files);
   // Zip entry times are local wall-clock values, so the UTC fields are used as such.
   const mtime = new Date(
     timestamp.getUTCFullYear(),

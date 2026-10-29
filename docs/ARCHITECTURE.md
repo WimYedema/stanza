@@ -361,6 +361,7 @@ Accepted:
 - ADR 0006: typed stylesheet.
 - ADR 0007: project file and metadata declarations.
 - ADR 0008: DOCX export mapping.
+- ADR 0009: DOCX bookmarks.
 
 Still to capture:
 
