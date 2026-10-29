@@ -27,7 +27,7 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 
 17. [S] - DOCX: bookmarks named after node IDs on referenceable nodes.
 18. [M] - DOCX: lists and literal heading numbering.
-19. [M] - DOCX: tables.
+19. [M] - DOCX: tables. Also write styles as XML through `externalStyles` (table styles need it), and use that to put `page-break-before` into paragraph styles, replacing the per-paragraph workaround of ADR 0008 (new ADR, since 0008 is accepted).
 20. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters.
 21. [M] - DOCX: images and captions.
 22. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
