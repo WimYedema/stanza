@@ -10,6 +10,8 @@ export interface MemoryStorage extends ProjectStorage {
   readonly reads: string[];
   /** Everything written, by path. */
   readonly written: Map<string, Uint8Array>;
+  /** Text files written, by path. */
+  readonly texts: Map<string, string>;
 }
 
 /** A project in memory. Paths in `unreadable` exist but fail to read. */
@@ -19,10 +21,12 @@ export function memoryStorage(
 ): MemoryStorage {
   const reads: string[] = [];
   const written = new Map<string, Uint8Array>();
+  const texts = new Map<string, string>();
   const paths = Object.keys(files);
   return {
     reads,
     written,
+    texts,
     readText(path): Promise<string> {
       reads.push(path);
       const text = files[path];
@@ -47,6 +51,10 @@ export function memoryStorage(
       written.set(path, content);
       return Promise.resolve();
     },
+    writeText(path, text): Promise<void> {
+      texts.set(path, text);
+      return Promise.resolve();
+    },
   };
 }
 
@@ -58,6 +66,8 @@ export function exampleProject(): Record<string, string> {
     if (!entry.isFile()) continue;
     const absolute = join(entry.parentPath, entry.name);
     const path = relative(root, absolute).split(sep).join('/');
+    // A build of the fixture may have left output behind.
+    if (path.startsWith('build/')) continue;
     files[path] = readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n');
   }
   return files;

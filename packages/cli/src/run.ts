@@ -1,8 +1,11 @@
-import { resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { isSafeRelativePath } from '@phrase/core';
 import {
+  DOCUMENT_SUFFIX,
   buildProject,
+  formatDocuments,
+  formatProject,
   hasErrors,
   loadProject,
   type ProjectDiagnostic,
@@ -24,18 +27,25 @@ const USAGE = `Usage: phrase <command> [project] [options]
 Commands:
   validate [project]   Check the project and report problems.
   build [project]      Check the project and write one DOCX file per document.
+  format [path]        Rewrite documents in canonical form. The path is a project, or a
+                       single ${DOCUMENT_SUFFIX} file. A document that holds something the
+                       model cannot keep is reported and left as it is.
 
 Options for build:
   --out <dir>          Output directory, relative to the project (default: build).
   --date <date>        The date written into the files, as YYYY-MM-DD or with a time and
                        zone. The default is 1980-01-01, so that output is always the same.
 
+Options for format:
+  --check              Write nothing; list the documents that are not canonical.
+
 Other options:
   -h, --help           Show this help.
   -v, --version        Show the versions of phrase and of the DOCX library.
 
 The project is a directory with a phrase.yaml file; the default is the current directory.
-Exit codes: 0 no errors, 1 errors in the project, 2 wrong usage or a file that cannot be read.
+Exit codes: 0 no errors, 1 errors in the project (or, with --check, documents that are not
+canonical), 2 wrong usage or a file that cannot be read.
 `;
 
 /** The earliest date the zip format can hold, used when no date is given. */
@@ -86,6 +96,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       options: {
         out: { type: 'string' },
         date: { type: 'string' },
+        check: { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -104,16 +115,40 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   }
 
   const [command, project = '.', ...extra] = positionals;
-  if (command !== 'validate' && command !== 'build') {
+  if (command !== 'validate' && command !== 'build' && command !== 'format') {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
   }
   if (extra.length > 0) return usage(`unexpected argument "${extra.join(' ')}".`);
-  if (command === 'validate' && (values.out !== undefined || values.date !== undefined)) {
+  if (command !== 'build' && (values.out !== undefined || values.date !== undefined)) {
     return usage('--out and --date apply to build only.');
   }
+  if (command !== 'format' && values.check === true) {
+    return usage('--check applies to format only.');
+  }
 
-  const root = resolve(io.cwd, project);
-  const storage = (io.openStorage ?? nodeStorage)(root);
+  const open = io.openStorage ?? nodeStorage;
+
+  if (command === 'format') {
+    const target = resolve(io.cwd, project);
+    const options = { check: values.check === true };
+    const result = project.endsWith(DOCUMENT_SUFFIX)
+      ? await formatDocuments(open(dirname(target)), [basename(target)], options)
+      : await formatProject(open(target), options);
+    const word = options.check ? 'not canonical' : 'reformatted';
+    const count = (status: string): number =>
+      result.files.filter((f) => f.status === status).length;
+    for (const file of result.files) {
+      if (file.status === 'changed') io.stdout(`${word} ${file.path}\n`);
+    }
+    io.stdout(result.diagnostics.map(formatDiagnostic).join(''));
+    io.stdout(
+      `Checked ${plural(result.files.length, 'document')}: ${String(count('changed'))} ${word}, ${String(count('refused'))} refused.\n`,
+    );
+    if (result.diagnostics.some((d) => d.code === 'file-unreadable')) return 2;
+    return count('refused') > 0 || (options.check && count('changed') > 0) ? 1 : 0;
+  }
+
+  const storage = open(resolve(io.cwd, project));
 
   if (command === 'validate') {
     const loaded = await loadProject(storage);

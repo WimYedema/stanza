@@ -7,10 +7,8 @@ import {
 } from '@phrase/core';
 import { checkDocumentText, parseProject, parseStylesheet } from '@phrase/format';
 import { hasErrors, inFile, type ProjectDiagnostic } from './diagnostics.js';
+import { DOCUMENT_SUFFIX, PROJECT_FILE, findDocuments, readText } from './files.js';
 import type { ProjectStorage } from './storage.js';
-
-export const PROJECT_FILE = 'phrase.yaml';
-export const DOCUMENT_SUFFIX = '.phrase.md';
 
 export interface LoadedDocument {
   /** Relative to the project root, with `/` separators. */
@@ -26,41 +24,6 @@ export interface LoadedProject {
   /** Empty until the project file and the stylesheet are in order. */
   readonly documents: readonly LoadedDocument[];
   readonly diagnostics: readonly ProjectDiagnostic[];
-}
-
-async function readText(
-  storage: ProjectStorage,
-  file: string,
-  diagnostics: ProjectDiagnostic[],
-): Promise<string | undefined> {
-  try {
-    return await storage.readText(file);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    diagnostics.push({
-      file,
-      severity: 'error',
-      code: 'file-unreadable',
-      message: `Cannot read the file: ${reason}`,
-    });
-    return undefined;
-  }
-}
-
-/** Hidden directories and `node_modules` hold no documents. */
-const skipped = (name: string): boolean => name.startsWith('.') || name === 'node_modules';
-
-async function findDocuments(
-  storage: ProjectStorage,
-  directory: string,
-  found: string[],
-): Promise<void> {
-  for (const entry of await storage.list(directory)) {
-    if (skipped(entry.name)) continue;
-    const path = directory === '' ? entry.name : `${directory}/${entry.name}`;
-    if (entry.directory) await findDocuments(storage, path, found);
-    else if (entry.name.endsWith(DOCUMENT_SUFFIX)) found.push(path);
-  }
 }
 
 /** IDs are unique across the project (ADR 0001); repeats within one document are checked there. */
@@ -113,9 +76,7 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
   if (hasErrors(parsedStylesheet.diagnostics)) return stopped(settings);
   const { stylesheet } = parsedStylesheet;
 
-  const paths: string[] = [];
-  await findDocuments(storage, '', paths);
-  paths.sort();
+  const paths = await findDocuments(storage);
   if (paths.length === 0) {
     diagnostics.push({
       file: PROJECT_FILE,

@@ -1,6 +1,6 @@
 # ADR 0003: Editor state and the domain model
 
-Status: Accepted
+Status: Accepted. The `format` command: ADR 0015.
 
 ## Context
 

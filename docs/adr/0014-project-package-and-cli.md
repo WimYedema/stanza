@@ -1,6 +1,6 @@
 # ADR 0014: Project package and command line
 
-Status: Accepted
+Status: Accepted. The storage port gains `writeText` and the CLI gains `format`: ADR 0015.
 
 ## Context
 

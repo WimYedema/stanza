@@ -16,4 +16,6 @@ export interface ProjectStorage {
   list(directory: string): Promise<readonly DirectoryEntry[]>;
   /** Writes a file, creating missing directories. */
   writeFile(path: string, content: Uint8Array): Promise<void>;
+  /** Writes a text file as UTF-8, creating missing directories. */
+  writeText(path: string, text: string): Promise<void>;
 }

@@ -1,7 +1,8 @@
 import { applyDefaults, isSafeRelativePath } from '@phrase/core';
 import { exportDocx } from '@phrase/export-docx';
 import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './diagnostics.js';
-import { DOCUMENT_SUFFIX, loadProject } from './load.js';
+import { DOCUMENT_SUFFIX } from './files.js';
+import { loadProject } from './load.js';
 import type { ProjectStorage } from './storage.js';
 
 export interface BuildOptions {

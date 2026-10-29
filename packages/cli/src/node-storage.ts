@@ -25,5 +25,10 @@ export function nodeStorage(root: string): ProjectStorage {
       await mkdir(dirname(file), { recursive: true });
       await writeFile(file, content);
     },
+    async writeText(path, text): Promise<void> {
+      const file = locate(path);
+      await mkdir(dirname(file), { recursive: true });
+      await writeFile(file, text, 'utf8');
+    },
   };
 }

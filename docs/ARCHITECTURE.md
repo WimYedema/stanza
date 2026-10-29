@@ -87,8 +87,8 @@ packages/
   core/          domain model, styles, references, validation; no dependencies
   format/        Markdown parser and serializer (ADR 0001)
   export-docx/   DOCX adapter
-  project/       project storage port, loading, validation and building (ADR 0014)
-  cli/           validate and build commands, and later format (Node)
+  project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
+  cli/           validate, build and format commands (Node)
   editor/        Tiptap integration and conversion to and from the domain model
   vscode/        VS Code extension: custom text editor, diagnostics, commands
 ```
@@ -368,6 +368,7 @@ Accepted:
 - ADR 0012: DOCX tables and page breaks in styles.
 - ADR 0013: code blocks and tables in list items.
 - ADR 0014: project package and command line.
+- ADR 0015: the format command.
 
 Still to capture:
 

@@ -29,13 +29,13 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 22. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters. The dialect half was done with item 10; the exporter half was done with item 20.
 21. [S] - DOCX: code blocks and tables inside list items (continuation indent, table indent and width).
 26. [S] - CLI: validate and build commands, reproducible output (dates from metadata or release). The date comes from `--date`, with a fixed placeholder until the build info item.
+27. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
 23. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
 24. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
 25. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
-27. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
 28. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
 29. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
 

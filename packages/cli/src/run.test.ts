@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { run } from './run.js';
@@ -10,7 +10,19 @@ const EXAMPLE = fileURLToPath(new URL('../../../fixtures/example-project/', impo
 let work: string;
 beforeEach(() => {
   work = mkdtempSync(join(tmpdir(), 'phrase-cli-'));
-  cpSync(EXAMPLE, join(work, 'project'), { recursive: true });
+  const project = join(work, 'project');
+  // A build of the fixture may have left a build directory behind.
+  cpSync(EXAMPLE, project, { recursive: true, filter: (source) => basename(source) !== 'build' });
+  // A working copy on Windows may have CRLF, and a canonical project has LF.
+  for (const file of [
+    'phrase.yaml',
+    'styles/default.yaml',
+    'documents/introduction.phrase.md',
+    'documents/reference.phrase.md',
+  ]) {
+    const path = join(project, ...file.split('/'));
+    writeFileSync(path, readFileSync(path, 'utf8').replace(/\r\n/g, '\n'));
+  }
 });
 afterEach(() => {
   rmSync(work, { recursive: true, force: true });
@@ -124,6 +136,74 @@ describe('phrase build', () => {
   });
 });
 
+describe('phrase format', () => {
+  const crlf = (...path: string[]): void => {
+    const file = join(work, ...path);
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/\n/g, '\r\n'));
+  };
+  const introduction = join('project', 'documents', 'introduction.phrase.md');
+
+  it('leaves the example project as it is', async () => {
+    const before = bytesOf(introduction);
+    const result = await phrase('format', 'project');
+    expect(result.code).toBe(0);
+    expect(result.out).toBe('Checked 2 documents: 0 reformatted, 0 refused.\n');
+    expect(bytesOf(introduction).equals(before)).toBe(true);
+  });
+
+  it('rewrites a document that is not canonical, once', async () => {
+    const canonical = bytesOf(introduction);
+    crlf(introduction);
+    const result = await phrase('format', 'project');
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('reformatted documents/introduction.phrase.md\n');
+    expect(result.out).toContain('Checked 2 documents: 1 reformatted, 0 refused.');
+    expect(bytesOf(introduction).equals(canonical)).toBe(true);
+    expect((await phrase('format', 'project')).out).toContain('0 reformatted');
+  });
+
+  it('with --check, lists the documents that are not canonical, writes nothing, and exits with 1', async () => {
+    crlf(introduction);
+    const before = bytesOf(introduction);
+    const result = await phrase('format', 'project', '--check');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('not canonical documents/introduction.phrase.md\n');
+    expect(result.out).toContain('Checked 2 documents: 1 not canonical, 0 refused.');
+    expect(bytesOf(introduction).equals(before)).toBe(true);
+    expect((await phrase('format', 'project', '--check')).code).toBe(1);
+  });
+
+  it('exits with 0 when checking a canonical project', async () => {
+    expect((await phrase('format', 'project', '--check')).code).toBe(0);
+  });
+
+  it('refuses a document with something the model cannot keep, and leaves it as it was', async () => {
+    const file = join(work, 'project', 'documents', 'html.phrase.md');
+    writeFileSync(file, '---\nphrase-format: 1\n---\n\n<div>raw</div>\n');
+    const before = readFileSync(file);
+    const result = await phrase('format', 'project');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('documents/html.phrase.md:5: warning html-unsupported: ');
+    expect(result.out).toContain('Checked 3 documents: 0 reformatted, 1 refused.');
+    expect(readFileSync(file).equals(before)).toBe(true);
+  });
+
+  it('formats a single document, which needs no project file', async () => {
+    const file = join(work, 'solo.phrase.md');
+    writeFileSync(file, '---\r\nphrase-format: 1\r\n---\r\n\r\n* one\r\n');
+    const result = await phrase('format', 'solo.phrase.md');
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('reformatted solo.phrase.md\n');
+    expect(readFileSync(file, 'utf8')).toBe('---\nphrase-format: 1\n---\n\n- one\n');
+  });
+
+  it('exits with 2 when the document cannot be read', async () => {
+    const result = await phrase('format', 'missing.phrase.md');
+    expect(result.code).toBe(2);
+    expect(result.out).toContain('missing.phrase.md: error file-unreadable: ');
+  });
+});
+
 describe('phrase usage', () => {
   it('shows help and the versions', async () => {
     const help = await phrase('--help');
@@ -140,6 +220,9 @@ describe('phrase usage', () => {
     [['validate', 'a', 'b'], 'unexpected argument "b"'],
     [['validate', '--nope'], 'nope'],
     [['validate', '--out', 'x'], '--out and --date apply to build only'],
+    [['format', '--date', '2026-03-04'], '--out and --date apply to build only'],
+    [['build', '--check'], '--check applies to format only'],
+    [['validate', '--check'], '--check applies to format only'],
     [['build', '--date', '2026-13-45'], '--date must be'],
     [['build', '--date', '2026-03-04T10:00'], '--date must be'],
     [['build', '--date', '1979-12-31'], '--date must be'],
