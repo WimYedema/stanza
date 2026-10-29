@@ -15,10 +15,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 7. [S] - ADR: host environment (VS Code extension first, browser later) and dependency policy, including whether Pandoc is allowed in the product.
 8. [S] - ADR: editor state versus domain model (convert at save and load). Update the architecture document: Markdown storage, remove the Tiptap conversion idea, add the VS Code host.
 9. [S] - Repository scaffold: strict TypeScript, test runner, lint, and a package boundary so the domain imports nothing else.
+10. [M] - Domain document model, Markdown parser and serializer, deterministic round-trip tests.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-10. [M] - Domain document model, Markdown parser and serializer, deterministic round-trip tests.
 11. [S] - Tooling to assign missing IDs without changing unrelated content.
 12. [M] - Typed stylesheet: named paragraph, character, and table styles, inheritance, contextual variants, user-defined character styles, cycle and missing-base diagnostics.
 13. [S] - Validation and diagnostics model: unknown style, missing variant, unsupported or direct formatting, broken reference.
@@ -36,29 +36,30 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 25. [S] - CLI: validate and build commands, reproducible output (dates from metadata or release).
 26. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
 27. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
+28. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
 
 ## Phase 4: Collections and references
 
-28. [M] - Project model: multiple documents, shared stylesheet, document order.
-29. [M] - Reference index: resolve, find incoming, find broken. Cross-document references with computed display text.
-30. [M] - Numbering across a project (headings, figures, tables, appendices).
+29. [M] - Project model: multiple documents, shared stylesheet, document order.
+30. [M] - Reference index: resolve, find incoming, find broken. Cross-document references with computed display text.
+31. [M] - Numbering across a project (headings, figures, tables, appendices).
 
 ## Phase 5: Editor and review
 
-31. [S] - Compile the typed stylesheet to scoped browser CSS.
-32. [L] - Tiptap schema and editor adapter: semantic commands, paste normalisation, no direct formatting.
-33. [S] - Unique-ID handling for new nodes in the editor.
-34. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
-35. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
-36. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
-37. [M] - Show imported comments next to the content in the editor.
+32. [S] - Compile the typed stylesheet to scoped browser CSS.
+33. [L] - Tiptap schema and editor adapter: semantic commands, paste normalisation, no direct formatting.
+34. [S] - Unique-ID handling for new nodes in the editor.
+35. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
+36. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
+37. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
+38. [M] - Show imported comments next to the content in the editor.
 
 ## Later
 
-38. [L] - PDF adapter (ADR first; Typst is the leading candidate).
-39. [S] - Semantic change summary by stable ID.
-40. [M] - Glossary of referenceable terms.
-41. [M] - Landscape sections.
-42. [S] - Table of figures and tables.
-43. [M] - Minimal bibliography with a fixed citation style.
-44. [M] - Browser host (VS Code web or standalone) behind the storage port.
+39. [L] - PDF adapter (ADR first; Typst is the leading candidate).
+40. [S] - Semantic change summary by stable ID.
+41. [M] - Glossary of referenceable terms.
+42. [M] - Landscape sections.
+43. [S] - Table of figures and tables.
+44. [M] - Minimal bibliography with a fixed citation style.
+45. [M] - Browser host (VS Code web or standalone) behind the storage port.

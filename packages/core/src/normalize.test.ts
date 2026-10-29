@@ -43,11 +43,22 @@ describe('normalizeInlines', () => {
   });
 
   it('moves edge whitespace out of marked runs', () => {
-    expect(normalizeInlines([run(' bold ', strong)])).toEqual([
-      run(' '),
+    expect(normalizeInlines([run('x'), run(' bold ', strong), run('y')])).toEqual([
+      run('x '),
       run('bold', strong),
-      run(' '),
+      run(' y'),
     ]);
+  });
+
+  it('trims whitespace at the edges of the block', () => {
+    expect(normalizeInlines([run(' a '), run(' b ', strong), run(' ')])).toEqual([
+      run('a  '),
+      run('b', strong),
+    ]);
+  });
+
+  it('replaces line breaks with spaces', () => {
+    expect(normalizeInlines([run('a\nb\r\nc')])).toEqual([run('a b c')]);
   });
 
   it('merges moved whitespace into neighbouring plain text', () => {
@@ -64,6 +75,18 @@ describe('normalizeInlines', () => {
 
   it('leaves whitespace inside marked runs alone', () => {
     expect(normalizeInlines([run('a b', strong)])).toEqual([run('a b', strong)]);
+  });
+
+  it('keeps whitespace inside a span made of several runs', () => {
+    const input = [run('b ', strong), run('c', strong, emphasis), run(' d', strong)];
+    expect(normalizeInlines(input)).toEqual(input);
+  });
+
+  it('moves the leading whitespace of a nested span out to the enclosing span', () => {
+    expect(normalizeInlines([run('a', strong), run(' b', strong, emphasis)])).toEqual([
+      run('a ', strong),
+      run('b', strong, emphasis),
+    ]);
   });
 
   it('is idempotent', () => {

@@ -13,7 +13,9 @@
     "dist"
   ],
   "dependencies": {
-    "@phrase/core": "*"
+    "@phrase/core": "*",
+    "markdown-it": "^15.0.3",
+    "yaml": "^2.9.1"
   },
   "scripts": {
     "typecheck:tests": "tsc -p tsconfig.test.json"

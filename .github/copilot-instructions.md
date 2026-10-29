@@ -106,6 +106,7 @@ This file is intended as the source for concise repository-level Copilot instruc
 - Every persisted-format change requires a format-version decision and migration test.
 - Never auto-resolve Git conflict markers as document content.
 - Keep generated outputs, caches, previews, and temporary files out of source control by default.
+- Accepted ADRs are not rewritten. Record a change in a new ADR that refers to the old one; the old one's status line may point to it.
 
 ## Efficient Copilot usage
 
