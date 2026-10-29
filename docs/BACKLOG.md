@@ -26,40 +26,42 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-18. [M] - DOCX: lists and literal heading numbering.
-19. [M] - DOCX: tables. Also write styles as XML through `externalStyles` (table styles need it), and use that to put `page-break-before` into paragraph styles, replacing the per-paragraph workaround of ADR 0008 (new ADR, since 0008 is accepted).
-20. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters.
-21. [M] - DOCX: images and captions.
-22. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
-23. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
-24. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
-25. [S] - CLI: validate and build commands, reproducible output (dates from metadata or release).
-26. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
-27. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
-28. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
+18. [M] - DOCX: lists (bulleted and numbered, nested, several paragraphs per item) with fixed Word numbering definitions generated from the list styles.
+19. [M] - Heading numbering: hierarchical decimal numbers computed in `core` from a `numbered` style property, written as literal text in the DOCX export.
+20. [M] - DOCX: tables. Also write styles as XML through `externalStyles` (table styles need it), and use that to put `page-break-before` into paragraph styles, replacing the per-paragraph workaround of ADR 0008 (new ADR, since 0008 is accepted).
+21. [S] - DOCX: code blocks inside list items (continuation indent).
+22. [S] - Table column widths: autofit by default, optional relative weights attribute, in the dialect and the exporters.
+23. [M] - DOCX: images and captions.
+24. [M] - Page templates, header and footer slots with tokens (including classification), page numbers.
+25. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
+26. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
+27. [S] - CLI: validate and build commands, reproducible output (dates from metadata or release).
+28. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
+29. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
+30. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
 
 ## Phase 4: Collections and references
 
-29. [M] - Project model: multiple documents, shared stylesheet, document order.
-30. [M] - Reference index: resolve, find incoming, find broken. Cross-document references with computed display text.
-31. [M] - Numbering across a project (headings, figures, tables, appendices).
+31. [M] - Project model: multiple documents, shared stylesheet, document order.
+32. [M] - Reference index: resolve, find incoming, find broken. Cross-document references with computed display text.
+33. [M] - Numbering across a project (headings, figures, tables, appendices).
 
 ## Phase 5: Editor and review
 
-32. [S] - Compile the typed stylesheet to scoped browser CSS.
-33. [L] - Tiptap schema and editor adapter: semantic commands, paste normalisation, no direct formatting.
-34. [S] - Unique-ID handling for new nodes in the editor.
-35. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
-36. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
-37. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
-38. [M] - Show imported comments next to the content in the editor.
+34. [S] - Compile the typed stylesheet to scoped browser CSS.
+35. [L] - Tiptap schema and editor adapter: semantic commands, paste normalisation, no direct formatting.
+36. [S] - Unique-ID handling for new nodes in the editor.
+37. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
+38. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
+39. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
+40. [M] - Show imported comments next to the content in the editor.
 
 ## Later
 
-39. [L] - PDF adapter (ADR first; Typst is the leading candidate).
-40. [S] - Semantic change summary by stable ID.
-41. [M] - Glossary of referenceable terms.
-42. [M] - Landscape sections.
-43. [S] - Table of figures and tables.
-44. [M] - Minimal bibliography with a fixed citation style.
-45. [M] - Browser host (VS Code web or standalone) behind the storage port.
+41. [L] - PDF adapter (ADR first; Typst is the leading candidate).
+42. [S] - Semantic change summary by stable ID.
+43. [M] - Glossary of referenceable terms.
+44. [M] - Landscape sections.
+45. [S] - Table of figures and tables.
+46. [M] - Minimal bibliography with a fixed citation style.
+47. [M] - Browser host (VS Code web or standalone) behind the storage port.
