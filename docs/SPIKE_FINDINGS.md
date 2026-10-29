@@ -42,6 +42,18 @@ Backlog items 1 to 4. Corpus: one real policy document (11 pages, 9 tables, 33 c
 
 Variant D is the design: entries are always visible, and page numbers are correct once fields are updated. The prompt is accepted.
 
+## `docx` library verification
+
+`spikes/docx-verify/verify.mjs` generates a document with `docx` 9.15 and checks the XML (16 checks pass). Every capability backlog item 15 asked about is covered:
+
+- **Table styles:** a table takes a style by ID (`style`), and `tableLook` switches on the first-row formatting. The library has no declarative API for defining a table style. The definition comes in as a `w:styles` XML string through `externalStyles`, which the adapter generates from the typed stylesheet. Paragraph and character styles given declaratively replace external styles with the same ID, so there is one definition.
+- **Autofit and relative widths:** `layout: AUTOFIT`, percentage table width, percentage cell widths, and an explicit grid in twips are all written as given.
+- **Repeated header rows:** `tableHeader` writes `w:tblHeader`.
+- **TOC with cached entries:** `cachedEntries` writes the field with visible entries, each linked to a bookmark by name.
+- **Bookmarks:** names are free text and IDs are unique. Word requires a bookmark name to start with a letter, and our IDs can start with a digit, so names are prefixed (`phrase_<id>`).
+
+Not checked by the script: that Word opens the file without a repair prompt and shows the table style and TOC as intended. The output is in `spikes/out/docx-verify.docx` for a manual look.
+
 ## Pandoc observations
 
 Relevant to the Pandoc decision (ADR 0002):

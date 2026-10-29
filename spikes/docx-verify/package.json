@@ -1,0 +1,10 @@
+{
+  "name": "docx-verify",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway spike for backlog item 15: does the docx library cover our needs?",
+  "dependencies": {
+    "docx": "^9.15.0",
+    "jszip": "^3.10.1"
+  }
+}
