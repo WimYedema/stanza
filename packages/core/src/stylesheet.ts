@@ -147,7 +147,16 @@ export interface Stylesheet {
   readonly tableStyles: ReadonlyMap<StyleName, TableStyle>;
   /** Named page templates, keyed like styles. May be empty (ADR 0016). */
   readonly pageTemplates: ReadonlyMap<StyleName, PageTemplate>;
+  readonly tableOfContents: TableOfContentsOptions;
 }
+
+/** How tables of contents are written (ADR 0018). */
+export interface TableOfContentsOptions {
+  /** With page numbers a TOC is a Word field that Word asks to update; without, it is plain text. */
+  readonly pageNumbers: boolean;
+}
+
+export const DEFAULT_TABLE_OF_CONTENTS: TableOfContentsOptions = { pageNumbers: true };
 
 function styleName(value: string): StyleName {
   if (!isStyleName(value)) throw new Error(`Invalid style name "${value}".`);

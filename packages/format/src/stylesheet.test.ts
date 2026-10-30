@@ -171,6 +171,23 @@ describe('parseStylesheet', () => {
     ]);
   });
 
+  it('reads the table of contents options, with page numbers by default', () => {
+    expect(parseStylesheet(sheet('')).stylesheet.tableOfContents).toEqual({ pageNumbers: true });
+    const off = parseStylesheet(sheet('table-of-contents:\n  page-numbers: false'));
+    expect(off.diagnostics).toEqual([]);
+    expect(off.stylesheet.tableOfContents).toEqual({ pageNumbers: false });
+    expect(parseStylesheet(sheet('table-of-contents:')).diagnostics).toEqual([]);
+  });
+
+  it('reports a table of contents option that is unknown or not a boolean', () => {
+    expect(
+      problems(sheet('table-of-contents:\n  page-numbers: yes please\n  leader: dots')),
+    ).toEqual([
+      ['unknown-property', 'table-of-contents.leader'],
+      ['invalid-type', 'table-of-contents.page-numbers'],
+    ]);
+  });
+
   it('reads a page template with the built-in values for what it leaves out', () => {
     const source = sheet('page-templates:\n  small:\n    margins: { left: 36 }\n  empty: {}');
     const { stylesheet, diagnostics } = parseStylesheet(source);

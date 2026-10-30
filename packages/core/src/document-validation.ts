@@ -5,7 +5,15 @@ import {
   LIST_STYLES,
   defaultHeadingStyle as headingStyle,
 } from './default-styles.js';
-import type { Block, Document, Inline, List, ListItemBlock, Table } from './document.js';
+import type {
+  Block,
+  Document,
+  Inline,
+  List,
+  ListItemBlock,
+  PhraseBlock,
+  Table,
+} from './document.js';
 import { numberHeadings } from './heading-numbering.js';
 import type { NodeId } from './ids.js';
 import { PAGE_TEMPLATE_FIELD, resolvePageTemplate } from './page-template.js';
@@ -16,9 +24,10 @@ import {
   type ResolvedParagraphStyle,
 } from './style-resolution.js';
 import { RESERVED_TABLE_STYLE, type Stylesheet } from './stylesheet.js';
+import { TOC_PHRASE_KIND, readTocOptions, tocStyleName } from './toc.js';
 
-/** Kinds of phrase block that the exporters understand. None are defined yet. */
-export const KNOWN_PHRASE_KINDS: readonly string[] = [];
+/** Kinds of phrase block that the exporters understand. */
+export const KNOWN_PHRASE_KINDS: readonly string[] = [TOC_PHRASE_KIND];
 
 interface Context {
   /** The paragraph style that paragraphs directly inside a list item use. */
@@ -167,6 +176,41 @@ export function validateDocument(
     });
   };
 
+  const checkToc = (block: PhraseBlock, path: string, nested: boolean): void => {
+    const { options, diagnostics: found } = readTocOptions(block.text);
+    for (const problem of found) report('error', problem.code, problem.message, path, block.id);
+    if (nested) {
+      report(
+        'error',
+        'toc-not-top-level',
+        'A table of contents must be at the top level of the document.',
+        path,
+        block.id,
+      );
+    }
+    for (let level = 1; level <= options.depth; level += 1) {
+      const style = tocStyleName(level);
+      if (!stylesheet.paragraphStyles.has(style)) {
+        report(
+          'error',
+          'missing-toc-style',
+          `The stylesheet needs the paragraph style "${style}" for a table of contents of depth ${String(options.depth)}.`,
+          path,
+          block.id,
+        );
+      }
+    }
+    if (!document.blocks.some((b) => b.type === 'heading' && b.level <= options.depth)) {
+      report(
+        'warning',
+        'toc-empty',
+        'No heading falls within the depth of this table of contents.',
+        path,
+        block.id,
+      );
+    }
+  };
+
   const checkBlock = (block: Block, path: string, context: Context): void => {
     if (block.id !== undefined) {
       const first = idPaths.get(block.id);
@@ -238,6 +282,8 @@ export function validateDocument(
             path,
             block.id,
           );
+        } else if (block.kind === TOC_PHRASE_KIND) {
+          checkToc(block, path, context.listStyle !== undefined);
         }
         break;
     }

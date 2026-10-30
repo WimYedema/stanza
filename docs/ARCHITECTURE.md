@@ -371,6 +371,7 @@ Accepted:
 - ADR 0015: the format command.
 - ADR 0016: page templates.
 - ADR 0017: header and footer slots.
+- ADR 0018: table of contents.
 
 Still to capture:
 

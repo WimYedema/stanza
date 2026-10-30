@@ -38,13 +38,19 @@ export function checkStyleIds(stylesheet: Stylesheet): readonly Diagnostic[] {
 }
 
 function paragraphStyleOptions(name: StyleName, style: ParagraphStyle, sheet: Stylesheet) {
+  // Heading styles carry their outline level, so that Word lists them in a table of contents
+  // and in its navigation, and styles based on them inherit it.
+  const heading = /^heading-([1-6])$/.exec(name)?.[1];
   const options: IParagraphStyleOptions = {
     id: wordStyleId(name),
     name: wordStyleName(name),
     quickFormat: true,
     ...(style.basedOn !== undefined ? { basedOn: wordStyleId(style.basedOn) } : {}),
     run: runProps(sheet.tokens, style.text),
-    paragraph: paragraphProps(sheet.tokens, style.paragraph),
+    paragraph: {
+      ...paragraphProps(sheet.tokens, style.paragraph),
+      ...(heading !== undefined ? { outlineLevel: Number(heading) - 1 } : {}),
+    },
   };
   return options;
 }

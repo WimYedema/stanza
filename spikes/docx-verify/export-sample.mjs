@@ -16,6 +16,10 @@ authors:
 page-template: "page-letter"
 ---
 
+\`\`\`phrase-toc
+depth: 2
+\`\`\`
+
 <!-- phrase: #k7m2q9x4zb -->
 # Heading with *emphasis* and <span class="marker">marker</span>
 

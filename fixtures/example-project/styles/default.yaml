@@ -88,6 +88,18 @@ paragraph-styles:
     color: muted
     space-after: 0
 
+  toc-1:
+    based-on: body
+    space-after: 3
+
+  toc-2:
+    based-on: toc-1
+    indent-left: 18
+
+  toc-3:
+    based-on: toc-1
+    indent-left: 36
+
   cover-title:
     based-on: body
     size: 28
@@ -145,3 +157,6 @@ page-templates:
     footer:
       style: header-footer
       right: 'Page [1](phrase:page) of [1](phrase:pages)'
+
+table-of-contents:
+  page-numbers: true

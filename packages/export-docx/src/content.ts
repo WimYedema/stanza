@@ -3,6 +3,7 @@ import {
   CODE_STYLE,
   LIST_STYLES,
   RESERVED_TABLE_STYLE,
+  TOC_PHRASE_KIND,
   defaultHeadingStyle,
   resolveTableStyle,
   type Block,
@@ -28,15 +29,18 @@ import {
   Table,
   TableCell,
   TableLayoutType,
+  TableOfContents,
   TableRow,
   TextRun,
   WidthType,
   type ParagraphChild,
 } from 'docx';
+import { bookmarkName } from './bookmark-name.js';
 import { MAX_LIST_LEVEL, type ListNumbering } from './list-numbering.js';
 import type { PageGeometry } from './page.js';
 import type { RunContext, RunStyles } from './run-styles.js';
 import { wordStyleId, wordStyleName } from './style-ids.js';
+import { buildToc } from './toc.js';
 
 export interface BuildContext {
   readonly stylesheet: Stylesheet;
@@ -88,11 +92,6 @@ function inlineChildren(
     index = end;
   }
   return children;
-}
-
-/** Word bookmark names must start with a letter, and IDs can start with a digit. */
-export function bookmarkName(id: NodeId): string {
-  return `phrase_${id}`;
 }
 
 function paragraphOf(
@@ -338,9 +337,9 @@ function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): 
 }
 
 /** Word joins two tables that touch, and wants a paragraph after a table at the end. */
-function separateTables(children: readonly (Paragraph | Table)[]): (Paragraph | Table)[] {
+function separateTables(children: readonly Child[]): Child[] {
   const spacer = (): Paragraph => new Paragraph({ style: wordStyleId(BODY_STYLE) });
-  const result: (Paragraph | Table)[] = [];
+  const result: Child[] = [];
   for (const child of children) {
     if (child instanceof Table && result.at(-1) instanceof Table) result.push(spacer());
     result.push(child);
@@ -349,12 +348,12 @@ function separateTables(children: readonly (Paragraph | Table)[]): (Paragraph | 
   return result;
 }
 
+/** What a document body is made of. */
+type Child = Paragraph | Table | TableOfContents;
+
 /** Maps the blocks of a document. Blocks that cannot be mapped yet are reported and left out. */
-export function buildBlocks(
-  blocks: readonly Block[],
-  context: BuildContext,
-): (Paragraph | Table)[] {
-  const paragraphs: (Paragraph | Table)[] = [];
+export function buildBlocks(blocks: readonly Block[], context: BuildContext): Child[] {
+  const paragraphs: Child[] = [];
   blocks.forEach((block, index) => {
     const path = `blocks[${String(index)}]`;
     switch (block.type) {
@@ -372,7 +371,8 @@ export function buildBlocks(
         paragraphs.push(buildTable(block, context));
         break;
       case 'phrase':
-        unsupported(block, path, context);
+        if (block.kind === TOC_PHRASE_KIND) paragraphs.push(...buildToc(block, blocks, context));
+        else unsupported(block, path, context);
         break;
     }
   });

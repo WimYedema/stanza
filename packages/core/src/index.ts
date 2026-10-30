@@ -31,6 +31,16 @@ export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
 export { collectBlockIds, type BlockId } from './document-ids.js';
 export {
+  DEFAULT_TOC_DEPTH,
+  MAX_TOC_DEPTH,
+  TOC_PHRASE_KIND,
+  collectTocEntries,
+  readTocOptions,
+  tocStyleName,
+  type TocEntry,
+  type TocOptions,
+} from './toc.js';
+export {
   MIN_TEXT_AREA_PT,
   PAGE_SIZES,
   PAGE_SIZE_NAMES,
@@ -52,6 +62,7 @@ export {
 export {
   BUILT_IN_PAGE_TEMPLATE,
   DEFAULT_PAGE_TEMPLATE_NAME,
+  DEFAULT_TABLE_OF_CONTENTS,
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
@@ -72,6 +83,7 @@ export {
   type SlotPart,
   type SlotToken,
   type Stylesheet,
+  type TableOfContentsOptions,
   type TableBorders,
   type TableStyle,
   type TextProps,

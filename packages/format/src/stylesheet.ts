@@ -1,5 +1,6 @@
 import {
   BUILT_IN_PAGE_TEMPLATE,
+  DEFAULT_TABLE_OF_CONTENTS,
   PAGE_SIZE_NAMES,
   SLOT_TOKENS,
   isStyleName,
@@ -23,6 +24,7 @@ import {
   type StyleName,
   type Stylesheet,
   type TableBorders,
+  type TableOfContentsOptions,
   type TableStyle,
   type TextProps,
   type VariantDeclaration,
@@ -75,6 +77,7 @@ const EMPTY: Stylesheet = {
   characterStyles: new Map(),
   tableStyles: new Map(),
   pageTemplates: new Map(),
+  tableOfContents: DEFAULT_TABLE_OF_CONTENTS,
 };
 
 function readName(map: Data, key: string, path: string, report: Report): StyleName | undefined {
@@ -375,6 +378,16 @@ function readPageTemplate(map: Data, path: string, report: Report): PageTemplate
   return { size, margins, ...slots('header'), ...slots('footer') };
 }
 
+function readTableOfContents(data: Data, report: Report): TableOfContentsOptions {
+  const path = 'table-of-contents';
+  if (data[path] === undefined) return DEFAULT_TABLE_OF_CONTENTS;
+  const map = data[path] === null ? {} : asMap(data[path], path, report);
+  if (map === undefined) return DEFAULT_TABLE_OF_CONTENTS;
+  checkKeys(map, ['page-numbers'], path, report);
+  const pageNumbers = readBoolean(map, 'page-numbers', path, report);
+  return { pageNumbers: pageNumbers ?? DEFAULT_TABLE_OF_CONTENTS.pageNumbers };
+}
+
 /** Reads every entry of a section, keyed by style name, and decodes each with `read`. */
 function readSection<T>(
   data: Data,
@@ -458,6 +471,7 @@ export function parseStylesheet(source: string): StylesheetParseResult {
       'character-styles',
       'table-styles',
       'page-templates',
+      'table-of-contents',
     ],
     '',
     report,
@@ -485,6 +499,7 @@ export function parseStylesheet(source: string): StylesheetParseResult {
       (m, p) => readPageTemplate(m, p, report),
       report,
     ),
+    tableOfContents: readTableOfContents(data, report),
   };
 
   // The meaning of a stylesheet is only checked once it has been read without errors.

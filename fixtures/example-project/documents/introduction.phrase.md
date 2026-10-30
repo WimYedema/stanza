@@ -7,6 +7,10 @@ document-number: "EX-001"
 <!-- phrase: #k7m2q9x4zb -->
 # Introduction
 
+```phrase-toc
+depth: 2
+```
+
 This example project shows what the command line tool checks and builds. Each document is a Markdown file with a **strong** word, an *emphasized* word, and a <span class="marker">marker</span>.
 
 <!-- phrase: #a1b2c3d4e5 -->

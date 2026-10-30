@@ -652,3 +652,87 @@ describe('exportDocx lists', () => {
     ]);
   });
 });
+
+describe('exportDocx table of contents', () => {
+  const body = (toc: string): string =>
+    `${toc}\n\n<!-- phrase: #k7m2q9x4zb -->\n# One\n\n<!-- phrase: #a1b2c3d4e5 -->\n## Two\n\n### Three\n\n`;
+  const TOC = '```phrase-toc\ndepth: 2\n```';
+  const noPageNumbers = { ...stylesheet, tableOfContents: { pageNumbers: false } };
+
+  it('writes a Word field that Word fills in on opening, with the entries as its cache', async () => {
+    const { documentXml, result } = await build(body(TOC));
+    expect(codes(result.diagnostics)).toEqual(['missing-id']);
+    expect(documentXml).toContain('<w:docPartGallery w:val="Table of Contents"/>');
+    expect(documentXml).toContain('TOC \\h \\o &quot;1-2&quot; \\u');
+    expect(documentXml).toContain('w:fldCharType="begin" w:dirty="true"');
+    expect(documentXml.match(/<w:pStyle w:val="TOC\d"\/>/g)).toEqual([
+      '<w:pStyle w:val="TOC1"/>',
+      '<w:pStyle w:val="TOC2"/>',
+    ]);
+    expect(documentXml).toContain('1 One');
+    expect(documentXml).toContain('1.1 Two');
+    expect(documentXml).not.toContain('Three</w:t><w:tab/>');
+  });
+
+  it('links each entry to the bookmark of its heading', async () => {
+    const { documentXml } = await build(body(TOC));
+    expect(documentXml).toContain('w:anchor="phrase_k7m2q9x4zb"');
+    expect(documentXml).toContain('w:anchor="phrase_a1b2c3d4e5"');
+    expect(documentXml).toContain('<w:bookmarkStart w:name="phrase_k7m2q9x4zb" w:id="1"/>');
+  });
+
+  it('lets Word find the headings by the outline level of their styles', async () => {
+    const { stylesXml } = await build(body(TOC));
+    const levels = (id: string): string | undefined =>
+      new RegExp(`w:styleId="${id}".*?<w:outlineLvl w:val="(\\d)"`, 's').exec(stylesXml)?.[1];
+    expect(levels('Heading1')).toBe('0');
+    expect(levels('Heading3')).toBe('2');
+    expect(stylesXml).toContain('w:styleId="TOC1"');
+    expect(/w:styleId="TOC2".*?<\/w:style>/s.exec(stylesXml)?.[0]).toContain(
+      '<w:name w:val="toc 2"/>',
+    );
+  });
+
+  it('reads the depth from the block, and defaults to 3', async () => {
+    const { documentXml } = await build(body('```phrase-toc\n```'));
+    expect(documentXml).toContain('\\o &quot;1-3&quot;');
+    expect(documentXml.match(/<w:pStyle w:val="TOC\d"\/>/g)).toHaveLength(3);
+  });
+
+  it('aligns the page numbers at the end of the text of the template', async () => {
+    const a4 = await build(body(TOC));
+    expect(a4.documentXml).toContain('<w:tab w:val="right" w:pos="9026" w:leader="dot"/>');
+    const letter = await build(body(TOC), stylesheet, 'page-template: "page-letter"\n');
+    expect(letter.documentXml).toContain('<w:tab w:val="right" w:pos="8640" w:leader="dot"/>');
+    expect(letter.documentXml).not.toContain('w:pos="9025"');
+    expect(letter.documentXml).not.toContain('w:val="clear"');
+  });
+
+  it('writes plain linked entries without a field when page numbers are off', async () => {
+    const { documentXml } = await build(body(TOC), noPageNumbers);
+    expect(documentXml).not.toContain('TOC \\h');
+    expect(documentXml).not.toContain('<w:tab ');
+    expect(documentXml).toContain('<w:pStyle w:val="TOC2"/>');
+    expect(documentXml).toContain('w:anchor="phrase_a1b2c3d4e5"');
+    expect(documentXml).toContain('1.1 Two');
+  });
+
+  it('writes an entry without a link when its heading has no ID', async () => {
+    const { documentXml, result } = await build(`${TOC}\n\n# One\n\n`, noPageNumbers);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(['missing-id']);
+    expect(documentXml).toContain('1 One');
+    expect(documentXml).not.toContain('w:anchor');
+  });
+
+  it('writes nothing for a table of contents without headings', async () => {
+    const { documentXml, result } = await build(`${TOC}\n\nText.\n`);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(['toc-empty']);
+    expect(documentXml).not.toContain('Table of Contents');
+  });
+
+  it('is deterministic', async () => {
+    const first = await build(body(TOC));
+    const second = await build(body(TOC));
+    expect(second.bytes).toEqual(first.bytes);
+  });
+});

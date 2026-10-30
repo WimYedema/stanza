@@ -88,6 +88,24 @@ export interface FinishOptions {
   readonly timestamp: Date;
   /** Word style IDs whose own `page-break-before` is set, and its value. */
   readonly pageBreaks: ReadonlyMap<string, boolean>;
+  /** The width of the text on the page, where the page numbers of a table of contents align. */
+  readonly textWidthTwips: number;
+}
+
+/**
+ * The library puts the page numbers of a table of contents at a fixed A4 position, with a
+ * `clear` tab for the one Word's own style would have. The styles here have no such tab, so the
+ * pair is replaced by one right tab at the end of the text.
+ */
+function alignTocPageNumbers(files: Files, textWidthTwips: number): void {
+  const document = files['word/document.xml'];
+  if (document === undefined) return;
+  files['word/document.xml'] = strToU8(
+    strFromU8(document).replace(
+      /<w:tab w:val="clear" w:pos="\d+"\/><w:tab w:val="right" w:pos="9025" w:leader="dot"\/>/g,
+      `<w:tab w:val="right" w:pos="${String(textWidthTwips)}" w:leader="dot"/>`,
+    ),
+  );
 }
 
 /**
@@ -99,6 +117,7 @@ export function finishPackage(bytes: Uint8Array, options: FinishOptions): Uint8A
   const { timestamp } = options;
   const files = unzipSync(bytes);
   addPageBreaks(files, options.pageBreaks);
+  alignTocPageNumbers(files, options.textWidthTwips);
   const core = files['docProps/core.xml'];
   if (core !== undefined) {
     const iso = timestamp.toISOString();

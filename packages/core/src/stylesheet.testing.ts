@@ -1,4 +1,5 @@
 import {
+  DEFAULT_TABLE_OF_CONTENTS,
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
   type CharacterStyle,
@@ -49,6 +50,7 @@ export function sheet(parts: Parts = {}): Stylesheet {
       Object.entries(parts.character ?? {}).map(([name, style]) => [n(name), style]),
     ),
     tableStyles: table,
+    tableOfContents: DEFAULT_TABLE_OF_CONTENTS,
     pageTemplates: new Map(
       Object.entries(parts.pageTemplates ?? {}).map(([name, template]) => [n(name), template]),
     ),

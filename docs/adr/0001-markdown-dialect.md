@@ -1,6 +1,6 @@
 # ADR 0001: Native Markdown dialect
 
-Status: Accepted. Details added by ADR 0005.
+Status: Accepted. Details added by ADR 0005; the `phrase-toc` block by ADR 0018.
 
 ## Context
 

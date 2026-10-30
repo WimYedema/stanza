@@ -111,6 +111,7 @@ export async function exportDocx(
     bytes: finishPackage(packed, {
       timestamp: options.timestamp,
       pageBreaks: pageBreakStyles(stylesheet),
+      textWidthTwips: page.textWidthTwips,
     }),
     diagnostics,
   };
