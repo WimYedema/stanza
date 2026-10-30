@@ -47,6 +47,7 @@ Placed before Phases 3 and 4 by the product owner.
 
 37. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
 52. [M] - Editor toolbar and shortcuts: show the state at the cursor (block kind and style, active marks), disable or explain commands that do not apply, show refusals, and add the usual keys (`Ctrl+Alt+0` to `6` for paragraph and headings, `Backspace` at the start of a heading makes it a paragraph). Replaces the sketch toolbar of the preview.
+54. [S] - Cursor after undo and redo: put it where the change was, not where it had been. The editor now restores the old block and offset after any change from outside.
 51. [S] - Heading numbers and inline diagnostics in the editor as decorations, from `numberHeadings` and the `core` diagnostics.
 38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
 39. [M] - Show imported comments next to the content in the editor.
@@ -55,6 +56,7 @@ Placed before Phases 3 and 4 by the product owner.
 
 28. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
 29. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
+53. [S] - VS Code commands in the Command Palette: build the project (one DOCX per document into `build/`), export the current document to DOCX, validate, format, and assign IDs, with their results in the Problems panel or an output channel. The exporter and the command line exist already (items 16 and 26); this makes them available without a terminal. Low priority.
 
 ## Phase 4: Collections and references
 
