@@ -1,6 +1,7 @@
 import {
   BUILT_IN_PAGE_TEMPLATE,
   PAGE_SIZE_NAMES,
+  SLOT_TOKENS,
   isStyleName,
   validateStylesheet,
   VARIANT_MARKS,
@@ -11,12 +12,14 @@ import {
   type Diagnostic,
   type FontValue,
   type HeaderRow,
+  type HeaderFooter,
   type LineSpacing,
   type PageMargins,
   type PageSize,
   type PageTemplate,
   type ParagraphProps,
   type ParagraphStyle,
+  type SlotPart,
   type StyleName,
   type Stylesheet,
   type TableBorders,
@@ -33,6 +36,7 @@ import {
   isNonEmptyStringList,
   join,
   readBoolean,
+  readString,
   readFormatVersion,
   readNumber,
   readYamlRoot,
@@ -293,8 +297,48 @@ function readTableStyle(map: Data, path: string, report: Report): TableStyle {
 
 const MARGIN_SIDES = ['top', 'right', 'bottom', 'left'] as const;
 
+/** A token is written as a link whose target is `phrase:` and the token name (ADR 0017). */
+const SLOT_LINK = /\[([^\]]*)\]\(phrase:([^)\s]*)\)/g;
+
+/** Splits the text of a slot into literal text and tokens. An unknown token stays literal text. */
+function readSlotText(text: string, path: string, report: Report): SlotPart[] {
+  const parts: SlotPart[] = [];
+  let from = 0;
+  const literalUpTo = (end: number): void => {
+    if (end > from) parts.push({ kind: 'text', text: text.slice(from, end) });
+  };
+  for (const match of text.matchAll(SLOT_LINK)) {
+    const [whole, label = '', name = ''] = match;
+    const token = SLOT_TOKENS.find((candidate) => candidate === name);
+    if (token === undefined) {
+      report('unknown-slot-token', `Unknown token "${name}".`, path);
+      continue;
+    }
+    literalUpTo(match.index);
+    parts.push({ kind: 'token', token, label });
+    from = match.index + whole.length;
+  }
+  literalUpTo(text.length);
+  return parts;
+}
+
+function readHeaderFooter(map: Data, path: string, report: Report): HeaderFooter {
+  checkKeys(map, ['style', 'left', 'center', 'right'], path, report);
+  const style = readName(map, 'style', path, report);
+  const slot = (name: 'left' | 'center' | 'right'): SlotPart[] => {
+    const text = readString(map, name, path, report);
+    return text === undefined ? [] : readSlotText(text, join(path, name), report);
+  };
+  return {
+    ...(style !== undefined ? { style } : {}),
+    left: slot('left'),
+    center: slot('center'),
+    right: slot('right'),
+  };
+}
+
 function readPageTemplate(map: Data, path: string, report: Report): PageTemplate {
-  checkKeys(map, ['size', 'margins'], path, report);
+  checkKeys(map, ['size', 'margins', 'header', 'footer'], path, report);
   let size: PageSize = BUILT_IN_PAGE_TEMPLATE.size;
   const given = map['size'];
   if (given !== undefined) {
@@ -322,7 +366,13 @@ function readPageTemplate(map: Data, path: string, report: Report): PageTemplate
       if (left !== undefined) margins.leftPt = left;
     }
   }
-  return { size, margins };
+  const slots = (name: 'header' | 'footer'): { header?: HeaderFooter; footer?: HeaderFooter } => {
+    if (map[name] === undefined) return {};
+    const here = join(path, name);
+    const entries = asMap(map[name], here, report);
+    return entries === undefined ? {} : { [name]: readHeaderFooter(entries, here, report) };
+  };
+  return { size, margins, ...slots('header'), ...slots('footer') };
 }
 
 /** Reads every entry of a section, keyed by style name, and decodes each with `read`. */

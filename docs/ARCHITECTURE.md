@@ -370,6 +370,7 @@ Accepted:
 - ADR 0014: project package and command line.
 - ADR 0015: the format command.
 - ADR 0016: page templates.
+- ADR 0017: header and footer slots.
 
 Still to capture:
 

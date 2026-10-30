@@ -81,13 +81,36 @@ describe('the default stylesheet fixture', () => {
   });
 
   it('reads the page templates', () => {
-    expect([...result.stylesheet.pageTemplates]).toEqual([
-      ['page', { size: 'A4', margins: { topPt: 72, rightPt: 72, bottomPt: 72, leftPt: 72 } }],
-      [
-        'page-letter',
-        { size: 'Letter', margins: { topPt: 54, rightPt: 90, bottomPt: 54, leftPt: 90 } },
-      ],
+    const { pageTemplates } = result.stylesheet;
+    expect([...pageTemplates.keys()]).toEqual(['page', 'page-letter']);
+    const page = pageTemplates.get(name('page'));
+    expect(page?.size).toBe('A4');
+    expect(page?.margins).toEqual({ topPt: 72, rightPt: 72, bottomPt: 72, leftPt: 72 });
+    const letter = pageTemplates.get(name('page-letter'));
+    expect(letter?.size).toBe('Letter');
+    expect(letter?.margins).toEqual({ topPt: 54, rightPt: 90, bottomPt: 54, leftPt: 90 });
+  });
+
+  it('reads the slots of headers and footers, with tokens written as links', () => {
+    const page = result.stylesheet.pageTemplates.get(name('page'));
+    expect(page?.header).toEqual({
+      style: 'header-footer',
+      left: [{ kind: 'token', token: 'title', label: '' }],
+      center: [],
+      right: [{ kind: 'token', token: 'classification', label: '' }],
+    });
+    expect(page?.footer?.right).toEqual([
+      { kind: 'text', text: 'Page ' },
+      { kind: 'token', token: 'page', label: '1' },
+      { kind: 'text', text: ' of ' },
+      { kind: 'token', token: 'pages', label: '1' },
     ]);
+    const letter = result.stylesheet.pageTemplates.get(name('page-letter'));
+    expect(letter?.header?.center).toEqual([
+      { kind: 'text', text: 'Draft ' },
+      { kind: 'token', token: 'version', label: 'v?' },
+    ]);
+    expect(letter?.footer?.left).toEqual([]);
   });
 
   it('reads the cell style of table styles', () => {
@@ -157,6 +180,32 @@ describe('parseStylesheet', () => {
       margins: { topPt: 72, rightPt: 72, bottomPt: 72, leftPt: 36 },
     });
     expect(stylesheet.pageTemplates.get(name('empty'))?.size).toBe('A4');
+  });
+
+  it('reads slot text with tokens, literal brackets and braces, and unknown tokens', () => {
+    const source = sheet(
+      [
+        'page-templates:',
+        '  a:',
+        '    footer:',
+        "      left: 'Section [x](https://example.com) {literal} [y](phrase:nope) [](phrase:pages)'",
+        '      center: 3',
+        '      middle: x',
+      ].join('\n'),
+    );
+    const { stylesheet, diagnostics } = parseStylesheet(source);
+    expect(diagnostics.map((d) => [d.code, d.path])).toEqual([
+      ['unknown-property', 'page-templates.a.footer.middle'],
+      ['unknown-slot-token', 'page-templates.a.footer.left'],
+      ['invalid-type', 'page-templates.a.footer.center'],
+    ]);
+    expect(stylesheet.pageTemplates.get(name('a'))?.footer?.left).toEqual([
+      {
+        kind: 'text',
+        text: 'Section [x](https://example.com) {literal} [y](phrase:nope) ',
+      },
+      { kind: 'token', token: 'pages', label: '' },
+    ]);
   });
 
   it('reports bad page templates', () => {

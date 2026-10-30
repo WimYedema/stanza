@@ -58,6 +58,18 @@ describe('validateStylesheet and page templates', () => {
     ]);
   });
 
+  it('rejects a header or footer style that is not a paragraph style', () => {
+    const slots = { left: [], center: [], right: [] };
+    const template = {
+      ...wide,
+      header: { ...slots, style: 'gone' as never },
+      footer: { ...slots, style: 'body' as never },
+    };
+    expect(problems(sheet({ pageTemplates: { page: template } }))).toEqual([
+      ['unknown-slot-style', 'page-templates.page.header.style'],
+    ]);
+  });
+
   it('rejects a size that is not supported', () => {
     const template = { ...wide, size: 'A3' } as unknown as PageTemplate;
     expect(problems(sheet({ pageTemplates: { page: template } }))).toEqual([

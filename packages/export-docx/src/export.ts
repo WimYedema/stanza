@@ -11,6 +11,7 @@ import {
 } from '@phrase/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext } from './content.js';
+import { footerOf, headerOf } from './header-footer.js';
 import { ListNumbering } from './list-numbering.js';
 import { pageGeometry } from './page.js';
 import { finishPackage } from './package.js';
@@ -71,6 +72,8 @@ export async function exportDocx(
   if (hasErrors(diagnostics)) return { bytes: undefined, diagnostics };
 
   const { title, authors } = document.meta;
+  const header = headerOf(template.header, document.meta, page);
+  const footer = footerOf(template.footer, document.meta, page);
   const file = new Document({
     ...(title !== undefined ? { title } : {}),
     ...(authors !== undefined
@@ -97,6 +100,8 @@ export async function exportDocx(
             },
           },
         },
+        ...(header !== undefined ? { headers: { default: header } } : {}),
+        ...(footer !== undefined ? { footers: { default: footer } } : {}),
         children,
       },
     ],

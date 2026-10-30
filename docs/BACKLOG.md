@@ -31,10 +31,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 26. [S] - CLI: validate and build commands, reproducible output (dates from metadata or release). The date comes from `--date`, with a fixed placeholder until the build info item.
 27. [S] - CLI: format command that rewrites a file to canonical form, and a check that reports non-canonical files.
 23. [M] - Page templates: named templates in the stylesheet with page size (A4 or Letter) and margins, selected by a document's `page-template` front matter entry or the project default, and the page geometry of the export taken from the template.
+49. [M] - Header and footer slots for page templates: left, centre and right text with tokens (title, version, classification, page, pages, section) written as `phrase:` links, page numbers as Word fields.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-49. [M] - Header and footer slots for page templates: left, centre and right text with tokens (title, version, classification, page, pages, section), page numbers as Word fields.
 24. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
 25. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
 48. [S] - CLI: assign missing IDs, as an option of `format` (`--assign-ids`) that formats first and then gives every referenceable block without an ID a new one, unique across the project. With `--check`, a missing ID counts as a change. ADR 0015 leaves flag versus separate command open; this item decides it.

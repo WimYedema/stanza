@@ -154,6 +154,16 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
   for (const [name, template] of stylesheet.pageTemplates) {
     const path = `page-templates.${name}`;
     const { margins } = template;
+    for (const part of ['header', 'footer'] as const) {
+      const style = template[part]?.style;
+      if (style !== undefined && !stylesheet.paragraphStyles.has(style)) {
+        error(
+          'unknown-slot-style',
+          `The style "${style}" is not a paragraph style.`,
+          `${path}.${part}.style`,
+        );
+      }
+    }
     const sides = [
       ['top', margins.topPt],
       ['right', margins.rightPt],

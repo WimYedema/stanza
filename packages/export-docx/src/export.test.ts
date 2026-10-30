@@ -36,6 +36,8 @@ async function build(body: string, sheet = stylesheet, front = '') {
     coreXml: text('docProps/core.xml'),
     numberingXml: text('word/numbering.xml'),
     relsXml: text('word/_rels/document.xml.rels'),
+    part: text,
+    names: Object.keys(files),
   };
 }
 
@@ -410,6 +412,76 @@ describe('exportDocx pages', () => {
     });
     expect(result.bytes).toBeUndefined();
     expect(codes(result.diagnostics)).toEqual(['unknown-page-template']);
+  });
+});
+
+describe('exportDocx headers and footers', () => {
+  const partOf = (result: Awaited<ReturnType<typeof build>>, kind: 'header' | 'footer'): string => {
+    const name = result.names.find((n) => new RegExp(`^word/${kind}\\d*\\.xml$`).test(n));
+    return name === undefined ? '' : result.part(name);
+  };
+
+  it('writes the header and footer of the default template', async () => {
+    const result = await build(
+      'Text.\n',
+      stylesheet,
+      'title: "My Doc"\nclassification: "Internal"\n',
+    );
+    const header = partOf(result, 'header');
+    expect(header).toContain('>My Doc<');
+    expect(header).toContain('>Internal<');
+    expect(header).toContain('<w:pStyle w:val="HeaderFooter"/>');
+    // Left, centre and right on one line: a centre tab at half of 9026 twips and a right tab at its edge.
+    expect(header).toMatch(
+      /<w:tab [^>]*w:val="center"[^>]*w:pos="4513"|<w:tab [^>]*w:pos="4513"[^>]*w:val="center"/,
+    );
+    expect(header).toMatch(
+      /<w:tab [^>]*w:val="right"[^>]*w:pos="9026"|<w:tab [^>]*w:pos="9026"[^>]*w:val="right"/,
+    );
+    expect(header.match(/<w:tab\/>/g)).toHaveLength(2);
+    expect(result.documentXml).toContain('<w:headerReference');
+    expect(result.documentXml).toContain('<w:footerReference');
+  });
+
+  it('writes page numbers and the section as Word fields, with the label as the result', async () => {
+    const footer = partOf(await build('# A\n'), 'footer');
+    expect(footer).toMatch(/w:instr="STYLEREF (&quot;|")heading 1(&quot;|")"/);
+    expect(footer).toMatch(/<w:fldSimple [^>]*w:instr="PAGE"[^>]*>.*?>1<\/w:t>/);
+    expect(footer).toMatch(/<w:fldSimple [^>]*w:instr="NUMPAGES"[^>]*>.*?>1<\/w:t>/);
+    expect(footer).toContain('>Page <');
+    expect(footer).toContain('> of <');
+  });
+
+  it('shows the label of a token that has no value, and no value for an empty label', async () => {
+    const result = await build('Text.\n', stylesheet, 'page-template: "page-letter"\n');
+    const header = partOf(result, 'header');
+    expect(header).toContain('>Draft <');
+    // The version has no source yet, so its label shows. The title and classification are missing.
+    expect(header).toContain('>v?<');
+    expect(header).not.toContain('>Internal<');
+    // A 8640 twip text width on Letter with these margins.
+    expect(header).toMatch(/w:pos="4320"/);
+    expect(header).toMatch(/w:pos="8640"/);
+  });
+
+  it('leaves out a slot line that has no tabs when only the left slot is used', async () => {
+    const sheetText = STYLESHEET_TEXT.replace(
+      "      right: '[](phrase:classification)'\r\n",
+      '',
+    ).replace("      right: '[](phrase:classification)'\n", '');
+    const result = await build('Text.\n', parseStylesheet(sheetText).stylesheet, 'title: "T"\n');
+    const header = partOf(result, 'header');
+    expect(header).toContain('>T<');
+    expect(header).not.toContain('<w:tabs>');
+  });
+
+  it('writes no header or footer for a stylesheet without them', async () => {
+    const none = parseStylesheet(
+      STYLESHEET_TEXT.slice(0, STYLESHEET_TEXT.indexOf('page-templates:')),
+    ).stylesheet;
+    const result = await build('Text.\n', none);
+    expect(result.names.filter((n) => /word\/(header|footer)/.test(n))).toEqual([]);
+    expect(result.documentXml).not.toContain('headerReference');
   });
 });
 

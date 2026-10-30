@@ -1,6 +1,6 @@
 # ADR 0016: Page templates
 
-Status: Accepted
+Status: Accepted. Header and footer slots added by ADR 0017.
 
 ## Context
 

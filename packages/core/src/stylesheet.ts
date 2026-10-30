@@ -106,10 +106,38 @@ export interface PageMargins {
   readonly leftPt: number;
 }
 
-/** The page of a document: its size and margins. Header and footer slots are a later addition. */
+/** The values a slot can show (ADR 0017). The last three are Word fields. */
+export const SLOT_TOKENS = [
+  'title',
+  'version',
+  'classification',
+  'page',
+  'pages',
+  'section',
+] as const;
+
+export type SlotToken = (typeof SLOT_TOKENS)[number];
+
+/** Text of a slot: literal text, or a token with the label shown when it has no value yet. */
+export type SlotPart =
+  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'token'; readonly token: SlotToken; readonly label: string };
+
+/** The header or the footer of a page: three slots on one line. A slot may be empty. */
+export interface HeaderFooter {
+  /** The paragraph style of the line. Absent means `body`. */
+  readonly style?: StyleName;
+  readonly left: readonly SlotPart[];
+  readonly center: readonly SlotPart[];
+  readonly right: readonly SlotPart[];
+}
+
+/** The page of a document: its size, margins, and header and footer. */
 export interface PageTemplate {
   readonly size: PageSize;
   readonly margins: PageMargins;
+  readonly header?: HeaderFooter;
+  readonly footer?: HeaderFooter;
 }
 
 export interface Stylesheet {
