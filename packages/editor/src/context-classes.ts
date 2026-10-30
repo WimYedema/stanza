@@ -8,13 +8,13 @@ import {
   LIST_STYLES,
   RESERVED_TABLE_STYLE,
   defaultHeadingStyle,
-  isStyleName,
   resolveTableStyle,
   type HeadingLevel,
   type StyleName,
   type Stylesheet,
 } from '@phrase/core';
 import { listItemClass, paragraphClass, tableClass } from '@phrase/css';
+import { styleOf } from './block-styles.js';
 
 /**
  * Puts the classes of ADR 0021 on the blocks of the editor (ADR 0022). A class depends on the
@@ -27,11 +27,6 @@ const stylesKey = new PluginKey<DecorationSet>('phrase-context-classes');
 
 /** Recomputes the classes, for example after the stylesheet has changed. */
 export const REFRESH_CLASSES = 'refresh';
-
-const styleOf = (node: EditorNode): StyleName | undefined => {
-  const value: unknown = node.attrs['style'];
-  return typeof value === 'string' && isStyleName(value) ? value : undefined;
-};
 
 interface Context {
   readonly parent: EditorNode;

@@ -16,5 +16,7 @@ export default defineConfig({
   },
   test: {
     include: ['packages/*/src/**/*.test.ts'],
+    // Some tests go through many strings, and files in parallel slow each other down.
+    testTimeout: 30_000,
   },
 });

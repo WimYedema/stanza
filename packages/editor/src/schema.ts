@@ -1,4 +1,4 @@
-import { Mark, Node, type Attributes, type Extensions } from '@tiptap/core';
+import { Mark, Node, mergeAttributes, type Attributes, type Extensions } from '@tiptap/core';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import { LIST_CLASS, characterClass, markClass } from '@phrase/css';
 import { isStyleName } from '@phrase/core';
@@ -17,8 +17,21 @@ const id: Attributes[string] = {
   parseHTML: () => null,
 };
 
-/** The name of a style. It is not the HTML `style` attribute, which is never read or written. */
-const style: Attributes[string] = { default: null, rendered: false, parseHTML: () => null };
+/**
+ * The name of a style. It travels in the HTML of the clipboard as `data-phrase-style`, never as the
+ * HTML `style` attribute. A pasted name is only kept if the stylesheet declares it (ADR 0023).
+ */
+export const STYLE_ATTRIBUTE = 'data-phrase-style';
+
+const style: Attributes[string] = {
+  default: null,
+  rendered: true,
+  parseHTML: (element) => element.getAttribute(STYLE_ATTRIBUTE),
+  renderHTML: (attributes) => {
+    const name: unknown = attributes['style'];
+    return typeof name === 'string' ? { [STYLE_ATTRIBUTE]: name } : {};
+  },
+};
 
 /** An attribute that is only data: it is never read from or written to HTML. */
 const plain = (defaultValue: unknown = null): Attributes[string] => ({
@@ -37,7 +50,7 @@ const Paragraph = Node.create({
   content: 'inline*',
   addAttributes: () => ({ id, style }),
   parseHTML: () => [{ tag: 'p' }],
-  renderHTML: () => ['p', 0],
+  renderHTML: ({ HTMLAttributes }) => ['p', HTMLAttributes, 0],
 });
 
 const Heading = Node.create({
@@ -45,10 +58,19 @@ const Heading = Node.create({
   group: 'block',
   content: 'inline*',
   defining: true,
-  addAttributes: () => ({ id, style, level: plain(1) }),
+  addAttributes: () => ({
+    id,
+    style,
+    level: {
+      default: 1,
+      rendered: false,
+      // The level is in the name of the element, `h1` to `h6`.
+      parseHTML: (element) => Number(element.tagName.slice(1)),
+    },
+  }),
   parseHTML: () =>
     [1, 2, 3, 4, 5, 6].map((level) => ({ tag: `h${String(level)}`, attrs: { level } })),
-  renderHTML: ({ node }) => [`h${String(node.attrs['level'])}`, 0],
+  renderHTML: ({ node, HTMLAttributes }) => [`h${String(node.attrs['level'])}`, HTMLAttributes, 0],
 });
 
 const BulletList = Node.create({
@@ -57,7 +79,11 @@ const BulletList = Node.create({
   content: 'listItem+',
   addAttributes: () => ({ id, style }),
   parseHTML: () => [{ tag: 'ul' }],
-  renderHTML: () => ['ul', { class: LIST_CLASS }, 0],
+  renderHTML: ({ HTMLAttributes }) => [
+    'ul',
+    mergeAttributes({ class: LIST_CLASS }, HTMLAttributes),
+    0,
+  ],
 });
 
 const OrderedList = Node.create({
@@ -66,7 +92,11 @@ const OrderedList = Node.create({
   content: 'listItem+',
   addAttributes: () => ({ id, style }),
   parseHTML: () => [{ tag: 'ol' }],
-  renderHTML: () => ['ol', { class: LIST_CLASS }, 0],
+  renderHTML: ({ HTMLAttributes }) => [
+    'ol',
+    mergeAttributes({ class: LIST_CLASS }, HTMLAttributes),
+    0,
+  ],
 });
 
 const ListItem = Node.create({
@@ -86,21 +116,43 @@ const CodeBlock = Node.create({
   defining: true,
   addAttributes: () => ({ id, style, language: plain() }),
   parseHTML: () => [{ tag: 'pre', preserveWhitespace: 'full' }],
-  renderHTML: () => ['pre', 0],
+  renderHTML: ({ HTMLAttributes }) => ['pre', HTMLAttributes, 0],
 });
 
 /** A `phrase-<kind>` block, kept as it is and shown as a labelled box. */
 export const PHRASE_BLOCK_CLASS = 'phrase-block';
 
+/** The kind and the body of a phrase block, as they travel in the clipboard HTML. */
+export const KIND_ATTRIBUTE = 'data-phrase-kind';
+export const TEXT_ATTRIBUTE = 'data-phrase-text';
+
+const fromHtml = (attribute: string): Attributes[string] => ({
+  default: '',
+  rendered: false,
+  parseHTML: (element) => element.getAttribute(attribute) ?? '',
+});
+
 const PhraseBlock = Node.create({
   name: 'phraseBlock',
   group: 'block listItemBlock',
   atom: true,
-  addAttributes: () => ({ id, style, kind: plain(''), text: plain('') }),
-  parseHTML: () => [{ tag: 'div[data-phrase-kind]' }],
-  renderHTML: ({ node }) => [
+  addAttributes: () => ({
+    id,
+    style,
+    kind: fromHtml(KIND_ATTRIBUTE),
+    text: fromHtml(TEXT_ATTRIBUTE),
+  }),
+  parseHTML: () => [{ tag: `div[${KIND_ATTRIBUTE}]` }],
+  renderHTML: ({ node, HTMLAttributes }) => [
     'div',
-    { class: PHRASE_BLOCK_CLASS, 'data-phrase-kind': String(node.attrs['kind']) },
+    mergeAttributes(
+      {
+        class: PHRASE_BLOCK_CLASS,
+        [KIND_ATTRIBUTE]: String(node.attrs['kind']),
+        [TEXT_ATTRIBUTE]: String(node.attrs['text']),
+      },
+      HTMLAttributes,
+    ),
     `phrase-${String(node.attrs['kind'])}`,
   ],
 });
@@ -119,7 +171,7 @@ const TableNode = Table.configure({ resizable: false }).extend({
   addAttributes: () => ({ id, style, widths: plain() }),
   // The library's own view writes a wrapper, column groups and inline widths.
   addNodeView: () => null,
-  renderHTML: () => ['table', ['tbody', 0]],
+  renderHTML: ({ HTMLAttributes }) => ['table', HTMLAttributes, ['tbody', 0]],
 });
 
 const Cell = TableCell.extend({
@@ -152,11 +204,19 @@ const Link = Mark.create({
 const CharacterStyle = Mark.create({
   name: 'style',
   excludes: '',
-  addAttributes: () => ({ name: plain('') }),
-  parseHTML: () => [],
+  addAttributes: () => ({
+    name: {
+      default: '',
+      rendered: false,
+      parseHTML: (element) => element.getAttribute(STYLE_ATTRIBUTE) ?? '',
+    },
+  }),
+  parseHTML: () => [{ tag: `span[${STYLE_ATTRIBUTE}]` }],
   renderHTML: ({ mark }) => {
     const name = String(mark.attrs['name']);
-    return isStyleName(name) ? ['span', { class: characterClass(name) }, 0] : ['span', 0];
+    return isStyleName(name)
+      ? ['span', { class: characterClass(name), [STYLE_ATTRIBUTE]: name }, 0]
+      : ['span', 0];
   },
 });
 

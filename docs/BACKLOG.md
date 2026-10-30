@@ -37,12 +37,12 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 48. [S] - CLI: assign missing IDs, as an option of `format` (`--assign-ids`) that formats first and then gives every referenceable block without an ID a new one, unique across the project. With `--check`, a missing ID counts as a change. Decided in ADR 0020.
 33. [S] - Compile the typed stylesheet to scoped browser CSS. Decided in ADR 0021.
 34. [L] - Tiptap schema and editor adapter: the `editor` package with a schema that has only style names and marks, conversion to and from the domain model, rendering with the ADR 0021 classes, and a preview page. Decided in ADR 0022. Commands and paste moved to item 50.
+50. [M] - Editor semantic commands (style-aware marks, headings, lists, tables) and paste normalisation: supported structure kept, direct formatting removed, IDs never pasted. Decided in ADR 0023.
 
 ## Phase 5: Editor and review
 
 Placed before Phases 3 and 4 by the product owner.
 
-50. [M] - Editor semantic commands (style-aware marks, headings, lists, tables) and paste normalisation: supported structure kept, direct formatting removed, IDs never pasted.
 35. [S] - Unique-ID handling for new nodes in the editor.
 36. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
 37. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.

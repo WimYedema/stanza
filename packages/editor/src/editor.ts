@@ -1,8 +1,12 @@
-import { Editor } from '@tiptap/core';
+import { Editor, type Extensions } from '@tiptap/core';
 import type { Diagnostic, Document, Stylesheet } from '@phrase/core';
 import { SCOPE_CLASS, compileStylesheetToCss } from '@phrase/css';
+import { runCommand, type CommandResult, type EditorCommand } from './commands.js';
 import { ContextClasses, REFRESH_CLASSES, contextClassesKey } from './context-classes.js';
 import { fromEditorContent, toEditorContent, type FromEditorResult } from './convert.js';
+import { PhraseKeys } from './keys.js';
+import type { Notice } from './notice.js';
+import { PhrasePaste } from './paste.js';
 import { PHRASE_BLOCK_CLASS, schemaExtensions } from './schema.js';
 import { UniqueIds } from './unique-ids.js';
 
@@ -41,6 +45,8 @@ export interface PhraseEditorOptions {
   readonly document: Document;
   /** Called after every change made in the editor, with what the editor now holds. */
   readonly onChange?: (result: FromEditorResult) => void;
+  /** Called with things the person editing should hear: a refused key, content dropped on paste. */
+  readonly onNotice?: (notice: Notice) => void;
 }
 
 export interface PhraseEditor {
@@ -50,12 +56,28 @@ export interface PhraseEditor {
   setDocument(document: Document): void;
   /** Applies a new stylesheet. With errors it changes nothing and returns them. */
   setStylesheet(stylesheet: Stylesheet): readonly Diagnostic[];
+  /** Does what a command says, or refuses it and changes nothing (ADR 0023). */
+  run(command: EditorCommand): CommandResult;
   destroy(): void;
 }
 
 function compile(stylesheet: Stylesheet): { css: string; diagnostics: readonly Diagnostic[] } {
   const { css, diagnostics } = compileStylesheetToCss(stylesheet);
   return { css: css === undefined ? '' : `${EDITOR_CHROME_CSS}\n${css}`, diagnostics };
+}
+
+/** The extensions of the editor, for the stylesheet in force and the way to give notices. */
+export function phraseExtensions(
+  stylesheet: () => Stylesheet,
+  notice: (notice: Notice) => void,
+): Extensions {
+  return [
+    ...schemaExtensions(),
+    UniqueIds,
+    ContextClasses.configure({ stylesheet }),
+    PhraseKeys.configure({ stylesheet, notice }),
+    PhrasePaste.configure({ stylesheet, notice }),
+  ];
 }
 
 /** Starts an editor for a document and stylesheet (ADR 0022). */
@@ -74,11 +96,10 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
 
   const editor = new Editor({
     element: options.element,
-    extensions: [
-      ...schemaExtensions(),
-      UniqueIds,
-      ContextClasses.configure({ stylesheet: () => stylesheet }),
-    ],
+    extensions: phraseExtensions(
+      () => stylesheet,
+      (notice) => options.onNotice?.(notice),
+    ),
     content: toEditorContent(options.document),
     editorProps: { attributes: { class: SCOPE_CLASS } },
     onUpdate: ({ editor: current }) => {
@@ -104,5 +125,14 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
       editor.destroy();
       style.remove();
     },
+    run: (command) =>
+      runCommand(
+        editor.state,
+        (tr) => {
+          editor.view.dispatch(tr);
+        },
+        command,
+        stylesheet,
+      ),
   };
 }

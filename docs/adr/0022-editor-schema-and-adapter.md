@@ -1,6 +1,6 @@
 # ADR 0022: Editor schema and adapter
 
-Status: Accepted
+Status: Accepted. Commands, keys and paste, and the names of styles in the clipboard HTML as data attributes: ADR 0023.
 
 ## Context
 

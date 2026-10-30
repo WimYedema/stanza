@@ -21,7 +21,7 @@ const page = `<!doctype html>
 <meta charset="utf-8">
 <title>Phrase editor preview</title>
 <body style="background:#444;margin:0;padding:24px;font-family:sans-serif;display:flex;gap:24px;align-items:flex-start">
-<div id="editor" style="flex:1;max-width:520pt;padding:36pt;background:#fff"></div>
+<div style="flex:1;max-width:560pt"><div id="toolbar" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div><div id="notices" style="color:#fc6;min-height:1.4em;margin-bottom:8px;font:13px monospace"></div><div id="editor" style="padding:36pt;background:#fff"></div></div>
 <pre id="markdown" style="flex:1;background:#222;color:#ddd;padding:12px;white-space:pre-wrap;font:12px/1.4 monospace"></pre>
 <script id="data" type="application/json">${data}</script>
 <script>${code}</script>

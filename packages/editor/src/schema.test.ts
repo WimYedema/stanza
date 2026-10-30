@@ -105,6 +105,7 @@ describe('the markup that the schema writes', () => {
           ],
         },
         { type: 'codeBlock', attrs: { language: 'ts' }, content: [{ type: 'text', text: 'a' }] },
+        { type: 'phraseBlock', attrs: { kind: 'toc', text: 'depth: 2' } },
       ],
     });
     const names = new Set<string>();
@@ -114,10 +115,18 @@ describe('the markup that the schema writes', () => {
       for (const mark of child.marks) written(mark.type.spec.toDOM?.(mark, true), names);
     });
     const attributes = [...names].filter((name) => !name.startsWith('<'));
-    expect(attributes.sort()).toEqual(['class', 'href']);
+    // Names and texts that travel in the clipboard HTML are data attributes, never `style`.
+    expect(attributes.sort()).toEqual([
+      'class',
+      'data-phrase-kind',
+      'data-phrase-style',
+      'data-phrase-text',
+      'href',
+    ]);
     expect(attributes).not.toContain('style');
     expect([...names].filter((name) => name.startsWith('<')).sort()).toEqual([
       '<a>',
+      '<div>',
       '<em>',
       '<h2>',
       '<p>',

@@ -1,6 +1,6 @@
 # ADR 0006: Typed stylesheet
 
-Status: Accepted. Page templates added by ADR 0016; the `table-of-contents` section by ADR 0018; compilation to browser CSS: ADR 0021.
+Status: Accepted. Page templates added by ADR 0016; the `table-of-contents` section by ADR 0018; compilation to browser CSS: ADR 0021; marks that follow the style, in the editor: ADR 0023.
 
 ## Context
 
