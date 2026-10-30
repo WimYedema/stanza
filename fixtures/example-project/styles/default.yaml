@@ -107,6 +107,12 @@ paragraph-styles:
     alignment: center
     page-break-before: false
 
+  cover-meta:
+    based-on: body
+    alignment: center
+    color: muted
+    space-after: 24
+
 character-styles:
   marker:
     bold: true
@@ -157,6 +163,20 @@ page-templates:
     footer:
       style: header-footer
       right: 'Page [1](phrase:page) of [1](phrase:pages)'
+    cover:
+      - style: cover-title
+        text: '[Untitled](phrase:title)'
+      - style: cover-meta
+        text: '[](phrase:authors)'
+      - table:
+          style: table-grid
+          rows:
+            - label: 'Classification'
+              value: '[](phrase:classification)'
+            - label: 'Document number'
+              value: '[](phrase:field:document-number)'
+            - label: 'Reviewers'
+              value: '[](phrase:field:reviewers)'
 
 table-of-contents:
   page-numbers: true

@@ -299,6 +299,7 @@ function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): 
     return weight === undefined || total === undefined ? undefined : percent(weight, total);
   };
 
+  const hasHeader = header !== undefined && table.header.length > 0;
   const headerRow = new TableRow({
     ...(header?.repeat === true ? { tableHeader: true } : {}),
     cantSplit: true,
@@ -322,7 +323,7 @@ function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): 
   );
   return new Table({
     style: wordStyleId(styleName),
-    tableLook: { firstRow: header !== undefined, noHBand: true, noVBand: true },
+    tableLook: { firstRow: hasHeader, noHBand: true, noVBand: true },
     layout: TableLayoutType.AUTOFIT,
     width:
       indentTwips > 0
@@ -332,7 +333,7 @@ function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): 
           }
         : { size: 100, type: WidthType.PERCENTAGE },
     ...(indentTwips > 0 ? { indent: { size: indentTwips, type: WidthType.DXA } } : {}),
-    rows: [headerRow, ...rows],
+    rows: table.header.length === 0 ? rows : [headerRow, ...rows],
   });
 }
 

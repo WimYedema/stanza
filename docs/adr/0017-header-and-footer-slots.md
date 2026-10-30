@@ -1,6 +1,6 @@
 # ADR 0017: Header and footer slots
 
-Status: Accepted
+Status: Accepted. The `authors` and `field:<name>` tokens added by ADR 0019.
 
 ## Context
 

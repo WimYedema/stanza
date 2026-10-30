@@ -171,6 +171,80 @@ describe('parseStylesheet', () => {
     ]);
   });
 
+  it('reads the cover of a page template', () => {
+    const result = parseStylesheet(fixture);
+    const letter = result.stylesheet.pageTemplates.get(name('page-letter'));
+    expect(result.stylesheet.pageTemplates.get(name('page'))?.cover).toBeUndefined();
+    expect(letter?.cover?.[0]).toEqual({
+      kind: 'paragraph',
+      style: 'cover-title',
+      text: [{ kind: 'token', token: 'title', label: 'Untitled' }],
+    });
+    expect(letter?.cover?.[2]).toEqual({
+      kind: 'table',
+      style: 'table-grid',
+      rows: [
+        { label: 'Classification', value: [{ kind: 'token', token: 'classification', label: '' }] },
+        {
+          label: 'Document number',
+          value: [{ kind: 'field', name: 'document-number', label: '' }],
+        },
+        { label: 'Reviewers', value: [{ kind: 'field', name: 'reviewers', label: '' }] },
+      ],
+    });
+  });
+
+  it('reads a cover table with the default table style', () => {
+    const source = sheet(
+      "page-templates:\n  page:\n    cover:\n      - table:\n          rows:\n            - { label: A, value: 'x [](phrase:authors)' }",
+    );
+    const { stylesheet, diagnostics } = parseStylesheet(source);
+    expect(diagnostics).toEqual([]);
+    expect(stylesheet.pageTemplates.get(name('page'))?.cover).toEqual([
+      {
+        kind: 'table',
+        style: 'table',
+        rows: [
+          {
+            label: 'A',
+            value: [
+              { kind: 'text', text: 'x ' },
+              { kind: 'token', token: 'authors', label: '' },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('reports a cover that is wrongly written', () => {
+    const cover = (entries: string): string =>
+      `page-templates:\n  page:\n    cover:\n${entries
+        .split('\n')
+        .map((line) => `      ${line}`)
+        .join('\n')}`;
+    expect(problems(sheet('page-templates:\n  page:\n    cover: text'))).toEqual([
+      ['invalid-type', 'page-templates.page.cover'],
+    ]);
+    expect(problems(sheet(cover("- text: 'a'\n  table: { rows: [] }\n- style: body")))).toEqual([
+      ['invalid-value', 'page-templates.page.cover[0]'],
+      ['invalid-value', 'page-templates.page.cover[1]'],
+    ]);
+    expect(problems(sheet(cover("- text: '[](phrase:field:Bad) [](phrase:nope)'")))).toEqual([
+      ['unknown-slot-token', 'page-templates.page.cover[0].text'],
+      ['unknown-slot-token', 'page-templates.page.cover[0].text'],
+    ]);
+    expect(
+      problems(
+        sheet(cover('- table:\n    rows:\n      - { label: A }\n      - { value: B, size: 1 }')),
+      ),
+    ).toEqual([
+      ['invalid-value', 'page-templates.page.cover[0].table.rows[0]'],
+      ['unknown-property', 'page-templates.page.cover[0].table.rows[1].size'],
+      ['invalid-value', 'page-templates.page.cover[0].table.rows[1]'],
+    ]);
+  });
+
   it('reads the table of contents options, with page numbers by default', () => {
     expect(parseStylesheet(sheet('')).stylesheet.tableOfContents).toEqual({ pageNumbers: true });
     const off = parseStylesheet(sheet('table-of-contents:\n  page-numbers: false'));

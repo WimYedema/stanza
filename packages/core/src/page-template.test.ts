@@ -76,6 +76,37 @@ describe('validateStylesheet and page templates', () => {
       ['invalid-value', 'page-templates.page.size'],
     ]);
   });
+
+  it('accepts a cover, and rejects styles that are not declared or pagination tokens', () => {
+    const page = { kind: 'token', token: 'page', label: '' } as const;
+    const title = { kind: 'token', token: 'title', label: '' } as const;
+    const ok: PageTemplate = {
+      ...wide,
+      cover: [
+        { kind: 'paragraph', text: [title] },
+        { kind: 'paragraph', style: 'body' as never, text: [title] },
+        { kind: 'table', style: 'table' as never, rows: [{ label: 'A', value: [title] }] },
+      ],
+    };
+    expect(problems(sheet({ pageTemplates: { page: ok } }))).toEqual([]);
+    const bad: PageTemplate = {
+      ...wide,
+      cover: [
+        { kind: 'paragraph', style: 'gone' as never, text: [page] },
+        { kind: 'table', style: 'body' as never, rows: [{ label: 'A', value: [page] }] },
+      ],
+    };
+    expect(problems(sheet({ pageTemplates: { page: bad } }))).toEqual([
+      ['unknown-cover-style', 'page-templates.page.cover[0].style'],
+      ['cover-token-not-allowed', 'page-templates.page.cover[0].text'],
+      ['unknown-cover-style', 'page-templates.page.cover[1].table.style'],
+      ['cover-token-not-allowed', 'page-templates.page.cover[1].table.rows[0].value'],
+    ]);
+  });
+
+  it('accepts an empty cover', () => {
+    expect(problems(sheet({ pageTemplates: { page: { ...wide, cover: [] } } }))).toEqual([]);
+  });
 });
 
 const settings = (pageTemplate?: string): ProjectSettings => ({

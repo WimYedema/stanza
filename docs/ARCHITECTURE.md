@@ -372,6 +372,7 @@ Accepted:
 - ADR 0016: page templates.
 - ADR 0017: header and footer slots.
 - ADR 0018: table of contents.
+- ADR 0019: cover page.
 
 Still to capture:
 

@@ -4,6 +4,7 @@ import { MIN_TEXT_AREA_PT, PAGE_SIZES, PAGE_SIZE_NAMES } from './page-template.j
 import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
 import type { StyleName } from './style-name.js';
 import {
+  PAGINATION_TOKENS,
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
   VARIANT_MARKS,
@@ -11,6 +12,7 @@ import {
   type ColorValue,
   type FontValue,
   type ParagraphProps,
+  type SlotPart,
   type Stylesheet,
   type TextProps,
 } from './stylesheet.js';
@@ -164,6 +166,41 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         );
       }
     }
+    const checkCoverParts = (parts: readonly SlotPart[], where: string): void => {
+      for (const part of parts) {
+        if (part.kind === 'token' && PAGINATION_TOKENS.includes(part.token)) {
+          error(
+            'cover-token-not-allowed',
+            `The token "${part.token}" depends on pagination and cannot be used on a cover.`,
+            where,
+          );
+        }
+      }
+    };
+    template.cover?.forEach((entry, index) => {
+      const here = `${path}.cover[${String(index)}]`;
+      if (entry.kind === 'paragraph') {
+        if (entry.style !== undefined && !stylesheet.paragraphStyles.has(entry.style)) {
+          error(
+            'unknown-cover-style',
+            `The style "${entry.style}" is not a paragraph style.`,
+            `${here}.style`,
+          );
+        }
+        checkCoverParts(entry.text, `${here}.text`);
+        return;
+      }
+      if (!stylesheet.tableStyles.has(entry.style)) {
+        error(
+          'unknown-cover-style',
+          `The style "${entry.style}" is not a table style.`,
+          `${here}.table.style`,
+        );
+      }
+      entry.rows.forEach((row, rowIndex) => {
+        checkCoverParts(row.value, `${here}.table.rows[${String(rowIndex)}].value`);
+      });
+    });
     const sides = [
       ['top', margins.topPt],
       ['right', margins.rightPt],

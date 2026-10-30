@@ -11,6 +11,7 @@ import {
 } from '@phrase/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext } from './content.js';
+import { coverBlocks } from './cover.js';
 import { footerOf, headerOf } from './header-footer.js';
 import { ListNumbering } from './list-numbering.js';
 import { pageGeometry } from './page.js';
@@ -69,11 +70,28 @@ export async function exportDocx(
     diagnostics,
   };
   const children = buildBlocks(document.blocks, context);
+  const coverChildren =
+    template.cover === undefined
+      ? []
+      : buildBlocks(coverBlocks(template.cover, document.meta), { ...context, headingLabels: [] });
+  const hasCover = coverChildren.length > 0;
   if (hasErrors(diagnostics)) return { bytes: undefined, diagnostics };
 
   const { title, authors } = document.meta;
-  const header = headerOf(template.header, document.meta, page);
-  const footer = footerOf(template.footer, document.meta, page);
+  const counting = { hasCover };
+  const header = headerOf(template.header, document.meta, page, counting);
+  const footer = footerOf(template.footer, document.meta, page, counting);
+  const pageProperties = {
+    size: { width: page.widthTwips, height: page.heightTwips },
+    margin: {
+      top: page.marginTopTwips,
+      right: page.marginRightTwips,
+      bottom: page.marginBottomTwips,
+      left: page.marginLeftTwips,
+      header: page.headerTwips,
+      footer: page.footerTwips,
+    },
+  };
   const file = new Document({
     ...(title !== undefined ? { title } : {}),
     ...(authors !== undefined
@@ -86,19 +104,11 @@ export async function exportDocx(
     },
     ...(context.lists.config().length > 0 ? { numbering: { config: context.lists.config() } } : {}),
     sections: [
+      ...(hasCover ? [{ properties: { page: pageProperties }, children: coverChildren }] : []),
       {
         properties: {
-          page: {
-            size: { width: page.widthTwips, height: page.heightTwips },
-            margin: {
-              top: page.marginTopTwips,
-              right: page.marginRightTwips,
-              bottom: page.marginBottomTwips,
-              left: page.marginLeftTwips,
-              header: page.headerTwips,
-              footer: page.footerTwips,
-            },
-          },
+          // The cover is not counted.
+          page: { ...pageProperties, ...(hasCover ? { pageNumbers: { start: 1 } } : {}) },
         },
         ...(header !== undefined ? { headers: { default: header } } : {}),
         ...(footer !== undefined ? { footers: { default: footer } } : {}),

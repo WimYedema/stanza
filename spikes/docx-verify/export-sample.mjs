@@ -14,6 +14,11 @@ title: "Export sample"
 authors:
   - "Example Author"
 page-template: "page-letter"
+classification: "Internal"
+document-number: "DOC-0001"
+reviewers:
+  - "Reviewer One"
+  - "Reviewer Two"
 ---
 
 \`\`\`phrase-toc

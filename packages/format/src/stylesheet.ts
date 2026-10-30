@@ -2,6 +2,7 @@ import {
   BUILT_IN_PAGE_TEMPLATE,
   DEFAULT_TABLE_OF_CONTENTS,
   PAGE_SIZE_NAMES,
+  RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
   isStyleName,
   validateStylesheet,
@@ -10,6 +11,8 @@ import {
   type Border,
   type CharacterStyle,
   type ColorValue,
+  type CoverEntry,
+  type CoverRow,
   type Diagnostic,
   type FontValue,
   type HeaderRow,
@@ -303,6 +306,9 @@ const MARGIN_SIDES = ['top', 'right', 'bottom', 'left'] as const;
 /** A token is written as a link whose target is `phrase:` and the token name (ADR 0017). */
 const SLOT_LINK = /\[([^\]]*)\]\(phrase:([^)\s]*)\)/g;
 
+/** A custom metadata field is written `field:<name>`, with a kebab-case name. */
+const FIELD_TOKEN = /^field:([a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/;
+
 /** Splits the text of a slot into literal text and tokens. An unknown token stays literal text. */
 function readSlotText(text: string, path: string, report: Report): SlotPart[] {
   const parts: SlotPart[] = [];
@@ -313,16 +319,84 @@ function readSlotText(text: string, path: string, report: Report): SlotPart[] {
   for (const match of text.matchAll(SLOT_LINK)) {
     const [whole, label = '', name = ''] = match;
     const token = SLOT_TOKENS.find((candidate) => candidate === name);
-    if (token === undefined) {
+    const field = FIELD_TOKEN.exec(name)?.[1];
+    if (token === undefined && field === undefined) {
       report('unknown-slot-token', `Unknown token "${name}".`, path);
       continue;
     }
     literalUpTo(match.index);
-    parts.push({ kind: 'token', token, label });
+    parts.push(
+      token !== undefined
+        ? { kind: 'token', token, label }
+        : { kind: 'field', name: field ?? '', label },
+    );
     from = match.index + whole.length;
   }
   literalUpTo(text.length);
   return parts;
+}
+
+function readCoverEntry(value: unknown, path: string, report: Report): CoverEntry | undefined {
+  const map = asMap(value, path, report);
+  if (map === undefined) return undefined;
+  checkKeys(map, ['style', 'text', 'table'], path, report);
+  if ((map['text'] === undefined) === (map['table'] === undefined)) {
+    report('invalid-value', 'An entry has either "text" or "table".', path);
+    return undefined;
+  }
+  if (map['table'] === undefined) {
+    const text = readString(map, 'text', path, report);
+    const style = readName(map, 'style', path, report);
+    if (text === undefined) return undefined;
+    return {
+      kind: 'paragraph',
+      ...(style !== undefined ? { style } : {}),
+      text: readSlotText(text, join(path, 'text'), report),
+    };
+  }
+  if (map['style'] !== undefined) {
+    report(
+      'unknown-property',
+      'The style of a table is given inside "table".',
+      join(path, 'style'),
+    );
+  }
+  const here = join(path, 'table');
+  const table = asMap(map['table'], here, report);
+  if (table === undefined) return undefined;
+  checkKeys(table, ['style', 'rows'], here, report);
+  const style = readName(table, 'style', here, report) ?? RESERVED_TABLE_STYLE;
+  const given = table['rows'];
+  if (!Array.isArray(given)) {
+    report('invalid-type', `Expected a list, found ${describe(given)}.`, join(here, 'rows'));
+    return undefined;
+  }
+  const rows: CoverRow[] = [];
+  given.forEach((item: unknown, index) => {
+    const rowPath = `${join(here, 'rows')}[${String(index)}]`;
+    const row = asMap(item, rowPath, report);
+    if (row === undefined) return;
+    checkKeys(row, ['label', 'value'], rowPath, report);
+    const label = readString(row, 'label', rowPath, report);
+    const value = readString(row, 'value', rowPath, report);
+    if (label === undefined || value === undefined) {
+      report('invalid-value', 'A row needs a "label" and a "value".', rowPath);
+      return;
+    }
+    rows.push({ label, value: readSlotText(value, join(rowPath, 'value'), report) });
+  });
+  return { kind: 'table', style, rows };
+}
+
+function readCover(value: unknown, path: string, report: Report): CoverEntry[] | undefined {
+  if (!Array.isArray(value)) {
+    report('invalid-type', `Expected a list, found ${describe(value)}.`, path);
+    return undefined;
+  }
+  return value.flatMap((entry: unknown, index) => {
+    const read = readCoverEntry(entry, `${path}[${String(index)}]`, report);
+    return read === undefined ? [] : [read];
+  });
 }
 
 function readHeaderFooter(map: Data, path: string, report: Report): HeaderFooter {
@@ -341,7 +415,7 @@ function readHeaderFooter(map: Data, path: string, report: Report): HeaderFooter
 }
 
 function readPageTemplate(map: Data, path: string, report: Report): PageTemplate {
-  checkKeys(map, ['size', 'margins', 'header', 'footer'], path, report);
+  checkKeys(map, ['size', 'margins', 'header', 'footer', 'cover'], path, report);
   let size: PageSize = BUILT_IN_PAGE_TEMPLATE.size;
   const given = map['size'];
   if (given !== undefined) {
@@ -375,7 +449,15 @@ function readPageTemplate(map: Data, path: string, report: Report): PageTemplate
     const entries = asMap(map[name], here, report);
     return entries === undefined ? {} : { [name]: readHeaderFooter(entries, here, report) };
   };
-  return { size, margins, ...slots('header'), ...slots('footer') };
+  const cover =
+    map['cover'] === undefined ? undefined : readCover(map['cover'], join(path, 'cover'), report);
+  return {
+    size,
+    margins,
+    ...slots('header'),
+    ...slots('footer'),
+    ...(cover !== undefined ? { cover } : {}),
+  };
 }
 
 function readTableOfContents(data: Data, report: Report): TableOfContentsOptions {

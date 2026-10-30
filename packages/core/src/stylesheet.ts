@@ -106,9 +106,10 @@ export interface PageMargins {
   readonly leftPt: number;
 }
 
-/** The values a slot can show (ADR 0017). The last three are Word fields. */
+/** The values a slot can show (ADR 0017, ADR 0019). The last three are Word fields. */
 export const SLOT_TOKENS = [
   'title',
+  'authors',
   'version',
   'classification',
   'page',
@@ -118,10 +119,17 @@ export const SLOT_TOKENS = [
 
 export type SlotToken = (typeof SLOT_TOKENS)[number];
 
-/** Text of a slot: literal text, or a token with the label shown when it has no value yet. */
+/** Tokens that are Word fields, which only make sense on pages that have numbers. */
+export const PAGINATION_TOKENS: readonly SlotToken[] = ['page', 'pages', 'section'];
+
+/**
+ * Text of a slot: literal text, a token, or a custom metadata field written `field:<name>`. The
+ * label is shown when the value is missing.
+ */
 export type SlotPart =
   | { readonly kind: 'text'; readonly text: string }
-  | { readonly kind: 'token'; readonly token: SlotToken; readonly label: string };
+  | { readonly kind: 'token'; readonly token: SlotToken; readonly label: string }
+  | { readonly kind: 'field'; readonly name: string; readonly label: string };
 
 /** The header or the footer of a page: three slots on one line. A slot may be empty. */
 export interface HeaderFooter {
@@ -132,12 +140,23 @@ export interface HeaderFooter {
   readonly right: readonly SlotPart[];
 }
 
-/** The page of a document: its size, margins, and header and footer. */
+/** One entry of a cover page: a paragraph, or a table of label and value rows (ADR 0019). */
+export type CoverEntry =
+  | { readonly kind: 'paragraph'; readonly style?: StyleName; readonly text: readonly SlotPart[] }
+  | { readonly kind: 'table'; readonly style: StyleName; readonly rows: readonly CoverRow[] };
+
+export interface CoverRow {
+  readonly label: string;
+  readonly value: readonly SlotPart[];
+}
+
+/** The pages of a document: size, margins, header and footer, and an optional cover page. */
 export interface PageTemplate {
   readonly size: PageSize;
   readonly margins: PageMargins;
   readonly header?: HeaderFooter;
   readonly footer?: HeaderFooter;
+  readonly cover?: readonly CoverEntry[];
 }
 
 export interface Stylesheet {

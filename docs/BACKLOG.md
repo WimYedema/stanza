@@ -33,10 +33,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 23. [M] - Page templates: named templates in the stylesheet with page size (A4 or Letter) and margins, selected by a document's `page-template` front matter entry or the project default, and the page geometry of the export taken from the template.
 49. [M] - Header and footer slots for page templates: left, centre and right text with tokens (title, version, classification, page, pages, section) written as `phrase:` links, page numbers as Word fields.
 25. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
+24. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
-24. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
 48. [S] - CLI: assign missing IDs, as an option of `format` (`--assign-ids`) that formats first and then gives every referenceable block without an ID a new one, unique across the project. With `--check`, a missing ID counts as a change. ADR 0015 leaves flag versus separate command open; this item decides it.
 28. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
 29. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.

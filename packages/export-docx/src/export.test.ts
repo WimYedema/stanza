@@ -42,6 +42,10 @@ async function build(body: string, sheet = stylesheet, front = '') {
 }
 
 const heading = (text: string): string => `<!-- phrase: #k7m2q9x4zb -->\n# ${text}\n\n`;
+const partOf = (result: Awaited<ReturnType<typeof build>>, kind: 'header' | 'footer'): string => {
+  const name = result.names.find((n) => new RegExp(`^word/${kind}\\d*\\.xml$`).test(n));
+  return name === undefined ? '' : result.part(name);
+};
 const codes = (diagnostics: readonly Diagnostic[]): string[] => diagnostics.map((d) => d.code);
 
 afterEach(() => {
@@ -416,11 +420,6 @@ describe('exportDocx pages', () => {
 });
 
 describe('exportDocx headers and footers', () => {
-  const partOf = (result: Awaited<ReturnType<typeof build>>, kind: 'header' | 'footer'): string => {
-    const name = result.names.find((n) => new RegExp(`^word/${kind}\\d*\\.xml$`).test(n));
-    return name === undefined ? '' : result.part(name);
-  };
-
   it('writes the header and footer of the default template', async () => {
     const result = await build(
       'Text.\n',
@@ -734,5 +733,106 @@ describe('exportDocx table of contents', () => {
     const first = await build(body(TOC));
     const second = await build(body(TOC));
     expect(second.bytes).toEqual(first.bytes);
+  });
+});
+
+describe('exportDocx cover page', () => {
+  const FRONT =
+    'page-template: "page-letter"\ntitle: "My Doc"\nauthors:\n  - "Ann"\n  - "Bob"\nclassification: "Internal"\ndocument-number: "D-1"\nreviewers:\n  - "Cy"\n  - "Di"\n';
+  const sections = (xml: string): string[] => xml.match(/<w:sectPr>.*?<\/w:sectPr>/gs) ?? [];
+  const body = '<!-- phrase: #k7m2q9x4zb -->\n# One\n\nText.\n';
+
+  it('writes the cover with the metadata filled in, before the body', async () => {
+    const { documentXml, result } = await build(body, stylesheet, FRONT);
+    expect(result.diagnostics).toEqual([]);
+    const cover = documentXml.slice(0, documentXml.indexOf('<w:pStyle w:val="Heading1"/>'));
+    expect(cover).toContain('<w:pStyle w:val="CoverTitle"/>');
+    expect(cover).toContain('>My Doc<');
+    expect(cover).toContain('<w:pStyle w:val="CoverMeta"/>');
+    expect(cover).toContain('>Ann, Bob<');
+    expect(cover).toContain('<w:tblStyle w:val="TableGrid"/>');
+    for (const text of ['Classification', 'Internal', 'Document number', 'D-1', 'Cy, Di']) {
+      expect(cover).toContain(`>${text}<`);
+    }
+  });
+
+  it('ends the cover with a section break, so the body starts on a new page', async () => {
+    const { documentXml } = await build(body, stylesheet, FRONT);
+    const [first, second, ...rest] = sections(documentXml);
+    expect(rest).toEqual([]);
+    expect(first).not.toContain('headerReference');
+    expect(first).not.toContain('footerReference');
+    expect(first).toContain('<w:pgSz w:w="12240" w:h="15840"');
+    expect(second).toContain('headerReference');
+    expect(second).toContain('footerReference');
+    expect(second).toContain('<w:pgSz w:w="12240" w:h="15840"');
+  });
+
+  it('starts the numbering of the body at 1, and counts the pages of that section', async () => {
+    const result = await build(body, stylesheet, FRONT);
+    expect(sections(result.documentXml)[1]).toContain('<w:pgNumType w:start="1"/>');
+    expect(sections(result.documentXml)[0]).not.toContain('w:start=');
+    expect(partOf(result, 'footer')).toContain('w:instr="SECTIONPAGES"');
+    expect(partOf(result, 'footer')).not.toContain('NUMPAGES');
+  });
+
+  it('writes a document without a cover as one section that counts all pages', async () => {
+    const result = await build(body, stylesheet, 'title: "My Doc"\n');
+    expect(sections(result.documentXml)).toHaveLength(1);
+    expect(result.documentXml).not.toContain('CoverTitle');
+    expect(partOf(result, 'footer')).toContain('w:instr="NUMPAGES"');
+    expect(result.documentXml).not.toContain('w:start=');
+  });
+
+  it('leaves out a paragraph without text, and a row without a value', async () => {
+    const { documentXml } = await build(
+      body,
+      stylesheet,
+      'page-template: "page-letter"\ntitle: "T"\n',
+    );
+    expect(documentXml).toContain('>T<');
+    expect(documentXml).not.toContain('CoverMeta');
+    expect(documentXml).not.toContain('Classification');
+    expect(documentXml).not.toContain('<w:tblStyle w:val="TableGrid"/>');
+  });
+
+  it('shows the label of a missing value, and writes no cover when nothing is left', async () => {
+    const withLabels = parseStylesheet(
+      STYLESHEET_TEXT.replace("'[](phrase:authors)'", "'by [anyone](phrase:authors)'"),
+    ).stylesheet;
+    const labelled = await build(body, withLabels, 'page-template: "page-letter"\n');
+    expect(labelled.documentXml).toContain('>by anyone<');
+    expect(labelled.documentXml).toContain('>Untitled<');
+    const emptied = parseStylesheet(
+      STYLESHEET_TEXT.replace("'[Untitled](phrase:title)'", "''").replace(
+        "'[](phrase:authors)'",
+        "''",
+      ),
+    ).stylesheet;
+    const none = await build(body, emptied, 'page-template: "page-letter"\n');
+    expect(sections(none.documentXml)).toHaveLength(1);
+    expect(none.documentXml).not.toContain('w:start=');
+  });
+
+  it('writes the table of a cover without a header row', async () => {
+    const { documentXml } = await build(body, stylesheet, FRONT);
+    expect(documentXml).toContain('<w:tblLook w:firstRow="false"');
+    const table = /<w:tbl>.*?<\/w:tbl>/s.exec(documentXml)?.[0] ?? '';
+    expect(table.match(/<w:tr>/g)).toHaveLength(3);
+    expect(table).not.toContain('<w:tblHeader');
+  });
+
+  it('does not number the cover like the headings of the body', async () => {
+    const { documentXml } = await build(body, stylesheet, FRONT);
+    expect(documentXml).toMatch(/<w:t xml:space="preserve">1 <\/w:t>/);
+    const cover = documentXml.slice(0, documentXml.indexOf('<w:pStyle w:val="Heading1"/>'));
+    expect(cover).not.toContain('>1 <');
+  });
+
+  it('puts a table of contents after the cover', async () => {
+    const { documentXml } = await build(`\`\`\`phrase-toc\n\`\`\`\n\n${body}`, stylesheet, FRONT);
+    expect(documentXml.indexOf('Table of Contents')).toBeGreaterThan(
+      documentXml.indexOf('</w:sectPr>'),
+    );
   });
 });
