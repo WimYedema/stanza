@@ -1,6 +1,6 @@
 # ADR 0021: Browser CSS from the stylesheet
 
-Status: Accepted
+Status: Accepted. In the editor the classes are written as decorations: ADR 0022.
 
 ## Context
 

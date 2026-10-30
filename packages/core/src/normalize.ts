@@ -8,14 +8,12 @@ import type {
   TableCell,
   Text,
 } from './document.js';
+import { MARK_TYPES } from './vocabulary.js';
 
-const MARK_ORDER: Record<Mark['type'], number> = {
-  link: 0,
-  style: 1,
-  strong: 2,
-  emphasis: 3,
-  code: 4,
-};
+const MARK_ORDER = Object.fromEntries(MARK_TYPES.map((type, index) => [type, index])) as Record<
+  Mark['type'],
+  number
+>;
 
 function compareStrings(a: string, b: string): number {
   if (a < b) return -1;

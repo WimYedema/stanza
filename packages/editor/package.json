@@ -1,0 +1,29 @@
+{
+  "name": "@phrase/editor",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@phrase/core": "*",
+    "@phrase/css": "*",
+    "@tiptap/core": "^3.32.1",
+    "@tiptap/extension-table": "^3.32.1",
+    "@tiptap/pm": "^3.32.1"
+  },
+  "devDependencies": {
+    "@phrase/format": "*",
+    "jsdom": "^30.1.3"
+  },
+  "scripts": {
+    "typecheck:tests": "tsc -p tsconfig.test.json"
+  }
+}

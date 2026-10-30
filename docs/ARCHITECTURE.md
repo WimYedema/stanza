@@ -90,7 +90,7 @@ packages/
   css/           browser CSS from the stylesheet, and the class names of the editor markup (ADR 0021)
   project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
   cli/           validate, build and format commands (Node)
-  editor/        Tiptap integration and conversion to and from the domain model
+  editor/        Tiptap schema, conversion to and from the domain model, and the editor (ADR 0022)
   vscode/        VS Code extension: custom text editor, diagnostics, commands
 ```
 
@@ -376,6 +376,7 @@ Accepted:
 - ADR 0019: cover page.
 - ADR 0020: assigning missing IDs.
 - ADR 0021: browser CSS from the stylesheet.
+- ADR 0022: editor schema and adapter.
 
 Still to capture:
 

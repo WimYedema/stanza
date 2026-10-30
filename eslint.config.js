@@ -50,6 +50,14 @@ export default tseslint.config(
     ),
   },
   {
+    files: ['packages/editor/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', '!@phrase/css', 'node:*'],
+      'editor may import only core and css, and no Node built-ins.',
+    ),
+  },
+  {
     files: ['packages/project/src/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.testing.ts'],
     rules: restrictImports(

@@ -5,6 +5,7 @@
     { "path": "packages/format" },
     { "path": "packages/export-docx" },
     { "path": "packages/css" },
+    { "path": "packages/editor" },
     { "path": "packages/project" },
     { "path": "packages/cli" }
   ]
