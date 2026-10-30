@@ -13,6 +13,7 @@ import { fromEditorContent, toEditorContent, type FromEditorResult } from './con
 import { PhraseKeys } from './keys.js';
 import type { Notice } from './notice.js';
 import { PhrasePaste } from './paste.js';
+import { editorPosition, moveTo, type EditorPosition } from './position.js';
 import { PHRASE_BLOCK_CLASS, schemaExtensions } from './schema.js';
 
 /**
@@ -56,6 +57,8 @@ export interface PhraseEditorOptions {
   readonly newId?: () => string;
   /** The IDs of the other documents of the project, which new IDs must avoid. */
   readonly usedIds?: () => ReadonlySet<string>;
+  /** The nonce of a content security policy, written on the style elements that the editor adds. */
+  readonly styleNonce?: string;
 }
 
 export interface PhraseEditor {
@@ -67,6 +70,10 @@ export interface PhraseEditor {
   setStylesheet(stylesheet: Stylesheet): readonly Diagnostic[];
   /** Does what a command says, or refuses it and changes nothing (ADR 0023). */
   run(command: EditorCommand): CommandResult;
+  /** Where the cursor is, to put it back after `setDocument`. */
+  getPosition(): EditorPosition;
+  /** Puts the cursor at a position, or as near to it as the document allows. */
+  setPosition(position: EditorPosition): void;
   destroy(): void;
 }
 
@@ -107,6 +114,7 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
   }
 
   const style = options.element.ownerDocument.createElement('style');
+  if (options.styleNonce !== undefined) style.setAttribute('nonce', options.styleNonce);
   style.textContent = first.css;
   options.element.prepend(style);
 
@@ -122,6 +130,7 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
     ),
     content: toEditorContent(options.document),
     editorProps: { attributes: { class: SCOPE_CLASS } },
+    ...(options.styleNonce !== undefined ? { injectNonce: options.styleNonce } : {}),
     onUpdate: ({ editor: current }) => {
       options.onChange?.(fromEditorContent(current.state.doc, meta));
     },
@@ -144,6 +153,10 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
     destroy() {
       editor.destroy();
       style.remove();
+    },
+    getPosition: () => editorPosition(editor.state),
+    setPosition(position) {
+      editor.view.dispatch(moveTo(editor.state, position));
     },
     run: (command) =>
       runCommand(

@@ -1,0 +1,44 @@
+{
+  "name": "phrase-vscode",
+  "displayName": "Phrase",
+  "description": "A visual editor for Phrase documents (.phrase.md), bound to the Markdown file.",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "publisher": "phrase-local",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./dist/extension.cjs",
+  "categories": [
+    "Other"
+  ],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "phrase.editor",
+        "displayName": "Phrase Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.phrase.md"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "dependencies": {
+    "@phrase/core": "*",
+    "@phrase/css": "*",
+    "@phrase/editor": "*",
+    "@phrase/format": "*",
+    "@phrase/project": "*"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.90.0"
+  },
+  "scripts": {
+    "build": "node build.mjs && tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
+    "typecheck:tests": "tsc -p tsconfig.test.json"
+  }
+}

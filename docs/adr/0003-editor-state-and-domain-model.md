@@ -1,6 +1,6 @@
 # ADR 0003: Editor state and the domain model
 
-Status: Accepted. The `format` command: ADR 0015. The editor schema is checked against the vocabulary of `core`, not generated from it: ADR 0022.
+Status: Accepted. The `format` command: ADR 0015. The editor schema is checked against the vocabulary of `core`, not generated from it: ADR 0022. The VS Code host, with the buffer normalised for line endings and the history of VS Code for undo: ADR 0025.
 
 ## Context
 

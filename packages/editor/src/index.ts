@@ -14,6 +14,7 @@ export {
   type PhraseEditorOptions,
 } from './editor.js';
 export type { Notice } from './notice.js';
+export type { EditorPosition } from './position.js';
 export { normalizePastedHtml } from './paste-html.js';
 export { fromEditorContent, toEditorContent, type FromEditorResult } from './convert.js';
 export { schemaExtensions } from './schema.js';

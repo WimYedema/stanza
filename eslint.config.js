@@ -6,13 +6,26 @@ const restrictImports = (group, message) => ({
 });
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '.venv/**', 'spikes/**', 'word-examples/**', '*.config.*'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '.venv/**',
+      'spikes/**',
+      'word-examples/**',
+      '*.config.*',
+      'packages/*/build.mjs',
+    ],
+  },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,
   {
     languageOptions: {
       parserOptions: {
-        project: ['packages/*/tsconfig.json', 'packages/*/tsconfig.test.json'],
+        project: [
+          'packages/*/tsconfig.json',
+          'packages/*/tsconfig.test.json',
+          'packages/vscode/tsconfig.webview.json',
+        ],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -63,6 +76,38 @@ export default tseslint.config(
     rules: restrictImports(
       ['@phrase/*', '!@phrase/core', '!@phrase/format', '!@phrase/export-docx', 'node:*'],
       'project may import core, format, and export-docx, and no Node built-ins.',
+    ),
+  },
+  {
+    files: ['packages/vscode/src/host/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', '!@phrase/format', '!@phrase/project'],
+      'The host side of the extension may import core, format and project, and not the editor.',
+    ),
+  },
+  {
+    files: ['packages/vscode/src/webview/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      [
+        '@phrase/*',
+        '!@phrase/core',
+        '!@phrase/css',
+        '!@phrase/format',
+        '!@phrase/editor',
+        'vscode',
+        'node:*',
+      ],
+      'The webview may import core, css, format and the editor, and not vscode or Node.',
+    ),
+  },
+  {
+    files: ['packages/vscode/src/shared/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', 'vscode', 'node:*'],
+      'The messages are plain data and import nothing.',
     ),
   },
   {

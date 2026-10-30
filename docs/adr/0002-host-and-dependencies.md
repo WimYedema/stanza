@@ -1,6 +1,6 @@
 # ADR 0002: Host environment and dependency policy
 
-Status: Accepted. Package list extended by ADR 0014.
+Status: Accepted. Package list extended by ADR 0014. The `vscode` package is called `phrase-vscode` and is bundled by `esbuild`: ADR 0025.
 
 ## Context
 

@@ -91,7 +91,7 @@ packages/
   project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
   cli/           validate, build and format commands (Node)
   editor/        Tiptap schema, conversion to and from the domain model, the editor, its commands and paste (ADR 0022, 0023, 0024)
-  vscode/        VS Code extension: custom text editor, diagnostics, commands
+  vscode/        VS Code extension, called phrase-vscode: custom text editor and diagnostics (ADR 0025)
 ```
 
 `core`, `format`, `export-docx`, `css`, and `project` use no Node built-ins and no DOM. A PDF adapter would be a further package. A lint rule enforces the boundaries.
@@ -379,6 +379,7 @@ Accepted:
 - ADR 0022: editor schema and adapter.
 - ADR 0023: editor commands and paste.
 - ADR 0024: IDs of new blocks in the editor.
+- ADR 0025: the VS Code editor.
 
 Still to capture:
 

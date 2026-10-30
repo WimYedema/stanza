@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "declaration": false,
+    "lib": ["ES2022"],
+    "types": ["node", "vscode"],
+    "rootDir": "src"
+  },
+  "include": ["src/host", "src/shared"],
+  "exclude": ["src/**/*.test.ts"]
+}

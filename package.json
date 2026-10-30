@@ -10,7 +10,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && npm run build --workspace phrase-vscode",
     "typecheck:tests": "npm run typecheck:tests --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint .",
