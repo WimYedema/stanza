@@ -10,6 +10,7 @@ export default defineConfig({
       '@phrase/export-docx': fileURLToPath(
         new URL('./packages/export-docx/src/index.ts', import.meta.url),
       ),
+      '@phrase/css': fileURLToPath(new URL('./packages/css/src/index.ts', import.meta.url)),
       '@phrase/project': fileURLToPath(new URL('./packages/project/src/index.ts', import.meta.url)),
     },
   },

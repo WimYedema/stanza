@@ -35,12 +35,12 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 25. [M] - Table of contents block with depth: entries as linked paragraphs, page numbers as page-number fields marked for update (Word prompts on open), or no page numbers.
 24. [M] - Cover page: a page template whose slots are filled from document metadata (title, document class lines, metadata table, classification), with the body starting on a new page by template rule.
 48. [S] - CLI: assign missing IDs, as an option of `format` (`--assign-ids`) that formats first and then gives every referenceable block without an ID a new one, unique across the project. With `--check`, a missing ID counts as a change. Decided in ADR 0020.
+33. [S] - Compile the typed stylesheet to scoped browser CSS. Decided in ADR 0021.
 
 ## Phase 5: Editor and review
 
 Placed before Phases 3 and 4 by the product owner.
 
-33. [S] - Compile the typed stylesheet to scoped browser CSS.
 34. [L] - Tiptap schema and editor adapter: semantic commands, paste normalisation, no direct formatting.
 35. [S] - Unique-ID handling for new nodes in the editor.
 36. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.

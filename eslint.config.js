@@ -42,6 +42,14 @@ export default tseslint.config(
     ),
   },
   {
+    files: ['packages/css/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', 'node:*'],
+      'css may import only @phrase/core and no Node built-ins.',
+    ),
+  },
+  {
     files: ['packages/project/src/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.testing.ts'],
     rules: restrictImports(

@@ -87,13 +87,14 @@ packages/
   core/          domain model, styles, references, validation; no dependencies
   format/        Markdown parser and serializer (ADR 0001)
   export-docx/   DOCX adapter
+  css/           browser CSS from the stylesheet, and the class names of the editor markup (ADR 0021)
   project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
   cli/           validate, build and format commands (Node)
   editor/        Tiptap integration and conversion to and from the domain model
   vscode/        VS Code extension: custom text editor, diagnostics, commands
 ```
 
-`core`, `format`, `export-docx`, and `project` use no Node built-ins and no DOM. A PDF adapter would be a further package. A lint rule enforces the boundaries.
+`core`, `format`, `export-docx`, `css`, and `project` use no Node built-ins and no DOM. A PDF adapter would be a further package. A lint rule enforces the boundaries.
 
 The modules below live inside `core`.
 
@@ -374,6 +375,7 @@ Accepted:
 - ADR 0018: table of contents.
 - ADR 0019: cover page.
 - ADR 0020: assigning missing IDs.
+- ADR 0021: browser CSS from the stylesheet.
 
 Still to capture:
 
