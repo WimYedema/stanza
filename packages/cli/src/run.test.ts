@@ -236,3 +236,68 @@ describe('phrase usage', () => {
     expect(result.out).toBe('');
   });
 });
+
+describe('phrase format --assign-ids', () => {
+  const IDS = ['aaaaaaaaaa', 'bbbbbbbbbb', 'cccccccccc'];
+  async function assign(...argv: string[]): Promise<{ code: number; out: string; err: string }> {
+    let out = '';
+    let err = '';
+    let next = 0;
+    const code = await run(argv, {
+      cwd: work,
+      stdout: (text) => (out += text),
+      stderr: (text) => (err += text),
+      generateId: () => IDS[next++] ?? 'zzzzzzzzzz',
+    });
+    return { code, out, err };
+  }
+  const reference = (): string => join(work, 'project', 'documents', 'reference.phrase.md');
+  const withoutIds = (): void => {
+    writeFileSync(
+      reference(),
+      readFileSync(reference(), 'utf8').replace(/<!-- phrase: #\w+ -->\n(?=#)/g, ''),
+    );
+  };
+
+  it('adds the missing IDs, and then has nothing left to do', async () => {
+    withoutIds();
+    expect((await phrase('validate', 'project')).out).toContain('warning missing-id');
+    const result = await assign('format', 'project', '--assign-ids');
+    expect(result.code).toBe(0);
+    expect(result.out).toMatch(/reformatted documents\/reference\.phrase\.md \(\d IDs? assigned\)/);
+    expect(result.out).toMatch(/Checked 2 documents: 1 reformatted, 0 refused, \d IDs? assigned\./);
+    expect(readFileSync(reference(), 'utf8')).toContain('<!-- phrase: #aaaaaaaaaa -->');
+    const again = await assign('format', 'project', '--assign-ids');
+    expect(again.out).toBe('Checked 2 documents: 0 reformatted, 0 refused, 0 IDs assigned.\n');
+  });
+
+  it('counts a missing ID as not canonical when checking, and writes nothing', async () => {
+    withoutIds();
+    const before = readFileSync(reference(), 'utf8');
+    const result = await assign('format', 'project', '--assign-ids', '--check');
+    expect(result.code).toBe(1);
+    expect(result.out).toMatch(
+      /not canonical documents\/reference\.phrase\.md \(\d IDs? missing\)/,
+    );
+    expect(readFileSync(reference(), 'utf8')).toBe(before);
+  });
+
+  it('needs a project, and belongs to format', async () => {
+    const single = await assign('format', 'project/documents/reference.phrase.md', '--assign-ids');
+    expect(single.code).toBe(2);
+    expect(single.err).toContain('--assign-ids needs a project directory');
+    const other = await assign('build', 'project', '--assign-ids');
+    expect(other.code).toBe(2);
+    expect(other.err).toContain('--assign-ids applies to format only');
+  });
+
+  it('uses random IDs of the right shape by default', async () => {
+    withoutIds();
+    const result = await phrase('format', 'project', '--assign-ids');
+    expect(result.code).toBe(0);
+    expect(readFileSync(reference(), 'utf8')).toMatch(/<!-- phrase: #[0-9a-hjkmnp-tv-z]{10} -->/);
+    expect((await phrase('validate', 'project')).out).toBe(
+      'Checked 2 documents: 0 errors, 0 warnings.\n',
+    );
+  });
+});

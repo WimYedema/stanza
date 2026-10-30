@@ -373,6 +373,7 @@ Accepted:
 - ADR 0017: header and footer slots.
 - ADR 0018: table of contents.
 - ADR 0019: cover page.
+- ADR 0020: assigning missing IDs.
 
 Still to capture:
 

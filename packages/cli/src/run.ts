@@ -1,6 +1,7 @@
+import { randomBytes } from 'node:crypto';
 import { basename, dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { isSafeRelativePath } from '@phrase/core';
+import { isSafeRelativePath, nodeIdFromRandomBytes } from '@phrase/core';
 import {
   DOCUMENT_SUFFIX,
   buildProject,
@@ -20,6 +21,8 @@ export interface Io {
   readonly stderr: (text: string) => void;
   /** The storage for a project directory; the Node filesystem unless a test replaces it. */
   readonly openStorage?: (root: string) => ProjectStorage;
+  /** The source of new IDs; random unless a test replaces it. */
+  readonly generateId?: () => string;
 }
 
 const USAGE = `Usage: phrase <command> [project] [options]
@@ -38,6 +41,9 @@ Options for build:
 
 Options for format:
   --check              Write nothing; list the documents that are not canonical.
+  --assign-ids         Also give every heading and table without an ID a new one, unique in
+                       the project. With --check, a missing ID counts as not canonical.
+                       Needs a project, not a single file.
 
 Other options:
   -h, --help           Show this help.
@@ -97,6 +103,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
         out: { type: 'string' },
         date: { type: 'string' },
         check: { type: 'boolean' },
+        'assign-ids': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -125,12 +132,22 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (command !== 'format' && values.check === true) {
     return usage('--check applies to format only.');
   }
+  const assignIds = values['assign-ids'] === true;
+  if (command !== 'format' && assignIds) return usage('--assign-ids applies to format only.');
+  if (assignIds && project.endsWith(DOCUMENT_SUFFIX)) {
+    return usage('--assign-ids needs a project directory, to keep IDs unique across documents.');
+  }
 
   const open = io.openStorage ?? nodeStorage;
 
   if (command === 'format') {
     const target = resolve(io.cwd, project);
-    const options = { check: values.check === true };
+    const options = {
+      check: values.check === true,
+      ...(assignIds
+        ? { generateId: io.generateId ?? ((): string => nodeIdFromRandomBytes(randomBytes(10))) }
+        : {}),
+    };
     const result = project.endsWith(DOCUMENT_SUFFIX)
       ? await formatDocuments(open(dirname(target)), [basename(target)], options)
       : await formatProject(open(target), options);
@@ -138,14 +155,27 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const count = (status: string): number =>
       result.files.filter((f) => f.status === status).length;
     for (const file of result.files) {
-      if (file.status === 'changed') io.stdout(`${word} ${file.path}\n`);
+      if (file.status !== 'changed') continue;
+      const ids =
+        file.assigned === 0
+          ? ''
+          : ` (${plural(file.assigned, 'ID')} ${options.check ? 'missing' : 'assigned'})`;
+      io.stdout(`${word} ${file.path}${ids}\n`);
     }
     io.stdout(result.diagnostics.map(formatDiagnostic).join(''));
+    const total = result.files.reduce((sum, file) => sum + file.assigned, 0);
+    const ids = assignIds
+      ? `, ${plural(total, 'ID')} ${options.check ? 'missing' : 'assigned'}`
+      : '';
     io.stdout(
-      `Checked ${plural(result.files.length, 'document')}: ${String(count('changed'))} ${word}, ${String(count('refused'))} refused.\n`,
+      `Checked ${plural(result.files.length, 'document')}: ${String(count('changed'))} ${word}, ${String(count('refused'))} refused${ids}.\n`,
     );
     if (result.diagnostics.some((d) => d.code === 'file-unreadable')) return 2;
-    return count('refused') > 0 || (options.check && count('changed') > 0) ? 1 : 0;
+    return count('refused') > 0 ||
+      hasErrors(result.diagnostics) ||
+      (options.check && count('changed') > 0)
+      ? 1
+      : 0;
   }
 
   const storage = open(resolve(io.cwd, project));

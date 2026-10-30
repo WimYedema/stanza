@@ -1,6 +1,6 @@
 # ADR 0015: The format command
 
-Status: Accepted
+Status: Accepted. Assigning IDs is an option of `format`: ADR 0020.
 
 ## Context
 

@@ -103,3 +103,130 @@ describe('formatDocuments', () => {
     expect([...storage.texts.keys()]).toEqual(['b.phrase.md']);
   });
 });
+
+describe('formatProject with generateId', () => {
+  const A = 'aaaaaaaaaa';
+  const B = 'bbbbbbbbbb';
+  const C = 'cccccccccc';
+  const D = 'dddddddddd';
+  const doc = (body: string): string => `${FRONT}${body}`;
+  const TABLE = '| A | B |\n| - | - |\n| 1 | 2 |\n';
+  /** Gives the IDs in order, and the last one again and again. */
+  const generator = (...ids: string[]): { generate: () => string; calls: () => number } => {
+    let calls = 0;
+    return {
+      generate: () => ids[Math.min(calls++, ids.length - 1)] ?? '',
+      calls: () => calls,
+    };
+  };
+  const ids = (storage: ReturnType<typeof memoryStorage>, path: string): string[] =>
+    [...(storage.texts.get(path) ?? '').matchAll(/<!-- phrase: #(\w+)/g)].map((m) => m[1] ?? '');
+
+  it('gives headings and tables without an ID a new one, in document order', async () => {
+    const storage = memoryStorage({ 'a.phrase.md': doc(`# One\n\n## Two\n\n${TABLE}`) });
+    const { generate } = generator(A, B, C);
+    const result = await formatProject(storage, { check: false, generateId: generate });
+    expect(result.files).toEqual([{ path: 'a.phrase.md', status: 'changed', assigned: 3 }]);
+    expect(ids(storage, 'a.phrase.md')).toEqual([A, B, C]);
+    expect(storage.texts.get('a.phrase.md')).toContain(`<!-- phrase: #${A} -->\n# One`);
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('keeps the IDs that exist, and changes nothing on a second run', async () => {
+    const storage = memoryStorage({
+      'a.phrase.md': doc(`<!-- phrase: #${D} -->\n# One\n\n## Two\n`),
+    });
+    const first = generator(A);
+    await formatProject(storage, { check: false, generateId: first.generate });
+    expect(ids(storage, 'a.phrase.md')).toEqual([D, A]);
+
+    const again = memoryStorage({ 'a.phrase.md': storage.texts.get('a.phrase.md') ?? '' });
+    const second = generator(B);
+    const result = await formatProject(again, { check: false, generateId: second.generate });
+    expect(result.files).toEqual([{ path: 'a.phrase.md', status: 'unchanged', assigned: 0 }]);
+    expect(again.texts.size).toBe(0);
+    expect(second.calls()).toBe(0);
+  });
+
+  it('adds no IDs without a generator', async () => {
+    const storage = memoryStorage({ 'a.phrase.md': doc('# One\n') });
+    const result = await formatProject(storage, { check: false });
+    expect(result.files).toEqual([{ path: 'a.phrase.md', status: 'unchanged', assigned: 0 }]);
+  });
+
+  it('only counts the missing IDs when checking, and writes nothing', async () => {
+    const storage = memoryStorage({ 'a.phrase.md': doc(`# One\n\n${TABLE}`) });
+    const result = await formatProject(storage, {
+      check: true,
+      generateId: generator(A, B).generate,
+    });
+    expect(result.files).toEqual([{ path: 'a.phrase.md', status: 'changed', assigned: 2 }]);
+    expect(storage.texts.size).toBe(0);
+  });
+
+  it('keeps new IDs unique across documents, including documents that are refused', async () => {
+    const storage = memoryStorage({
+      'a.phrase.md': doc('# One\n'),
+      'b.phrase.md': doc('# Two\n'),
+      'c.phrase.md': doc(`<!-- phrase: #${C} -->\n# Three\n\n<div>raw</div>\n`),
+      'd.phrase.md': doc(`<!-- phrase: #${D} -->\n# Four\n`),
+    });
+    // The first candidates are taken by an existing ID, and by the document before.
+    const { generate } = generator(C, D, A, A, B);
+    const result = await formatProject(storage, { check: false, generateId: generate });
+    expect(result.files.map((f) => `${f.path}: ${f.status} ${String(f.assigned)}`)).toEqual([
+      'a.phrase.md: changed 1',
+      'b.phrase.md: changed 1',
+      'c.phrase.md: refused 0',
+      'd.phrase.md: unchanged 0',
+    ]);
+    expect(ids(storage, 'a.phrase.md')).toEqual([A]);
+    expect(ids(storage, 'b.phrase.md')).toEqual([B]);
+    expect(storage.texts.has('c.phrase.md')).toBe(false);
+  });
+
+  it('assigns nothing when a document cannot be read, and still formats the others', async () => {
+    const storage = memoryStorage(
+      { 'a.phrase.md': doc('# One\n'), 'b.phrase.md': doc('* one\n') },
+      ['a.phrase.md'],
+    );
+    const { generate, calls } = generator(A);
+    const result = await formatProject(storage, { check: false, generateId: generate });
+    expect(result.files).toEqual([{ path: 'b.phrase.md', status: 'changed', assigned: 0 }]);
+    expect(result.diagnostics.map((d) => [d.file, d.code])).toEqual([
+      ['a.phrase.md', 'file-unreadable'],
+      ['a.phrase.md', 'ids-not-assigned'],
+    ]);
+    expect(calls()).toBe(0);
+  });
+
+  it('leaves a document alone when no unused ID can be found', async () => {
+    const storage = memoryStorage({
+      'a.phrase.md': doc(`<!-- phrase: #${A} -->\n# One\n\n## Two\n`),
+    });
+    const result = await formatProject(storage, {
+      check: false,
+      generateId: generator(A).generate,
+    });
+    expect(result.files).toEqual([{ path: 'a.phrase.md', status: 'refused', assigned: 0 }]);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(['id-generation-failed']);
+    expect(storage.texts.size).toBe(0);
+  });
+
+  it('reports an ID that is used twice in a document, and still adds the missing ones', async () => {
+    const storage = memoryStorage({
+      'a.phrase.md': doc(
+        `<!-- phrase: #${A} -->\n# One\n\n<!-- phrase: #${A} -->\n## Two\n\n### Three\n`,
+      ),
+    });
+    const result = await formatProject(storage, {
+      check: false,
+      generateId: generator(B).generate,
+    });
+    expect(result.files).toEqual([{ path: 'a.phrase.md', status: 'changed', assigned: 1 }]);
+    expect(result.diagnostics.map((d) => [d.file, d.code])).toEqual([
+      ['a.phrase.md', 'duplicate-id'],
+    ]);
+    expect(ids(storage, 'a.phrase.md')).toEqual([A, A, B]);
+  });
+});
