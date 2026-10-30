@@ -136,6 +136,12 @@ function listDepth(state: EditorState): number {
 
 const NO_BLOCK = 'Put the cursor in a block of text.';
 
+/**
+ * The same state with no plugins, to try a change on. The plugins give IDs and send notices, which
+ * must happen once, when the change is made for real.
+ */
+const withoutPlugins = (state: EditorState): EditorState => state.reconfigure({ plugins: [] });
+
 function planToggleMark(
   state: EditorState,
   mark: 'strong' | 'emphasis' | 'code',
@@ -317,18 +323,23 @@ function planList(state: EditorState, kind: 'bulleted' | 'numbered'): Plan {
   if (list.type !== listType) {
     return done(state.tr.setNodeMarkup(state.selection.$from.before(depth), listType, list.attrs));
   }
-  // The same kind again takes the item out of its list, through every level.
-  const transactions: Transaction[] = [];
-  let current = state;
+  // The same kind again takes the item out of its list, through every level. The steps are one
+  // transaction, so that no plugin runs between them and changes the document under the plan.
+  let current = withoutPlugins(state);
+  let combined: Transaction | undefined;
   for (let step = 0; step < 32 && listDepth(current) >= 0; step += 1) {
     const captured: Transaction[] = [];
     if (!liftListItem(itemType)(current, (tr) => captured.push(tr))) break;
     const [tr] = captured;
     if (tr === undefined) break;
-    transactions.push(tr);
+    if (combined === undefined) combined = tr;
+    else {
+      for (const next of tr.steps) combined.step(next);
+      combined.setSelection(tr.selection);
+    }
     current = current.apply(tr);
   }
-  return transactions.length > 0 ? { transactions } : refuse('not-applicable', NO_BLOCK);
+  return combined === undefined ? refuse('not-applicable', NO_BLOCK) : done(combined);
 }
 
 function planCodeBlock(state: EditorState, language: string | undefined): Plan {
@@ -529,7 +540,7 @@ export function runCommand(
 ): CommandResult {
   const planned = plan(state, command, stylesheet);
   if (isRefusal(planned)) return planned;
-  let result = state;
+  let result = withoutPlugins(state);
   for (const tr of planned.transactions) result = result.apply(tr);
   const introduced = introducedViolations(state.doc, result.doc, stylesheet);
   if (introduced.length > 0) {

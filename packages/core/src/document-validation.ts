@@ -1,4 +1,5 @@
 import type { Diagnostic } from './diagnostic.js';
+import { needsId } from './vocabulary.js';
 import {
   BODY_STYLE as BODY,
   CODE_STYLE,
@@ -224,7 +225,7 @@ export function validateDocument(
           block.id,
         );
       }
-    } else if (block.type === 'heading' || block.type === 'table') {
+    } else if (needsId(block)) {
       report('warning', 'missing-id', 'This block has no ID. Assign IDs to add one.', path);
     }
 

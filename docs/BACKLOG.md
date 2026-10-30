@@ -38,14 +38,15 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 33. [S] - Compile the typed stylesheet to scoped browser CSS. Decided in ADR 0021.
 34. [L] - Tiptap schema and editor adapter: the `editor` package with a schema that has only style names and marks, conversion to and from the domain model, rendering with the ADR 0021 classes, and a preview page. Decided in ADR 0022. Commands and paste moved to item 50.
 50. [M] - Editor semantic commands (style-aware marks, headings, lists, tables) and paste normalisation: supported structure kept, direct formatting removed, IDs never pasted. Decided in ADR 0023.
+35. [S] - Unique-ID handling for new nodes in the editor. Decided in ADR 0024.
 
 ## Phase 5: Editor and review
 
 Placed before Phases 3 and 4 by the product owner.
 
-35. [S] - Unique-ID handling for new nodes in the editor.
 36. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file.
 37. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
+52. [M] - Editor toolbar and shortcuts: show the state at the cursor (block kind and style, active marks), disable or explain commands that do not apply, show refusals, and add the usual keys (`Ctrl+Alt+0` to `6` for paragraph and headings, `Backspace` at the start of a heading makes it a paragraph). Replaces the sketch toolbar of the preview.
 51. [S] - Heading numbers and inline diagnostics in the editor as decorations, from `numberHeadings` and the `core` diagnostics.
 38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
 39. [M] - Show imported comments next to the content in the editor.

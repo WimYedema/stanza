@@ -27,7 +27,7 @@ export type {
   Text,
 } from './document.js';
 export { normalizeDocument, normalizeInlines } from './normalize.js';
-export { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES } from './vocabulary.js';
+export { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES, needsId } from './vocabulary.js';
 export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
 export { collectBlockIds, type BlockId } from './document-ids.js';

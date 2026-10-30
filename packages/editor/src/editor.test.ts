@@ -2,14 +2,11 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Editor } from '@tiptap/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Document, Stylesheet } from '@phrase/core';
 import { parseDocument, parseStylesheet } from '@phrase/format';
 import { type FromEditorResult } from './convert.js';
 import { createPhraseEditor, type PhraseEditor } from './editor.js';
-import { schemaExtensions } from './schema.js';
-import { UniqueIds } from './unique-ids.js';
 
 const read = (path: string): string =>
   readFileSync(
@@ -205,31 +202,5 @@ describe('createPhraseEditor', () => {
     expect(() =>
       createPhraseEditor({ element, stylesheet: broken, document: documentOf('x\n') }),
     ).toThrow('The stylesheet has errors');
-  });
-});
-
-describe('IDs in the editor', () => {
-  it('keeps the ID on the first part of a block that is split, and gives the rest none', () => {
-    const tiptap = new Editor({
-      element,
-      extensions: [...schemaExtensions(), UniqueIds],
-      content: {
-        type: 'doc',
-        content: [
-          {
-            type: 'heading',
-            attrs: { level: 2, id: 'k7m2q9x4zb', style: 'note' },
-            content: [{ type: 'text', text: 'Title' }],
-          },
-        ],
-      },
-    });
-    tiptap.commands.setTextSelection(3);
-    expect(tiptap.commands.splitBlock()).toBe(true);
-    const [first, second] = tiptap.state.doc.children;
-    expect(first?.attrs).toMatchObject({ id: 'k7m2q9x4zb', style: 'note', level: 2 });
-    expect(second?.attrs['id']).toBeNull();
-    expect(second?.attrs['style']).toBe('note');
-    tiptap.destroy();
   });
 });

@@ -1,6 +1,12 @@
 import { Editor, type Extensions } from '@tiptap/core';
-import type { Diagnostic, Document, Stylesheet } from '@phrase/core';
+import {
+  nodeIdFromRandomBytes,
+  type Diagnostic,
+  type Document,
+  type Stylesheet,
+} from '@phrase/core';
 import { SCOPE_CLASS, compileStylesheetToCss } from '@phrase/css';
+import { BlockIds, type IdSource } from './block-ids.js';
 import { runCommand, type CommandResult, type EditorCommand } from './commands.js';
 import { ContextClasses, REFRESH_CLASSES, contextClassesKey } from './context-classes.js';
 import { fromEditorContent, toEditorContent, type FromEditorResult } from './convert.js';
@@ -8,7 +14,6 @@ import { PhraseKeys } from './keys.js';
 import type { Notice } from './notice.js';
 import { PhrasePaste } from './paste.js';
 import { PHRASE_BLOCK_CLASS, schemaExtensions } from './schema.js';
-import { UniqueIds } from './unique-ids.js';
 
 /**
  * What the editor needs beyond the generated stylesheet: the look of its own parts, which are not
@@ -47,6 +52,10 @@ export interface PhraseEditorOptions {
   readonly onChange?: (result: FromEditorResult) => void;
   /** Called with things the person editing should hear: a refused key, content dropped on paste. */
   readonly onNotice?: (notice: Notice) => void;
+  /** A candidate for the ID of a new block. Random by default. */
+  readonly newId?: () => string;
+  /** The IDs of the other documents of the project, which new IDs must avoid. */
+  readonly usedIds?: () => ReadonlySet<string>;
 }
 
 export interface PhraseEditor {
@@ -66,14 +75,21 @@ function compile(stylesheet: Stylesheet): { css: string; diagnostics: readonly D
   return { css: css === undefined ? '' : `${EDITOR_CHROME_CSS}\n${css}`, diagnostics };
 }
 
+/** Random IDs from the Web Crypto API, and no knowledge of other documents. */
+const randomIds: IdSource = {
+  newId: () => nodeIdFromRandomBytes(crypto.getRandomValues(new Uint8Array(10))),
+  usedIds: () => new Set<string>(),
+};
+
 /** The extensions of the editor, for the stylesheet in force and the way to give notices. */
 export function phraseExtensions(
   stylesheet: () => Stylesheet,
   notice: (notice: Notice) => void,
+  ids: IdSource = randomIds,
 ): Extensions {
   return [
     ...schemaExtensions(),
-    UniqueIds,
+    BlockIds.configure({ ...ids, notice }),
     ContextClasses.configure({ stylesheet }),
     PhraseKeys.configure({ stylesheet, notice }),
     PhrasePaste.configure({ stylesheet, notice }),
@@ -99,6 +115,10 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
     extensions: phraseExtensions(
       () => stylesheet,
       (notice) => options.onNotice?.(notice),
+      {
+        newId: options.newId ?? randomIds.newId,
+        usedIds: options.usedIds ?? randomIds.usedIds,
+      },
     ),
     content: toEditorContent(options.document),
     editorProps: { attributes: { class: SCOPE_CLASS } },

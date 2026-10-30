@@ -185,7 +185,10 @@ describe('pasting into the editor', () => {
     );
     const [heading, text] = blocks(current);
     expect(heading?.type.name).toBe('heading');
-    expect(heading?.attrs).toMatchObject({ id: null, level: 2 });
+    // A pasted heading gets a new ID, and not the one in the HTML.
+    expect(heading?.attrs['id']).toMatch(/^[0-9a-hjkmnp-tv-z]{10}$/);
+    expect(heading?.attrs['id']).not.toBe('k7m2q9x4zb');
+    expect(heading?.attrs).toMatchObject({ level: 2 });
     expect(text?.attrs).toMatchObject({ id: null, style: null });
   });
 

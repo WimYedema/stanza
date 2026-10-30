@@ -32,3 +32,9 @@ export const MARK_ATTRIBUTES = {
 } as const satisfies Record<Mark['type'], readonly string[]>;
 
 export const MARK_TYPES = Object.keys(MARK_ATTRIBUTES) as readonly Mark['type'][];
+
+/** The blocks that other blocks can refer to, and so must have an ID (ADR 0001, ADR 0024). */
+const REFERENCEABLE: readonly string[] = ['heading', 'table'];
+
+export const needsId = (block: { readonly type: string }): boolean =>
+  REFERENCEABLE.includes(block.type);

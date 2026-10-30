@@ -1,6 +1,7 @@
 import type { Diagnostic } from './diagnostic.js';
 import type { Block, Document, ListItemBlock } from './document.js';
 import { isNodeId, type NodeId } from './ids.js';
+import { needsId } from './vocabulary.js';
 
 export interface AssignIdsOptions {
   /** IDs already used elsewhere in the project, which new IDs must avoid. */
@@ -84,10 +85,8 @@ export function assignMissingIds(document: Document, options: AssignIdsOptions):
           ...block,
           items: block.items.map((item) => ({ blocks: item.blocks.map(assignItemBlock) })),
         };
-      case 'table':
-        return withId(block);
       default:
-        return block;
+        return needsId(block) ? withId(block) : block;
     }
   };
 
