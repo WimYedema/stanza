@@ -7,6 +7,7 @@ import {
   type Reason,
   type WebviewMessage,
 } from '../shared/protocol.js';
+import { createNotices } from './notices.js';
 import { buildToolbar } from './toolbar.js';
 import { showRefused } from './views.js';
 
@@ -42,9 +43,7 @@ let usedIds = new Set<string>();
 let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
 
-const say = (text: string): void => {
-  notices.textContent = text;
-};
+const { say, answered, declared } = createNotices(notices, send, (command) => editor?.run(command));
 
 const reasonOf = (diagnostic: Diagnostic): Reason => ({
   message: `${diagnostic.message}${diagnostic.path === undefined ? '' : ` [${diagnostic.path}]`}`,
@@ -154,6 +153,9 @@ function handle(message: HostMessage): void {
     case 'used-ids':
       usedIds = new Set(message.ids);
       return;
+    case 'declared':
+      declared(message.ok, message.message);
+      return;
     case 'refused':
       refuse(message.title, message.reasons, message.canFormat);
       return;
@@ -189,5 +191,5 @@ document.addEventListener(
   true,
 );
 
-buildToolbar(element('toolbar'), (command) => editor?.run(command), say);
+buildToolbar(element('toolbar'), { editor: () => editor, answered });
 send({ type: 'ready' });

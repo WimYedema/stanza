@@ -165,6 +165,82 @@ describe('createPhraseEditor', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  describe('the state at the cursor', () => {
+    const TEXT = `<!-- phrase: #k7m2q9x4zb -->
+# Title
+
+Some **strong** text.
+
+| A | B |
+| - | - |
+| 1 | 2 |
+`;
+
+    it('tells the block, its styles, and which marks are on and allowed', () => {
+      const api = open(TEXT);
+      api.setPosition({ block: 0, offset: 2 });
+      expect(api.getContext()).toMatchObject({
+        block: 'heading',
+        textStyle: 'heading-1',
+        marks: {
+          strong: { active: false, allowed: false },
+          emphasis: { active: false, allowed: true },
+        },
+      });
+      expect(api.getContext().style).toBeUndefined();
+
+      api.setPosition({ block: 1, offset: 7 });
+      expect(api.getContext()).toMatchObject({
+        block: 'paragraph',
+        textStyle: 'body',
+        marks: { strong: { active: true, allowed: true }, emphasis: { active: false } },
+      });
+    });
+
+    it('gives the style of the table for a cell, and what the stylesheet declares', () => {
+      const api = open(TEXT);
+      api.setPosition({ block: 2, offset: 0 });
+      const context = api.getContext();
+      expect(context.block).toBe('table-cell');
+      expect(context.textStyle).toBe('table-cell');
+      expect(context.available.table).toEqual(['table', 'table-grid']);
+      expect(context.available.character).toEqual(['marker', 'muted']);
+      expect(context.available.paragraph).toContain('body');
+    });
+
+    it('tells the character styles that are on', () => {
+      const api = open(TEXT);
+      api.setPosition({ block: 1, offset: 2 });
+      expect(api.getContext().characterStyles).toEqual([]);
+      expect(api.run({ type: 'toggle-character-style', style: 'marker' as never })).toEqual({
+        ok: true,
+      });
+      expect(api.getContext().characterStyles).toEqual(['marker']);
+    });
+
+    it('checks a command like run does, and changes nothing, not even IDs', () => {
+      const onChange = vi.fn();
+      const api = open(TEXT, stylesheet, onChange);
+      const before = api.getDocument().document;
+      api.setPosition({ block: 0, offset: 2 });
+      expect(api.check({ type: 'toggle-mark', mark: 'strong' })).toEqual({
+        ok: false,
+        reason: 'mark-not-allowed',
+        message: 'The style "heading-1" does not allow strong.',
+        fix: { kind: 'declare-variant', style: 'heading-1', mark: 'strong' },
+      });
+      expect(api.check({ type: 'toggle-mark', mark: 'emphasis' })).toEqual({ ok: true });
+      api.setPosition({ block: 1, offset: 2 });
+      expect(api.check({ type: 'set-heading', level: 2 })).toMatchObject({
+        ok: false,
+        reason: 'marks-not-allowed',
+        fix: { kind: 'declare-variant', style: 'heading-2', mark: 'strong' },
+      });
+      expect(api.getDocument().document).toEqual(before);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
   it('applies a new stylesheet to the CSS and to the classes', () => {
     const api = open();
     const roomy: Stylesheet = {

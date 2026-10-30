@@ -1,6 +1,6 @@
 # ADR 0025: The VS Code editor
 
-Status: Accepted. The behavior of undo and redo in VS Code is to be confirmed by trying it (see Undo and redo).
+Status: Accepted. The behavior of undo and redo in VS Code is to be confirmed by trying it (see Undo and redo). Allowing a mark in a style, and saving the stylesheet with the document: ADR 0026.
 
 ## Context
 

@@ -40,12 +40,12 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 50. [M] - Editor semantic commands (style-aware marks, headings, lists, tables) and paste normalisation: supported structure kept, direct formatting removed, IDs never pasted. Decided in ADR 0023.
 35. [S] - Unique-ID handling for new nodes in the editor. Decided in ADR 0024.
 36. [M] - VS Code custom text editor hosting the editor in a webview, bound to the Markdown file. Decided in ADR 0025; undo and redo are to be confirmed in VS Code.
+37. [M] - Style picker and the "variant missing" diagnostic with an explicit option to configure it: the state at the cursor and a dry-run check in the editor, a fix on refusals and on the diagnostic, a comment-preserving edit of the stylesheet that is saved with the document, a quick fix, and style lists in the sketch toolbar. Decided in ADR 0026. Re-sized from [S].
 
 ## Phase 5: Editor and review
 
 Placed before Phases 3 and 4 by the product owner.
 
-37. [S] - Style picker and the "variant missing" diagnostic with an explicit option to configure it.
 52. [M] - Editor toolbar and shortcuts: show the state at the cursor (block kind and style, active marks), disable or explain commands that do not apply, show refusals, and add the usual keys (`Ctrl+Alt+0` to `6` for paragraph and headings, `Backspace` at the start of a heading makes it a paragraph). Replaces the sketch toolbar of the preview.
 54. [S] - Cursor after undo and redo: put it where the change was, not where it had been. The editor now restores the old block and offset after any change from outside.
 51. [S] - Heading numbers and inline diagnostics in the editor as decorations, from `numberHeadings` and the `core` diagnostics.

@@ -30,6 +30,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
     padding: 6px 12px; background: #3c3c3c; }
   #toolbar button { font: 12px sans-serif; padding: 2px 8px; }
   #notices { min-height: 1.4em; padding: 4px 12px; color: #ffcc66; font: 13px monospace; }
+  #notices button { margin-left: 8px; font: 12px sans-serif; padding: 2px 8px; }
   #page { max-width: 560pt; margin: 12px auto 48px; padding: 36pt; background: #ffffff; }
   #refused { max-width: 560px; margin: 48px auto; padding: 24px; background: #ffffff; color: #1f1f1f; }
   #refused h1 { margin-top: 0; font-size: 18px; }

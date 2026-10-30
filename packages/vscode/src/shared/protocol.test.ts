@@ -10,6 +10,13 @@ describe('parseWebviewMessage', () => {
       type: 'change',
       text: 'a\n',
     });
+    expect(parseWebviewMessage({ type: 'declare-variant', style: 'body', mark: 'strong' })).toEqual(
+      {
+        type: 'declare-variant',
+        style: 'body',
+        mark: 'strong',
+      },
+    );
   });
 
   it.each([
@@ -23,6 +30,9 @@ describe('parseWebviewMessage', () => {
     { type: 'change' },
     { type: 'change', text: 5 },
     { type: 'change', text: 'x'.repeat(MAX_TEXT_LENGTH + 1) },
+    { type: 'declare-variant', style: 'body' },
+    { type: 'declare-variant', style: 5, mark: 'strong' },
+    { type: 'declare-variant', style: 'x'.repeat(201), mark: 'strong' },
   ])('refuses %j', (value) => {
     expect(parseWebviewMessage(value)).toBeUndefined();
   });
@@ -41,6 +51,11 @@ describe('parseHostMessage', () => {
       text: 'a',
     });
     expect(parseHostMessage({ type: 'used-ids', ids: [] })).toEqual({ type: 'used-ids', ids: [] });
+    expect(parseHostMessage({ type: 'declared', ok: false, message: 'No.' })).toEqual({
+      type: 'declared',
+      ok: false,
+      message: 'No.',
+    });
     const refused = {
       type: 'refused',
       title: 'T',
@@ -56,6 +71,8 @@ describe('parseHostMessage', () => {
     { type: 'init', documentText: 'a', usedIds: [] },
     { type: 'external-text' },
     { type: 'used-ids', ids: 'x' },
+    { type: 'declared', ok: 'yes', message: '' },
+    { type: 'declared', ok: true },
     { type: 'refused', title: 'T', reasons: [{ line: 1 }], canFormat: true },
     { type: 'refused', title: 'T', reasons: [], canFormat: 'yes' },
     { type: 'other' },

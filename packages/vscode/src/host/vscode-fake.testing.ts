@@ -28,10 +28,21 @@ interface FakeDocument {
   getText(): string;
 }
 
+/** A file other than the document, once it has been opened: its text and whether it is saved. */
+interface FakeFile extends FakeDocument {
+  text: string;
+  isDirty: boolean;
+  save(): Promise<boolean>;
+}
+
 /** The state of the pretend VS Code. */
 export const world = {
   /** Files by absolute path. */
   files: new Map<string, string>(),
+  /** The files that were opened with `openTextDocument`, by absolute path. */
+  open: new Map<string, FakeFile>(),
+  saved: [] as string[],
+  saveListeners: [] as Listener<FakeDocument>[],
   /** The workspace folder that the document is in. */
   workspace: '/w/p',
   document: undefined as FakeDocument | undefined,
@@ -41,6 +52,13 @@ export const world = {
   posted: [] as unknown[],
   edits: [] as { start: [number, number]; end: [number, number]; text: string }[],
   commands: [] as string[],
+  commandHandlers: new Map<string, (...args: never[]) => unknown>(),
+  codeActions: undefined as
+    | { provideCodeActions(document: unknown, range: unknown, context: unknown): unknown[] }
+    | undefined,
+  errors: [] as string[],
+  /** What the extension wants called when a panel is closed. */
+  disposers: [] as (() => void)[],
   diagnostics: new Map<string, unknown[]>(),
   changeListeners: [] as Listener<{ document: FakeDocument }>[],
   messageListeners: [] as Listener<unknown>[],
@@ -55,12 +73,21 @@ export function reset(
 ): {
   uri: FakeUri;
 } {
+  // The panels of the test before are closed, so that nothing of them goes on in this one.
+  for (const dispose of world.disposers) dispose();
+  world.disposers = [];
   world.files = new Map(Object.entries(files));
   world.text = text;
   world.eol = eol;
   world.posted = [];
   world.edits = [];
   world.commands = [];
+  world.commandHandlers = new Map();
+  world.codeActions = undefined;
+  world.errors = [];
+  world.open = new Map();
+  world.saved = [];
+  world.saveListeners = [];
   world.diagnostics = new Map();
   world.changeListeners = [];
   world.messageListeners = [];
@@ -80,10 +107,16 @@ export function changeDocument(text: string): void {
   fire();
 }
 
-function fire(): void {
-  const document = world.document;
+function fire(document: FakeDocument | undefined = world.document): void {
   if (document === undefined) return;
   for (const listener of world.changeListeners) listener({ document });
+}
+
+/** The person saves the document, which VS Code tells the extension about. */
+export function saveDocument(): void {
+  const document = world.document;
+  if (document === undefined) return;
+  for (const listener of [...world.saveListeners]) listener(document);
 }
 
 const disposable = (remove: () => void) => ({ dispose: remove });
@@ -119,6 +152,14 @@ export function createFakeVscode(): Record<string, unknown> {
       readonly severity: number,
     ) {}
   }
+  class CodeAction {
+    diagnostics?: Diagnostic[];
+    command?: { command: string; title: string; arguments?: unknown[] };
+    constructor(
+      readonly title: string,
+      readonly kind: string,
+    ) {}
+  }
   const FileType = { File: 1, Directory: 2, SymbolicLink: 64 };
   const exists = (path: string): boolean =>
     world.files.has(path) || [...world.files.keys()].some((file) => file.startsWith(`${path}/`));
@@ -128,6 +169,8 @@ export function createFakeVscode(): Record<string, unknown> {
     Range,
     WorkspaceEdit,
     Diagnostic,
+    CodeAction,
+    CodeActionKind: { QuickFix: 'quickfix' },
     DiagnosticSeverity: { Error: 0, Warning: 1 },
     FileType,
     RelativePattern: class {
@@ -163,8 +206,31 @@ export function createFakeVscode(): Record<string, unknown> {
       },
       getWorkspaceFolder: () => ({ uri: new FakeUri(world.workspace) }),
       get textDocuments() {
-        return world.document === undefined ? [] : [world.document];
+        return world.document === undefined ? [] : [world.document, ...world.open.values()];
       },
+      openTextDocument: (uri: FakeUri) => {
+        const known = world.open.get(uri.path);
+        if (known !== undefined) return Promise.resolve(known);
+        const text = world.files.get(uri.path);
+        if (text === undefined) return Promise.reject(new Error(`No ${uri.path}`));
+        const file: FakeFile = {
+          uri,
+          fileName: uri.path,
+          text,
+          isDirty: false,
+          getText: () => file.text,
+          save: () => {
+            world.files.set(uri.path, file.text);
+            world.saved.push(uri.path);
+            file.isDirty = false;
+            return Promise.resolve(true);
+          },
+        };
+        world.open.set(uri.path, file);
+        return Promise.resolve(file);
+      },
+      onDidSaveTextDocument: (listener: Listener<FakeDocument>) =>
+        listen(world.saveListeners, listener),
       onDidChangeTextDocument: (listener: Listener<{ document: FakeDocument }>) =>
         listen(world.changeListeners, listener),
       createFileSystemWatcher: () => ({
@@ -175,28 +241,44 @@ export function createFakeVscode(): Record<string, unknown> {
       }),
       applyEdit: (edit: WorkspaceEdit) => {
         if (world.failEdits) return Promise.resolve(false);
-        for (const { range, text } of edit.replaced) {
+        for (const { uri, range, text } of edit.replaced) {
+          const target = world.open.get(uri.path);
           const change = {
             start: [range.start.line, range.start.character] as [number, number],
             end: [range.end.line, range.end.character] as [number, number],
             text,
           };
-          world.edits.push(change);
-          world.text = applyLineEdit(world.text, {
+          const lineEdit = {
             start: { line: change.start[0], character: change.start[1] },
             end: { line: change.end[0], character: change.end[1] },
             text,
-          });
+          };
+          if (target !== undefined) {
+            target.text = applyLineEdit(target.text, lineEdit);
+            target.isDirty = true;
+            fire(target);
+            continue;
+          }
+          world.edits.push(change);
+          world.text = applyLineEdit(world.text, lineEdit);
+          fire();
         }
-        fire();
         return Promise.resolve(true);
       },
     },
     window: {
       createOutputChannel: () => ({ appendLine: () => undefined, dispose: () => undefined }),
       registerCustomEditorProvider: () => disposable(() => undefined),
+      showErrorMessage: (message: string) => {
+        world.errors.push(message);
+        return Promise.resolve(undefined);
+      },
     },
     languages: {
+      registerCodeActionsProvider: (_selector: unknown, provider: typeof world.codeActions) => {
+        world.codeActions = provider;
+        return disposable(() => undefined);
+      },
       createDiagnosticCollection: () => ({
         set: (uri: FakeUri, entries: unknown[]) => world.diagnostics.set(uri.path, entries),
         delete: (uri: FakeUri) => world.diagnostics.delete(uri.path),
@@ -204,6 +286,10 @@ export function createFakeVscode(): Record<string, unknown> {
       }),
     },
     commands: {
+      registerCommand: (command: string, handler: (...args: never[]) => unknown) => {
+        world.commandHandlers.set(command, handler);
+        return disposable(() => undefined);
+      },
       executeCommand: (command: string) => {
         world.commands.push(command);
         return Promise.resolve();
@@ -227,7 +313,10 @@ export function fakePanel() {
         return Promise.resolve(true);
       },
     },
-    onDidDispose: () => disposable(() => undefined),
+    onDidDispose: (listener: () => void) => {
+      world.disposers.push(listener);
+      return disposable(() => undefined);
+    },
   };
 }
 

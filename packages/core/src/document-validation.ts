@@ -1,4 +1,4 @@
-import type { Diagnostic } from './diagnostic.js';
+import type { Diagnostic, Fix } from './diagnostic.js';
 import { needsId } from './vocabulary.js';
 import {
   BODY_STYLE as BODY,
@@ -55,6 +55,7 @@ export function validateDocument(
     message: string,
     path: string,
     nodeId?: NodeId,
+    fix?: Fix,
   ): void => {
     diagnostics.push({
       severity,
@@ -62,6 +63,7 @@ export function validateDocument(
       message,
       path,
       ...(nodeId !== undefined ? { nodeId } : {}),
+      ...(fix !== undefined ? { fix } : {}),
     });
   };
 
@@ -129,6 +131,8 @@ export function validateDocument(
             'mark-not-allowed',
             `"${mark.type}" is not offered by the style "${style}".`,
             path,
+            undefined,
+            { kind: 'declare-variant', style, mark: mark.type },
           );
         }
       }

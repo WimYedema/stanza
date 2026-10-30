@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscode from 'vscode';
 import type { HostMessage } from '../shared/protocol.js';
+import { StylesheetSaves } from './declare-variant.js';
 import { PhraseEditorProvider } from './provider.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
-import { changeDocument, fakePanel, fromWebview, reset, world } from './vscode-fake.testing.js';
+import {
+  changeDocument,
+  fakePanel,
+  fromWebview,
+  reset,
+  saveDocument,
+  world,
+} from './vscode-fake.testing.js';
 
 vi.mock('vscode', async () => {
   const fake = await import('./vscode-fake.testing.js');
@@ -42,14 +50,20 @@ const files = (extra: Record<string, string> = {}): Record<string, string> => ({
 
 const DOCUMENT = '/w/p/documents/one.phrase.md';
 
-function open(text = CANONICAL, eol = '\n', projectFiles = files()): void {
-  reset({ ...projectFiles, [DOCUMENT]: text }, DOCUMENT, text, eol);
-  const provider = new PhraseEditorProvider(
+const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
+
+function newProvider(): PhraseEditorProvider {
+  return new PhraseEditorProvider(
     { extensionUri: { path: '/ext' } } as unknown as vscode.ExtensionContext,
     new ProjectDiagnostics(),
-    { appendLine: () => undefined } as unknown as vscode.OutputChannel,
+    log,
+    new StylesheetSaves(log),
   );
-  provider.resolveCustomTextEditor(
+}
+
+function open(text = CANONICAL, eol = '\n', projectFiles = files()): void {
+  reset({ ...projectFiles, [DOCUMENT]: text }, DOCUMENT, text, eol);
+  newProvider().resolveCustomTextEditor(
     world.document as unknown as vscode.TextDocument,
     fakePanel() as unknown as vscode.WebviewPanel,
   );
@@ -68,12 +82,7 @@ describe('the page of the editor', () => {
   it('has a policy with a nonce, and the script of the extension', () => {
     // The fake panel keeps what the extension wrote to it.
     const panel = fakePanel();
-    const provider = new PhraseEditorProvider(
-      { extensionUri: { path: '/ext' } } as unknown as vscode.ExtensionContext,
-      new ProjectDiagnostics(),
-      { appendLine: () => undefined } as unknown as vscode.OutputChannel,
-    );
-    provider.resolveCustomTextEditor(
+    newProvider().resolveCustomTextEditor(
       world.document as unknown as vscode.TextDocument,
       panel as unknown as vscode.WebviewPanel,
     );
@@ -282,5 +291,106 @@ describe('changes from outside', () => {
       expect(posted()).toHaveLength(3);
     });
     expect(posted()[2]).toMatchObject({ type: 'init', documentText: CANONICAL });
+  });
+});
+
+describe('allowing a mark in a style', () => {
+  const SHEET = '/w/p/styles/default.yaml';
+  const ALLOWED = STYLESHEET.replace(
+    '  body: {}\n',
+    '  body:\n    variants:\n      strong: { bold: true }\n',
+  );
+
+  async function started(): Promise<void> {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+  }
+
+  it('edits the open stylesheet, sends it, and then answers', async () => {
+    await started();
+    fromWebview({ type: 'declare-variant', style: 'body', mark: 'strong' });
+    await settled(() => {
+      expect(posted()).toHaveLength(3);
+    });
+    expect(posted()[1]).toEqual({ type: 'stylesheet', text: ALLOWED });
+    expect(posted()[2]).toEqual({ type: 'declared', ok: true, message: '' });
+    expect(world.open.get(SHEET)?.text).toBe(ALLOWED);
+  });
+
+  it('does not save the stylesheet until the document is saved', async () => {
+    await started();
+    fromWebview({ type: 'declare-variant', style: 'body', mark: 'strong' });
+    await settled(() => {
+      expect(posted()).toHaveLength(3);
+    });
+    expect(world.open.get(SHEET)?.isDirty).toBe(true);
+    expect(world.files.get(SHEET)).toBe(STYLESHEET);
+    expect(world.saved).toEqual([]);
+
+    saveDocument();
+    await settled(() => {
+      expect(world.saved).toEqual([SHEET]);
+    });
+    expect(world.files.get(SHEET)).toBe(ALLOWED);
+    expect(world.open.get(SHEET)?.isDirty).toBe(false);
+  });
+
+  it('saves the stylesheet with the document once, and not with the next save', async () => {
+    await started();
+    fromWebview({ type: 'declare-variant', style: 'body', mark: 'strong' });
+    await settled(() => {
+      expect(posted()).toHaveLength(3);
+    });
+    saveDocument();
+    await settled(() => {
+      expect(world.saved).toHaveLength(1);
+    });
+    saveDocument();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(world.saved).toHaveLength(1);
+  });
+
+  it('answers that it is done when the variant is declared already, and sends no stylesheet', async () => {
+    await started();
+    fromWebview({ type: 'declare-variant', style: 'body', mark: 'strong' });
+    await settled(() => {
+      expect(posted()).toHaveLength(3);
+    });
+    fromWebview({ type: 'declare-variant', style: 'body', mark: 'strong' });
+    await settled(() => {
+      expect(posted()).toHaveLength(4);
+    });
+    expect(posted()[3]).toEqual({ type: 'declared', ok: true, message: '' });
+  });
+
+  it.each([
+    ['a style that is not there', 'nope', 'strong', 'no paragraph style "nope"'],
+    ['a mark that is not one', 'body', 'underline', 'could not be declared'],
+    ['a name that is not a style name', 'Not A Style', 'strong', 'could not be declared'],
+  ])('refuses %s, and changes nothing', async (_what, style, mark, message) => {
+    await started();
+    fromWebview({ type: 'declare-variant', style, mark });
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    expect(posted()[1]).toMatchObject({ type: 'declared', ok: false });
+    expect(posted()[1]).toMatchObject({ message: expect.stringContaining(message) as string });
+    expect(world.open.get(SHEET)?.isDirty ?? false).toBe(false);
+  });
+
+  it('says so when VS Code does not apply the edit', async () => {
+    await started();
+    world.failEdits = true;
+    fromWebview({ type: 'declare-variant', style: 'body', mark: 'strong' });
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    expect(posted()[1]).toEqual({
+      type: 'declared',
+      ok: false,
+      message: 'The edit of the stylesheet was not applied.',
+    });
   });
 });

@@ -1,11 +1,13 @@
 export { ContextClasses, REFRESH_CLASSES } from './context-classes.js';
 export {
+  checkCommand,
   isAllowedHref,
   runCommand,
   type CommandResult,
   type EditorCommand,
   type RefusalReason,
 } from './commands.js';
+export { editorContext, type EditorContext, type MarkState } from './context.js';
 export {
   EDITOR_CHROME_CSS,
   createPhraseEditor,

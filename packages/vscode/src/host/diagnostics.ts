@@ -1,3 +1,4 @@
+import type { Fix } from '@phrase/core';
 import type { ProjectDiagnostic } from '@phrase/project';
 
 /** A diagnostic of the project as the Problems panel needs it, with plain data only. */
@@ -9,6 +10,8 @@ export interface DiagnosticEntry {
   readonly severity: 'error' | 'warning';
   readonly code: string;
   readonly message: string;
+  /** What would remove the problem, offered as a quick fix. */
+  readonly fix?: Fix;
 }
 
 /** The diagnostics of the project, grouped by file, in the order they were found. */
@@ -24,6 +27,7 @@ export function groupByFile(
       severity: diagnostic.severity,
       code: diagnostic.code,
       message: `${diagnostic.message}${where}`,
+      ...(diagnostic.fix !== undefined ? { fix: diagnostic.fix } : {}),
     };
     grouped.set(diagnostic.file, [...(grouped.get(diagnostic.file) ?? []), entry]);
   }

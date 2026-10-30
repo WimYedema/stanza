@@ -2,6 +2,7 @@ import {
   VARIANT_MARKS,
   isStyleName,
   markAllowed,
+  type Fix,
   type HeadingLevel,
   type StyleName,
   type Stylesheet,
@@ -24,6 +25,7 @@ import {
   selectedRect,
 } from '@tiptap/pm/tables';
 import { introducedViolations, textStyle } from './block-styles.js';
+import { markActive, selectedBlocks, type Located } from './selection.js';
 
 /**
  * The semantic commands of the editor (ADR 0023). A command is data, and says what to do and not how
@@ -64,15 +66,22 @@ export type RefusalReason =
 
 export type CommandResult =
   | { readonly ok: true }
-  | { readonly ok: false; readonly reason: RefusalReason; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly reason: RefusalReason;
+      readonly message: string;
+      /** What the stylesheet needs for the command to be possible. The person editing decides. */
+      readonly fix?: Fix;
+    };
 
 type Refusal = Extract<CommandResult, { ok: false }>;
 type Plan = { readonly transactions: readonly Transaction[] } | Refusal;
 
-const refuse = (reason: RefusalReason, message: string): Refusal => ({
+const refuse = (reason: RefusalReason, message: string, fix?: Fix): Refusal => ({
   ok: false,
   reason,
   message,
+  ...(fix !== undefined ? { fix } : {}),
 });
 const done = (...transactions: Transaction[]): Plan => ({ transactions });
 const isRefusal = (plan: Plan): plan is Refusal => 'ok' in plan;
@@ -89,30 +98,8 @@ export function isAllowedHref(href: string): boolean {
   return /^(https?|mailto):\S+/i.test(text);
 }
 
-interface Located {
-  readonly node: EditorNode;
-  readonly pos: number;
-}
-
 /** The ID of a block, which a change of kind keeps. */
 const idOf = (node: EditorNode): unknown => node.attrs['id'];
-
-/** The blocks of text that the selection touches. */
-function selectedBlocks(state: EditorState): readonly Located[] {
-  const seen = new Set<number>();
-  const found: Located[] = [];
-  for (const range of state.selection.ranges) {
-    state.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, pos) => {
-      if (!node.isTextblock) return true;
-      if (!seen.has(pos)) {
-        seen.add(pos);
-        found.push({ node, pos });
-      }
-      return false;
-    });
-  }
-  return found;
-}
 
 /** Runs a command of ProseMirror against a state and returns what it would do. */
 function fromCommand(
@@ -152,11 +139,7 @@ function planToggleMark(
   const first = blocks[0];
   if (type === undefined || first === undefined) return refuse('not-applicable', NO_BLOCK);
   const { selection } = state;
-  const has = selection.empty
-    ? type.isInSet(state.storedMarks ?? selection.$from.marks()) !== undefined
-    : selection.ranges.some((range) =>
-        state.doc.rangeHasMark(range.$from.pos, range.$to.pos, type),
-      );
+  const has = markActive(state, type);
   if (!has) {
     if (blocks.some(({ node }) => node.type.name === 'codeBlock')) {
       return refuse('mark-not-allowed', 'Code blocks take no marks.');
@@ -164,7 +147,11 @@ function planToggleMark(
     // At a cursor the mark is only remembered for typing, so no change shows the problem later.
     const style = textStyle(state.doc, first.pos, first.node, stylesheet);
     if (selection.empty && style !== undefined && !markAllowed(stylesheet, style, mark)) {
-      return refuse('mark-not-allowed', `The style "${style}" does not allow ${mark}.`);
+      return refuse('mark-not-allowed', `The style "${style}" does not allow ${mark}.`, {
+        kind: 'declare-variant',
+        style,
+        mark,
+      });
     }
   }
   return fromCommand(state, toggleMark(type), NO_BLOCK);
@@ -526,11 +513,49 @@ const MARK_COMMANDS: ReadonlySet<EditorCommand['type']> = new Set([
   'toggle-character-style',
 ]);
 
+/** Plans a command and checks it against the stylesheet: what to do, or why not. */
+function evaluate(state: EditorState, command: EditorCommand, stylesheet: Stylesheet): Plan {
+  const planned = plan(state, command, stylesheet);
+  if (isRefusal(planned)) return planned;
+  let result = withoutPlugins(state);
+  for (const tr of planned.transactions) result = result.apply(tr);
+  const introduced = introducedViolations(state.doc, result.doc, stylesheet);
+  const [first] = introduced;
+  if (first === undefined) return planned;
+  const marks = (style: StyleName): string =>
+    VARIANT_MARKS.filter((mark: VariantMark) =>
+      introduced.some((violation) => violation.style === style && violation.mark === mark),
+    ).join(', ');
+  const fix: Fix = { kind: 'declare-variant', style: first.style, mark: first.mark };
+  return MARK_COMMANDS.has(command.type)
+    ? refuse(
+        'mark-not-allowed',
+        `The style "${first.style}" does not allow ${marks(first.style)}.`,
+        fix,
+      )
+    : refuse(
+        'marks-not-allowed',
+        `The text has marks that the style "${first.style}" does not allow: ${marks(first.style)}. Remove them first.`,
+        fix,
+      );
+}
+
+/** What `runCommand` would answer, with nothing changed. */
+export function checkCommand(
+  state: EditorState,
+  command: EditorCommand,
+  stylesheet: Stylesheet,
+): CommandResult {
+  const planned = evaluate(state, command, stylesheet);
+  return isRefusal(planned) ? planned : { ok: true };
+}
+
 /**
  * Runs a command. It is refused, and changes nothing, when it would give a block a mark that its
  * style does not allow: a mark that the style does not offer (ADR 0006) is never added, and a
  * change of style or kind is not allowed to leave one behind. Marks that are already wrong are
- * left for validation, and removing a mark is always possible.
+ * left for validation, and removing a mark is always possible. A refusal that a declared variant
+ * would remove carries that fix (ADR 0026).
  */
 export function runCommand(
   state: EditorState,
@@ -538,26 +563,8 @@ export function runCommand(
   command: EditorCommand,
   stylesheet: Stylesheet,
 ): CommandResult {
-  const planned = plan(state, command, stylesheet);
+  const planned = evaluate(state, command, stylesheet);
   if (isRefusal(planned)) return planned;
-  let result = withoutPlugins(state);
-  for (const tr of planned.transactions) result = result.apply(tr);
-  const introduced = introducedViolations(state.doc, result.doc, stylesheet);
-  if (introduced.length > 0) {
-    const marks = (style: StyleName): string =>
-      VARIANT_MARKS.filter((mark: VariantMark) =>
-        introduced.some((violation) => violation.style === style && violation.mark === mark),
-      ).join(', ');
-    const [first] = introduced;
-    const style = first?.style;
-    if (style === undefined) return refuse('not-applicable', 'The command cannot be done.');
-    return MARK_COMMANDS.has(command.type)
-      ? refuse('mark-not-allowed', `The style "${style}" does not allow ${marks(style)}.`)
-      : refuse(
-          'marks-not-allowed',
-          `The text has marks that the style "${style}" does not allow: ${marks(style)}. Remove them first.`,
-        );
-  }
   for (const tr of planned.transactions) dispatch(tr);
   return { ok: true };
 }

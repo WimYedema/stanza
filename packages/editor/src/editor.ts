@@ -7,7 +7,8 @@ import {
 } from '@phrase/core';
 import { SCOPE_CLASS, compileStylesheetToCss } from '@phrase/css';
 import { BlockIds, type IdSource } from './block-ids.js';
-import { runCommand, type CommandResult, type EditorCommand } from './commands.js';
+import { checkCommand, runCommand, type CommandResult, type EditorCommand } from './commands.js';
+import { editorContext, type EditorContext } from './context.js';
 import { ContextClasses, REFRESH_CLASSES, contextClassesKey } from './context-classes.js';
 import { fromEditorContent, toEditorContent, type FromEditorResult } from './convert.js';
 import { PhraseKeys } from './keys.js';
@@ -70,6 +71,10 @@ export interface PhraseEditor {
   setStylesheet(stylesheet: Stylesheet): readonly Diagnostic[];
   /** Does what a command says, or refuses it and changes nothing (ADR 0023). */
   run(command: EditorCommand): CommandResult;
+  /** What `run` would answer, with nothing changed. A refusal can carry a fix (ADR 0026). */
+  check(command: EditorCommand): CommandResult;
+  /** The state at the selection: block, styles, and marks that are on and allowed. */
+  getContext(): EditorContext;
   /** Where the cursor is, to put it back after `setDocument`. */
   getPosition(): EditorPosition;
   /** Puts the cursor at a position, or as near to it as the document allows. */
@@ -167,5 +172,7 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
         command,
         stylesheet,
       ),
+    check: (command) => checkCommand(editor.state, command, stylesheet),
+    getContext: () => editorContext(editor.state, stylesheet),
   };
 }

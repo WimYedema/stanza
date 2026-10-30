@@ -3,7 +3,13 @@ import type { Node as EditorNode } from '@tiptap/pm/model';
 import { EditorState, TextSelection, type Transaction } from '@tiptap/pm/state';
 import { describe, expect, it } from 'vitest';
 import type { StyleName } from '@phrase/core';
-import { isAllowedHref, runCommand, type CommandResult, type EditorCommand } from './commands.js';
+import {
+  checkCommand,
+  isAllowedHref,
+  runCommand,
+  type CommandResult,
+  type EditorCommand,
+} from './commands.js';
 import { schemaExtensions } from './schema.js';
 import { COMMANDS_STYLESHEET } from './styles.testing.js';
 
@@ -144,8 +150,49 @@ describe('marks', () => {
       ok: false,
       reason: 'mark-not-allowed',
       message: 'The style "plain" does not allow strong.',
+      fix: { kind: 'declare-variant', style: 'plain', mark: 'strong' },
     });
     expect(outcome.next.doc.toJSON()).toEqual(doc.toJSON());
+  });
+
+  it('offers the fix for a mark at a cursor and for a link', () => {
+    const cursor = run(select(build(paragraph('Some text', { style: 'plain' })), 'text'), {
+      type: 'toggle-mark',
+      mark: 'emphasis',
+    });
+    expect(cursor.result).toMatchObject({
+      fix: { kind: 'declare-variant', style: 'plain', mark: 'emphasis' },
+    });
+    const link = run(select(build(paragraph('Some text', { style: 'plain' })), 'text', 4), {
+      type: 'set-link',
+      href: 'https://example.com',
+    });
+    expect(link.result).toMatchObject({
+      fix: { kind: 'declare-variant', style: 'plain', mark: 'link' },
+    });
+  });
+
+  it('offers no fix where a style is not the cause', () => {
+    const refused = run(select(build({ type: 'codeBlock', content: [text('x = 1')] }), 'x', 1), {
+      type: 'toggle-mark',
+      mark: 'strong',
+    });
+    expect(refused.result).toMatchObject({ ok: false, reason: 'mark-not-allowed' });
+    expect(refused.result).not.toHaveProperty('fix');
+  });
+
+  it('checks a command with no change, and gives the same answer as run', () => {
+    const doc = build(paragraph('Some text', { style: 'plain' }));
+    const state = select(doc, 'text', 4);
+    const command: EditorCommand = { type: 'toggle-mark', mark: 'strong' };
+    expect(checkCommand(state, command, stylesheet)).toEqual(run(state, command).result);
+    expect(
+      checkCommand(state, { type: 'toggle-mark', mark: 'emphasis' }, stylesheet),
+    ).toMatchObject({ ok: false });
+    const allowed = build(paragraph('Some text'));
+    expect(
+      checkCommand(select(allowed, 'text', 4), { type: 'toggle-mark', mark: 'strong' }, stylesheet),
+    ).toEqual({ ok: true });
   });
 
   it('refuses a mark at a cursor in a style that does not allow it', () => {
@@ -277,6 +324,7 @@ describe('headings and styles', () => {
       reason: 'marks-not-allowed',
       message:
         'The text has marks that the style "heading-6" does not allow: strong. Remove them first.',
+      fix: { kind: 'declare-variant', style: 'heading-6', mark: 'strong' },
     });
     expect(refused.next.doc.firstChild?.type.name).toBe('paragraph');
   });

@@ -11,6 +11,7 @@ export default defineConfig({
         new URL('./packages/export-docx/src/index.ts', import.meta.url),
       ),
       '@phrase/css': fileURLToPath(new URL('./packages/css/src/index.ts', import.meta.url)),
+      '@phrase/editor': fileURLToPath(new URL('./packages/editor/src/index.ts', import.meta.url)),
       '@phrase/project': fileURLToPath(new URL('./packages/project/src/index.ts', import.meta.url)),
     },
   },

@@ -5,6 +5,7 @@ import { collectBlockIds } from '@phrase/core';
 import type { LoadedProject } from '@phrase/project';
 import { parseWebviewMessage, type HostMessage, type WebviewMessage } from '../shared/protocol.js';
 import { buildHtml } from './html.js';
+import { declareVariantInProject, parseFix, type StylesheetSaves } from './declare-variant.js';
 import { lineEdit } from './line-diff.js';
 import { findRoot, storageOf } from './project-files.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
@@ -21,10 +22,18 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly context: vscode.ExtensionContext,
     private readonly diagnostics: ProjectDiagnostics,
     private readonly log: vscode.OutputChannel,
+    private readonly saves: StylesheetSaves,
   ) {}
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
-    const session = new EditorSession(this.context, this.diagnostics, this.log, document, panel);
+    const session = new EditorSession(
+      this.context,
+      this.diagnostics,
+      this.log,
+      this.saves,
+      document,
+      panel,
+    );
     panel.onDidDispose(() => {
       session.dispose();
     });
@@ -33,6 +42,10 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
 }
 
 type Shown = 'nothing' | 'editor' | 'refused';
+
+/** The files that the project is made of, which can change without being saved. */
+const isProjectFile = (fileName: string): boolean =>
+  fileName.endsWith('.phrase.md') || fileName.endsWith('.yaml');
 
 /** One editor on one document. Everything that happens to it goes through one queue, in order. */
 class EditorSession {
@@ -51,6 +64,7 @@ class EditorSession {
     private readonly context: vscode.ExtensionContext,
     private readonly diagnostics: ProjectDiagnostics,
     private readonly log: vscode.OutputChannel,
+    private readonly saves: StylesheetSaves,
     private readonly document: vscode.TextDocument,
     private readonly panel: vscode.WebviewPanel,
   ) {}
@@ -72,7 +86,7 @@ class EditorSession {
         if (event.document.uri.toString() === this.document.uri.toString()) {
           this.enqueue(() => this.onDocumentChanged());
         }
-        if (event.document.fileName.endsWith('.phrase.md')) this.scheduleRefresh();
+        if (isProjectFile(event.document.fileName)) this.scheduleRefresh();
       }),
     );
   }
@@ -112,6 +126,9 @@ class EditorSession {
       }
       case 'open-as-text':
         await vscode.commands.executeCommand('workbench.action.reopenTextEditor');
+        return;
+      case 'declare-variant':
+        await this.declareVariant(message.style, message.mark);
         return;
       case undefined:
         return;
@@ -159,6 +176,25 @@ class EditorSession {
   private async refuse(title: string, reasons: readonly { message: string }[]): Promise<void> {
     this.shown = 'refused';
     await this.post({ type: 'refused', title, reasons, canFormat: false });
+  }
+
+  /**
+   * Allows a mark in a style by editing the stylesheet, which is saved with this document. The new
+   * stylesheet is sent before the answer, so that the webview can try its command again.
+   */
+  private async declareVariant(style: string, mark: string): Promise<void> {
+    const fix = parseFix(style, mark);
+    const outcome =
+      fix === undefined || this.root === undefined
+        ? ({ ok: false, message: 'The variant could not be declared.' } as const)
+        : await declareVariantInProject(this.root, fix.style, fix.mark);
+    if (!outcome.ok) {
+      await this.post({ type: 'declared', ok: false, message: outcome.message });
+      return;
+    }
+    this.saves.saveWith(this.document.uri, outcome.document);
+    await this.refresh();
+    await this.post({ type: 'declared', ok: true, message: '' });
   }
 
   private usedIds(loaded: LoadedProject, root: vscode.Uri): readonly string[] {

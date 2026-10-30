@@ -1,6 +1,18 @@
 import type { NodeId } from './ids.js';
+import type { StyleName } from './style-name.js';
+import type { VariantMark } from './stylesheet.js';
 
 export type Severity = 'error' | 'warning';
+
+/**
+ * A change to the project that would remove the cause of a diagnostic. It is only offered, never
+ * made by itself: the stylesheet decides which marks a style allows (ADR 0006, ADR 0026).
+ */
+export type Fix = {
+  readonly kind: 'declare-variant';
+  readonly style: StyleName;
+  readonly mark: VariantMark;
+};
 
 export interface Diagnostic {
   readonly severity: Severity;
@@ -11,4 +23,5 @@ export interface Diagnostic {
   /** Location inside a structured file, such as `paragraph-styles.heading-1.size`. */
   readonly path?: string;
   readonly nodeId?: NodeId;
+  readonly fix?: Fix;
 }

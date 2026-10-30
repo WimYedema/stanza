@@ -93,6 +93,15 @@ describe('validateDocument', () => {
     );
   });
 
+  it('offers to declare the variant, which only the person editing decides', () => {
+    const [diagnostic] = validateDocument(documentOf(heading([run('a', strong)])), stylesheet);
+    expect(diagnostic?.fix).toEqual({
+      kind: 'declare-variant',
+      style: n('heading-1'),
+      mark: 'strong',
+    });
+  });
+
   it('uses the style of the block, then of the list, then the default', () => {
     expect(
       problems(

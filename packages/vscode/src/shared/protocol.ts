@@ -21,6 +21,11 @@ export type HostMessage =
   | { readonly type: 'external-text'; readonly text: string }
   | { readonly type: 'stylesheet'; readonly text: string }
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
+  /**
+   * The answer to `declare-variant`. On success the stylesheet message with the change came before
+   * it, so the command that was refused can be tried again.
+   */
+  | { readonly type: 'declared'; readonly ok: boolean; readonly message: string }
   /** The file cannot be edited visually, and why. */
   | {
       readonly type: 'refused';
@@ -35,7 +40,12 @@ export type WebviewMessage =
   /** The whole text of the document as the editor writes it. */
   | { readonly type: 'change'; readonly text: string }
   | { readonly type: 'format' }
+  /** The person editing allows a mark in a paragraph style (ADR 0026). The host checks both. */
+  | { readonly type: 'declare-variant'; readonly style: string; readonly mark: string }
   | { readonly type: 'open-as-text' };
+
+/** A style or mark name is short, whatever it is. */
+const MAX_NAME_LENGTH = 200;
 
 /** A document larger than this is not a document of this tool. */
 export const MAX_TEXT_LENGTH = 20_000_000;
@@ -55,6 +65,12 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
       const text = value['text'];
       if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) return undefined;
       return { type: 'change', text };
+    }
+    case 'declare-variant': {
+      const { style, mark } = value;
+      if (typeof style !== 'string' || typeof mark !== 'string') return undefined;
+      if (style.length > MAX_NAME_LENGTH || mark.length > MAX_NAME_LENGTH) return undefined;
+      return { type: 'declare-variant', style, mark };
     }
     default:
       return undefined;
@@ -90,6 +106,11 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
     case 'used-ids': {
       const ids = value['ids'];
       return isStringList(ids) ? { type: 'used-ids', ids } : undefined;
+    }
+    case 'declared': {
+      const { ok, message } = value;
+      if (typeof ok !== 'boolean' || typeof message !== 'string') return undefined;
+      return { type: 'declared', ok, message };
     }
     case 'refused': {
       const { title, reasons, canFormat } = value;

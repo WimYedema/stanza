@@ -167,7 +167,7 @@ The editor should support a narrow schema. A first schema might include:
 
 Do not include generic text-style attributes such as `fontFamily`, `fontSize`, `color`, or `fontWeight` in document nodes.
 
-A toolbar command applies a semantic operation. The **Strong** command adds or removes a `strong` mark. Rendering looks up the strong variant of the containing style. If the variant is undefined, the application must use an explicit policy: reject the operation, explain why, and optionally open style configuration. It must not generate an anonymous style or direct formatting.
+A toolbar command applies a semantic operation. The **Strong** command adds or removes a `strong` mark. Rendering looks up the strong variant of the containing style. If the variant is undefined, the application must use an explicit policy: reject the operation, explain why, and optionally open style configuration. It must not generate an anonymous style or direct formatting. The refusal carries the change that would remove it (declare the variant in the style), the editor offers it as a button and as a quick fix on the diagnostic, and the stylesheet is edited only when the person asks, with the edit saved together with the document (ADR 0026).
 
 During a session the ProseMirror document is authoritative. It is converted to the domain model and serialized on each change, and the rules about what an edit may do are pure functions in `core` driven by the style definitions (ADR 0003). Page breaks are a styling concern, not part of the content schema.
 
@@ -380,6 +380,7 @@ Accepted:
 - ADR 0023: editor commands and paste.
 - ADR 0024: IDs of new blocks in the editor.
 - ADR 0025: the VS Code editor.
+- ADR 0026: style choice and allowing a mark in a style.
 
 Still to capture:
 

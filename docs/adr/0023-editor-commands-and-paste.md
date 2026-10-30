@@ -1,7 +1,6 @@
 # ADR 0023: Editor commands and paste
 
-Status: Accepted
-
+Status: Accepted. Refusals carry a fix, and commands can be checked without running: ADR 0026.
 ## Context
 
 The editor of ADR 0022 shows a document but has no way to change it except by typing. Editing must stay semantic (the architecture says commands express operations, not looks), the stylesheet decides which marks a style offers (ADR 0006), and a paste from Word or Google Docs must not bring formatting into a document that has none. This record covers the commands, the keys, and the handling of pasted content.
