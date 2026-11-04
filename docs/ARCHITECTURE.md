@@ -396,6 +396,7 @@ Accepted:
 - ADR 0039: the style editor, character styles.
 - ADR 0040: the style editor, table styles.
 - ADR 0041: the style editor, collapsible groups.
+- ADR 0042: starting a project.
 - ADR 0028: the paper look in the editor.
 
 Still to capture:

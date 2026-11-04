@@ -56,6 +56,7 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 70. [S] - Style editor, character styles and custom paragraph styles: the panel also shows a character style, with its label, base style (a character style) and text properties, edited the same way. A custom paragraph style already has the paragraph panel, in the Paragraphs tab. Decided in ADR 0039.
 71. [M] - Style editor, tables: the panel also shows a table style, with its cell style, cell padding, the three borders (each set as a whole, width and color) and the header row (background, repeat and the text properties, one by one), each with own and inherited values and edits of the open file. Decided in ADR 0040.
 75. [S] - Style editor, collapsible groups: every group of the panel can be collapsed, and the properties of a mark and the text of a table header row are nested groups that are closed at first. What is open is kept when another style is selected. Added at the request of the product owner; decided in ADR 0041.
+80. [M] - Starting a project (MVP): "Phrase: New Project" in the VS Code extension writes a project into a folder that is picked, with the project file, a default stylesheet (plain look, numbered headings, a plain and a grid table, an A4 page with header and page numbers) and a first document, and opens that document. It refuses a folder that has any of these files. The logic is `createProject` in the `project` package. Decided in ADR 0042.
 
 ## Phase 5: Editor and review
 
@@ -74,6 +75,7 @@ Placed before Phases 3 and 4 by the product owner.
 77. [M] - Colors and fonts only from theme tokens: ADR first, since ADR 0006 allows hex colors and family lists in styles. Then the stylesheet reading and validation, the exporters, and the fixtures follow; a raw value becomes a diagnostic that says which token to use. Added at the request of the product owner.
 78. [S] - Style editor, theme values in the panel: colors and fonts are chosen from a list of the theme's tokens with a swatch or a font sample, the row says where the value comes from ("Theme: mono"), and a value that is not a token shows as "Custom" with a warning until a token is picked. A note in the panel says that these values come from the theme. Replaces the text fields with suggestions of item 68.
 79. [S] - Style editor, link to the theme: from a color or font row, a link to that token in the Theme tab. Needs item 72.
+81. [S] - VS Code: "Phrase: New Document" adds a document to a project (a title, a file name from it, front matter, a first heading with an ID), next to the others in the folder of the project, and opens it. Added as the follow-up of item 80, so that a project can have several documents without hand-written files.
 
 ## Phase 3: Pipeline (CLI, no editor)
 
