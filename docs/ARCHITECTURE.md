@@ -397,6 +397,7 @@ Accepted:
 - ADR 0040: the style editor, table styles.
 - ADR 0041: the style editor, collapsible groups.
 - ADR 0042: starting a project.
+- ADR 0043: one-time import of a Word document.
 - ADR 0028: the paper look in the editor.
 
 Still to capture:

@@ -62,6 +62,10 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 
 Placed before Phases 3 and 4 by the product owner.
 
+81. [S] - VS Code: "Phrase: New Document" adds a document to a project (a title, a file name from it, front matter, a first heading with an ID), next to the others in the folder of the project, and opens it. Added as the follow-up of item 80, so that a project can have several documents without hand-written files.
+82. [L] - Word import, text content (ADR 0043): the `import-docx` package reads a DOCX and writes the document model and a report. Paragraphs, headings, lists, bold, italic and monospace as marks, hyperlinks, tracked changes as accepted, Word styles mapped to the nearest known style, and a placeholder or a report line for whatever cannot be represented. Acceptance: the imported text equals the DOCX body text paragraph by paragraph after the reported losses, checked on DOCX files built in tests and by hand on real documents.
+83. [M] - Word import, tables and table of contents (ADR 0043): simple tables with a header row, tables that cannot be represented flattened into their cells and reported, and a Word table of contents field turned into a `phrase-toc` block with its depth.
+84. [S] - Word import, command line and VS Code (ADR 0043): `phrase import` and "Phrase: Import Word Document" write one new `.phrase.md` into a project, never over an existing file, assign IDs, and show the report like other diagnostics.
 72. [S] - Style editor, theme: the values of the color and font tokens, and adding a token. No renaming, since styles refer to tokens by name.
 73. [M] - Style editor, page templates: size, margins, and the header and footer slots. The cover entries come later.
 61. [M] - Style usage index in `project`: for each style, the documents and blocks that use it directly, by default, or through inheritance, over the documents found in the project folder.
@@ -75,7 +79,6 @@ Placed before Phases 3 and 4 by the product owner.
 77. [M] - Colors and fonts only from theme tokens: ADR first, since ADR 0006 allows hex colors and family lists in styles. Then the stylesheet reading and validation, the exporters, and the fixtures follow; a raw value becomes a diagnostic that says which token to use. Added at the request of the product owner.
 78. [S] - Style editor, theme values in the panel: colors and fonts are chosen from a list of the theme's tokens with a swatch or a font sample, the row says where the value comes from ("Theme: mono"), and a value that is not a token shows as "Custom" with a warning until a token is picked. A note in the panel says that these values come from the theme. Replaces the text fields with suggestions of item 68.
 79. [S] - Style editor, link to the theme: from a color or font row, a link to that token in the Theme tab. Needs item 72.
-81. [S] - VS Code: "Phrase: New Document" adds a document to a project (a title, a file name from it, front matter, a first heading with an ID), next to the others in the folder of the project, and opens it. Added as the follow-up of item 80, so that a project can have several documents without hand-written files.
 
 ## Phase 3: Pipeline (CLI, no editor)
 

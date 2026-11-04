@@ -6,7 +6,7 @@ This file is intended as the source for concise repository-level Copilot instruc
 
 - The product is local-first. Core authoring, validation, rendering, and export must not require a backend, account, network connection, or cloud service.
 - DOCX and PDF are generated publication formats, not canonical editable formats.
-- Arbitrary DOCX import and DOCX round-tripping are outside the initial scope.
+- Arbitrary DOCX import and DOCX round-tripping are outside the initial scope. The only import is the one-time, content-only import of ADR 0043, which never applies formatting from the DOCX.
 - The product deliberately supports less formatting power than Word.
 - Document content contains semantic structure, style identifiers, and semantic marks. It does not contain arbitrary visual formatting.
 - Formatting commands must never silently create direct formatting or anonymous styles.

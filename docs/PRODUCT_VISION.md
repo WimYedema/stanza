@@ -215,6 +215,7 @@ The first usable version should demonstrate:
 - Git-friendly history and commit support;
 - DOCX export with shared named styles and stable anchors;
 - import of Word comments anchored to those stable IDs;
+- a one-time import of the content of an existing Word document, to populate a project (ADR 0043);
 - deterministic validation and automated tests.
 
 ## Explicit non-goals
@@ -223,7 +224,7 @@ The initial product is not:
 
 - a complete replacement for Microsoft Word;
 - a desktop-publishing or arbitrary page-layout application;
-- an editor for arbitrary DOCX files;
+- an editor for arbitrary DOCX files, or an import that keeps their formatting: the one-time import of ADR 0043 takes the content and leaves the look to the stylesheet;
 - a DOCX round-trip system, including applying edits or tracked changes made in Word;
 - a vehicle for exposing every OOXML feature;
 - a cloud document platform;
