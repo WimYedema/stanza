@@ -1,0 +1,148 @@
+/**
+ * The stylesheet of a new project (ADR 0042): a plain look with the styles that the model reserves,
+ * the headings numbered, a grid table, and an A4 page with a header and a page number. It is text so
+ * that it can be edited by hand, and its comments say where to start.
+ */
+export const DEFAULT_STYLESHEET = `phrase-format: 1
+
+# Colors and fonts are named here once, and the styles below refer to them by name.
+tokens:
+  colors:
+    brand: '#2E75B6'
+    heading: '#404040'
+    muted: '#7F7F7F'
+    rule: '#BFBFBF'
+  fonts:
+    body: ['Calibri', 'Arial']
+    mono: ['Consolas', 'Courier New']
+
+paragraph-styles:
+  # Every other paragraph style is based on body.
+  body:
+    font: body
+    size: 11
+    space-after: 6
+    line-spacing: { multiple: 1.15 }
+    variants:
+      strong: { bold: true }
+      emphasis: { italic: true }
+      code: { font: mono, size: 10 }
+      link: { color: brand, underline: true }
+
+  heading-1:
+    based-on: body
+    size: 18
+    bold: true
+    numbered: true
+    color: heading
+    space-before: 24
+    space-after: 8
+    keep-with-next: true
+    variants:
+      strong: false
+      emphasis: { italic: true }
+
+  heading-2:
+    based-on: heading-1
+    size: 14
+    space-before: 16
+    space-after: 6
+
+  heading-3:
+    based-on: heading-2
+    size: 12
+
+  heading-4:
+    based-on: heading-3
+    italic: true
+    numbered: false
+
+  heading-5:
+    based-on: heading-4
+
+  heading-6:
+    based-on: heading-5
+
+  code:
+    based-on: body
+    font: mono
+    size: 10
+    keep-together: true
+    background: '#F2F2F2'
+    variants:
+      strong: false
+      emphasis: false
+      code: false
+      link: false
+
+  list-bulleted:
+    based-on: body
+    space-after: 3
+    indent-left: 36
+    first-line-indent: -18
+
+  list-numbered:
+    based-on: list-bulleted
+
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  header-footer:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+
+  toc-1:
+    based-on: body
+    space-after: 3
+
+  toc-2:
+    based-on: toc-1
+    indent-left: 18
+
+  toc-3:
+    based-on: toc-1
+    indent-left: 36
+
+# A character style marks a few words, for example <span class="marker">like this</span>.
+character-styles:
+  marker:
+    bold: true
+    color: brand
+
+table-styles:
+  table:
+    label: 'Plain table'
+    cell-style: table-cell
+    border:
+      outer: { width: 0.75, color: rule }
+      inside-horizontal: { width: 0.5, color: rule }
+    header-row:
+      bold: true
+      background: '#F2F2F2'
+      repeat: true
+    cell-padding: 4
+
+  table-grid:
+    label: 'Grid table'
+    based-on: table
+    border:
+      inside-vertical: { width: 0.5, color: rule }
+
+page-templates:
+  page:
+    size: A4
+    margins: { top: 72, right: 72, bottom: 72, left: 72 }
+    header:
+      style: header-footer
+      left: '[](phrase:title)'
+    footer:
+      style: header-footer
+      right: 'Page [1](phrase:page) of [1](phrase:pages)'
+
+table-of-contents:
+  page-numbers: true
+`;

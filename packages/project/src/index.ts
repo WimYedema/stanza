@@ -14,6 +14,13 @@ export {
   type FormatStatus,
 } from './format.js';
 export { hasErrors, type ProjectDiagnostic } from './diagnostics.js';
+export { DEFAULT_STYLESHEET } from './default-stylesheet.js';
+export {
+  createProject,
+  slugOf,
+  type NewProjectOptions,
+  type NewProjectResult,
+} from './new-project.js';
 export { DOCUMENT_SUFFIX, PROJECT_FILE } from './files.js';
 export { loadProject, type LoadedDocument, type LoadedProject } from './load.js';
 export type { DirectoryEntry, ProjectStorage } from './storage.js';

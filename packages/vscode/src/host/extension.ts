@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { StylesheetSaves } from './declare-variant.js';
 import { registerEditStyles } from './edit-styles-command.js';
 import { ExportOnSave } from './export-on-save.js';
+import { registerNewProject } from './new-project-command.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import { PhraseEditorProvider } from './provider.js';
 import { registerDeclareVariant } from './quick-fix.js';
@@ -27,6 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     ),
     registerEditStyles(),
+    registerNewProject(),
     vscode.window.registerCustomEditorProvider(
       StylesEditorProvider.viewType,
       new StylesEditorProvider(context, log),

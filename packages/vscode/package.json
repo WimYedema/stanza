@@ -50,6 +50,10 @@
       {
         "command": "phrase.editStyles",
         "title": "Phrase: Edit Styles"
+      },
+      {
+        "command": "phrase.newProject",
+        "title": "Phrase: New Project"
       }
     ]
   },

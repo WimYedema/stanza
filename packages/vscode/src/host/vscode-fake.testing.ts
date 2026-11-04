@@ -78,6 +78,16 @@ export const world = {
   activeTab: undefined as { input: unknown } | undefined,
   /** The arguments of the commands that were run, in the order of `commands`. */
   commandArgs: [] as unknown[][],
+  /** The folder that the open dialog returns, or undefined for a dialog that is cancelled. */
+  dialogFolder: undefined as string | undefined,
+  /** What the input box returns, or undefined for one that is cancelled, and what it was asked. */
+  inputValue: undefined as string | undefined,
+  inputOptions: undefined as { value?: string; validateInput?(v: string): unknown } | undefined,
+  /** The information messages shown, and the button that is pressed on them. */
+  infos: [] as string[],
+  infoChoice: undefined as string | undefined,
+  /** The folders that the editor was opened on are not in the workspace. */
+  outsideWorkspace: false,
 };
 
 export function reset(
@@ -113,6 +123,12 @@ export function reset(
   world.directories = [];
   world.activeTab = undefined;
   world.commandArgs = [];
+  world.dialogFolder = undefined;
+  world.inputValue = undefined;
+  world.inputOptions = undefined;
+  world.infos = [];
+  world.infoChoice = undefined;
+  world.outsideWorkspace = false;
   const uri = new FakeUri(documentPath);
   world.document = {
     uri,
@@ -242,7 +258,8 @@ export function createFakeVscode(): Record<string, unknown> {
       getConfiguration: () => ({
         get: (name: string, fallback: unknown) => world.settings[name] ?? fallback,
       }),
-      getWorkspaceFolder: () => ({ uri: new FakeUri(world.workspace) }),
+      getWorkspaceFolder: () =>
+        world.outsideWorkspace ? undefined : { uri: new FakeUri(world.workspace) },
       findFiles: (pattern: string) => {
         const name = pattern.slice(pattern.lastIndexOf('/') + 1);
         return Promise.resolve(
@@ -324,6 +341,18 @@ export function createFakeVscode(): Record<string, unknown> {
         return { activeTabGroup: { activeTab: world.activeTab } };
       },
       showQuickPick: (items: readonly unknown[]) => Promise.resolve(items[0]),
+      showOpenDialog: () =>
+        Promise.resolve(
+          world.dialogFolder === undefined ? undefined : [new FakeUri(world.dialogFolder)],
+        ),
+      showInputBox: (options: typeof world.inputOptions) => {
+        world.inputOptions = options;
+        return Promise.resolve(world.inputValue);
+      },
+      showInformationMessage: (message: string) => {
+        world.infos.push(message);
+        return Promise.resolve(world.infoChoice);
+      },
       showErrorMessage: (message: string) => {
         world.errors.push(message);
         return Promise.resolve(undefined);
