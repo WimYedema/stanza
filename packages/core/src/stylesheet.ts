@@ -53,6 +53,8 @@ export type VariantDeclaration = TextProps | null;
 
 export interface ParagraphStyle {
   readonly basedOn?: StyleName;
+  /** The name that people see (ADR 0034). Absent means the name of the style. */
+  readonly label?: string;
   readonly text: TextProps;
   readonly paragraph: ParagraphProps;
   readonly variants: Readonly<Partial<Record<VariantMark, VariantDeclaration>>>;
@@ -60,6 +62,7 @@ export interface ParagraphStyle {
 
 export interface CharacterStyle {
   readonly basedOn?: StyleName;
+  readonly label?: string;
   readonly text: TextProps;
 }
 
@@ -83,6 +86,7 @@ export interface HeaderRow {
 
 export interface TableStyle {
   readonly basedOn?: StyleName;
+  readonly label?: string;
   /** The paragraph style of the text in cells. Absent means `body`. */
   readonly cellStyle?: StyleName;
   readonly border?: TableBorders;

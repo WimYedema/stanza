@@ -34,6 +34,7 @@ async function build(body: string, sheet = stylesheet, front = '') {
     documentXml: text('word/document.xml'),
     stylesXml: text('word/styles.xml'),
     coreXml: text('docProps/core.xml'),
+    settingsXml: text('word/settings.xml'),
     numberingXml: text('word/numbering.xml'),
     relsXml: text('word/_rels/document.xml.rels'),
     part: text,
@@ -184,6 +185,22 @@ describe('exportDocx', () => {
     );
     expect(coreXml).toContain('<dc:title>A title</dc:title>');
     expect(coreXml).toContain('<dc:creator>A; B</dc:creator>');
+  });
+
+  it('protects the document so that a reviewer can only add comments, with no password', async () => {
+    const { settingsXml } = await build('Text.\n');
+    const protection = '<w:documentProtection w:edit="comments" w:enforcement="1"/>';
+    expect(settingsXml.split(protection)).toHaveLength(2);
+    // In the schema it comes after the background shape and before the default tab stop.
+    expect(settingsXml).toMatch(
+      /<w:displayBackgroundShape\/>.*<w:documentProtection.*<w:defaultTabStop/s,
+    );
+    expect(settingsXml).not.toMatch(/w:(hash|salt|cryptProviderType|algorithmName|spinCount)/i);
+  });
+
+  it('protects a document with a cover page in the same way', async () => {
+    const { settingsXml } = await build('Text.\n', stylesheet, 'page-template: "page-letter"\n');
+    expect(settingsXml).toContain('<w:documentProtection w:edit="comments" w:enforcement="1"/>');
   });
 
   it('writes the given timestamp into the package', async () => {
@@ -528,6 +545,66 @@ function numbered(documentXml: string): { style: string; level: string; list: st
 function styleXml(stylesXml: string, id: string): string {
   return new RegExp(`<w:style [^>]*w:styleId="${id}".*?</w:style>`, 's').exec(stylesXml)?.[0] ?? '';
 }
+
+describe('exportDocx style labels', () => {
+  const labelled = (from: string, to: string) =>
+    parseStylesheet(STYLESHEET_TEXT.replaceAll('\r\n', '\n').replace(from, to)).stylesheet;
+  const nameOf = (xml: string): string | undefined => /<w:name w:val="([^"]*)"/.exec(xml)?.[1];
+
+  it('shows a custom paragraph style in Word by its label, with the ID of its name', async () => {
+    const sheet = labelled(
+      '  cover-meta:\n    based-on: body',
+      "  cover-meta:\n    label: 'Cover details'\n    based-on: body",
+    );
+    const { stylesXml } = await build('Text.\n', sheet);
+    expect(nameOf(styleXml(stylesXml, 'CoverMeta'))).toBe('Cover details');
+    expect(stylesXml).not.toContain('w:val="Cover Meta"');
+  });
+
+  it('keeps the names that Word gives to the body and the headings, whatever their label', async () => {
+    const sheet = labelled(
+      '  heading-1:\n    based-on: body',
+      "  heading-1:\n    label: 'Section title'\n    based-on: body",
+    );
+    const { stylesXml } = await build('Text.\n', sheet);
+    expect(nameOf(styleXml(stylesXml, 'Heading1'))).toBe('heading 1');
+    expect(stylesXml).not.toContain('Section title');
+  });
+
+  it('uses the label of a character style, in the styles generated from it as well', async () => {
+    const sheet = labelled(
+      '  marker:\n    bold: true',
+      "  marker:\n    label: 'Status marker'\n    bold: true",
+    );
+    const { stylesXml } = await build('A <span class="marker">word</span>.\n', sheet);
+    expect(nameOf(styleXml(stylesXml, 'Marker'))).toBe('Status marker');
+    expect(nameOf(styleXml(stylesXml, 'NormalMarker'))).toBe('Normal Status marker');
+  });
+
+  it('uses the label of a table style, escaped', async () => {
+    const sheet = labelled(
+      '  table-grid:\n    based-on: table',
+      "  table-grid:\n    label: 'Grid & lines'\n    based-on: table",
+    );
+    const { stylesXml } = await build('| A |\n| - |\n| b |\n', sheet);
+    expect(nameOf(styleXml(stylesXml, 'TableGrid'))).toBe('Grid &amp; lines');
+  });
+
+  it('reports a label that is the Word name of another style', async () => {
+    const sheet = labelled(
+      '  cover-meta:\n    based-on: body',
+      "  cover-meta:\n    label: 'cover TITLE'\n    based-on: body",
+    );
+    const result = await exportDocx(read('Text.\n'), sheet, { timestamp: TIMESTAMP });
+    expect(result.bytes).toBeUndefined();
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'style-name-collision',
+        path: 'paragraph-styles.cover-meta',
+      }),
+    ]);
+  });
+});
 
 describe('exportDocx lists', () => {
   it('writes list items as numbered paragraphs of the list style, nested ones a level deeper', async () => {

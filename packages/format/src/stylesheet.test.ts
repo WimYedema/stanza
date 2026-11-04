@@ -42,6 +42,37 @@ function problems(source: string): string[][] {
 
 const name = (value: string) => value as StyleName;
 
+describe('the label of a style', () => {
+  const withLabels = (): string =>
+    sheet('')
+      .replace('  body: {}', "  body:\n    label: 'Normal text'")
+      .replace('  table: {}', "  table:\n    label: 'Plain table'")
+      .concat("character-styles:\n  marker:\n    label: 'Status marker'\n    bold: true\n");
+
+  it('is read on paragraph, character and table styles', () => {
+    const result = parseStylesheet(withLabels());
+    expect(result.diagnostics).toEqual([]);
+    expect(result.stylesheet.paragraphStyles.get(name('body'))?.label).toBe('Normal text');
+    expect(result.stylesheet.characterStyles.get(name('marker'))?.label).toBe('Status marker');
+    expect(result.stylesheet.tableStyles.get(name('table'))?.label).toBe('Plain table');
+  });
+
+  it('is absent when the file gives none', () => {
+    const result = parseStylesheet(sheet(''));
+    expect(result.stylesheet.paragraphStyles.get(name('body'))).not.toHaveProperty('label');
+  });
+
+  it('is reported when it is not text', () => {
+    const source = sheet('').replace('  body: {}', '  body:\n    label: 12');
+    expect(problems(source)).toEqual([['invalid-type', 'paragraph-styles.body.label']]);
+  });
+
+  it('is checked for what Word would make of it', () => {
+    const source = sheet('').replace('  heading-1: {}', "  heading-1:\n    label: 'a, b'");
+    expect(problems(source)).toEqual([['invalid-label', 'paragraph-styles.heading-1.label']]);
+  });
+});
+
 describe('the default stylesheet fixture', () => {
   const result = parseStylesheet(fixture);
 

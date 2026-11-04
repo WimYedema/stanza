@@ -1,4 +1,5 @@
-import type { DocumentMeta, SlotPart } from '@phrase/core';
+import type { DocumentMeta } from './document.js';
+import type { SlotPart } from './stylesheet.js';
 
 /** The metadata value of a token or field, or undefined when it has none. */
 export function slotValue(

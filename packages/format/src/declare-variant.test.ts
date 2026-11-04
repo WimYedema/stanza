@@ -127,12 +127,17 @@ describe('declareVariant', () => {
     });
   });
 
+  it('edits a style, and variants, that are written on one line', () => {
+    expect(declared(sheet('  body: { size: 11 }\n'), 'body', 'strong')).toBe(
+      sheet('  body: { size: 11, variants: { strong: { bold: true } } }\n'),
+    );
+    expect(declared(sheet('  body:\n    variants: { emphasis: {} }\n'), 'body', 'strong')).toBe(
+      sheet('  body:\n    variants: { emphasis: {}, strong: { bold: true } }\n'),
+    );
+  });
+
   it('refuses layouts it cannot edit without guessing', () => {
-    for (const body of [
-      '  body: { size: 11 }\n',
-      '  body:\n    variants: { emphasis: {} }\n',
-      '  body:\n    variants:\n      strong: null\n',
-    ]) {
+    for (const body of ['  body:\n    variants:\n      strong: null\n']) {
       expect(declareVariant(sheet(body), name('body'), 'strong')).toMatchObject({
         ok: false,
         code: 'unsupported-layout',

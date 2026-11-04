@@ -1,5 +1,6 @@
-import type { Block, CoverEntry, DocumentMeta, TableCell, Text } from '@phrase/core';
+import type { Block, DocumentMeta, TableCell, Text } from './document.js';
 import { slotText } from './slot-values.js';
+import type { CoverEntry } from './stylesheet.js';
 
 const text = (value: string): Text => ({ type: 'text', text: value, marks: [] });
 const cell = (value: string): TableCell => ({ content: [text(value)] });

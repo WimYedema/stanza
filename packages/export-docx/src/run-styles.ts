@@ -25,8 +25,16 @@ interface Canonical {
   readonly displayNames: readonly string[];
 }
 
-/** Variant marks in the canonical order, then character styles by name; links lose their target. */
-function canonicalMarks(marks: readonly Mark[]): Canonical {
+const titleCase = (name: string): string => name.split('-').map(capitalized).join(' ');
+
+/**
+ * Variant marks in the canonical order, then character styles by name; links lose their target. A
+ * character style is shown by its label, when it has one.
+ */
+function canonicalMarks(
+  marks: readonly Mark[],
+  labelOf: (name: StyleName) => string | undefined,
+): Canonical {
   const variants = VARIANT_MARKS.filter((kind) => marks.some((mark) => mark.type === kind));
   const styles = [
     ...new Set(marks.flatMap((mark) => (mark.type === 'style' ? [mark.name] : []))),
@@ -41,7 +49,10 @@ function canonicalMarks(marks: readonly Mark[]): Canonical {
   return {
     marks: canonical,
     segments: names.map((name) => name.split('-').map(capitalized).join('')),
-    displayNames: names.map((name) => name.split('-').map(capitalized).join(' ')),
+    displayNames: [
+      ...variants.map(titleCase),
+      ...styles.map((name) => labelOf(name) ?? titleCase(name)),
+    ],
   };
 }
 
@@ -102,7 +113,10 @@ export class RunStyles {
   ) {}
 
   format(paragraphStyle: StyleName, marks: readonly Mark[], context?: RunContext): RunFormat {
-    const canonical = canonicalMarks(marks);
+    const canonical = canonicalMarks(
+      marks,
+      (name) => this.stylesheet.characterStyles.get(name)?.label,
+    );
     if (canonical.marks.length === 0) return {};
     const paragraph = resolveParagraphStyle(this.stylesheet, paragraphStyle);
     const full = resolveTextProps(this.stylesheet, paragraphStyle, canonical.marks, context?.base);
@@ -122,7 +136,14 @@ export class RunStyles {
         key,
         options: {
           id,
-          name: [wordStyleName(paragraphStyle), context?.name, ...canonical.displayNames]
+          name: [
+            wordStyleName(
+              paragraphStyle,
+              this.stylesheet.paragraphStyles.get(paragraphStyle)?.label,
+            ),
+            context?.name,
+            ...canonical.displayNames,
+          ]
             .filter((part) => part !== undefined)
             .join(' '),
           run: style,

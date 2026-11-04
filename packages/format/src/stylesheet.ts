@@ -2,12 +2,14 @@ import {
   BUILT_IN_PAGE_TEMPLATE,
   DEFAULT_TABLE_OF_CONTENTS,
   PAGE_SIZE_NAMES,
+  PARAGRAPH_PROPERTIES,
   RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
+  TEXT_PROPERTIES,
   isStyleName,
+  propertyKeys,
   validateStylesheet,
   VARIANT_MARKS,
-  type Alignment,
   type Border,
   type CharacterStyle,
   type ColorValue,
@@ -23,8 +25,10 @@ import {
   type PageTemplate,
   type ParagraphProps,
   type ParagraphStyle,
+  type PropertyType,
   type SlotPart,
   type StyleName,
+  type StyleProperty,
   type Stylesheet,
   type TableBorders,
   type TableOfContentsOptions,
@@ -57,21 +61,6 @@ export interface StylesheetParseResult {
   readonly formatVersion: number | undefined;
 }
 
-const TEXT_KEYS = ['font', 'size', 'bold', 'italic', 'underline', 'color', 'highlight'] as const;
-const PARAGRAPH_KEYS = [
-  'space-before',
-  'space-after',
-  'line-spacing',
-  'indent-left',
-  'first-line-indent',
-  'alignment',
-  'keep-with-next',
-  'keep-together',
-  'page-break-before',
-  'background',
-  'numbered',
-] as const;
-const ALIGNMENTS: readonly string[] = ['left', 'center', 'right', 'justify'];
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
 
 const EMPTY: Stylesheet = {
@@ -108,10 +97,6 @@ function readColor(map: Data, key: string, path: string, report: Report): ColorV
   return map[key] === undefined ? undefined : colorOf(map[key], join(path, key), report);
 }
 
-function isAlignment(value: unknown): value is Alignment {
-  return typeof value === 'string' && ALIGNMENTS.includes(value);
-}
-
 function readFont(map: Data, key: string, path: string, report: Report): FontValue | undefined {
   const value = map[key];
   if (value === undefined) return undefined;
@@ -125,23 +110,71 @@ function readFont(map: Data, key: string, path: string, report: Report): FontVal
   return undefined;
 }
 
-function readText(map: Data, path: string, report: Report): TextProps {
-  const props: Mutable<TextProps> = {};
-  const font = readFont(map, 'font', path, report);
-  if (font !== undefined) props.font = font;
-  const size = readNumber(map, 'size', path, report);
-  if (size !== undefined) props.sizePt = size;
-  const bold = readBoolean(map, 'bold', path, report);
-  if (bold !== undefined) props.bold = bold;
-  const italic = readBoolean(map, 'italic', path, report);
-  if (italic !== undefined) props.italic = italic;
-  const underline = readBoolean(map, 'underline', path, report);
-  if (underline !== undefined) props.underline = underline;
-  const color = readColor(map, 'color', path, report);
-  if (color !== undefined) props.color = color;
-  const highlight = readColor(map, 'highlight', path, report);
-  if (highlight !== undefined) props.highlight = highlight;
+/** One of a fixed set of words, reported with all of them when it is none. */
+function readChoice(
+  map: Data,
+  key: string,
+  values: readonly string[],
+  path: string,
+  report: Report,
+): string | undefined {
+  const value = map[key];
+  if (value === undefined) return undefined;
+  if (typeof value === 'string' && values.includes(value)) return value;
+  const last = values[values.length - 1] ?? '';
+  report(
+    'invalid-value',
+    `Expected ${values.slice(0, -1).join(', ')}, or ${last}.`,
+    join(path, key),
+  );
+  return undefined;
+}
+
+/** Reads the value of a property of a kind that is written as one value. */
+function readProperty(
+  type: PropertyType,
+  key: string,
+  map: Data,
+  path: string,
+  report: Report,
+): unknown {
+  switch (type.kind) {
+    case 'number':
+      return readNumber(map, key, path, report);
+    case 'boolean':
+      return readBoolean(map, key, path, report);
+    case 'color':
+      return readColor(map, key, path, report);
+    case 'font':
+      return readFont(map, key, path, report);
+    case 'choice':
+      return readChoice(map, key, type.values, path, report);
+    case 'line-spacing':
+      return readLineSpacing(map, path, report);
+    default:
+      // The others are mappings with properties of their own, read where they are used.
+      return undefined;
+  }
+}
+
+/** The properties of a list as the model has them: only those that are set, in list order. */
+function readProperties(
+  properties: readonly (StyleProperty & { readonly prop: string })[],
+  map: Data,
+  path: string,
+  report: Report,
+): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  for (const { key, prop, type } of properties) {
+    const value = readProperty(type, key, map, path, report);
+    if (value !== undefined) props[prop] = value;
+  }
   return props;
+}
+
+// The list of properties names the fields of the model, and a test keeps the two together.
+function readText(map: Data, path: string, report: Report): TextProps {
+  return readProperties(TEXT_PROPERTIES, map, path, report);
 }
 
 function readLineSpacing(map: Data, path: string, report: Report): LineSpacing | undefined {
@@ -164,35 +197,7 @@ function readLineSpacing(map: Data, path: string, report: Report): LineSpacing |
 }
 
 function readParagraph(map: Data, path: string, report: Report): ParagraphProps {
-  const props: Mutable<ParagraphProps> = {};
-  const before = readNumber(map, 'space-before', path, report);
-  if (before !== undefined) props.spaceBeforePt = before;
-  const after = readNumber(map, 'space-after', path, report);
-  if (after !== undefined) props.spaceAfterPt = after;
-  const lineSpacing = readLineSpacing(map, path, report);
-  if (lineSpacing !== undefined) props.lineSpacing = lineSpacing;
-  const indent = readNumber(map, 'indent-left', path, report);
-  if (indent !== undefined) props.indentLeftPt = indent;
-  const firstLine = readNumber(map, 'first-line-indent', path, report);
-  if (firstLine !== undefined) props.firstLineIndentPt = firstLine;
-  const alignment = map['alignment'];
-  if (alignment !== undefined) {
-    if (isAlignment(alignment)) props.alignment = alignment;
-    else {
-      report('invalid-value', 'Expected left, center, right, or justify.', join(path, 'alignment'));
-    }
-  }
-  const keepWithNext = readBoolean(map, 'keep-with-next', path, report);
-  if (keepWithNext !== undefined) props.keepWithNext = keepWithNext;
-  const keepTogether = readBoolean(map, 'keep-together', path, report);
-  if (keepTogether !== undefined) props.keepTogether = keepTogether;
-  const pageBreak = readBoolean(map, 'page-break-before', path, report);
-  if (pageBreak !== undefined) props.pageBreakBefore = pageBreak;
-  const background = readColor(map, 'background', path, report);
-  if (background !== undefined) props.background = background;
-  const numbered = readBoolean(map, 'numbered', path, report);
-  if (numbered !== undefined) props.numbered = numbered;
-  return props;
+  return readProperties(PARAGRAPH_PROPERTIES, map, path, report);
 }
 
 function readVariants(
@@ -215,17 +220,19 @@ function readVariants(
     }
     const props = asMap(value, join(here, mark), report);
     if (props === undefined) continue;
-    checkKeys(props, TEXT_KEYS, join(here, mark), report);
+    checkKeys(props, propertyKeys('variant'), join(here, mark), report);
     variants[mark] = readText(props, join(here, mark), report);
   }
   return variants;
 }
 
 function readParagraphStyle(map: Data, path: string, report: Report): ParagraphStyle {
-  checkKeys(map, ['based-on', ...TEXT_KEYS, ...PARAGRAPH_KEYS, 'variants'], path, report);
+  checkKeys(map, propertyKeys('paragraph-style'), path, report);
   const basedOn = readName(map, 'based-on', path, report);
+  const label = readString(map, 'label', path, report);
   return {
     ...(basedOn !== undefined ? { basedOn } : {}),
+    ...(label !== undefined ? { label } : {}),
     text: readText(map, path, report),
     paragraph: readParagraph(map, path, report),
     variants: readVariants(map, path, report),
@@ -233,9 +240,14 @@ function readParagraphStyle(map: Data, path: string, report: Report): ParagraphS
 }
 
 function readCharacterStyle(map: Data, path: string, report: Report): CharacterStyle {
-  checkKeys(map, ['based-on', ...TEXT_KEYS], path, report);
+  checkKeys(map, propertyKeys('character-style'), path, report);
   const basedOn = readName(map, 'based-on', path, report);
-  return { ...(basedOn !== undefined ? { basedOn } : {}), text: readText(map, path, report) };
+  const label = readString(map, 'label', path, report);
+  return {
+    ...(basedOn !== undefined ? { basedOn } : {}),
+    ...(label !== undefined ? { label } : {}),
+    text: readText(map, path, report),
+  };
 }
 
 function readBorder(map: Data, key: string, path: string, report: Report): Border | undefined {
@@ -243,7 +255,7 @@ function readBorder(map: Data, key: string, path: string, report: Report): Borde
   const here = join(path, key);
   const border = asMap(map[key], here, report);
   if (border === undefined) return undefined;
-  checkKeys(border, ['width', 'color'], here, report);
+  checkKeys(border, propertyKeys('border'), here, report);
   const widthPt = readNumber(border, 'width', here, report);
   const color = readColor(border, 'color', here, report);
   if (widthPt === undefined || color === undefined) {
@@ -259,10 +271,12 @@ function readBorder(map: Data, key: string, path: string, report: Report): Borde
 }
 
 function readTableStyle(map: Data, path: string, report: Report): TableStyle {
-  checkKeys(map, ['based-on', 'cell-style', 'border', 'header-row', 'cell-padding'], path, report);
+  checkKeys(map, propertyKeys('table-style'), path, report);
   const style: Mutable<TableStyle> = {};
   const basedOn = readName(map, 'based-on', path, report);
   if (basedOn !== undefined) style.basedOn = basedOn;
+  const label = readString(map, 'label', path, report);
+  if (label !== undefined) style.label = label;
   const cellStyle = readName(map, 'cell-style', path, report);
   if (cellStyle !== undefined) style.cellStyle = cellStyle;
 
@@ -270,7 +284,7 @@ function readTableStyle(map: Data, path: string, report: Report): TableStyle {
     const here = join(path, 'border');
     const borders = asMap(map['border'], here, report);
     if (borders !== undefined) {
-      checkKeys(borders, ['outer', 'inside-horizontal', 'inside-vertical'], here, report);
+      checkKeys(borders, propertyKeys('borders'), here, report);
       const result: Mutable<TableBorders> = {};
       const outer = readBorder(borders, 'outer', here, report);
       if (outer !== undefined) result.outer = outer;
@@ -286,7 +300,7 @@ function readTableStyle(map: Data, path: string, report: Report): TableStyle {
     const here = join(path, 'header-row');
     const row = asMap(map['header-row'], here, report);
     if (row !== undefined) {
-      checkKeys(row, [...TEXT_KEYS, 'background', 'repeat'], here, report);
+      checkKeys(row, propertyKeys('header-row'), here, report);
       const header: Mutable<HeaderRow> = { text: readText(row, here, report) };
       const background = readColor(row, 'background', here, report);
       if (background !== undefined) header.background = background;

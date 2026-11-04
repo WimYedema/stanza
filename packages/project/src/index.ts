@@ -1,4 +1,11 @@
-export { buildProject, outputPath, type BuildOptions, type BuildResult } from './build.js';
+export {
+  DEFAULT_BUILD_DATE,
+  buildProject,
+  outputPath,
+  type BuildOptions,
+  type BuildResult,
+} from './build.js';
+export { exportDocument, type ExportDocumentResult } from './export-document.js';
 export {
   formatDocuments,
   formatProject,

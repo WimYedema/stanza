@@ -87,8 +87,8 @@ export class ListNumbering {
       this.continuations.set(id, {
         id,
         name: same
-          ? `${wordStyleName(style)} Continue ${number}`
-          : `${wordStyleName(style)} In ${wordStyleName(listStyle)} ${number}`,
+          ? `${this.wordName(style)} Continue ${number}`
+          : `${this.wordName(style)} In ${this.wordName(listStyle)} ${number}`,
         basedOn: wordStyleId(style),
         paragraph: { indent: { left: this.textIndent(listStyle, level), hanging: 0 } },
       });
@@ -104,6 +104,10 @@ export class ListNumbering {
     return [...this.continuations.values()].sort((a, b) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     );
+  }
+
+  private wordName(style: StyleName): string {
+    return wordStyleName(style, this.stylesheet.paragraphStyles.get(style)?.label);
   }
 
   private indents(style: StyleName): Indents {

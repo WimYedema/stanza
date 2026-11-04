@@ -290,7 +290,7 @@ function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): 
       ? undefined
       : {
           id: `${wordStyleId(styleName)}Header`,
-          name: `${wordStyleName(styleName)} Header`,
+          name: `${wordStyleName(styleName, context.stylesheet.tableStyles.get(styleName)?.label)} Header`,
           base: header.text,
         };
   const total = table.widths?.reduce((sum, weight) => sum + weight, 0);

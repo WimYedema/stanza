@@ -35,7 +35,10 @@ export const HARDCODED_FIELD_NAMES: readonly string[] = [
 ];
 
 /** The metadata a document effectively has: its own values, then the project's defaults. */
-export function applyDefaults(settings: ProjectSettings, meta: DocumentMeta): DocumentMeta {
+export function applyDefaults(
+  settings: Pick<ProjectSettings, 'defaults'>,
+  meta: DocumentMeta,
+): DocumentMeta {
   const classification = meta.classification ?? settings.defaults.classification;
   const authors = meta.authors ?? settings.defaults.authors;
   const pageTemplate = meta.fields['page-template'] ?? settings.defaults.pageTemplate;

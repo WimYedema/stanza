@@ -89,7 +89,7 @@ function tableStyleXml(name: StyleName, stylesheet: Stylesheet): string {
   // Resolved values are written without `basedOn`, since Word's merging of inherited borders is unclear.
   return (
     `<w:style w:type="table" w:customStyle="1" w:styleId="${wordStyleId(name)}">` +
-    `<w:name w:val="${escape(wordStyleName(name))}"/><w:basedOn w:val="TableNormal"/>` +
+    `<w:name w:val="${escape(wordStyleName(name, stylesheet.tableStyles.get(name)?.label))}"/><w:basedOn w:val="TableNormal"/>` +
     `<w:uiPriority w:val="59"/>${tblPr}${firstRow}</w:style>`
   );
 }

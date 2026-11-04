@@ -1,6 +1,7 @@
 import {
   BODY_STYLE,
   defaultHeadingStyle,
+  slotValue,
   type DocumentMeta,
   type HeaderFooter,
   type SlotPart,
@@ -16,7 +17,6 @@ import {
   type ParagraphChild,
 } from 'docx';
 import type { PageGeometry } from './page.js';
-import { slotValue } from './slot-values.js';
 import { wordStyleId, wordStyleName } from './style-ids.js';
 
 /** A run, or nothing for empty text, which would leave an empty run in the file. */

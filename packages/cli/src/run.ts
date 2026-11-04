@@ -3,6 +3,7 @@ import { basename, dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { isSafeRelativePath, nodeIdFromRandomBytes } from '@phrase/core';
 import {
+  DEFAULT_BUILD_DATE,
   DOCUMENT_SUFFIX,
   buildProject,
   formatDocuments,
@@ -53,9 +54,6 @@ The project is a directory with a phrase.yaml file; the default is the current d
 Exit codes: 0 no errors, 1 errors in the project (or, with --check, documents that are not
 canonical), 2 wrong usage or a file that cannot be read.
 `;
-
-/** The earliest date the zip format can hold, used when no date is given. */
-const DEFAULT_DATE = new Date('1980-01-01T00:00:00Z');
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2}))?$/;
 
@@ -187,7 +185,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     return exitCode(loaded.diagnostics);
   }
 
-  const timestamp = values.date === undefined ? DEFAULT_DATE : parseDate(values.date);
+  const timestamp = values.date === undefined ? DEFAULT_BUILD_DATE : parseDate(values.date);
   if (timestamp === undefined) {
     return usage('--date must be YYYY-MM-DD, or with a time and zone, in 1980 to 2099.');
   }

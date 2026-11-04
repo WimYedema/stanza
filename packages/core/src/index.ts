@@ -49,6 +49,9 @@ export {
   resolvePageTemplate,
 } from './page-template.js';
 export { numberHeadings, type HeadingNumbers } from './heading-numbering.js';
+export { maxHeadingLevel } from './heading-levels.js';
+export { slotText, slotValue } from './slot-values.js';
+export { coverBlocks } from './cover.js';
 export {
   HARDCODED_FIELD_NAMES,
   applyDefaults,
@@ -107,3 +110,22 @@ export {
   type ResolvedTableStyle,
 } from './style-resolution.js';
 export { validateStylesheet } from './style-validation.js';
+export {
+  WORD_BUILT_IN_STYLE_NAMES,
+  fixedWordStyleName,
+  isWordBuiltInStyleName,
+} from './word-style-names.js';
+export {
+  ALIGNMENT_VALUES,
+  PARAGRAPH_PROPERTIES,
+  STYLE_PROPERTIES,
+  TEXT_PROPERTIES,
+  propertiesAt,
+  propertyKeys,
+  type NumberRange,
+  type ParagraphProperty,
+  type PropertyPlace,
+  type PropertyType,
+  type StyleProperty,
+  type TextProperty,
+} from './style-properties.js';

@@ -1,6 +1,7 @@
 import {
   BUILT_IN_PAGE_TEMPLATE,
   PAGE_TEMPLATE_FIELD,
+  coverBlocks,
   numberHeadings,
   resolvePageTemplate,
   validateDocument,
@@ -11,7 +12,6 @@ import {
 } from '@phrase/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext } from './content.js';
-import { coverBlocks } from './cover.js';
 import { footerOf, headerOf } from './header-footer.js';
 import { ListNumbering } from './list-numbering.js';
 import { pageGeometry } from './page.js';

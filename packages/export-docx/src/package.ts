@@ -109,6 +109,22 @@ function alignTocPageNumbers(files: Files, textWidthTwips: number): void {
 }
 
 /**
+ * Protects the document for comments: a reviewer can add comments and change nothing else. No
+ * password is set, so this guards against slips and is lifted in Word's Restrict Editing pane
+ * (ADR 0030). The element comes before the default tab stop in the settings.
+ */
+function addReviewProtection(files: Files): void {
+  const settings = files['word/settings.xml'];
+  const text = settings === undefined ? '' : strFromU8(settings);
+  const at = text.indexOf('<w:defaultTabStop');
+  if (at < 0) {
+    throw new Error('The settings of the package have no place for the review protection.');
+  }
+  const protection = '<w:documentProtection w:edit="comments" w:enforcement="1"/>';
+  files['word/settings.xml'] = strToU8(`${text.slice(0, at)}${protection}${text.slice(at)}`);
+}
+
+/**
  * Finishes a package: adds what the library cannot write, and makes it a pure function of its
  * content. The library stamps the core properties and the zip entries with the current time and
  * uses random relationship IDs and shared counters, so those are rewritten.
@@ -118,6 +134,7 @@ export function finishPackage(bytes: Uint8Array, options: FinishOptions): Uint8A
   const files = unzipSync(bytes);
   addPageBreaks(files, options.pageBreaks);
   alignTocPageNumbers(files, options.textWidthTwips);
+  addReviewProtection(files);
   const core = files['docProps/core.xml'];
   if (core !== undefined) {
     const iso = timestamp.toISOString();

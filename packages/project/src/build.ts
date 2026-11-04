@@ -24,6 +24,21 @@ export function outputPath(outDir: string, documentPath: string): string {
   return `${outDir}/${documentPath.slice(0, -DOCUMENT_SUFFIX.length)}.docx`;
 }
 
+/** The earliest date the zip format can hold, used when no date is given, so output repeats. */
+export const DEFAULT_BUILD_DATE = new Date('1980-01-01T00:00:00Z');
+
+/** The problem with an output directory, or undefined when it is a safe relative path. */
+export function outDirProblem(outDir: string): ProjectDiagnostic | undefined {
+  return isSafeRelativePath(outDir)
+    ? undefined
+    : {
+        file: outDir,
+        severity: 'error',
+        code: 'invalid-output-directory',
+        message: 'The output directory must be a relative path with "/" separators and no "..".',
+      };
+}
+
 /**
  * Checks a project and writes one DOCX per document. Nothing is written when anything has an
  * error, so an output directory never holds half a build.
@@ -32,20 +47,8 @@ export async function buildProject(
   storage: ProjectStorage,
   options: BuildOptions,
 ): Promise<BuildResult> {
-  if (!isSafeRelativePath(options.outDir)) {
-    return {
-      written: [],
-      documents: 0,
-      diagnostics: [
-        {
-          file: options.outDir,
-          severity: 'error',
-          code: 'invalid-output-directory',
-          message: 'The output directory must be a relative path with "/" separators and no "..".',
-        },
-      ],
-    };
-  }
+  const problem = outDirProblem(options.outDir);
+  if (problem !== undefined) return { written: [], documents: 0, diagnostics: [problem] };
 
   const loaded = await loadProject(storage);
   const documents = loaded.documents.length;

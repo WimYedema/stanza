@@ -4,6 +4,13 @@ import { MIN_TEXT_AREA_PT, PAGE_SIZES, PAGE_SIZE_NAMES } from './page-template.j
 import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
 import type { StyleName } from './style-name.js';
 import {
+  PARAGRAPH_PROPERTIES,
+  TEXT_PROPERTIES,
+  type PropertyType,
+  type StyleProperty,
+} from './style-properties.js';
+import { fixedWordStyleName, isWordBuiltInStyleName } from './word-style-names.js';
+import {
   PAGINATION_TOKENS,
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
@@ -11,6 +18,7 @@ import {
   type Border,
   type ColorValue,
   type FontValue,
+  type LineSpacing,
   type ParagraphProps,
   type SlotPart,
   type Stylesheet,
@@ -19,16 +27,21 @@ import {
 
 const HEX_COLOR = /^#[0-9A-F]{6}$/;
 
-const TEXT_KEYS_YAML = {
-  font: 'font',
-  sizePt: 'size',
-  bold: 'bold',
-  italic: 'italic',
-  underline: 'underline',
-  color: 'color',
-  highlight: 'highlight',
-} as const satisfies Record<keyof TextProps, string>;
-const TEXT_KEYS = Object.keys(TEXT_KEYS_YAML) as (keyof TextProps)[];
+export const MAX_LABEL_LENGTH = 80;
+
+/** A label may not have what Word would read as more than one name, or as a line break. */
+function labelIsWellFormed(label: string): boolean {
+  const characters = Array.from(label);
+  return (
+    label !== '' &&
+    label === label.trim() &&
+    characters.length <= MAX_LABEL_LENGTH &&
+    !characters.some((char) => {
+      const code = char.charCodeAt(0);
+      return code < 0x20 || code === 0x7f || char === ',' || char === ';';
+    })
+  );
+}
 
 /** Checks everything about a stylesheet that does not depend on how it was written down. */
 export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[] {
@@ -73,24 +86,45 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
     }
   };
 
+  /** Checks a value by the kind and the range that the list of properties gives for it. */
+  const checkValue = (type: PropertyType, value: unknown, path: string): void => {
+    switch (type.kind) {
+      case 'font':
+        checkFont(value as FontValue, path);
+        return;
+      case 'color':
+        checkColor(value as ColorValue, path);
+        return;
+      case 'number':
+        if (type.range === 'positive') checkPositive(value as number, path);
+        else if (type.range === 'non-negative') checkNotNegative(value as number, path);
+        else checkFinite(value as number, path);
+        return;
+      case 'line-spacing': {
+        const spacing = value as LineSpacing;
+        checkPositive(spacing.rule === 'multiple' ? spacing.factor : spacing.pt, path);
+        return;
+      }
+      default:
+        break;
+    }
+  };
+  const checkProperties = <P extends string>(
+    properties: readonly (StyleProperty & { readonly prop: P })[],
+    values: Readonly<Partial<Record<P, unknown>>>,
+    path: string,
+  ): void => {
+    for (const { key, prop, type } of properties) {
+      const value = values[prop];
+      if (value !== undefined) checkValue(type, value, `${path}.${key}`);
+    }
+  };
+
   const checkText = (props: TextProps, path: string): void => {
-    checkFont(props.font, `${path}.font`);
-    checkPositive(props.sizePt, `${path}.size`);
-    checkColor(props.color, `${path}.color`);
-    checkColor(props.highlight, `${path}.highlight`);
+    checkProperties(TEXT_PROPERTIES, props, path);
   };
   const checkParagraph = (props: ParagraphProps, path: string): void => {
-    checkNotNegative(props.spaceBeforePt, `${path}.space-before`);
-    checkNotNegative(props.spaceAfterPt, `${path}.space-after`);
-    checkNotNegative(props.indentLeftPt, `${path}.indent-left`);
-    checkFinite(props.firstLineIndentPt, `${path}.first-line-indent`);
-    checkColor(props.background, `${path}.background`);
-    if (props.lineSpacing !== undefined) {
-      checkPositive(
-        props.lineSpacing.rule === 'multiple' ? props.lineSpacing.factor : props.lineSpacing.pt,
-        `${path}.line-spacing`,
-      );
-    }
+    checkProperties(PARAGRAPH_PROPERTIES, props, path);
   };
   const checkBorder = (border: Border | undefined, path: string): void => {
     if (border === undefined) return;
@@ -140,6 +174,45 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
   checkInheritance(stylesheet.paragraphStyles, 'paragraph-styles');
   checkInheritance(stylesheet.characterStyles, 'character-styles');
   checkInheritance(stylesheet.tableStyles, 'table-styles');
+
+  // Labels are compared ignoring case, as Word compares the names of styles, across all kinds.
+  const labelOwners = new Map<string, string>();
+  const labelled: readonly (readonly [
+    string,
+    ReadonlyMap<StyleName, { readonly label?: string }>,
+  ])[] = [
+    ['paragraph-styles', stylesheet.paragraphStyles],
+    ['character-styles', stylesheet.characterStyles],
+    ['table-styles', stylesheet.tableStyles],
+  ];
+  for (const [section, styles] of labelled) {
+    for (const [name, { label }] of styles) {
+      if (label === undefined) continue;
+      const path = `${section}.${name}.label`;
+      if (!labelIsWellFormed(label)) {
+        error(
+          'invalid-label',
+          `A label is 1 to ${String(MAX_LABEL_LENGTH)} characters, with no spaces at either end, no commas or semicolons, and no control characters.`,
+          path,
+        );
+        continue;
+      }
+      const owner = labelOwners.get(label.toLowerCase());
+      if (owner !== undefined) {
+        error('duplicate-label', `The label "${label}" is also the label of "${owner}".`, path);
+        continue;
+      }
+      labelOwners.set(label.toLowerCase(), `${section}.${name}`);
+      // A style that Word names itself keeps that name, so its label is only for the editor.
+      if (fixedWordStyleName(name) === undefined && isWordBuiltInStyleName(label)) {
+        error(
+          'builtin-label',
+          `"${label}" is the name of a style that Word has built in, so it cannot be a label.`,
+          path,
+        );
+      }
+    }
+  }
 
   for (const [name, style] of stylesheet.paragraphStyles) {
     const path = `paragraph-styles.${name}`;
@@ -248,13 +321,13 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
     const table = resolveTableStyle(stylesheet, name);
     const cell = resolveParagraphStyle(stylesheet, table?.cellStyle ?? BODY_STYLE);
     if (table?.headerRow === undefined || cell === undefined) continue;
-    for (const key of TEXT_KEYS) {
-      if (table.headerRow.text[key] !== undefined && cell.text[key] !== undefined) {
+    for (const { prop, key } of TEXT_PROPERTIES) {
+      if (table.headerRow.text[prop] !== undefined && cell.text[prop] !== undefined) {
         diagnostics.push({
           severity: 'warning',
           code: 'header-property-overridden',
           message: `The cell style "${cell.name}" also sets this property, so Word will not apply it in the header row.`,
-          path: `table-styles.${name}.header-row.${TEXT_KEYS_YAML[key]}`,
+          path: `table-styles.${name}.header-row.${key}`,
         });
       }
     }
