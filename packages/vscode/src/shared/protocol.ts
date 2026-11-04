@@ -3,6 +3,13 @@
  * data. What the webview sends is untrusted, so the host checks it with `parseWebviewMessage`.
  */
 
+/** The defaults of a project (`ProjectDefaults` of core, which this file may not import). */
+export interface Defaults {
+  readonly classification?: string;
+  readonly authors?: readonly string[];
+  readonly pageTemplate?: string;
+}
+
 /** Why the editor will not take a file, with the line (starting at 1) when there is one. */
 export interface Reason {
   readonly message: string;
@@ -10,16 +17,21 @@ export interface Reason {
 }
 
 export type HostMessage =
-  /** Starts the editor with a document, the stylesheet, and the IDs of the other documents. */
+  /**
+   * Starts the editor with a document, the stylesheet, the defaults of the project, which the
+   * sheet needs for the values of the header and the cover, and the IDs of the other documents.
+   */
   | {
       readonly type: 'init';
       readonly documentText: string;
       readonly stylesheetText: string;
+      readonly defaults: Defaults;
       readonly usedIds: readonly string[];
     }
   /** The document changed in another way, for example by Git or in the text editor. */
   | { readonly type: 'external-text'; readonly text: string }
   | { readonly type: 'stylesheet'; readonly text: string }
+  | { readonly type: 'defaults'; readonly defaults: Defaults }
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
   /**
    * The answer to `declare-variant`. On success the stylesheet message with the change came before
@@ -88,6 +100,20 @@ function isReason(value: unknown): value is Reason {
   );
 }
 
+/** The defaults of a project, or undefined when they are not of that shape. */
+function parseDefaults(value: unknown): Defaults | undefined {
+  if (!isRecord(value)) return undefined;
+  const { classification, authors, pageTemplate } = value;
+  if (classification !== undefined && typeof classification !== 'string') return undefined;
+  if (authors !== undefined && !isStringList(authors)) return undefined;
+  if (pageTemplate !== undefined && typeof pageTemplate !== 'string') return undefined;
+  return {
+    ...(classification !== undefined ? { classification } : {}),
+    ...(authors !== undefined ? { authors } : {}),
+    ...(pageTemplate !== undefined ? { pageTemplate } : {}),
+  };
+}
+
 /** The message from the host, or undefined for anything else, such as a message of a page. */
 export function parseHostMessage(value: unknown): HostMessage | undefined {
   if (!isRecord(value)) return undefined;
@@ -96,7 +122,13 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
       const { documentText, stylesheetText, usedIds } = value;
       if (typeof documentText !== 'string' || typeof stylesheetText !== 'string') return undefined;
       if (!isStringList(usedIds)) return undefined;
-      return { type: 'init', documentText, stylesheetText, usedIds };
+      const defaults = parseDefaults(value['defaults']);
+      if (defaults === undefined) return undefined;
+      return { type: 'init', documentText, stylesheetText, defaults, usedIds };
+    }
+    case 'defaults': {
+      const defaults = parseDefaults(value['defaults']);
+      return defaults === undefined ? undefined : { type: 'defaults', defaults };
     }
     case 'external-text':
     case 'stylesheet': {

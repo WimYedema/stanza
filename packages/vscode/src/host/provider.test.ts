@@ -102,6 +102,7 @@ describe('starting', () => {
       type: 'init',
       documentText: CANONICAL,
       stylesheetText: STYLESHEET,
+      defaults: {},
       usedIds: ['a1b2c3d4e5'],
     });
   });
@@ -148,6 +149,46 @@ describe('starting', () => {
       expect(posted()).toHaveLength(1);
     });
     expect(posted()[0]).toMatchObject({ type: 'init', documentText: CANONICAL });
+  });
+});
+
+describe('the defaults of the project', () => {
+  const WITH_DEFAULTS = `${PROJECT}defaults:\n  classification: 'Internal'\n  authors:\n    - 'A'\n  page-template: 'page'\n`;
+
+  it('sends them with the document, for the values of the header and the cover', async () => {
+    open(CANONICAL, '\n', files({ '/w/p/phrase.yaml': WITH_DEFAULTS }));
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    expect(posted()[0]).toMatchObject({
+      type: 'init',
+      defaults: { classification: 'Internal', authors: ['A'], pageTemplate: 'page' },
+    });
+  });
+
+  it('sends them again when the project file changes, and not when it does not', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    const changeProject = (): void => {
+      const document = { uri: { toString: () => 'project' }, fileName: '/w/p/phrase.yaml' };
+      for (const listener of world.changeListeners) listener({ document } as never);
+    };
+    changeProject();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(posted()).toHaveLength(1);
+
+    world.files.set('/w/p/phrase.yaml', WITH_DEFAULTS);
+    changeProject();
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    expect(posted()[1]).toEqual({
+      type: 'defaults',
+      defaults: { classification: 'Internal', authors: ['A'], pageTemplate: 'page' },
+    });
   });
 });
 

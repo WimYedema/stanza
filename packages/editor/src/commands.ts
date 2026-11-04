@@ -2,6 +2,7 @@ import {
   VARIANT_MARKS,
   isStyleName,
   markAllowed,
+  maxHeadingLevel,
   type Fix,
   type HeadingLevel,
   type StyleName,
@@ -58,6 +59,8 @@ export type RefusalReason =
   | 'mark-not-allowed'
   /** A change of style or kind that would leave marks the new style does not allow. */
   | 'marks-not-allowed'
+  /** A heading that would be more than one level deeper than the heading before it. */
+  | 'heading-level'
   | 'unknown-style'
   | 'header-row'
   | 'invalid-argument'
@@ -247,9 +250,34 @@ function retypeable(
   return { blocks, type };
 }
 
+/** The level of the last heading before a top-level block, or undefined where there is none. */
+function headingBefore(state: EditorState, pos: number): HeadingLevel | undefined {
+  for (let index = state.doc.resolve(pos).index(0) - 1; index >= 0; index -= 1) {
+    const node = state.doc.child(index);
+    const level: unknown = node.attrs['level'];
+    if (node.type.name === 'heading' && typeof level === 'number') return level as HeadingLevel;
+  }
+  return undefined;
+}
+
 function planHeading(state: EditorState, level: HeadingLevel): Plan {
   const found = retypeable(state, ['paragraph', 'heading'], 'heading');
   if ('ok' in found) return found;
+  const [first] = found.blocks;
+  if (first !== undefined) {
+    const previous = headingBefore(state, first.pos);
+    const max = maxHeadingLevel(previous);
+    const own: unknown = first.node.type.name === 'heading' ? first.node.attrs['level'] : undefined;
+    // A heading is never refused for staying as deep as it is or for going up.
+    if (level > max && !(typeof own === 'number' && level <= own)) {
+      return refuse(
+        'heading-level',
+        previous === undefined
+          ? 'The first heading of a document is level 1.'
+          : `A heading here is at most level ${String(max)}, one deeper than the heading before it (level ${String(previous)}).`,
+      );
+    }
+  }
   const tr = state.tr;
   for (const { node, pos } of found.blocks) {
     // Style names belong to a kind of block, so the new block has the default style.
@@ -265,6 +293,9 @@ function planParagraph(state: EditorState): Plan {
   for (const { node, pos } of found.blocks) {
     if (node.type.name === 'heading') {
       tr.setNodeMarkup(pos, found.type, { id: idOf(node), style: null });
+    } else if (node.attrs['style'] !== null) {
+      // The paragraph of the default style, like Normal in Word.
+      tr.setNodeAttribute(pos, 'style', null);
     }
   }
   return done(tr);

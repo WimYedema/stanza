@@ -40,8 +40,18 @@ describe('parseWebviewMessage', () => {
 
 describe('parseHostMessage', () => {
   it('takes the messages of the protocol', () => {
-    const init = { type: 'init', documentText: 'a', stylesheetText: 'b', usedIds: ['x'] };
+    const init = {
+      type: 'init',
+      documentText: 'a',
+      stylesheetText: 'b',
+      defaults: { classification: 'Internal', authors: ['A'], pageTemplate: 'page-letter' },
+      usedIds: ['x'],
+    };
     expect(parseHostMessage(init)).toEqual(init);
+    expect(parseHostMessage({ type: 'defaults', defaults: {} })).toEqual({
+      type: 'defaults',
+      defaults: {},
+    });
     expect(parseHostMessage({ type: 'external-text', text: 'a' })).toEqual({
       type: 'external-text',
       text: 'a',
@@ -67,8 +77,12 @@ describe('parseHostMessage', () => {
 
   it.each([
     null,
-    { type: 'init', documentText: 'a', stylesheetText: 'b', usedIds: [1] },
-    { type: 'init', documentText: 'a', usedIds: [] },
+    { type: 'init', documentText: 'a', stylesheetText: 'b', defaults: {}, usedIds: [1] },
+    { type: 'init', documentText: 'a', defaults: {}, usedIds: [] },
+    { type: 'init', documentText: 'a', stylesheetText: 'b', usedIds: [] },
+    { type: 'defaults' },
+    { type: 'defaults', defaults: { classification: 5 } },
+    { type: 'defaults', defaults: { authors: 'A' } },
     { type: 'external-text' },
     { type: 'used-ids', ids: 'x' },
     { type: 'declared', ok: 'yes', message: '' },

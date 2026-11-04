@@ -10,6 +10,9 @@ import { applyLineEdit, lineEdit } from './line-diff.js';
 
 export class FakeUri {
   constructor(readonly path: string) {}
+  static file(path: string): FakeUri {
+    return new FakeUri(path);
+  }
   static joinPath(base: FakeUri, ...parts: string[]): FakeUri {
     return new FakeUri(posix.join(base.path, ...parts));
   }
@@ -63,6 +66,18 @@ export const world = {
   changeListeners: [] as Listener<{ document: FakeDocument }>[],
   messageListeners: [] as Listener<unknown>[],
   failEdits: false,
+  /** What `phrase` settings say, by name. */
+  settings: {} as Record<string, unknown>,
+  /** The messages shown in the status bar. */
+  status: [] as string[],
+  /** Writing a file fails, like a DOCX that Word has open. */
+  failWrites: false,
+  /** The directories that were made. */
+  directories: [] as string[],
+  /** The editor that is in front, as the tab groups tell it. */
+  activeTab: undefined as { input: unknown } | undefined,
+  /** The arguments of the commands that were run, in the order of `commands`. */
+  commandArgs: [] as unknown[][],
 };
 
 export function reset(
@@ -92,6 +107,12 @@ export function reset(
   world.changeListeners = [];
   world.messageListeners = [];
   world.failEdits = false;
+  world.settings = {};
+  world.status = [];
+  world.failWrites = false;
+  world.directories = [];
+  world.activeTab = undefined;
+  world.commandArgs = [];
   const uri = new FakeUri(documentPath);
   world.document = {
     uri,
@@ -173,6 +194,15 @@ export function createFakeVscode(): Record<string, unknown> {
     CodeActionKind: { QuickFix: 'quickfix' },
     DiagnosticSeverity: { Error: 0, Warning: 1 },
     FileType,
+    TabInputText: class {
+      constructor(readonly uri: FakeUri) {}
+    },
+    TabInputCustom: class {
+      constructor(
+        readonly uri: FakeUri,
+        readonly viewType: string,
+      ) {}
+    },
     RelativePattern: class {
       constructor(
         readonly base: FakeUri,
@@ -200,11 +230,28 @@ export function createFakeVscode(): Record<string, unknown> {
           return Promise.resolve([...entries]);
         },
         writeFile: (uri: FakeUri, content: Uint8Array) => {
+          if (world.failWrites) return Promise.reject(new Error('EBUSY: resource busy or locked'));
           world.files.set(uri.path, new TextDecoder().decode(content));
           return Promise.resolve();
         },
+        createDirectory: (uri: FakeUri) => {
+          world.directories.push(uri.path);
+          return Promise.resolve();
+        },
       },
+      getConfiguration: () => ({
+        get: (name: string, fallback: unknown) => world.settings[name] ?? fallback,
+      }),
       getWorkspaceFolder: () => ({ uri: new FakeUri(world.workspace) }),
+      findFiles: (pattern: string) => {
+        const name = pattern.slice(pattern.lastIndexOf('/') + 1);
+        return Promise.resolve(
+          [...world.files.keys()]
+            .filter((path) => path.endsWith(`/${name}`))
+            .map((p) => new FakeUri(p)),
+        );
+      },
+      asRelativePath: (uri: FakeUri) => posix.relative(world.workspace, uri.path),
       get textDocuments() {
         return world.document === undefined ? [] : [world.document, ...world.open.values()];
       },
@@ -268,7 +315,15 @@ export function createFakeVscode(): Record<string, unknown> {
     },
     window: {
       createOutputChannel: () => ({ appendLine: () => undefined, dispose: () => undefined }),
+      setStatusBarMessage: (text: string) => {
+        world.status.push(text);
+        return disposable(() => undefined);
+      },
       registerCustomEditorProvider: () => disposable(() => undefined),
+      get tabGroups() {
+        return { activeTabGroup: { activeTab: world.activeTab } };
+      },
+      showQuickPick: (items: readonly unknown[]) => Promise.resolve(items[0]),
       showErrorMessage: (message: string) => {
         world.errors.push(message);
         return Promise.resolve(undefined);
@@ -290,7 +345,8 @@ export function createFakeVscode(): Record<string, unknown> {
         world.commandHandlers.set(command, handler);
         return disposable(() => undefined);
       },
-      executeCommand: (command: string) => {
+      executeCommand: (command: string, ...args: unknown[]) => {
+        world.commandArgs.push(args);
         world.commands.push(command);
         return Promise.resolve();
       },

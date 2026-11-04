@@ -8,7 +8,9 @@ import {
   type WebviewMessage,
 } from '../shared/protocol.js';
 import { createNotices } from './notices.js';
+import { createSheet } from './sheet.js';
 import { buildToolbar } from './toolbar.js';
+import { buildViewControls, parseViewState } from './view.js';
 import { showRefused } from './views.js';
 
 /**
@@ -44,6 +46,16 @@ let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
 
 const { say, answered, declared } = createNotices(notices, send, (command) => editor?.run(command));
+const toolbar = buildToolbar(element('toolbar'), { editor: () => editor, answered });
+const pages = createSheet({
+  cover: element('cover'),
+  header: element('header'),
+  footer: element('footer'),
+  ...(nonce !== undefined ? { nonce } : {}),
+});
+buildViewControls(element('view'), element('desk'), parseViewState(api.getState()), (state) => {
+  api.setState(state);
+});
 
 const reasonOf = (diagnostic: Diagnostic): Reason => ({
   message: `${diagnostic.message}${diagnostic.path === undefined ? '' : ` [${diagnostic.path}]`}`,
@@ -82,6 +94,7 @@ function onChange(result: ReturnType<PhraseEditor['getDocument']>): void {
   const text = serializeDocument(result.document);
   if (text === lastText) return;
   lastText = text;
+  pages.update({ document: result.document });
   clearTimeout(waiting);
   waiting = setTimeout(flush, CHANGE_DELAY_MS);
 }
@@ -114,8 +127,15 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
       say(`${notice.code}: ${notice.message}`);
     },
     usedIds: () => usedIds,
+    onContextChange: toolbar.schedule,
     ...(nonce !== undefined ? { styleNonce: nonce } : {}),
   });
+  pages.update({
+    stylesheet: sheet.stylesheet,
+    defaults: message.defaults,
+    document: parsed.document,
+  });
+  toolbar.refresh();
 }
 
 function handle(message: HostMessage): void {
@@ -137,6 +157,7 @@ function handle(message: HostMessage): void {
       editor.setDocument(parsed.document);
       editor.setPosition(position);
       lastText = serializeDocument(parsed.document);
+      pages.update({ document: parsed.document });
       return;
     }
     case 'stylesheet': {
@@ -148,8 +169,14 @@ function handle(message: HostMessage): void {
       }
       const problems = editor?.setStylesheet(sheet.stylesheet) ?? [];
       say(problems.map((d) => d.message).join(' '));
+      if (editor !== undefined && problems.every((d) => d.severity !== 'error')) {
+        pages.update({ stylesheet: sheet.stylesheet });
+      }
       return;
     }
+    case 'defaults':
+      pages.update({ defaults: message.defaults });
+      return;
     case 'used-ids':
       usedIds = new Set(message.ids);
       return;
@@ -191,5 +218,4 @@ document.addEventListener(
   true,
 );
 
-buildToolbar(element('toolbar'), { editor: () => editor, answered });
 send({ type: 'ready' });

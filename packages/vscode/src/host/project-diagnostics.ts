@@ -4,7 +4,7 @@ import { loadProject, type LoadedProject } from '@phrase/project';
 import { groupByFile, type DiagnosticEntry } from './diagnostics.js';
 import { storageOf, uriInProject } from './project-files.js';
 
-const toDiagnostic = (entry: DiagnosticEntry): vscode.Diagnostic => {
+export const toDiagnostic = (entry: DiagnosticEntry): vscode.Diagnostic => {
   const range =
     entry.line === undefined
       ? new vscode.Range(0, 0, 0, 0)

@@ -44,8 +44,14 @@ export function storageOf(root: vscode.Uri): ProjectStorage {
           : [],
       );
     },
-    write: (path, content) =>
-      Promise.resolve(vscode.workspace.fs.writeFile(uriInProject(root, path), content)),
+    write: async (path, content) => {
+      const slash = path.lastIndexOf('/');
+      // The output directory may not exist yet, and folders of any depth are made as needed.
+      if (slash > 0) {
+        await vscode.workspace.fs.createDirectory(uriInProject(root, path.slice(0, slash)));
+      }
+      await vscode.workspace.fs.writeFile(uriInProject(root, path), content);
+    },
     openText(path) {
       const wanted = uriInProject(root, path).toString();
       const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === wanted);

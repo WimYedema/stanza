@@ -11,7 +11,7 @@ export interface PhraseKeysOptions {
 }
 
 /**
- * The keys of the editor (ADR 0023): marks, and the keys that make a list work. They run the same
+ * The keys of the editor (ADR 0023, 0027): marks, headings, and the keys that make a list work. They run the same
  * commands as any other way of giving one. A command that is refused is swallowed and reported as a
  * notice, so the key does nothing else.
  */
@@ -54,6 +54,13 @@ export const PhraseKeys = Extension.create<PhraseKeysOptions>({
     };
 
     return {
+      'Mod-Alt-0': () => run({ type: 'set-paragraph' }),
+      'Mod-Alt-1': () => run({ type: 'set-heading', level: 1 }),
+      'Mod-Alt-2': () => run({ type: 'set-heading', level: 2 }),
+      'Mod-Alt-3': () => run({ type: 'set-heading', level: 3 }),
+      'Mod-Alt-4': () => run({ type: 'set-heading', level: 4 }),
+      'Mod-Alt-5': () => run({ type: 'set-heading', level: 5 }),
+      'Mod-Alt-6': () => run({ type: 'set-heading', level: 6 }),
       'Mod-b': () => run({ type: 'toggle-mark', mark: 'strong' }),
       'Mod-i': () => run({ type: 'toggle-mark', mark: 'emphasis' }),
       'Mod-e': () => run({ type: 'toggle-mark', mark: 'code' }),
@@ -67,6 +74,9 @@ export const PhraseKeys = Extension.create<PhraseKeysOptions>({
       Backspace: () => {
         const { selection } = editor.state;
         const { $from } = selection;
+        if (selection.empty && $from.parentOffset === 0 && $from.parent.type.name === 'heading') {
+          return run({ type: 'set-paragraph' });
+        }
         const atStart =
           selection.empty &&
           $from.parentOffset === 0 &&

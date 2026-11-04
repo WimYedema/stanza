@@ -298,9 +298,9 @@ describe('marks', () => {
 describe('headings and styles', () => {
   it('turns a paragraph into a heading with the default style, and keeps its ID', () => {
     const doc = build(paragraph('Title', { id: 'k7m2q9x4zb', style: 'note' }));
-    const outcome = run(select(doc, 'Title'), { type: 'set-heading', level: 2 });
+    const outcome = run(select(doc, 'Title'), { type: 'set-heading', level: 1 });
     expect(outcome.result).toEqual({ ok: true });
-    expect(outcome.next.doc.firstChild?.attrs).toEqual({ id: 'k7m2q9x4zb', level: 2, style: null });
+    expect(outcome.next.doc.firstChild?.attrs).toEqual({ id: 'k7m2q9x4zb', level: 1, style: null });
     expect(outcome.next.doc.firstChild?.type.name).toBe('heading');
     const back = run(
       EditorState.create({
@@ -315,7 +315,7 @@ describe('headings and styles', () => {
   });
 
   it('refuses a heading where the text has marks that its style does not allow', () => {
-    const doc = build(paragraph('Some text', {}, ['strong']));
+    const doc = build(heading('Top', 5), paragraph('Some text', {}, ['strong']));
     const ok = run(select(doc, 'Some'), { type: 'set-heading', level: 1 });
     expect(ok.result).toEqual({ ok: true });
     const refused = run(select(doc, 'Some'), { type: 'set-heading', level: 6 });
@@ -326,7 +326,56 @@ describe('headings and styles', () => {
         'The text has marks that the style "heading-6" does not allow: strong. Remove them first.',
       fix: { kind: 'declare-variant', style: 'heading-6', mark: 'strong' },
     });
-    expect(refused.next.doc.firstChild?.type.name).toBe('paragraph');
+    expect(refused.next.doc.child(1).type.name).toBe('paragraph');
+  });
+
+  it('keeps the outline continuous: a heading is at most one level deeper than the one before', () => {
+    const doc = build(heading('One'), paragraph('Two'));
+    const skipped = run(select(doc, 'Two'), { type: 'set-heading', level: 3 });
+    expect(skipped.result).toEqual({
+      ok: false,
+      reason: 'heading-level',
+      message:
+        'A heading here is at most level 2, one deeper than the heading before it (level 1).',
+    });
+    expect(skipped.changed).toBe(false);
+    expect(run(select(doc, 'Two'), { type: 'set-heading', level: 2 }).result).toEqual({ ok: true });
+    expect(checkCommand(select(doc, 'Two'), { type: 'set-heading', level: 3 }, stylesheet)).toEqual(
+      skipped.result,
+    );
+  });
+
+  it('starts at level 1', () => {
+    const doc = build(paragraph('Only'));
+    expect(run(select(doc, 'Only'), { type: 'set-heading', level: 2 }).result).toEqual({
+      ok: false,
+      reason: 'heading-level',
+      message: 'The first heading of a document is level 1.',
+    });
+    expect(run(select(doc, 'Only'), { type: 'set-heading', level: 1 }).result).toEqual({
+      ok: true,
+    });
+  });
+
+  it('never refuses a heading for staying as deep as it is or for going up', () => {
+    // The text came with a skipped level, which only a diagnostic reports.
+    const doc = build(heading('One'), heading('Deep', 3));
+    expect(run(select(doc, 'Deep'), { type: 'set-heading', level: 3 }).result).toEqual({
+      ok: true,
+    });
+    expect(run(select(doc, 'Deep'), { type: 'set-heading', level: 1 }).result).toEqual({
+      ok: true,
+    });
+    expect(refusal(run(select(doc, 'Deep'), { type: 'set-heading', level: 4 }))).toBe(
+      'heading-level',
+    );
+  });
+
+  it('makes the paragraph of the default style, like Normal in Word', () => {
+    const doc = build(paragraph('Some text', { id: 'k7m2q9x4zb', style: 'note' }));
+    const outcome = run(select(doc, 'Some'), { type: 'set-paragraph' });
+    expect(outcome.result).toEqual({ ok: true });
+    expect(outcome.next.doc.firstChild?.attrs).toEqual({ id: 'k7m2q9x4zb', style: null });
   });
 
   it('does not make a heading in a list item or a table cell', () => {

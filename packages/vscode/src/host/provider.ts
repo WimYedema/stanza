@@ -58,6 +58,7 @@ class EditorSession {
   private watched: string | undefined;
   private stylesheetText: string | undefined;
   private usedKey: string | undefined;
+  private defaultsKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
@@ -241,8 +242,15 @@ class EditorSession {
     const usedIds = this.usedIds(loaded, root);
     this.stylesheetText = stylesheetText;
     this.usedKey = usedIds.join(',');
+    this.defaultsKey = JSON.stringify(loaded.settings.defaults);
     this.shown = 'editor';
-    await this.post({ type: 'init', documentText: review.text, stylesheetText, usedIds });
+    await this.post({
+      type: 'init',
+      documentText: review.text,
+      stylesheetText,
+      defaults: loaded.settings.defaults,
+      usedIds,
+    });
   }
 
   /** Watches the files of the project, which can change without this document changing. */
@@ -294,6 +302,11 @@ class EditorSession {
     if (usedIds.join(',') !== this.usedKey) {
       this.usedKey = usedIds.join(',');
       await this.post({ type: 'used-ids', ids: usedIds });
+    }
+    const defaultsKey = JSON.stringify(loaded.settings.defaults);
+    if (defaultsKey !== this.defaultsKey) {
+      this.defaultsKey = defaultsKey;
+      await this.post({ type: 'defaults', defaults: loaded.settings.defaults });
     }
   }
 }

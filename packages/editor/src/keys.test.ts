@@ -135,6 +135,65 @@ describe('the keys of the editor', () => {
     expect(notices).toEqual([]);
   });
 
+  it('makes a paragraph or a heading of the block with Mod-Alt and a digit', () => {
+    const current = open(
+      { type: 'heading', attrs: { level: 1 }, content: [text('Top')] },
+      paragraph('Some text'),
+    );
+    current.commands.setTextSelection(positionOf(current, 'text'));
+    press('2', { ctrlKey: true, altKey: true });
+    expect(current.state.doc.child(1).type.name).toBe('heading');
+    expect(current.state.doc.child(1).attrs['level']).toBe(2);
+    press('1', { ctrlKey: true, altKey: true });
+    expect(current.state.doc.child(1).attrs['level']).toBe(1);
+    press('0', { ctrlKey: true, altKey: true });
+    expect(current.state.doc.child(1).type.name).toBe('paragraph');
+    expect(notices).toEqual([]);
+  });
+
+  it('refuses a heading that skips a level, and says why', () => {
+    const current = open(
+      { type: 'heading', attrs: { level: 1 }, content: [text('Top')] },
+      paragraph('Some text'),
+    );
+    current.commands.setTextSelection(positionOf(current, 'text'));
+    press('3', { ctrlKey: true, altKey: true });
+    expect(current.state.doc.child(1).type.name).toBe('paragraph');
+    expect(notices.map((notice) => notice.code)).toEqual(['heading-level']);
+  });
+
+  it('refuses a heading that would leave marks its style does not allow, and says why', () => {
+    const current = open(
+      { type: 'heading', attrs: { level: 5 }, content: [text('Top')] },
+      { type: 'paragraph', content: [text('Some '), text('bold', [{ type: 'strong' }])] },
+    );
+    current.commands.setTextSelection(positionOf(current, 'Some'));
+    press('6', { ctrlKey: true, altKey: true });
+    expect(current.state.doc.child(1).type.name).toBe('paragraph');
+    expect(notices.map((notice) => notice.code)).toEqual(['marks-not-allowed']);
+  });
+
+  it('makes a paragraph of a heading with Backspace at its start, keeping the text', () => {
+    const current = open({
+      type: 'heading',
+      attrs: { level: 2, id: 'k7m2q9x4zb' },
+      content: [text('Title')],
+    });
+    current.commands.setTextSelection(positionOf(current, 'Title'));
+    press('Backspace');
+    expect(current.state.doc.child(0).type.name).toBe('paragraph');
+    expect(current.state.doc.child(0).attrs['id']).toBe('k7m2q9x4zb');
+    expect(current.state.doc.child(0).textContent).toBe('Title');
+  });
+
+  it('leaves Backspace inside a heading to the editor', () => {
+    const current = open({ type: 'heading', attrs: { level: 2 }, content: [text('Title')] });
+    current.commands.setTextSelection(positionOf(current, 'Title', 2));
+    press('Backspace');
+    expect(current.state.doc.child(0).type.name).toBe('heading');
+    expect(notices).toEqual([]);
+  });
+
   it('takes the first item out of its list with Backspace at its start', () => {
     const current = open(bullets('One', 'Two'));
     current.commands.setTextSelection(positionOf(current, 'One'));

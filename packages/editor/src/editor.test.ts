@@ -81,6 +81,19 @@ const classOf = (selector: string): string | null =>
   element.querySelector(selector)?.getAttribute('class') ?? null;
 
 describe('createPhraseEditor', () => {
+  it('can be made a view that only shows the content', () => {
+    editor = createPhraseEditor({
+      element,
+      stylesheet,
+      document: documentOf('Some text.\n'),
+      editable: false,
+    });
+    expect(element.querySelector('.ProseMirror')?.getAttribute('contenteditable')).toBe('false');
+    editor.destroy();
+    editor = createPhraseEditor({ element, stylesheet, document: documentOf('Some text.\n') });
+    expect(element.querySelector('.ProseMirror')?.getAttribute('contenteditable')).toBe('true');
+  });
+
   it('scopes the editor and writes the stylesheet next to it', () => {
     open();
     const root = element.querySelector('.ProseMirror');
@@ -127,10 +140,61 @@ describe('createPhraseEditor', () => {
     expect(classOf('span.phrase-c-marker')).toBe('phrase-c-marker');
   });
 
-  it('writes no inline style, and shows a phrase block as a labelled box', () => {
+  it('writes no inline style, and shows a table of contents as a labelled box with its entries', () => {
     open();
     expect(element.querySelectorAll('[style]')).toHaveLength(0);
-    expect(element.querySelector('.phrase-block')?.textContent).toBe('phrase-toc');
+    const box = element.querySelector('.phrase-block');
+    expect(box?.querySelector('.phrase-block-label')?.textContent).toBe(
+      'Table of contents (down to level 2, page numbers added by Word)',
+    );
+    expect(
+      [...(box?.querySelectorAll('p') ?? [])].map((p) => [p.className, p.textContent]),
+    ).toEqual([['phrase-p-toc-1', '1 Title']]);
+  });
+
+  describe('a table of contents', () => {
+    const TOC = (depth: number): string =>
+      `# One\n\nText\n\n\`\`\`phrase-toc\ndepth: ${String(depth)}\n\`\`\`\n`;
+    const entries = (): (string | null)[] =>
+      [...element.querySelectorAll('.phrase-block p')].map((p) => p.textContent);
+
+    it('lists the headings down to its depth, with their numbers', () => {
+      open(`${TOC(2)}\n## Two\n\n### Three\n`);
+      expect(entries()).toEqual(['1 One', '1.1 Two']);
+      editor?.destroy();
+      open(`${TOC(1)}\n## Two\n`);
+      expect(entries()).toEqual(['1 One']);
+    });
+
+    it('follows the headings while they are edited', () => {
+      const api = open(TOC(2));
+      expect(entries()).toEqual(['1 One']);
+      api.setPosition({ block: 1, offset: 1 });
+      expect(api.run({ type: 'set-heading', level: 2 })).toEqual({ ok: true });
+      expect(entries()).toEqual(['1 One', '1.1 Text']);
+    });
+
+    it('says when there is nothing to list', () => {
+      open('Text\n\n```phrase-toc\n```\n');
+      expect(entries()).toEqual([]);
+      expect(element.querySelector('.phrase-block-empty')?.textContent).toBe('No headings yet.');
+    });
+
+    it('follows a new stylesheet', () => {
+      const api = open(TOC(2));
+      const label = (): string | null | undefined =>
+        element.querySelector('.phrase-block-label')?.textContent;
+      expect(label()).toContain('page numbers added by Word');
+      expect(api.setStylesheet({ ...stylesheet, tableOfContents: { pageNumbers: false } })).toEqual(
+        [],
+      );
+      expect(label()).toBe('Table of contents (down to level 2)');
+    });
+
+    it('names any other kind of block as it is', () => {
+      open('Text\n\n```phrase-foo\nbody\n```\n');
+      expect(element.querySelector('.phrase-block')?.textContent).toBe('Phrase block "foo"');
+    });
   });
 
   it('gives back the document it was given, with its metadata', () => {
@@ -208,6 +272,30 @@ Some **strong** text.
       expect(context.available.paragraph).toContain('body');
     });
 
+    it('gives the labels of the styles that have one, by kind', () => {
+      const source = read('example-project/styles/default.yaml')
+        .replace(
+          '  cover-meta:\n    based-on: body',
+          "  cover-meta:\n    label: 'Cover details'\n    based-on: body",
+        )
+        .replace(
+          '  marker:\n    bold: true',
+          "  marker:\n    label: 'Status marker'\n    bold: true",
+        )
+        .replace(
+          '  table-grid:\n    based-on: table',
+          "  table-grid:\n    label: 'Grid with lines'\n    based-on: table",
+        );
+      const sheet = parseStylesheet(source);
+      expect(sheet.diagnostics).toEqual([]);
+      const api = open(TEXT, sheet.stylesheet);
+      const { labels } = api.getContext();
+      expect([...labels.paragraph]).toEqual([['cover-meta', 'Cover details']]);
+      expect([...labels.character]).toEqual([['marker', 'Status marker']]);
+      expect([...labels.table]).toEqual([['table-grid', 'Grid with lines']]);
+      expect(api.getContext().available.paragraph).toContain('cover-meta');
+    });
+
     it('tells the character styles that are on', () => {
       const api = open(TEXT);
       api.setPosition({ block: 1, offset: 2 });
@@ -216,6 +304,38 @@ Some **strong** text.
         ok: true,
       });
       expect(api.getContext().characterStyles).toEqual(['marker']);
+    });
+
+    it('tells the level of a heading and the kind of list', () => {
+      const api = open(SAMPLE);
+      api.setPosition({ block: 0, offset: 0 });
+      expect(api.getContext()).toMatchObject({ block: 'heading', level: 1, list: undefined });
+      api.setPosition({ block: 2, offset: 1 });
+      expect(api.getContext()).toMatchObject({
+        block: 'paragraph',
+        level: undefined,
+        list: 'bulleted',
+      });
+      api.setPosition({ block: 3, offset: 0 });
+      expect(api.getContext().list).toBeUndefined();
+      api.setPosition({ block: 1, offset: 0 });
+      expect(api.getContext().list).toBeUndefined();
+    });
+
+    it('tells when the cursor moved, a change was made, or the stylesheet changed', () => {
+      const onContextChange = vi.fn();
+      editor = createPhraseEditor({
+        element,
+        stylesheet,
+        document: documentOf(TEXT),
+        onContextChange,
+      });
+      editor.setPosition({ block: 1, offset: 2 });
+      expect(onContextChange).toHaveBeenCalledTimes(1);
+      editor.run({ type: 'toggle-mark', mark: 'emphasis' });
+      expect(onContextChange).toHaveBeenCalledTimes(2);
+      editor.setStylesheet(stylesheet);
+      expect(onContextChange).toHaveBeenCalledTimes(3);
     });
 
     it('checks a command like run does, and changes nothing, not even IDs', () => {

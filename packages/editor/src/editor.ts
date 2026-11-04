@@ -14,6 +14,11 @@ import { fromEditorContent, toEditorContent, type FromEditorResult } from './con
 import { PhraseKeys } from './keys.js';
 import type { Notice } from './notice.js';
 import { PhrasePaste } from './paste.js';
+import {
+  PhraseBlockView,
+  PHRASE_BLOCK_EMPTY_CLASS,
+  PHRASE_BLOCK_LABEL_CLASS,
+} from './phrase-block-view.js';
 import { editorPosition, moveTo, type EditorPosition } from './position.js';
 import { PHRASE_BLOCK_CLASS, schemaExtensions } from './schema.js';
 
@@ -39,6 +44,19 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
   user-select: none;
 }
 
+.${SCOPE_CLASS} .${PHRASE_BLOCK_LABEL_CLASS} {
+  margin-bottom: 4pt;
+  color: #777777;
+  font: 9pt sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.${SCOPE_CLASS} .${PHRASE_BLOCK_EMPTY_CLASS} {
+  color: #888888;
+  font: italic 10pt sans-serif;
+}
+
 .${SCOPE_CLASS} .selectedCell {
   background-color: #C8DCFF;
 }
@@ -54,12 +72,16 @@ export interface PhraseEditorOptions {
   readonly onChange?: (result: FromEditorResult) => void;
   /** Called with things the person editing should hear: a refused key, content dropped on paste. */
   readonly onNotice?: (notice: Notice) => void;
+  /** Called after any transaction: a move of the cursor, a change, or a new stylesheet. */
+  readonly onContextChange?: () => void;
   /** A candidate for the ID of a new block. Random by default. */
   readonly newId?: () => string;
   /** The IDs of the other documents of the project, which new IDs must avoid. */
   readonly usedIds?: () => ReadonlySet<string>;
   /** The nonce of a content security policy, written on the style elements that the editor adds. */
   readonly styleNonce?: string;
+  /** False for a view that only shows the content, such as a sample of a stylesheet. */
+  readonly editable?: boolean;
 }
 
 export interface PhraseEditor {
@@ -103,6 +125,7 @@ export function phraseExtensions(
     ...schemaExtensions(),
     BlockIds.configure({ ...ids, notice }),
     ContextClasses.configure({ stylesheet }),
+    PhraseBlockView.configure({ stylesheet }),
     PhraseKeys.configure({ stylesheet, notice }),
     PhrasePaste.configure({ stylesheet, notice }),
   ];
@@ -134,10 +157,14 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
       },
     ),
     content: toEditorContent(options.document),
+    editable: options.editable ?? true,
     editorProps: { attributes: { class: SCOPE_CLASS } },
     ...(options.styleNonce !== undefined ? { injectNonce: options.styleNonce } : {}),
     onUpdate: ({ editor: current }) => {
       options.onChange?.(fromEditorContent(current.state.doc, meta));
+    },
+    onTransaction: () => {
+      options.onContextChange?.();
     },
   });
 

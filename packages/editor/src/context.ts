@@ -2,6 +2,7 @@ import {
   VARIANT_MARKS,
   isStyleName,
   markAllowed,
+  type HeadingLevel,
   type StyleName,
   type Stylesheet,
   type VariantMark,
@@ -25,6 +26,10 @@ export interface MarkState {
 export interface EditorContext {
   /** The first block of text of the selection, or undefined where there is none. */
   readonly block: 'paragraph' | 'heading' | 'code-block' | 'table-cell' | undefined;
+  /** The level of the first block, when it is a heading. */
+  readonly level: HeadingLevel | undefined;
+  /** The kind of the innermost list that holds the first block. */
+  readonly list: 'bulleted' | 'numbered' | undefined;
   /**
    * The style that the block names itself, or undefined for the default one. For a table cell it
    * is the style of the table.
@@ -40,6 +45,12 @@ export interface EditorContext {
     readonly paragraph: readonly StyleName[];
     readonly character: readonly StyleName[];
     readonly table: readonly StyleName[];
+  };
+  /** The labels of the styles that have one (ADR 0034): what people see in place of the name. */
+  readonly labels: {
+    readonly paragraph: ReadonlyMap<StyleName, string>;
+    readonly character: ReadonlyMap<StyleName, string>;
+    readonly table: ReadonlyMap<StyleName, string>;
   };
 }
 
@@ -63,6 +74,26 @@ function activeCharacterStyles(state: EditorState): readonly StyleName[] {
     }
   }
   return [...names];
+}
+
+function listKind(state: EditorState, pos: number): 'bulleted' | 'numbered' | undefined {
+  const $pos = state.doc.resolve(pos);
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    const name = $pos.node(depth).type.name;
+    if (name === 'bulletList') return 'bulleted';
+    if (name === 'orderedList') return 'numbered';
+  }
+  return undefined;
+}
+
+function labelsOf(
+  styles: ReadonlyMap<StyleName, { readonly label?: string }>,
+): ReadonlyMap<StyleName, string> {
+  return new Map(
+    [...styles].flatMap(([name, { label }]) =>
+      label === undefined ? [] : [[name, label] as const],
+    ),
+  );
 }
 
 export function editorContext(state: EditorState, stylesheet: Stylesheet): EditorContext {
@@ -101,8 +132,12 @@ export function editorContext(state: EditorState, stylesheet: Stylesheet): Edito
       ];
     }),
   ) as Record<VariantMark, MarkState>;
+  const level: unknown = block === 'heading' ? first?.node.attrs['level'] : undefined;
   return {
     block,
+    level:
+      typeof level === 'number' && level >= 1 && level <= 6 ? (level as HeadingLevel) : undefined,
+    list: first === undefined ? undefined : listKind(state, first.pos),
     style,
     textStyle:
       first === undefined ? undefined : textStyle(state.doc, first.pos, first.node, stylesheet),
@@ -112,6 +147,11 @@ export function editorContext(state: EditorState, stylesheet: Stylesheet): Edito
       paragraph: [...stylesheet.paragraphStyles.keys()],
       character: [...stylesheet.characterStyles.keys()],
       table: [...stylesheet.tableStyles.keys()],
+    },
+    labels: {
+      paragraph: labelsOf(stylesheet.paragraphStyles),
+      character: labelsOf(stylesheet.characterStyles),
+      table: labelsOf(stylesheet.tableStyles),
     },
   };
 }
