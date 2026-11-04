@@ -381,6 +381,22 @@ Accepted:
 - ADR 0024: IDs of new blocks in the editor.
 - ADR 0025: the VS Code editor.
 - ADR 0026: style choice and allowing a mark in a style.
+- ADR 0027: editor toolbar and keys.
+- ADR 0028: the paper look in the editor.
+- ADR 0029: toolbar groups, the block list and the heading depth rule.
+- ADR 0030: DOCX review protection.
+- ADR 0031: phrase blocks in the editor.
+- ADR 0032: export on save.
+- ADR 0033: the list of style properties.
+- ADR 0034: labels of styles.
+- ADR 0035: edits of the text of a stylesheet.
+- ADR 0036: the style editor, shell.
+- ADR 0037: the style editor, paragraph panel.
+- ADR 0038: the style editor, groups by family.
+- ADR 0039: the style editor, character styles.
+- ADR 0040: the style editor, table styles.
+- ADR 0041: the style editor, collapsible groups.
+- ADR 0028: the paper look in the editor.
 
 Still to capture:
 
