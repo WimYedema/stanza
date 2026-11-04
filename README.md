@@ -19,6 +19,16 @@ npm test         tests only
 
 Packages live in `packages/`. Architecture decisions are recorded in `docs/adr/`.
 
+## Install the VS Code extension
+
+```text
+npm run build
+npm run package --workspace phrase-vscode
+code --install-extension phrase.vsix --force
+```
+
+This writes `phrase.vsix` at the root (ignored by Git) and installs it. `*.phrase.md` files then open in the Phrase editor, and "Open With" on a project's stylesheet offers Phrase Styles. Reload the window after installing a new version. The packaging tool is fetched by `npx` when it runs and is not a dependency of the project.
+
 ## Command line
 
 Build first (`npm run build`), then run the tool on a project, a directory with a `phrase.yaml`:

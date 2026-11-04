@@ -1,0 +1,5 @@
+**
+!package.json
+!dist/extension.cjs
+!dist/webview.js
+!dist/styles.js
