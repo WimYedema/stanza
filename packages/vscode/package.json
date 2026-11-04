@@ -14,6 +14,16 @@
     "Other"
   ],
   "contributes": {
+    "configuration": {
+      "title": "Phrase",
+      "properties": {
+        "phrase.exportOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write the DOCX of a document into the build folder of its project when the document is saved."
+        }
+      }
+    },
     "customEditors": [
       {
         "viewType": "phrase.editor",
@@ -24,6 +34,22 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "phrase.styles",
+        "displayName": "Phrase Styles",
+        "selector": [
+          {
+            "filenamePattern": "*.yaml"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "phrase.editStyles",
+        "title": "Phrase: Edit Styles"
       }
     ]
   },
@@ -39,6 +65,7 @@
   },
   "scripts": {
     "build": "node build.mjs && tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
+    "package": "npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license --out ../../phrase.vsix",
     "typecheck:tests": "tsc -p tsconfig.test.json"
   }
 }

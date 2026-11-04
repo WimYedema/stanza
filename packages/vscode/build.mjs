@@ -1,5 +1,6 @@
-// Builds the two bundles of the extension: the code for the extension host, and the code for the
-// webview. The packages it uses must be built first (`tsc -b` at the root).
+// Builds the bundles of the extension: the code for the extension host, and the code for the two
+// webviews, the document editor and the style editor. The packages it uses must be built first
+// (`tsc -b` at the root).
 import { build } from 'esbuild';
 
 await build({
@@ -25,4 +26,15 @@ await build({
   logLevel: 'warning',
 });
 
-console.log('built dist/extension.cjs and dist/webview.js');
+await build({
+  entryPoints: ['src/webview/styles-main.ts'],
+  bundle: true,
+  platform: 'browser',
+  format: 'iife',
+  target: 'es2022',
+  outfile: 'dist/styles.js',
+  sourcemap: true,
+  logLevel: 'warning',
+});
+
+console.log('built dist/extension.cjs, dist/webview.js and dist/styles.js');
