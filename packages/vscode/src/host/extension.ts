@@ -3,6 +3,7 @@ import { StylesheetSaves } from './declare-variant.js';
 import { registerEditStyles } from './edit-styles-command.js';
 import { ExportOnSave } from './export-on-save.js';
 import { registerNewProject } from './new-project-command.js';
+import { registerOpenInWord } from './open-in-word-command.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import { PhraseEditorProvider } from './provider.js';
 import { registerDeclareVariant } from './quick-fix.js';
@@ -12,11 +13,13 @@ export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = new ProjectDiagnostics();
   const log = vscode.window.createOutputChannel('Phrase');
   const saves = new StylesheetSaves(log);
+  const exporter = new ExportOnSave(diagnostics, log);
   context.subscriptions.push(
     diagnostics,
     log,
     saves,
-    new ExportOnSave(diagnostics, log),
+    exporter,
+    registerOpenInWord(exporter),
     ...registerDeclareVariant(diagnostics, saves),
     vscode.window.registerCustomEditorProvider(
       PhraseEditorProvider.viewType,

@@ -39,20 +39,30 @@ export class ExportOnSave implements vscode.Disposable {
         .getConfiguration('phrase', saved.uri)
         .get<boolean>('exportOnSave', true);
       if (!enabled) return;
-      this.queue = this.queue
-        .then(() => this.export(saved))
-        .catch((error: unknown) => {
-          this.log.appendLine(
-            error instanceof Error ? (error.stack ?? error.message) : String(error),
-          );
-        });
+      void this.exportNow(saved.uri);
     });
   }
 
-  private async export(saved: vscode.TextDocument): Promise<void> {
-    const root = await findRoot(saved.uri);
-    if (root === undefined) return;
-    const path = posix.relative(root.path, saved.uri.path);
+  /**
+   * Exports a document of a project in its turn, and returns the DOCX written, or undefined when
+   * nothing was written. The reasons are shown as for a save.
+   */
+  exportNow(document: vscode.Uri): Promise<vscode.Uri | undefined> {
+    const done = this.queue.then(() => this.export(document));
+    this.queue = done.then(
+      () => undefined,
+      () => undefined,
+    );
+    return done.catch((error: unknown) => {
+      this.log.appendLine(error instanceof Error ? (error.stack ?? error.message) : String(error));
+      return undefined;
+    });
+  }
+
+  private async export(document: vscode.Uri): Promise<vscode.Uri | undefined> {
+    const root = await findRoot(document);
+    if (root === undefined) return undefined;
+    const path = posix.relative(root.path, document.path);
     // The Problems panel shows what is wrong with the project itself, as it does while editing.
     const loaded = await this.diagnostics.refresh(root);
     let result: ExportDocumentResult;
@@ -67,9 +77,9 @@ export class ExportOnSave implements vscode.Disposable {
       void vscode.window.showErrorMessage(
         `The DOCX of ${path} could not be written: ${reason} If it is open in Word, close it and save again.`,
       );
-      return;
+      return undefined;
     }
-    this.show(saved.uri, root, result);
+    this.show(document, root, result);
     const message =
       result.written !== undefined
         ? `Phrase: exported ${result.written}`
@@ -77,6 +87,7 @@ export class ExportOnSave implements vscode.Disposable {
           ? 'Phrase: not exported, the project or this document has errors (see Problems)'
           : 'Phrase: not exported, the export found errors (see Problems)';
     vscode.window.setStatusBarMessage(message, STATUS_MS);
+    return result.written === undefined ? undefined : uriInProject(root, result.written);
   }
 
   /** Shows what the export found, in place of what an earlier export of the document found. */

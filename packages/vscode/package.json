@@ -54,8 +54,22 @@
       {
         "command": "phrase.newProject",
         "title": "Phrase: New Project"
+      },
+      {
+        "command": "phrase.openInWord",
+        "title": "Phrase: Open in Word",
+        "icon": "$(link-external)"
       }
-    ]
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "phrase.openInWord",
+          "when": "activeCustomEditorId == phrase.editor && !isWeb && !remoteName",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "dependencies": {
     "@phrase/core": "*",

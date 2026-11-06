@@ -88,6 +88,11 @@ export const world = {
   infoChoice: undefined as string | undefined,
   /** The folders that the editor was opened on are not in the workspace. */
   outsideWorkspace: false,
+  /** Set in a remote window. */
+  remoteName: undefined as string | undefined,
+  /** The files handed to the system to open, and whether that works. */
+  opened: [] as string[],
+  failOpen: false,
 };
 
 export function reset(
@@ -129,6 +134,9 @@ export function reset(
   world.infos = [];
   world.infoChoice = undefined;
   world.outsideWorkspace = false;
+  world.remoteName = undefined;
+  world.opened = [];
+  world.failOpen = false;
   const uri = new FakeUri(documentPath);
   world.document = {
     uri,
@@ -210,6 +218,17 @@ export function createFakeVscode(): Record<string, unknown> {
     CodeActionKind: { QuickFix: 'quickfix' },
     DiagnosticSeverity: { Error: 0, Warning: 1 },
     FileType,
+    UIKind: { Desktop: 1, Web: 2 },
+    env: {
+      get remoteName() {
+        return world.remoteName;
+      },
+      uiKind: 1,
+      openExternal: (uri: FakeUri) => {
+        world.opened.push(uri.path);
+        return Promise.resolve(!world.failOpen);
+      },
+    },
     TabInputText: class {
       constructor(readonly uri: FakeUri) {}
     },
