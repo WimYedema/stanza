@@ -87,6 +87,7 @@ packages/
   core/          domain model, styles, references, validation; no dependencies
   format/        Markdown parser and serializer (ADR 0001)
   export-docx/   DOCX adapter
+  import-docx/   one-time import of the content of a DOCX (ADR 0043, 0045)
   css/           browser CSS from the stylesheet, and the class names of the editor markup (ADR 0021)
   project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
   cli/           validate, build and format commands (Node)
@@ -94,7 +95,7 @@ packages/
   vscode/        VS Code extension, called phrase-vscode: custom text editor and diagnostics (ADR 0025)
 ```
 
-`core`, `format`, `export-docx`, `css`, and `project` use no Node built-ins and no DOM. A PDF adapter would be a further package. A lint rule enforces the boundaries.
+`core`, `format`, `export-docx`, `import-docx`, `css`, and `project` use no Node built-ins and no DOM. A PDF adapter would be a further package. A lint rule enforces the boundaries.
 
 The modules below live inside `core`.
 

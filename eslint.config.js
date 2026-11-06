@@ -55,6 +55,14 @@ export default tseslint.config(
     ),
   },
   {
+    files: ['packages/import-docx/src/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/*.testing.ts'],
+    rules: restrictImports(
+      ['@phrase/*', '!@phrase/core', 'node:*'],
+      'import-docx may import only @phrase/core and no Node built-ins.',
+    ),
+  },
+  {
     files: ['packages/css/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(

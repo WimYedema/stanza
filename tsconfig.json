@@ -4,6 +4,7 @@
     { "path": "packages/core" },
     { "path": "packages/format" },
     { "path": "packages/export-docx" },
+    { "path": "packages/import-docx" },
     { "path": "packages/css" },
     { "path": "packages/editor" },
     { "path": "packages/project" },
