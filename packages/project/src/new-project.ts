@@ -33,7 +33,7 @@ export function slugOf(title: string): string {
 
 const yamlSingleQuoted = (text: string): string => `'${text.replaceAll("'", "''")}'`;
 
-function firstDocument(title: string, id: NodeId): string {
+export function firstDocument(title: string, id: NodeId): string {
   const document: Document = {
     meta: { title, fields: {} },
     blocks: [
@@ -47,7 +47,10 @@ function firstDocument(title: string, id: NodeId): string {
   return serializeDocument(document);
 }
 
-async function names(storage: ProjectStorage, directory: string): Promise<readonly string[]> {
+export async function names(
+  storage: ProjectStorage,
+  directory: string,
+): Promise<readonly string[]> {
   try {
     return (await storage.list(directory)).map((entry) => entry.name);
   } catch {

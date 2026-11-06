@@ -1,17 +1,9 @@
 import * as vscode from 'vscode';
 import { DOCUMENT_SUFFIX } from '@phrase/project';
 import type { ExportOnSave } from './export-on-save.js';
-import { findRoot } from './project-files.js';
+import { findRoot, activeFile } from './project-files.js';
 
 export const OPEN_IN_WORD_COMMAND = 'phrase.openInWord';
-
-/** The document of the editor in front, whether it is a text or a custom editor. */
-function activeDocument(): vscode.Uri | undefined {
-  const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
-  return input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom
-    ? input.uri
-    : undefined;
-}
 
 /**
  * "Phrase: Open in Word" exports the document as it is open, saved or not, and opens its DOCX with
@@ -26,7 +18,7 @@ export function registerOpenInWord(exporter: ExportOnSave): vscode.Disposable {
       );
       return;
     }
-    const document = target ?? activeDocument();
+    const document = target ?? activeFile();
     if (document === undefined || !document.path.endsWith(DOCUMENT_SUFFIX)) {
       void vscode.window.showErrorMessage('Phrase: open a Phrase document (.phrase.md) first.');
       return;

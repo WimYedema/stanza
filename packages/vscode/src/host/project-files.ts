@@ -27,6 +27,25 @@ export async function findRoot(uri: vscode.Uri): Promise<vscode.Uri | undefined>
   );
 }
 
+/** The file of the editor that is in front, whether it is a text or a custom editor. */
+export function activeFile(): vscode.Uri | undefined {
+  const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+  return input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom
+    ? input.uri
+    : undefined;
+}
+
+/** The project file to start from when no file is in front: the only one, or the one that is picked. */
+export async function pickedProjectFile(): Promise<vscode.Uri | undefined> {
+  const found = await vscode.workspace.findFiles('**/phrase.yaml', '**/node_modules/**', 20);
+  if (found.length <= 1) return found[0];
+  const picked = await vscode.window.showQuickPick(
+    found.map((uri) => ({ label: vscode.workspace.asRelativePath(uri), uri })),
+    { placeHolder: 'Which project?' },
+  );
+  return picked?.uri;
+}
+
 /** The URI of a path in a project. */
 export const uriInProject = (root: vscode.Uri, path: string): vscode.Uri =>
   path === '' ? root : vscode.Uri.joinPath(root, ...path.split('/'));

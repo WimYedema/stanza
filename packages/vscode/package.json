@@ -56,6 +56,10 @@
         "title": "Phrase: New Project"
       },
       {
+        "command": "phrase.newDocument",
+        "title": "Phrase: New Document"
+      },
+      {
         "command": "phrase.openInWord",
         "title": "Phrase: Open in Word",
         "icon": "$(link-external)"
