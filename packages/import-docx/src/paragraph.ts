@@ -1,4 +1,4 @@
-import type { Mark, Paragraph, Text } from '@phrase/core';
+import { MAX_TOC_DEPTH, type Mark, type Paragraph, type Text } from '@phrase/core';
 import type { ImportContext } from './context.js';
 import { isMonospace, toggleOf } from './styles.js';
 import { childOf, descendantsOf, elementsOf, plainText, type XmlElement } from './xml.js';
@@ -49,14 +49,9 @@ function placeholder(kind: string, name?: string): Paragraph {
   return { type: 'paragraph', content: [{ type: 'text', text, marks: [] }] };
 }
 
-/** The placeholder for a table, until tables are imported. */
-export function tablePlaceholder(table: XmlElement, ctx: ImportContext): Paragraph {
-  const rows = elementsOf(table, 'tr');
-  const grid = elementsOf(childOf(table, 'tblGrid'), 'gridCol').length;
-  const columns = grid > 0 ? grid : Math.max(0, ...rows.map((row) => elementsOf(row, 'tc').length));
-  ctx.report.add('placeholder-table', `table after ${ctx.place()}`);
-  const count = (n: number, noun: string): string => `${String(n)} ${noun}${n === 1 ? '' : 's'}`;
-  return placeholder('Table', `${count(rows.length, 'row')}, ${count(columns, 'column')}`);
+/** A paragraph of plain text. */
+function plainParagraph(text: string): Paragraph {
+  return { type: 'paragraph', content: [{ type: 'text', text, marks: [] }] };
 }
 
 function safeLink(address: string, ctx: ImportContext): string | undefined {
@@ -139,7 +134,11 @@ function readFrame(frame: XmlElement, ctx: ImportContext, extras: Paragraph[]): 
       const content = readParagraph(child, ctx);
       extras.push({ type: 'paragraph', content: content.inlines }, ...content.extras);
     } else if (child.name === 'tbl') {
-      extras.push(tablePlaceholder(child, ctx));
+      ctx.report.add('table-flattened', `table after ${ctx.place()}`);
+      for (const cell of descendantsOf(child, 'tc', 'tc')) {
+        const text = plainText(cell);
+        if (text !== '') extras.push(plainParagraph(text));
+      }
     } else if (child.name === 'sdt') {
       const inner = childOf(child, 'sdtContent');
       if (inner !== undefined) readFrame(inner, ctx, extras);
@@ -184,7 +183,7 @@ function readRun(run: XmlElement, link: string | undefined, ctx: ImportContext, 
 
   let buffer = '';
   const state = { emitted: false };
-  const showing = (): boolean => ctx.fields.every((field) => field.showing);
+  const showing = (): boolean => ctx.fields.every((field) => field.showing && !field.toc);
   const flush = (): void => {
     if (buffer === '') return;
     const marks: Mark[] = [];
@@ -279,18 +278,32 @@ function readRun(run: XmlElement, link: string | undefined, ctx: ImportContext, 
   if (state.emitted && direct) ctx.report.add('direct-formatting', ctx.place());
 }
 
+/** The deepest heading level of a `TOC \o "1-3"` field, or undefined when it names none. */
+function tocDepth(instruction: string): number | undefined {
+  const match = /\\o\s+"\s*\d+\s*-\s*(\d+)\s*"/i.exec(instruction);
+  return match?.[1] === undefined
+    ? undefined
+    : Math.min(MAX_TOC_DEPTH, Math.max(1, Number(match[1])));
+}
+
 const plainInstruction = (element: XmlElement): string =>
   element.children.filter((child) => typeof child === 'string').join('');
 
 function readFieldChar(element: XmlElement, ctx: ImportContext): void {
   const type = element.attrs['fldCharType'];
   if (type === 'begin') {
-    ctx.fields.push({ instruction: '', showing: false, link: undefined });
+    ctx.fields.push({ instruction: '', showing: false, link: undefined, toc: false });
   } else if (type === 'separate') {
     const field = ctx.fields[ctx.fields.length - 1];
     if (field !== undefined) {
+      const inside = ctx.tocOpen();
       field.showing = true;
-      field.link = fieldLink(field.instruction, ctx);
+      if (!inside && /^\s*TOC\b/i.test(field.instruction)) {
+        field.toc = true;
+        ctx.pendingToc = { depth: tocDepth(field.instruction) };
+      } else if (!inside) {
+        field.link = fieldLink(field.instruction, ctx);
+      }
     }
   } else if (type === 'end') {
     ctx.fields.pop();
@@ -312,11 +325,16 @@ function walk(
         readRun(node, link, ctx, sink);
         break;
       case 'hyperlink':
-        walk(node, hyperlinkOf(node, ctx) ?? link, ctx, sink);
+        // The entries of a table of contents link to headings, and are dropped with it.
+        walk(node, (ctx.tocOpen() ? undefined : hyperlinkOf(node, ctx)) ?? link, ctx, sink);
         break;
-      case 'fldSimple':
-        walk(node, fieldLink(node.attrs['instr'] ?? '', ctx) ?? link, ctx, sink);
+      case 'fldSimple': {
+        const instruction = node.attrs['instr'] ?? '';
+        if (ctx.tocOpen()) break;
+        if (/^\s*TOC\b/i.test(instruction)) ctx.pendingToc = { depth: tocDepth(instruction) };
+        else walk(node, fieldLink(instruction, ctx) ?? link, ctx, sink);
         break;
+      }
       case 'ins':
       case 'moveTo':
         ctx.report.add('tracked-changes');

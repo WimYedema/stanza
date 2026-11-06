@@ -1,4 +1,5 @@
 import {
+  TOC_PHRASE_KIND,
   maxHeadingLevel,
   normalizeInlines,
   type Block,
@@ -9,7 +10,8 @@ import {
 } from '@phrase/core';
 import type { ImportContext } from './context.js';
 import type { ListKind } from './numbering.js';
-import { readParagraph, tablePlaceholder } from './paragraph.js';
+import { readParagraph } from './paragraph.js';
+import { importTable } from './table.js';
 import { toggleOf } from './styles.js';
 import { childOf, elementsOf, type XmlElement } from './xml.js';
 
@@ -110,11 +112,16 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
     return { numId, level: ilvl === undefined ? (inherited?.level ?? 0) : Number(ilvl) || 0 };
   };
 
-  const emit = (properties: XmlElement | undefined, inlines: Text[], extras: Paragraph[]): void => {
+  const emit = (
+    properties: XmlElement | undefined,
+    inlines: Text[],
+    extras: Paragraph[],
+    inToc: boolean,
+  ): void => {
     const styleId = childOf(properties, 'pStyle')?.attrs['val'];
     const content = normalizeInlines(inlines);
     if (content.length === 0) {
-      if (extras.length === 0) ctx.report.add('empty-paragraph', ctx.place());
+      if (extras.length === 0 && !inToc) ctx.report.add('empty-paragraph', ctx.place());
       for (const extra of extras) writer.push(extra);
       return;
     }
@@ -148,11 +155,17 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
 
   const paragraph = (element: XmlElement): void => {
     const properties = childOf(element, 'pPr');
+    const tocBefore = ctx.tocOpen();
     const read = readParagraph(element, ctx);
+    const toc = ctx.pendingToc;
+    ctx.pendingToc = undefined;
+    // The paragraphs of a table of contents field are not content of their own.
+    const inToc = tocBefore || toc !== undefined;
     const sectionProperties = childOf(properties, 'sectPr');
     if (sectionProperties !== undefined) section(sectionProperties, true);
     if (toggleOf(properties, 'pageBreakBefore') === true) ctx.report.add('page-break', ctx.place());
     if (
+      !inToc &&
       elementsOf(properties).some(
         (property) => !READ_OR_NEUTRAL_PARAGRAPH_PROPERTIES.has(property.name),
       )
@@ -163,14 +176,19 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
     const extras = [...(carried?.extras ?? []), ...read.extras];
     carried = undefined;
     if (read.markDeleted) carried = { inlines, extras, properties };
-    else emit(properties, inlines, extras);
+    else emit(properties, inlines, extras, inToc);
+    if (toc !== undefined) {
+      const text = toc.depth === undefined ? '' : `depth: ${String(toc.depth)}`;
+      writer.push({ type: 'phrase', kind: TOC_PHRASE_KIND, text });
+      ctx.report.add('toc-field', ctx.place());
+    }
   };
 
   const flushCarried = (): void => {
     if (carried === undefined) return;
     const { inlines, extras, properties } = carried;
     carried = undefined;
-    emit(properties, inlines, extras);
+    emit(properties, inlines, extras, false);
   };
 
   const visit = (container: XmlElement): void => {
@@ -181,7 +199,7 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
           break;
         case 'tbl':
           flushCarried();
-          writer.push(tablePlaceholder(node, ctx));
+          for (const block of importTable(node, ctx)) writer.push(block);
           break;
         case 'sdt': {
           const inner = childOf(node, 'sdtContent');

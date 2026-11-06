@@ -52,9 +52,28 @@ const CODES = {
     message:
       'An embedded object was replaced by a placeholder paragraph that starts with [Object:.',
   },
-  'placeholder-table': {
+  'table-flattened': {
     severity: 'warning',
-    message: 'A table was replaced by a placeholder paragraph that starts with [Table:.',
+    message:
+      'A table without a header row, or with rows of different lengths, was written as paragraphs: one for each cell with text.',
+  },
+  'merged-cells': {
+    severity: 'warning',
+    message:
+      'A merged cell kept its text in the first cell, and the cells that it covered are empty.',
+  },
+  'cell-joined': {
+    severity: 'warning',
+    message: 'A table cell with several paragraphs or a list had its text joined with spaces.',
+  },
+  'nested-table': {
+    severity: 'warning',
+    message: 'A table inside a table cell had its text joined into the cell.',
+  },
+  'toc-field': {
+    severity: 'info',
+    message:
+      'A table of contents field became a phrase-toc block. The entries that it showed were dropped.',
   },
   'text-box': {
     severity: 'warning',

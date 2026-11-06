@@ -380,7 +380,7 @@ describe('links', () => {
   it('keeps a field that spans paragraphs hidden only in its instruction', () => {
     const body =
       para(
-        `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> TOC \\o "1-3" </w:instrText></w:r>` +
+        `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> QUOTE </w:instrText></w:r>` +
           `<w:r><w:fldChar w:fldCharType="separate"/></w:r>${run('Entry one')}`,
       ) +
       para(run('Entry two') + `<w:r><w:fldChar w:fldCharType="end"/></w:r>`) +
@@ -469,18 +469,6 @@ describe('content that is replaced or kept in another form', () => {
     expect(diagnostic(parts, 'text-box')?.count).toBe(1);
   });
 
-  it('puts a table in a placeholder until tables are imported', () => {
-    const cell = `<w:tc>${text('x')}</w:tc>`;
-    const table = `<w:tbl><w:tblGrid><w:gridCol/><w:gridCol/></w:tblGrid><w:tr>${cell}${cell}</w:tr><w:tr>${cell}${cell}</w:tr><w:tr>${cell}${cell}</w:tr></w:tbl>`;
-    const parts = { body: text('Before') + table + text('After') };
-    expect(imported(parts).document.blocks).toEqual([
-      P('Before'),
-      P('[Table: 3 rows, 2 columns]'),
-      P('After'),
-    ]);
-    expect(diagnostic(parts, 'placeholder-table')?.count).toBe(1);
-  });
-
   it('puts a footnote and an endnote in a placeholder that holds their text', () => {
     const note = (name: string, id: string, body: string): string =>
       `<w:${name} w:id="${id}">${text(body)}</w:${name}>`;
@@ -520,6 +508,171 @@ describe('content that is replaced or kept in another form', () => {
     const body = para(run('a') + `<w:r><w:sym w:font="Wingdings" w:char="F0FC"/></w:r>` + run('b'));
     expect(imported({ body }).document.blocks).toEqual([P('ab')]);
     expect(diagnostic({ body }, 'symbol')?.count).toBe(1);
+  });
+});
+
+describe('tables', () => {
+  const cell = (content: string, properties = ''): string =>
+    `<w:tc>${properties === '' ? '' : `<w:tcPr>${properties}</w:tcPr>`}${content}</w:tc>`;
+  const row = (cells: string, properties = ''): string =>
+    `<w:tr>${properties === '' ? '' : `<w:trPr>${properties}</w:trPr>`}${cells}</w:tr>`;
+  const table = (rows: string, look = '<w:tblLook w:firstRow="1"/>'): string =>
+    `<w:tbl><w:tblPr>${look}</w:tblPr>${rows}</w:tbl>`;
+  const cells = (...values: string[]): string => values.map((v) => cell(text(v))).join('');
+  const C = (value: string, marks: readonly Mark[] = []) => ({
+    content: value === '' ? [] : [{ type: 'text', text: value, marks }],
+  });
+
+  it('makes a table of a first row that the look of the table marks as the header', () => {
+    const body =
+      text('Before') + table(row(cells('A', 'B')) + row(cells('1', '2'))) + text('After');
+    expect(imported({ body }).document.blocks).toEqual([
+      P('Before'),
+      { type: 'table', header: [C('A'), C('B')], rows: [[C('1'), C('2')]] },
+      P('After'),
+    ]);
+  });
+
+  it('reads the look as a bit mask when it has no attributes of its own', () => {
+    const body = table(row(cells('A')) + row(cells('1')), '<w:tblLook w:val="04A0"/>');
+    expect(imported({ body }).document.blocks[0]).toMatchObject({ type: 'table' });
+  });
+
+  it('makes a table of a first row that repeats as a header, without a look', () => {
+    const body = table(row(cells('A'), '<w:tblHeader/>') + row(cells('1')), '');
+    expect(imported({ body }).document.blocks[0]).toMatchObject({
+      type: 'table',
+      header: [C('A')],
+    });
+  });
+
+  it('keeps the marks of the text in a cell', () => {
+    const bold = cell(para(run('B', '<w:b/>')));
+    const body = table(row(cells('A')) + row(bold));
+    expect(imported({ body }).document.blocks[0]).toMatchObject({
+      rows: [[C('B', [{ type: 'strong' }])]],
+    });
+  });
+
+  it('writes a table without a header row as a paragraph for each cell with text, and reports it', () => {
+    const body = table(row(cells('Assets:', 'Data')) + row(cell(text('')) + cells('Only')), '');
+    const parts = { body };
+    expect(imported(parts).document.blocks).toEqual([P('Assets:'), P('Data'), P('Only')]);
+    expect(diagnostic(parts, 'table-flattened')?.count).toBe(1);
+  });
+
+  it('writes a table with rows of different length as paragraphs', () => {
+    const body = table(row(cells('A', 'B')) + row(cells('1')));
+    const parts = { body };
+    expect(imported(parts).document.blocks).toEqual([P('A'), P('B'), P('1')]);
+    expect(codes(parts)).toContain('table-flattened');
+  });
+
+  it('joins the paragraphs of a cell with spaces, and reports it', () => {
+    const joined = cell(text('first') + text('second') + item('third', '1'));
+    const body = table(row(cells('A')) + row(joined));
+    const parts = { numbering: numbering('1', 'bullet'), body };
+    expect(imported(parts).document.blocks[0]).toMatchObject({ rows: [[C('first second third')]] });
+    expect(diagnostic(parts, 'cell-joined')?.count).toBe(1);
+  });
+
+  it('keeps the text of a merged cell in the first cell and leaves the covered ones empty', () => {
+    const wide = cell(text('wide'), '<w:gridSpan w:val="2"/>');
+    const tall = cell(text('tall'), '<w:vMerge w:val="restart"/>');
+    const below = cell(para(''), '<w:vMerge/>');
+    const body = table(
+      row(cells('A', 'B', 'C')) +
+        row(wide + cell(text('x'))) +
+        row(tall + cells('y', 'z')) +
+        row(below + cells('p', 'q')),
+    );
+    const parts = { body };
+    expect(imported(parts).document.blocks[0]).toMatchObject({
+      type: 'table',
+      rows: [
+        [C('wide'), C(''), C('x')],
+        [C('tall'), C('y'), C('z')],
+        [C(''), C('p'), C('q')],
+      ],
+    });
+    expect(diagnostic(parts, 'merged-cells')?.count).toBe(3);
+  });
+
+  it('joins the text of a table inside a cell into the cell, and reports it', () => {
+    const inner = `<w:tbl>${row(cells('in1', 'in2'))}</w:tbl>`;
+    const body = table(row(cells('A')) + row(cell(text('outer') + inner + para(''))));
+    const parts = { body };
+    expect(imported(parts).document.blocks[0]).toMatchObject({ rows: [[C('outer in1 in2')]] });
+    expect(diagnostic(parts, 'nested-table')?.count).toBe(1);
+  });
+
+  it('leaves out a row that was deleted as a tracked change', () => {
+    const body = table(
+      row(cells('A')) + row(cells('gone'), '<w:del w:id="1"/>') + row(cells('kept')),
+    );
+    expect(imported({ body }).document.blocks[0]).toMatchObject({ rows: [[C('kept')]] });
+  });
+
+  it('writes the text of a table in a text box as paragraphs', () => {
+    const inner = `<w:tbl>${row(cells('a', 'b'))}</w:tbl>`;
+    const body = para(
+      `<w:r><w:drawing><wp:inline><wp:docPr id="1" name="Box"/><a:graphic><a:graphicData><wps:wsp><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></wps:wsp></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`,
+    );
+    expect(imported({ body }).document.blocks).toEqual([P('a'), P('b')]);
+  });
+});
+
+describe('a table of contents', () => {
+  const begin = (instruction: string): string =>
+    `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> ${instruction} </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>`;
+  const end = '<w:r><w:fldChar w:fldCharType="end"/></w:r>';
+  const entry = (title: string): string =>
+    `<w:hyperlink w:anchor="_Toc1">${run(title)}<w:r><w:tab/></w:r>` +
+    `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText> PAGEREF _Toc1 \\h </w:instrText></w:r>` +
+    `<w:r><w:fldChar w:fldCharType="separate"/></w:r>${run('7')}<w:r><w:fldChar w:fldCharType="end"/></w:r></w:hyperlink>`;
+  const toc = (instruction: string): string =>
+    para(
+      begin(instruction) + entry('Intro'),
+      '<w:pStyle w:val="TOC1"/><w:tabs><w:tab w:val="right"/></w:tabs>',
+    ) +
+    para(entry('Method'), '<w:pStyle w:val="TOC1"/>') +
+    para(end, '<w:pStyle w:val="TOC1"/>');
+  const toBlock = (text: string): Block => ({ type: 'phrase', kind: 'toc', text });
+
+  it('becomes a phrase-toc block with the depth of the field, and drops the entries', () => {
+    const parts = { body: text('Before') + toc('TOC \\o "1-2" \\h \\z \\u') + text('After') };
+    expect(imported(parts).document.blocks).toEqual([P('Before'), toBlock('depth: 2'), P('After')]);
+    expect(diagnostic(parts, 'toc-field')?.count).toBe(1);
+  });
+
+  it('does not report the entries as empty paragraphs, links or direct formatting', () => {
+    const parts = { body: toc('TOC \\o "1-3"') + text('After') };
+    expect(codes(parts)).toEqual(['toc-field']);
+  });
+
+  it('has an empty body when the field names no depth', () => {
+    expect(imported({ body: toc('TOC \\h') }).document.blocks).toEqual([toBlock('')]);
+  });
+
+  it('keeps a depth to the most that the project has', () => {
+    expect(imported({ body: toc('TOC \\o "1-9"') }).document.blocks).toEqual([toBlock('depth: 6')]);
+  });
+
+  it('reads a simple field and one inside a content control', () => {
+    const simple = para(
+      `<w:fldSimple w:instr="TOC \\o &quot;1-4&quot;">${entry('Intro')}</w:fldSimple>`,
+    );
+    const wrapped = `<w:sdt><w:sdtContent>${text('Contents')}${toc('TOC \\o "1-1"')}</w:sdtContent></w:sdt>`;
+    expect(imported({ body: simple + wrapped }).document.blocks).toEqual([
+      toBlock('depth: 4'),
+      P('Contents'),
+      toBlock('depth: 1'),
+    ]);
+  });
+
+  it('leaves the entries of a table of contents that is only text as they are', () => {
+    const body = text('Intro', 'TOC1') + text('Method', 'TOC1');
+    expect(imported({ body }).document.blocks).toEqual([P('Intro'), P('Method')]);
   });
 });
 
