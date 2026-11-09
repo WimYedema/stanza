@@ -947,9 +947,39 @@ describe('exportDocx cells with blocks', () => {
     expect(paragraphTexts(xml).slice(0, 2)).toEqual(['H', '']);
   });
 
-  it('reports a list in a cell as not supported yet', async () => {
-    const list: List = { type: 'list', kind: 'bulleted', items: [{ blocks: [paragraph('a')] }] };
-    const { result } = await exported({ blocks: [list] });
-    expect(codes(result.diagnostics)).toContain('docx-unsupported-block');
+  it('writes a list in a cell as numbered paragraphs in that cell, from the list styles', async () => {
+    const list: List = {
+      type: 'list',
+      kind: 'bulleted',
+      items: [
+        { blocks: [paragraph('a'), paragraph('a, continued')] },
+        {
+          blocks: [
+            paragraph('b'),
+            { type: 'list', kind: 'numbered', items: [{ blocks: [paragraph('deeper')] }] },
+          ],
+        },
+      ],
+    };
+    const { result, xml } = await exported({ blocks: [paragraph('intro'), list] });
+    expect(codes(result.diagnostics)).not.toContain('docx-unsupported-block');
+    const cell = /<w:tc>(?:(?!<\/w:tc>).)*intro.*?<\/w:tc>/s.exec(xml)?.[0] ?? '';
+    expect(paragraphTexts(cell)).toEqual(['intro', 'a', 'a, continued', 'b', 'deeper']);
+    expect(numbered(cell).map(({ style, level }) => [style, level])).toEqual([
+      ['ListBulleted', '0'],
+      ['ListBulleted', '0'],
+      ['ListNumbered', '1'],
+    ]);
+  });
+
+  it('numbers each list of a cell on its own, and keeps the paragraphs of the cell in the cell style', async () => {
+    const numberedList = (value: string): List => ({
+      type: 'list',
+      kind: 'numbered',
+      items: [{ blocks: [paragraph(value)] }],
+    });
+    const { xml } = await exported({ blocks: [numberedList('one'), numberedList('two')] });
+    const ids = numbered(xml).map(({ list }) => list);
+    expect(new Set(ids).size).toBe(2);
   });
 });

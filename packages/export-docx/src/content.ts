@@ -233,7 +233,9 @@ function buildList(
           paragraphs.push(codeBlock(block, context, here));
           break;
         case 'table':
-          paragraphs.push(buildTable(block, context, context.lists.textIndent(style, level)));
+          paragraphs.push(
+            buildTable(block, context, blockPath, context.lists.textIndent(style, level)),
+          );
           break;
         case 'list':
           paragraphs.push(
@@ -266,17 +268,15 @@ function tableCell(
   ids: readonly NodeId[],
   width: `${number}%` | undefined,
   context: BuildContext,
+  path: string,
   runContext?: RunContext,
 ): TableCell {
   const paragraphs = cell.blocks.flatMap((block, index): Paragraph[] => {
     if (block.type === 'list') {
-      // Lists in cells come with the rendering item of ADR 0048.
-      context.diagnostics.push({
-        severity: 'error',
-        code: 'docx-unsupported-block',
-        message: 'The DOCX export does not support lists in table cells yet.',
-      });
-      return [];
+      // The lists of a cell are numbered like any other, from the stylesheet's list styles.
+      return buildList(block, 0, undefined, `${path}.blocks[${String(index)}]`, context).filter(
+        (child): child is Paragraph => child instanceof Paragraph,
+      );
     }
     const children = inBookmarks(
       index === 0 ? ids : [],
@@ -299,7 +299,12 @@ function tableCell(
  * header cells format their marks against a base that includes the header text properties. A
  * table in a list item is indented under the item's text, and narrowed to stay in the margin.
  */
-function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): Table {
+function buildTable(
+  table: TableBlock,
+  context: BuildContext,
+  path: string,
+  indentTwips = 0,
+): Table {
   const styleName = table.style ?? RESERVED_TABLE_STYLE;
   const resolved = resolveTableStyle(context.stylesheet, styleName);
   const cellStyle = resolved?.cellStyle ?? BODY_STYLE;
@@ -329,15 +334,25 @@ function buildTable(table: TableBlock, context: BuildContext, indentTwips = 0): 
         column === 0 ? idsOf(table) : [],
         width(column),
         context,
+        `${path}.header[${String(column)}]`,
         runContext,
       ),
     ),
   });
   const rows = table.rows.map(
-    (row) =>
+    (row, rowIndex) =>
       new TableRow({
         cantSplit: true,
-        children: row.map((cell, column) => tableCell(cell, cellStyle, [], width(column), context)),
+        children: row.map((cell, column) =>
+          tableCell(
+            cell,
+            cellStyle,
+            [],
+            width(column),
+            context,
+            `${path}.rows[${String(rowIndex)}][${String(column)}]`,
+          ),
+        ),
       }),
   );
   return new Table({
@@ -388,7 +403,7 @@ export function buildBlocks(blocks: readonly Block[], context: BuildContext): Ch
         paragraphs.push(...buildList(block, 0, undefined, path, context));
         break;
       case 'table':
-        paragraphs.push(buildTable(block, context));
+        paragraphs.push(buildTable(block, context, path));
         break;
       case 'phrase':
         if (block.kind === TOC_PHRASE_KIND) paragraphs.push(...buildToc(block, blocks, context));
