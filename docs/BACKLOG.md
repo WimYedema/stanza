@@ -61,12 +61,17 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 81. [S] - VS Code: "Phrase: New Document" adds a document to a project (a title, a file name from it, front matter, a first heading with an ID), next to the others in the folder of the project, and opens it. Added as the follow-up of item 80, so that a project can have several documents without hand-written files. Decided in ADR 0044.
 82. [L] - Word import, text content (ADR 0043): the `import-docx` package reads a DOCX and writes the document model and a report. Paragraphs, headings, lists, bold, italic and monospace as marks, hyperlinks, tracked changes as accepted, Word styles mapped to the nearest known style, and a placeholder or a report line for whatever cannot be represented. Acceptance: the imported text equals the DOCX body text paragraph by paragraph after the reported losses, checked on DOCX files built in tests and by hand on real documents. The XML parser and the small rules of the text import are in ADR 0045; tables are placeholders until the next item.
 83. [M] - Word import, tables and table of contents (ADR 0043): simple tables with a header row, tables that cannot be represented flattened into their cells and reported, and a Word table of contents field turned into a `phrase-toc` block with its depth. The rules for the header row, the cells and the depth are in ADR 0046.
+84. [S] - Word import, command line and VS Code (ADR 0043): `phrase import` and "Phrase: Import Word Document" write one new `.phrase.md` into a project, never over an existing file, assign IDs, and show the report like other diagnostics. The logic is `importWordDocument` in the `project` package. Decided in ADR 0047.
 
 ## Phase 5: Editor and review
 
 Placed before Phases 3 and 4 by the product owner.
 
-84. [S] - Word import, command line and VS Code (ADR 0043): `phrase import` and "Phrase: Import Word Document" write one new `.phrase.md` into a project, never over an existing file, assign IDs, and show the report like other diagnostics.
+86. [M] - Tables with paragraphs and lists in cells, model (ADR 0048): `TableCell` holds blocks (paragraphs and lists), with one paragraph for a plain cell and none for an empty one. Core types, validation (`table-cell-block`), normalization and IDs, and a mechanical migration of every consumer of `TableCell`, with no change in behavior for plain cells. Added at the request of the product owner.
+87. [M] - Tables with paragraphs and lists in cells, format (ADR 0048): parse and write the `phrase-table` block (a bullet list of rows, each a bullet list of cells, with blocks inside), choose the form by the content (a pipe table when every cell is plain), rewrite a plain `phrase-table` to a pipe table where that is cheap, diagnostics (`invalid-table-body`), and fixtures.
+88. [M] - Tables with paragraphs and lists in cells, rendering (ADR 0048): DOCX paragraphs and lists inside cells with the list definitions of ADR 0010, and the CSS of the editor and the paper look. Settle how list styles look in a cell.
+89. [M] - Tables with paragraphs and lists in cells, editor (ADR 0048): the editor schema takes paragraphs and lists in cells, with their commands and paste, and writes the right form on save.
+90. [S] - Word import keeps paragraphs and lists in cells (ADR 0048), so that `cell-joined` only remains for a nested table.
 72. [S] - Style editor, theme: the values of the color and font tokens, and adding a token. No renaming, since styles refer to tokens by name.
 73. [M] - Style editor, page templates: size, margins, and the header and footer slots. The cover entries come later.
 61. [M] - Style usage index in `project`: for each style, the documents and blocks that use it directly, by default, or through inheritance, over the documents found in the project folder.
@@ -104,3 +109,6 @@ Placed before Phases 3 and 4 by the product owner.
 46. [M] - Minimal bibliography with a fixed citation style.
 47. [M] - Browser host (VS Code web or standalone) behind the storage port.
 76. [M] - Code family: code blocks get their own family in the style editor, apart from the `code` mark (the inline variant), with room for syntax highlighting by language later. Needs an ADR first: what the family contains, and whether the paragraph style `code` moves to it. Added at the request of the product owner.
+91. [S] - Tables, header rows and columns: more than one header row, and header columns, as attributes of the table in its annotation (ADR 0048), working in both forms of a table.
+92. [M] - Tables, merged cells: `colspan` and `rowspan`, probably as a marker on the cell in the `phrase-table` body. ADR first.
+93. [M] - Tables from a CSV or JSON file in the project, as an attribute of the table in its annotation, read when the project is loaded or built. ADR first.
