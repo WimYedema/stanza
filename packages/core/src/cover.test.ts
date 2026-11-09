@@ -4,6 +4,7 @@ import type { DocumentMeta } from './document.js';
 import { slotText, slotValue } from './slot-values.js';
 import type { CoverEntry, SlotPart } from './stylesheet.js';
 import { isStyleName, type StyleName } from './style-name.js';
+import { plainCell } from './table-cell.js';
 
 const style = (value: string): StyleName => {
   if (!isStyleName(value)) throw new Error(value);
@@ -65,8 +66,8 @@ describe('coverBlocks', () => {
         header: [],
         rows: [
           [
-            { content: [{ type: 'text', text: 'Number', marks: [] }] },
-            { content: [{ type: 'text', text: 'EX-1', marks: [] }] },
+            plainCell([{ type: 'text', text: 'Number', marks: [] }]),
+            plainCell([{ type: 'text', text: 'EX-1', marks: [] }]),
           ],
         ],
       },

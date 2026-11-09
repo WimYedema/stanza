@@ -1,9 +1,10 @@
-import type { Block, DocumentMeta, TableCell, Text } from './document.js';
+import type { Block, DocumentMeta, Text } from './document.js';
 import { slotText } from './slot-values.js';
 import type { CoverEntry } from './stylesheet.js';
+import { plainCell } from './table-cell.js';
 
 const text = (value: string): Text => ({ type: 'text', text: value, marks: [] });
-const cell = (value: string): TableCell => ({ content: [text(value)] });
+const cell = (value: string) => plainCell([text(value)]);
 
 /**
  * The blocks of a cover page, with the metadata filled in. A paragraph without text and a row

@@ -1,4 +1,4 @@
-import { normalizeInlines, type Paragraph, type Table, type Text } from '@phrase/core';
+import { normalizeInlines, plainCell, type Paragraph, type Table, type Text } from '@phrase/core';
 import type { ImportContext } from './context.js';
 import { readParagraph } from './paragraph.js';
 import { toggleOf } from './styles.js';
@@ -92,8 +92,8 @@ export function importTable(table: XmlElement, ctx: ImportContext): (Table | Par
     return [
       {
         type: 'table',
-        header: first.cells.map((content) => ({ content })),
-        rows: rows.slice(1).map((row) => row.cells.map((content) => ({ content }))),
+        header: first.cells.map((content) => plainCell(content)),
+        rows: rows.slice(1).map((row) => row.cells.map((content) => plainCell(content))),
       },
     ];
   }

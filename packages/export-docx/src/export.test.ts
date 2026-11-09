@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Diagnostic, List, Text } from '@phrase/core';
+import {
+  plainCell,
+  type Diagnostic,
+  type Document,
+  type List,
+  type Paragraph,
+  type TableCell,
+  type Text,
+} from '@phrase/core';
 import { parseDocument, parseStylesheet } from '@phrase/format';
 import { exportDocx, type ExportResult } from './export.js';
 
@@ -911,5 +919,37 @@ describe('exportDocx cover page', () => {
     expect(documentXml.indexOf('Table of Contents')).toBeGreaterThan(
       documentXml.indexOf('</w:sectPr>'),
     );
+  });
+});
+
+describe('exportDocx cells with blocks', () => {
+  const run = (value: string): Text => ({ type: 'text', text: value, marks: [] });
+  const paragraph = (value: string): Paragraph => ({ type: 'paragraph', content: [run(value)] });
+  const tableOf = (cell: TableCell): Document => ({
+    meta: { fields: {} },
+    blocks: [{ type: 'table', header: [plainCell([run('H')])], rows: [[cell]] }],
+  });
+  const exported = async (cell: TableCell) => {
+    const result = await exportDocx(tableOf(cell), stylesheet, { timestamp: TIMESTAMP });
+    const files = result.bytes === undefined ? {} : unzipSync(result.bytes);
+    const xml = strFromU8(files['word/document.xml'] ?? new Uint8Array());
+    return { result, xml };
+  };
+
+  it('writes each paragraph of a cell in the cell style', async () => {
+    const { xml } = await exported({ blocks: [paragraph('first'), paragraph('second')] });
+    expect(paragraphTexts(xml).slice(0, 3)).toEqual(['H', 'first', 'second']);
+    expect(xml.match(/<w:pStyle w:val="TableCell"\/>/g)).toHaveLength(3);
+  });
+
+  it('writes an empty cell as one empty paragraph, since Word wants one', async () => {
+    const { xml } = await exported({ blocks: [] });
+    expect(paragraphTexts(xml).slice(0, 2)).toEqual(['H', '']);
+  });
+
+  it('reports a list in a cell as not supported yet', async () => {
+    const list: List = { type: 'list', kind: 'bulleted', items: [{ blocks: [paragraph('a')] }] };
+    const { result } = await exported({ blocks: [list] });
+    expect(codes(result.diagnostics)).toContain('docx-unsupported-block');
   });
 });

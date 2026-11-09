@@ -1,5 +1,6 @@
 import {
   normalizeDocument,
+  plainCell,
   type Document,
   type Inline,
   type Mark,
@@ -150,8 +151,8 @@ describe('round trips', () => {
               { type: 'code', language: 'ts', text: 'let x = 1;\n\nlet y = 2;' },
               {
                 type: 'table',
-                header: [{ content: [run('H')] }],
-                rows: [[{ content: [run('c')] }]],
+                header: [plainCell([run('H')])],
+                rows: [[plainCell([run('c')])]],
               },
               { type: 'phrase', kind: 'diagram', text: 'a\nb' },
             ],
@@ -190,7 +191,7 @@ describe('round trips', () => {
           id,
           style,
           widths: [1, 2.5],
-          header: [{ content: [run('A')] }, { content: [run('B')] }],
+          header: [plainCell([run('A')]), plainCell([run('B')])],
           rows: [],
         },
         {
@@ -235,8 +236,8 @@ describe('special characters survive a round trip', () => {
       expectRoundTrip(
         documentOf({
           type: 'table',
-          header: [{ content: [run('H')] }],
-          rows: [[{ content: [run(text)] }]],
+          header: [plainCell([run('H')])],
+          rows: [[plainCell([run(text)])]],
         }),
       );
     }
@@ -281,5 +282,17 @@ describe('random sequences of marked runs', () => {
       );
       expectRoundTrip(documentOf(paragraph(...runs)));
     }
+  });
+});
+
+describe('a table cell that a pipe table cannot write', () => {
+  it('is refused for now, instead of being written with something lost', () => {
+    const paragraphOf = (text: string): Paragraph => ({ type: 'paragraph', content: [run(text)] });
+    const document = documentOf({
+      type: 'table',
+      header: [plainCell([run('H')])],
+      rows: [[{ blocks: [paragraphOf('one'), paragraphOf('two')] }]],
+    });
+    expect(() => serializeDocument(document)).toThrow('cannot be written yet');
   });
 });

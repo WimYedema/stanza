@@ -54,8 +54,12 @@ export interface Table extends BlockBase {
   readonly rows: readonly (readonly TableCell[])[];
 }
 
+/** What a table cell may hold (ADR 0048). Validation keeps list items to the same two kinds. */
+export type CellBlock = Paragraph | List;
+
+/** A cell is empty (no blocks), plain text (one paragraph), or more. */
 export interface TableCell {
-  readonly content: readonly Inline[];
+  readonly blocks: readonly CellBlock[];
 }
 
 export interface CodeBlock extends BlockBase {

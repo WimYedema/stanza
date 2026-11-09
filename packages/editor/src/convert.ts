@@ -2,6 +2,8 @@ import {
   isNodeId,
   isStyleName,
   normalizeDocument,
+  plainCell,
+  plainCellInlines,
   type Block,
   type Diagnostic,
   type Document,
@@ -60,10 +62,13 @@ const inlinesJson = (inlines: readonly Inline[]): JSONContent[] =>
       ...(inline.marks.length > 0 ? { marks: inline.marks.map(markJson) } : {}),
     }));
 
-const cellJson = (type: 'tableHeader' | 'tableCell', cell: TableCell): JSONContent => ({
-  type,
-  content: inlinesJson(cell.content),
-});
+const cellJson = (type: 'tableHeader' | 'tableCell', cell: TableCell): JSONContent => {
+  const inlines = plainCellInlines(cell);
+  // The cells of the editor hold inline text until the editor item of ADR 0048.
+  if (inlines === undefined)
+    throw new Error('The editor cannot show a table cell with more than text yet.');
+  return { type, content: inlinesJson(inlines) };
+};
 
 function tableJson(table: Table): JSONContent {
   const rows: JSONContent[] = [];
@@ -213,7 +218,7 @@ class Reader {
     if (node.attrs['colspan'] !== 1 || node.attrs['rowspan'] !== 1) {
       this.problem('A table cell cannot span several columns or rows.', path);
     }
-    return { content: this.inlines(node, path) };
+    return plainCell(this.inlines(node, path));
   }
 
   private table(node: EditorNode, path: string): Table {

@@ -520,7 +520,8 @@ describe('tables', () => {
     `<w:tbl><w:tblPr>${look}</w:tblPr>${rows}</w:tbl>`;
   const cells = (...values: string[]): string => values.map((v) => cell(text(v))).join('');
   const C = (value: string, marks: readonly Mark[] = []) => ({
-    content: value === '' ? [] : [{ type: 'text', text: value, marks }],
+    blocks:
+      value === '' ? [] : [{ type: 'paragraph', content: [{ type: 'text', text: value, marks }] }],
   });
 
   it('makes a table of a first row that the look of the table marks as the header', () => {

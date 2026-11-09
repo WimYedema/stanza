@@ -1,6 +1,6 @@
 # ADR 0004: Domain document model
 
-Status: Accepted. Normal form refined by ADR 0005.
+Status: Accepted. Normal form refined by ADR 0005. Table cells hold paragraphs and lists: ADR 0048.
 
 ## Context
 

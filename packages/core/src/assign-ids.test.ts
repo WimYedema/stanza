@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assignMissingIds } from './assign-ids.js';
 import type { Block, Document, Heading, Inline, List, Paragraph, Table } from './document.js';
 import { isNodeId, nodeIdFromRandomBytes, type NodeId } from './ids.js';
+import { plainCell } from './table-cell.js';
 
 function id(value: string): NodeId {
   if (!isNodeId(value)) throw new Error(`invalid test ID ${value}`);
@@ -32,7 +33,7 @@ const heading = (idValue?: string): Heading => ({
 });
 const table = (idValue?: string): Table => ({
   type: 'table',
-  header: [{ content: [text] }],
+  header: [plainCell([text])],
   rows: [],
   ...(idValue !== undefined ? { id: id(idValue) } : {}),
 });

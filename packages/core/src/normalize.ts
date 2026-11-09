@@ -1,5 +1,6 @@
 import type {
   Block,
+  CellBlock,
   Document,
   Inline,
   ListItemBlock,
@@ -136,8 +137,18 @@ function trimBlockEdges(runs: Text[]): void {
   }
 }
 
+function normalizeCellBlock(block: CellBlock): CellBlock {
+  if (block.type === 'paragraph') return { ...block, content: normalizeInlines(block.content) };
+  return {
+    ...block,
+    items: block.items.map((item) => ({ blocks: normalizeListItemBlocks(item.blocks) })),
+  };
+}
+
 function normalizeCell(cell: TableCell): TableCell {
-  return { content: normalizeInlines(cell.content) };
+  return {
+    blocks: cell.blocks.map(normalizeCellBlock).filter((block) => !isEmptyParagraph(block)),
+  };
 }
 
 function normalizeTable(table: Table): Table {

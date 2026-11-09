@@ -3,6 +3,7 @@ import { validateDocument } from './document-validation.js';
 import type { Block, Document, Heading, Inline, List, Mark, Paragraph, Table } from './document.js';
 import { isNodeId, type NodeId } from './ids.js';
 import { n, plainStyle, sheet } from './stylesheet.testing.js';
+import { plainCell } from './table-cell.js';
 
 const strong: Mark = { type: 'strong' };
 const emphasis: Mark = { type: 'emphasis' };
@@ -35,8 +36,8 @@ const paragraph = (content: Inline[], extra: Partial<Paragraph> = {}): Paragraph
 const table = (extra: Partial<Table> = {}): Table => ({
   type: 'table',
   id: B,
-  header: [{ content: [run('H')] }],
-  rows: [[{ content: [run('c')] }]],
+  header: [plainCell([run('H')])],
+  rows: [[plainCell([run('c')])]],
   ...extra,
 });
 const documentOf = (...blocks: Block[]): Document => ({ meta: { fields: {} }, blocks });
@@ -136,11 +137,11 @@ describe('validateDocument', () => {
 
   it('checks table cells against the body style', () => {
     const cellWith = (mark: Mark): Table =>
-      table({ header: [{ content: [run('H', mark)] }], rows: [[{ content: [run('c', mark)] }]] });
+      table({ header: [plainCell([run('H', mark)])], rows: [[plainCell([run('c', mark)])]] });
     expect(problems(documentOf(cellWith(strong)))).toEqual([]);
     expect(problems(documentOf(cellWith({ type: 'link', href: '#x' })))).toEqual([
-      ['mark-not-allowed', 'blocks[0].header[0]'],
-      ['mark-not-allowed', 'blocks[0].rows[0][0]'],
+      ['mark-not-allowed', 'blocks[0].header[0].blocks[0].content'],
+      ['mark-not-allowed', 'blocks[0].rows[0][0].blocks[0].content'],
     ]);
   });
 
@@ -149,9 +150,9 @@ describe('validateDocument', () => {
       paragraph: { 'table-cell': plainStyle },
       table: { table: { cellStyle: n('table-cell') } },
     });
-    const cell = table({ header: [{ content: [run('H', strong)] }], rows: [] });
+    const cell = table({ header: [plainCell([run('H', strong)])], rows: [] });
     expect(validateDocument(documentOf(cell), withCellStyle).map((d) => [d.code, d.path])).toEqual([
-      ['mark-not-allowed', 'blocks[0].header[0]'],
+      ['mark-not-allowed', 'blocks[0].header[0].blocks[0].content'],
     ]);
   });
 
@@ -203,8 +204,68 @@ describe('validateDocument', () => {
     expect(result[1]?.message).toContain('blocks[2]');
   });
 
+  it('accepts paragraphs and lists in a cell, and checks the marks of a list item against its list', () => {
+    const list = (mark: Mark): Block => ({
+      type: 'list',
+      kind: 'bulleted',
+      items: [{ blocks: [paragraph([run('a', mark)])] }],
+    });
+    const cell = (...blocks: Block[]): Table =>
+      table({
+        header: [{ blocks: [paragraph([run('H')])] }],
+        rows: [[{ blocks: blocks as never }]],
+      });
+    expect(problems(documentOf(cell(paragraph([run('p')]), list(emphasis))))).toEqual([]);
+    // List items allow emphasis but not strong.
+    expect(problems(documentOf(cell(paragraph([run('p')]), list(strong))))).toEqual([
+      ['mark-not-allowed', 'blocks[0].rows[0][0].blocks[1].items[0].blocks[0].content'],
+    ]);
+  });
+
+  it('refuses blocks that a cell may not hold, in the cell and in a list of the cell', () => {
+    const nested = table({ id: id('cccccccccc') });
+    const inCell = (...blocks: Block[]): Table =>
+      table({ header: [plainCell([run('H')])], rows: [[{ blocks: blocks as never }]] });
+    expect(
+      problems(
+        documentOf(
+          inCell(heading([run('x')]), { type: 'code', text: 'x' }, nested, {
+            type: 'list',
+            kind: 'bulleted',
+            items: [{ blocks: [{ type: 'code', text: 'y' }] }],
+          }),
+        ),
+      ),
+    ).toEqual([
+      ['table-cell-block', 'blocks[0].rows[0][0].blocks[0]'],
+      ['table-cell-block', 'blocks[0].rows[0][0].blocks[1]'],
+      ['table-cell-block', 'blocks[0].rows[0][0].blocks[2]'],
+      ['table-cell-block', 'blocks[0].rows[0][0].blocks[3].items[0].blocks[0]'],
+    ]);
+  });
+
+  it('refuses an ID or a style on a block in a cell', () => {
+    const cell = table({
+      header: [plainCell([run('H')])],
+      rows: [
+        [
+          {
+            blocks: [
+              paragraph([run('x')], { style: n('note') }),
+              paragraph([run('y')], { id: id('dddddddddd') }),
+            ],
+          },
+        ],
+      ],
+    });
+    expect(problems(documentOf(cell))).toEqual([
+      ['table-cell-block', 'blocks[0].rows[0][0].blocks[0]'],
+      ['table-cell-block', 'blocks[0].rows[0][0].blocks[1]'],
+    ]);
+  });
+
   it('checks that tables are rectangular and have matching widths', () => {
-    const cell = { content: [run('x')] };
+    const cell = plainCell([run('x')]);
     expect(
       problems(
         documentOf(

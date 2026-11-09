@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nodeIdFromRandomBytes, type Document } from '@phrase/core';
+import { nodeIdFromRandomBytes, plainCell, type Document } from '@phrase/core';
 import { exportDocx } from '@phrase/export-docx';
 import { loadProject } from './load.js';
 import { memoryStorage, type MemoryStorage } from './memory-storage.testing.js';
@@ -46,8 +46,8 @@ async function wordFile(storage: MemoryStorage): Promise<Uint8Array> {
       {
         type: 'table',
         id: nodeIdFromRandomBytes(bytes(51)()),
-        header: [{ content: [text('A')] }],
-        rows: [[{ content: [text('1')] }]],
+        header: [plainCell([text('A')])],
+        rows: [[plainCell([text('1')])]],
       },
     ],
   };

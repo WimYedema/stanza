@@ -113,14 +113,14 @@ describe('blocks', () => {
 
   it('pads and truncates table rows to the header width', () => {
     const { document } = parseBody('| A | B |\n| --- | --- |\n| 1 |\n| 1 | 2 | 3 |');
+    const cell = (text: string) => ({
+      blocks: [{ type: 'paragraph', content: [expect.objectContaining({ text })] }],
+    });
     expect(document.blocks[0]).toEqual(
       expect.objectContaining({
         rows: [
-          [{ content: [expect.objectContaining({ text: '1' })] }, { content: [] }],
-          [
-            { content: [expect.objectContaining({ text: '1' })] },
-            { content: [expect.objectContaining({ text: '2' })] },
-          ],
+          [cell('1'), { blocks: [] }],
+          [cell('1'), cell('2')],
         ],
       }),
     );

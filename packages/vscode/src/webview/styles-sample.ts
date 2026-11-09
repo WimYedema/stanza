@@ -1,5 +1,6 @@
 import {
   CODE_STYLE,
+  plainCell,
   type Block,
   type Document,
   type Inline,
@@ -34,7 +35,7 @@ const heading = (level: 1 | 2 | 3 | 4 | 5 | 6, value: string): Block => ({
   content: [text(value)],
 });
 
-const cell = (value: string) => ({ content: [text(value)] });
+const cell = (value: string) => plainCell([text(value)]);
 
 /** Paragraph styles that the sample shows through its headings, lists and code block. */
 const SHOWN_BY_KIND = /^(heading-[1-6]|list-(bulleted|numbered)|code|body)$/;

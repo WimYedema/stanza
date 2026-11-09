@@ -14,6 +14,7 @@ import type {
   ListItemBlock,
   PhraseBlock,
   Table,
+  TableCell,
 } from './document.js';
 import { numberHeadings } from './heading-numbering.js';
 import type { NodeId } from './ids.js';
@@ -168,16 +169,54 @@ export function validateDocument(
       );
     }
     table.header.forEach((cell, index) => {
-      checkInlines(cell.content, cellStyle, `${path}.header[${String(index)}]`);
+      checkCell(cell, cellStyle, `${path}.header[${String(index)}]`);
     });
     table.rows.forEach((row, rowIndex) => {
       row.forEach((cell, index) => {
-        checkInlines(
-          cell.content,
-          cellStyle,
-          `${path}.rows[${String(rowIndex)}][${String(index)}]`,
+        checkCell(cell, cellStyle, `${path}.rows[${String(rowIndex)}][${String(index)}]`);
+      });
+    });
+  };
+
+  // A cell holds paragraphs and lists only, and its blocks take the style of the cell (ADR 0048).
+  const checkCellBlock = (block: Block | ListItemBlock, style: StyleName, path: string): void => {
+    if (block.type !== 'paragraph' && block.type !== 'list') {
+      report(
+        'error',
+        'table-cell-block',
+        `A table cell holds paragraphs and lists, not ${block.type} blocks.`,
+        path,
+        block.id,
+      );
+      return;
+    }
+    if (block.id !== undefined || block.style !== undefined) {
+      report(
+        'error',
+        'table-cell-block',
+        'A block in a table cell takes the style of the cell and has no ID.',
+        path,
+        block.id,
+      );
+    }
+    if (block.type === 'paragraph') {
+      checkInlines(block.content, style, `${path}.content`);
+      return;
+    }
+    block.items.forEach((item, itemIndex) => {
+      item.blocks.forEach((child, index) => {
+        checkCellBlock(
+          child,
+          LIST_STYLES[block.kind],
+          `${path}.items[${String(itemIndex)}].blocks[${String(index)}]`,
         );
       });
+    });
+  };
+
+  const checkCell = (cell: TableCell, style: StyleName, path: string): void => {
+    cell.blocks.forEach((block, index) => {
+      checkCellBlock(block, style, `${path}.blocks[${String(index)}]`);
     });
   };
 

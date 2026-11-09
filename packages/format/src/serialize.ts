@@ -1,6 +1,7 @@
 import {
   normalizeDocument,
   normalizeInlines,
+  plainCellInlines,
   type Block,
   type Document,
   type Inline,
@@ -103,9 +104,18 @@ function serializeList(list: List, alternateMarker: boolean): string[] {
   return lines;
 }
 
+/** Until the `phrase-table` block (ADR 0048), only a cell of plain text can be written. */
+function plainContent(cell: TableCell): readonly Inline[] {
+  const inlines = plainCellInlines(cell);
+  if (inlines === undefined) {
+    throw new Error('A table cell with more than one plain paragraph cannot be written yet.');
+  }
+  return inlines;
+}
+
 function serializeTable(table: Table): string[] {
   const row = (cells: readonly TableCell[]): string =>
-    `| ${cells.map((cell) => serializeInlines(cell.content, 'cell')).join(' | ')} |`;
+    `| ${cells.map((cell) => serializeInlines(plainContent(cell), 'cell')).join(' | ')} |`;
   return [
     row(table.header),
     `| ${table.header.map(() => '---').join(' | ')} |`,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Document, Inline, Mark } from './document.js';
 import { normalizeDocument, normalizeInlines } from './normalize.js';
 import { isStyleName } from './style-name.js';
+import { plainCell } from './table-cell.js';
 
 const strong: Mark = { type: 'strong' };
 const emphasis: Mark = { type: 'emphasis' };
@@ -109,7 +110,7 @@ describe('normalizeDocument', () => {
           kind: 'bulleted',
           items: [{ blocks: [{ type: 'paragraph', content: messy }] }],
         },
-        { type: 'table', header: [{ content: messy }], rows: [[{ content: messy }]] },
+        { type: 'table', header: [plainCell(messy)], rows: [[plainCell(messy)]] },
         { type: 'code', text: 'a  b' },
       ],
     };
@@ -123,9 +124,45 @@ describe('normalizeDocument', () => {
           kind: 'bulleted',
           items: [{ blocks: [{ type: 'paragraph', content: clean }] }],
         },
-        { type: 'table', header: [{ content: clean }], rows: [[{ content: clean }]] },
+        { type: 'table', header: [plainCell(clean)], rows: [[plainCell(clean)]] },
         { type: 'code', text: 'a  b' },
       ],
     });
+  });
+
+  it('normalizes the blocks of a cell, and drops a cell paragraph that is left empty', () => {
+    const messy = [run('a', strong), run('b', strong)];
+    const clean = [run('ab', strong)];
+    const list = {
+      type: 'list',
+      kind: 'bulleted',
+      items: [{ blocks: [{ type: 'paragraph', content: messy }] }],
+    } as const;
+    const document: Document = {
+      meta: { fields: {} },
+      blocks: [
+        {
+          type: 'table',
+          header: [plainCell([run('  ')])],
+          rows: [[{ blocks: [{ type: 'paragraph', content: messy }, list] }]],
+        },
+      ],
+    };
+    expect(normalizeDocument(document).blocks).toEqual([
+      {
+        type: 'table',
+        header: [{ blocks: [] }],
+        rows: [
+          [
+            {
+              blocks: [
+                { type: 'paragraph', content: clean },
+                { ...list, items: [{ blocks: [{ type: 'paragraph', content: clean }] }] },
+              ],
+            },
+          ],
+        ],
+      },
+    ]);
   });
 });

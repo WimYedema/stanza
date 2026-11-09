@@ -1,6 +1,8 @@
 import {
   isStyleName,
   normalizeInlines,
+  plainCell,
+  plainCellInlines,
   type Block,
   type Diagnostic,
   type Document,
@@ -296,7 +298,7 @@ function parseTable(state: State, open: Token): Block {
       case 'th_open':
       case 'td_open':
         if (token.attrGet('style') !== null) aligned = true;
-        current?.push({ content: inlineRuns(state, state.tokens[state.pos], token) });
+        current?.push(plainCell(inlineRuns(state, state.tokens[state.pos], token)));
         state.pos += 2; // the inline token and the cell's closing token
         break;
     }
@@ -314,7 +316,7 @@ function parseTable(state: State, open: Token): Block {
   const columns = header[0]?.length ?? 0;
   // The Markdown parser already drops cells beyond the header, as GitHub does.
   const fit = (row: TableCell[]): TableCell[] =>
-    Array.from({ length: columns }, (_, i) => row[i] ?? { content: [] });
+    Array.from({ length: columns }, (_, i) => row[i] ?? plainCell([]));
   return { type: 'table', header: fit(header[0] ?? []), rows: rows.map(fit) };
 }
 
@@ -476,5 +478,7 @@ export function parseInlineText(
   };
   const block = parseBlocks(state, undefined, true)[0];
   if (block?.type === 'heading' || block?.type === 'paragraph') return block.content;
-  return block?.type === 'table' ? block.rows[0]?.[0]?.content : undefined;
+  return block?.type === 'table' && block.rows[0]?.[0] !== undefined
+    ? plainCellInlines(block.rows[0][0])
+    : undefined;
 }

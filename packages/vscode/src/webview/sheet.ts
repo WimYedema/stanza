@@ -165,7 +165,9 @@ function drawCover(root: HTMLElement, blocks: readonly Block[], stylesheet: Styl
         for (const cell of row) {
           const td = tr.insertCell();
           td.className = paragraphClass(cellStyle ?? BODY_STYLE);
-          td.textContent = cell.content.map((inline) => inline.text).join('');
+          td.textContent = cell.blocks
+            .flatMap((cellBlock) => (cellBlock.type === 'paragraph' ? [textOf(cellBlock)] : []))
+            .join(' ');
         }
       }
       root.append(table);

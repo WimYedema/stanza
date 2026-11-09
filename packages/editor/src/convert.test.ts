@@ -129,7 +129,7 @@ describe('fromEditorContent', () => {
     const { document, diagnostics } = fromEditorContent(noHeader, meta);
     expect(diagnostics).toEqual([]);
     expect(document?.blocks).toEqual([
-      { type: 'table', header: [], rows: [[{ content: [] }]] },
+      { type: 'table', header: [], rows: [[{ blocks: [] }]] },
       { type: 'table', header: [], rows: [] },
     ]);
   });
@@ -199,5 +199,21 @@ describe('fromEditorContent', () => {
       'editor-invalid-content blocks[0].rows[0].cells[0]',
       'editor-invalid-content blocks[0].rows[0].cells[1]',
     ]);
+  });
+
+  it('refuses to show a table cell that holds more than text, instead of flattening it', () => {
+    const paragraphOf = (text: string) =>
+      ({ type: 'paragraph', content: [{ type: 'text', text, marks: [] }] }) as const;
+    const document: Document = {
+      meta: { fields: {} },
+      blocks: [
+        {
+          type: 'table',
+          header: [{ blocks: [paragraphOf('H')] }],
+          rows: [[{ blocks: [paragraphOf('one'), paragraphOf('two')] }]],
+        },
+      ],
+    };
+    expect(() => toEditorContent(document)).toThrow('more than text');
   });
 });

@@ -268,10 +268,29 @@ function tableCell(
   context: BuildContext,
   runContext?: RunContext,
 ): TableCell {
-  const children = inBookmarks(ids, inlineChildren(cell.content, style, context, runContext));
+  const paragraphs = cell.blocks.flatMap((block, index): Paragraph[] => {
+    if (block.type === 'list') {
+      // Lists in cells come with the rendering item of ADR 0048.
+      context.diagnostics.push({
+        severity: 'error',
+        code: 'docx-unsupported-block',
+        message: 'The DOCX export does not support lists in table cells yet.',
+      });
+      return [];
+    }
+    const children = inBookmarks(
+      index === 0 ? ids : [],
+      inlineChildren(block.content, style, context, runContext),
+    );
+    return [new Paragraph({ style: wordStyleId(style), children })];
+  });
+  // Word needs a paragraph in every cell.
+  if (paragraphs.length === 0) {
+    paragraphs.push(new Paragraph({ style: wordStyleId(style), children: inBookmarks(ids, []) }));
+  }
   return new TableCell({
     ...(width !== undefined ? { width: { size: width, type: WidthType.PERCENTAGE } } : {}),
-    children: [new Paragraph({ style: wordStyleId(style), children })],
+    children: paragraphs,
   });
 }
 

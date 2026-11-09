@@ -1,6 +1,6 @@
 # ADR 0001: Native Markdown dialect
 
-Status: Accepted. Details added by ADR 0005; the `phrase-toc` block by ADR 0018; IDs of new blocks in the editor by ADR 0024.
+Status: Accepted. Details added by ADR 0005; the `phrase-toc` block by ADR 0018; IDs of new blocks in the editor by ADR 0024; tables with paragraphs and lists in cells, the `phrase-table` block, by ADR 0048.
 
 ## Context
 
