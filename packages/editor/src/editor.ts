@@ -11,6 +11,7 @@ import { checkCommand, runCommand, type CommandResult, type EditorCommand } from
 import { editorContext, type EditorContext } from './context.js';
 import { ContextClasses, REFRESH_CLASSES, contextClassesKey } from './context-classes.js';
 import { fromEditorContent, toEditorContent, type FromEditorResult } from './convert.js';
+import { GapCursor } from './gap-cursor.js';
 import { PhraseKeys } from './keys.js';
 import type { Notice } from './notice.js';
 import { PhrasePaste } from './paste.js';
@@ -59,6 +60,32 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
 
 .${SCOPE_CLASS} .selectedCell {
   background-color: #C8DCFF;
+}
+
+.${SCOPE_CLASS} .ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+
+.${SCOPE_CLASS} .ProseMirror-gapcursor::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid currentColor;
+  animation: phrase-gapcursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes phrase-gapcursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.${SCOPE_CLASS}.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
 }
 `;
 
@@ -123,6 +150,7 @@ export function phraseExtensions(
 ): Extensions {
   return [
     ...schemaExtensions(),
+    GapCursor,
     BlockIds.configure({ ...ids, notice }),
     ContextClasses.configure({ stylesheet }),
     PhraseBlockView.configure({ stylesheet }),
