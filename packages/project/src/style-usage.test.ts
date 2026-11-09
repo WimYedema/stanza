@@ -34,8 +34,11 @@ const text = (value: string, marks: Text['marks'] = []): Text => ({
   text: value,
   marks,
 });
-const paragraph = (value: string, extra: object = {}): Block =>
-  ({ type: 'paragraph', content: [text(value)], ...extra }) as Block;
+const paragraph = (value: string, extra: object = {}): Block => ({
+  type: 'paragraph',
+  content: [text(value)],
+  ...extra,
+});
 
 const doc = (path: string, ...blocks: Block[]): LoadedDocument => ({
   path,
@@ -126,8 +129,12 @@ describe('styleUsage', () => {
 
   it('counts the table style, and gives the cells the cell style of the table', () => {
     const cell = { blocks: [paragraph('c')] } as never;
-    const table = (extra: object = {}): Block =>
-      ({ type: 'table', header: [cell], rows: [[cell]], ...extra }) as Block;
+    const table = (extra: object = {}): Block => ({
+      type: 'table',
+      header: [cell],
+      rows: [[cell]],
+      ...extra,
+    });
     const documents = [doc('a.phrase.md', table(), table({ style: 'table-grid' }))];
     expect(usesOf('tableStyles', documents, 'table')).toEqual([
       'default a.phrase.md:blocks[0]',
