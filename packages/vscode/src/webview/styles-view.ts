@@ -5,6 +5,7 @@ import {
   displayName,
   entriesOf,
   type Entry,
+  type EntryKind,
   type Family,
 } from './styles-families.js';
 
@@ -17,6 +18,8 @@ export interface StylesViewElements {
 export interface StylesView {
   /** Draws the tabs, the list and the detail for a stylesheet, keeping the selection if it is still there. */
   show(stylesheet: Stylesheet): void;
+  /** Selects an entry as soon as a stylesheet that has it is shown, such as a style that was just added. */
+  selectWhenShown(kind: EntryKind, name: string): void;
 }
 
 const EMPTY: Partial<Record<Family, string>> = {
@@ -37,6 +40,7 @@ export function createStylesView(
   let entries: readonly Entry[] = [];
   let family: Family = 'paragraphs';
   let selectedKey: string | undefined;
+  let wanted: { readonly kind: EntryKind; readonly name: string } | undefined;
 
   const selected = (): Entry | undefined =>
     entries.find((entry) => entry.family === family && keyOf(entry) === selectedKey);
@@ -111,9 +115,20 @@ export function createStylesView(
     show(next) {
       stylesheet = next;
       entries = entriesOf(next);
+      const found = entries.find(
+        (entry) => entry.kind === wanted?.kind && entry.name === wanted.name,
+      );
+      if (found !== undefined) {
+        wanted = undefined;
+        family = found.family;
+        selectedKey = keyOf(found);
+      }
       if (selected() === undefined) selectedKey = undefined;
       draw();
       onSelect(selected(), family);
+    },
+    selectWhenShown(kind, name) {
+      wanted = { kind, name };
     },
   };
 }

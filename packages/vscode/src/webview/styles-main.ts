@@ -7,6 +7,7 @@ import {
   type StylesHostMessage,
   type StylesWebviewMessage,
 } from '../shared/styles-protocol.js';
+import { createAddPanel } from './styles-add.js';
 import { createPanel } from './styles-panel.js';
 import { createPagePanel } from './styles-pages.js';
 import { focusSample, sampleDocument } from './styles-sample.js';
@@ -45,12 +46,20 @@ const detail = element('detail');
 const panel = createPanel({ root: element('panel'), send });
 const theme = createThemePanel({ root: element('theme'), send });
 const pages = createPagePanel({ root: element('pages'), send });
+const adder = createAddPanel({
+  root: element('add'),
+  send,
+  added: (kind, name) => {
+    view.selectWhenShown(kind, name);
+  },
+});
 
 const view = createStylesView(
   { tabs: element('tabs'), list: element('list'), detail },
   (entry, family) => {
     focusSample(sample, entry);
     if (latest === undefined) return;
+    adder.show(family, latest);
     const shown = [
       panel.show(entry, latest),
       theme.show(entry, family, latest),
@@ -127,6 +136,7 @@ function handle(message: StylesHostMessage): void {
       panel.refused(message.message);
       theme.refused(message.message);
       pages.refused(message.message);
+      adder.refused(message.message);
       return;
   }
 }

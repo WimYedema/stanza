@@ -86,6 +86,9 @@ export const world = {
   /** The information messages shown, and the button that is pressed on them. */
   infos: [] as string[],
   infoChoice: undefined as string | undefined,
+  /** The warnings asked with buttons, and the button that is pressed on them. */
+  warnings: [] as string[],
+  warningChoice: undefined as string | undefined,
   /** The folders that the editor was opened on are not in the workspace. */
   outsideWorkspace: false,
   /** The files whose content is bytes, such as a DOCX, by absolute path. */
@@ -135,6 +138,8 @@ export function reset(
   world.inputOptions = undefined;
   world.infos = [];
   world.infoChoice = undefined;
+  world.warnings = [];
+  world.warningChoice = undefined;
   world.outsideWorkspace = false;
   world.remoteName = undefined;
   world.binary = new Map();
@@ -376,6 +381,10 @@ export function createFakeVscode(): Record<string, unknown> {
       showInformationMessage: (message: string) => {
         world.infos.push(message);
         return Promise.resolve(world.infoChoice);
+      },
+      showWarningMessage: (message: string) => {
+        world.warnings.push(message);
+        return Promise.resolve(world.warningChoice);
       },
       showErrorMessage: (message: string) => {
         world.errors.push(message);

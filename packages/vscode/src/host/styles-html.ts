@@ -46,7 +46,7 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
     padding: 2px 4px; font: 12px sans-serif; background: #3c3c3c; color: #cccccc;
     border: 1px solid #555555; }
   #theme input[type="color"] { flex: none; width: 32px; padding: 0; }
-  #theme button { padding: 2px 10px; font: 12px sans-serif; }
+  .side-panel button:not(.reset) { padding: 2px 10px; font: 12px sans-serif; }
   .side-panel .unit { font-size: 11px; color: #9d9d9d; }
   .side-panel .reset { padding: 0; border: 0; background: none; color: #9d9d9d; cursor: pointer; }
   .side-panel .note { grid-column: 2 / 4; font-size: 11px; color: #9d9d9d; }
@@ -72,6 +72,7 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
   <div id="layout">
     <div id="side">
       <ul id="list"></ul>
+      <div id="add" class="side-panel" hidden></div>
       <dl id="detail"></dl>
       <div id="panel" class="side-panel" hidden></div>
       <div id="theme" class="side-panel" hidden></div>

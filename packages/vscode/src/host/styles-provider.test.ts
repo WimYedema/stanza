@@ -209,3 +209,123 @@ describe('while it is open', () => {
     expect(world.commands).toEqual([]);
   });
 });
+
+describe('adding and deleting styles', () => {
+  const READY = { type: 'ready' };
+  const FULL = `phrase-format: 1
+paragraph-styles:
+  body: {}
+  heading-1: { based-on: body }
+  heading-2: { based-on: body }
+  heading-3: { based-on: body }
+  heading-4: { based-on: body }
+  heading-5: { based-on: body }
+  heading-6: { based-on: body }
+  code: { based-on: body }
+  list-bulleted: { based-on: body }
+  list-numbered: { based-on: body }
+  note: { based-on: body }
+  loose: { based-on: body }
+  warning-note: { based-on: note }
+character-styles:
+  status: { bold: true }
+table-styles:
+  table: {}
+`;
+  const DOCUMENT =
+    '---\nphrase-format: 1\ntitle: "Doc"\n---\n\n<!-- phrase: #efwkbkgsbr .loose -->\nText.\n';
+
+  async function ready(extra: Record<string, string> = {}): Promise<void> {
+    open(SHEET, FULL, project({ [SHEET]: FULL, ...extra }));
+    fromWebview(READY);
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+  }
+  const refusal = async (): Promise<string> => {
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    const message = posted()[1];
+    if (message?.type !== 'edit-refused') throw new Error('Not refused.');
+    return message.message;
+  };
+
+  it('adds an empty style that is based on another', async () => {
+    await ready();
+    fromWebview({ type: 'add-style', kind: 'paragraph-style', name: 'tip', basedOn: 'note' });
+    await settled(() => {
+      expect(world.text).toContain('  tip: { based-on: note }\n');
+    });
+  });
+
+  it('adds a style that is based on none', async () => {
+    await ready();
+    fromWebview({ type: 'add-style', kind: 'character-style', name: 'marker' });
+    await settled(() => {
+      expect(world.text).toContain('  marker: {}\n');
+    });
+  });
+
+  it('refuses a name that is not kebab-case, one that is taken, and a base that is not there', async () => {
+    await ready();
+    fromWebview({ type: 'add-style', kind: 'paragraph-style', name: 'Not Kebab' });
+    expect(await refusal()).toContain('kebab-case');
+    fromWebview({ type: 'add-style', kind: 'paragraph-style', name: 'note' });
+    await settled(() => {
+      expect(posted()).toHaveLength(3);
+    });
+    expect(JSON.stringify(posted()[2])).toContain('There is a paragraph style \\"note\\" already.');
+    fromWebview({ type: 'add-style', kind: 'table-style', name: 'grid', basedOn: 'nothing' });
+    await settled(() => {
+      expect(posted()).toHaveLength(4);
+    });
+    expect(JSON.stringify(posted()[3])).toContain('There is no table style \\"nothing\\"');
+    expect(world.edits).toEqual([]);
+  });
+
+  it('deletes a style that nothing uses, after the person says yes', async () => {
+    await ready();
+    world.warningChoice = 'Delete';
+    fromWebview({ type: 'delete-style', kind: 'character-style', name: 'status' });
+    await settled(() => {
+      expect(world.text).not.toContain('status');
+    });
+    expect(world.warnings[0]).toContain('Delete the character style "status"');
+  });
+
+  it('leaves the style when the person does not say yes', async () => {
+    await ready();
+    fromWebview({ type: 'delete-style', kind: 'character-style', name: 'status' });
+    await settled(() => {
+      expect(world.warnings).toHaveLength(1);
+    });
+    expect(world.edits).toEqual([]);
+  });
+
+  it('refuses to delete a style that a document uses, and says where', async () => {
+    await ready({ '/w/p/documents/a.phrase.md': DOCUMENT });
+    fromWebview({ type: 'delete-style', kind: 'paragraph-style', name: 'loose' });
+    expect(await refusal()).toContain('The documents use it: documents/a.phrase.md (1 block).');
+    expect(world.warnings).toEqual([]);
+    expect(world.edits).toEqual([]);
+  });
+
+  it('refuses to delete a style that another style is based on', async () => {
+    await ready();
+    fromWebview({ type: 'delete-style', kind: 'paragraph-style', name: 'note' });
+    expect(await refusal()).toContain('The paragraph style "warning-note" is based on it.');
+  });
+
+  it('refuses to delete a style that every stylesheet needs', async () => {
+    await ready();
+    fromWebview({ type: 'delete-style', kind: 'table-style', name: 'table' });
+    expect(await refusal()).toContain('every stylesheet needs');
+  });
+
+  it('refuses when the project has errors, since the documents cannot be known', async () => {
+    await ready({ '/w/p/phrase.yaml': `${PROJECT}defaults:\n  page-template: nowhere\n` });
+    fromWebview({ type: 'delete-style', kind: 'paragraph-style', name: 'loose' });
+    expect(await refusal()).toContain('cannot be known');
+  });
+});

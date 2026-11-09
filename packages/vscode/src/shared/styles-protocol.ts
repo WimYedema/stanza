@@ -24,7 +24,25 @@ export type StylesWebviewMessage =
   | { readonly type: 'open-as-text' }
   /** Sets the property at a path of the stylesheet, such as `paragraph-styles`, `body`, `size`. */
   | { readonly type: 'set'; readonly path: readonly string[]; readonly value: Value }
-  | { readonly type: 'unset'; readonly path: readonly string[] };
+  | { readonly type: 'unset'; readonly path: readonly string[] }
+  /** Adds an empty style, based on another of its kind or on none (ADR 0053). */
+  | {
+      readonly type: 'add-style';
+      readonly kind: StyleKind;
+      readonly name: string;
+      readonly basedOn?: string;
+    }
+  /** Deletes a style, if nothing uses it and nothing refers to it (ADR 0053). */
+  | { readonly type: 'delete-style'; readonly kind: StyleKind; readonly name: string };
+
+export type StyleKind = 'paragraph-style' | 'character-style' | 'table-style';
+
+const STYLE_KINDS: readonly unknown[] = ['paragraph-style', 'character-style', 'table-style'];
+
+const isStyleKind = (value: unknown): value is StyleKind => STYLE_KINDS.includes(value);
+
+const isName = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0 && value.length <= 200;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -72,6 +90,16 @@ export function parseStylesWebviewMessage(value: unknown): StylesWebviewMessage 
     }
     case 'unset':
       return isPath(value['path']) ? { type: 'unset', path: value['path'] } : undefined;
+    case 'add-style': {
+      const { kind, name, basedOn } = value;
+      if (!isStyleKind(kind) || !isName(name)) return undefined;
+      if (basedOn === undefined) return { type: 'add-style', kind, name };
+      return isName(basedOn) ? { type: 'add-style', kind, name, basedOn } : undefined;
+    }
+    case 'delete-style': {
+      const { kind, name } = value;
+      return isStyleKind(kind) && isName(name) ? { type: 'delete-style', kind, name } : undefined;
+    }
     default:
       return undefined;
   }

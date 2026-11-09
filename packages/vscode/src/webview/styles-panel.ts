@@ -2,11 +2,13 @@ import {
   PARAGRAPH_PROPERTIES,
   TEXT_PROPERTIES,
   VARIANT_MARKS,
+  isReservedStyle,
   propertiesAt,
   type Border,
   type LineSpacing,
   type PropertyPlace,
   type PropertyType,
+  type StyleFamily,
   type StyleName,
   type Stylesheet,
   type TableStyle,
@@ -43,6 +45,12 @@ import {
 type Commit = (value: Value | null) => void;
 
 type StyleKind = 'paragraph-style' | 'character-style' | 'table-style';
+
+const FAMILY_OF: Record<StyleKind, StyleFamily> = {
+  'paragraph-style': 'paragraph',
+  'character-style': 'character',
+  'table-style': 'table',
+};
 
 interface Control {
   readonly node: HTMLElement;
@@ -562,8 +570,21 @@ export function createPanel({ root, send }: PanelOptions): Panel {
         },
       ),
     );
-    sections.push(section('Style', undefined, ...identity));
 
+    if (current !== undefined && !isReservedStyle(FAMILY_OF[current.kind], current.name)) {
+      const { kind, name } = current;
+      const remove = el('button', 'delete', 'Delete style');
+      remove.type = 'button';
+      remove.title = 'Delete this style if no document uses it and nothing refers to it';
+      remove.addEventListener('click', () => {
+        status.textContent = '';
+        send({ type: 'delete-style', kind, name });
+      });
+      const holder = el('div', 'row');
+      holder.append(el('span'), remove);
+      identity.push(holder);
+    }
+    sections.push(section('Style', undefined, ...identity));
     if (current?.kind === 'table-style') {
       sections.push(...tableSections(add));
       root.replaceChildren(status, colors, fonts, ...sections);

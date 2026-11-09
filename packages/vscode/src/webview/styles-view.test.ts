@@ -137,3 +137,26 @@ describe('the list', () => {
     expect(list.textContent).toContain('<img src=x>');
   });
 });
+
+describe('selecting a style that was just added', () => {
+  it('selects it in its tab once a stylesheet that has it is shown', () => {
+    view.selectWhenShown('character-style', 'badge');
+    expect(list.querySelector('[aria-current="true"]')?.firstChild?.textContent).not.toBe('badge');
+    view.show(
+      parseStylesheet(SOURCE.replace('character-styles:\n', 'character-styles:\n  badge: {}\n'))
+        .stylesheet,
+    );
+    expect(tab('Character styles').getAttribute('aria-selected')).toBe('true');
+    expect(list.querySelector('[aria-current="true"]')?.firstChild?.textContent).toBe('badge');
+    expect(selected).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: 'badge', kind: 'character-style' }),
+      'characters',
+    );
+  });
+
+  it('waits when the stylesheet does not have it yet, and does not select anything else', () => {
+    view.selectWhenShown('character-style', 'badge');
+    view.show(stylesheet);
+    expect(tab('Paragraphs').getAttribute('aria-selected')).toBe('true');
+  });
+});

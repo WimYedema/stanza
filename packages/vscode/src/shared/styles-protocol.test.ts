@@ -48,6 +48,36 @@ describe('parseStylesWebviewMessage', () => {
   ])('refuses %j', (value) => {
     expect(parseStylesWebviewMessage(value)).toBeUndefined();
   });
+
+  it('takes the adding and the deleting of a style', () => {
+    expect(
+      parseStylesWebviewMessage({ type: 'add-style', kind: 'paragraph-style', name: 'note' }),
+    ).toEqual({ type: 'add-style', kind: 'paragraph-style', name: 'note' });
+    expect(
+      parseStylesWebviewMessage({
+        type: 'add-style',
+        kind: 'table-style',
+        name: 'grid',
+        basedOn: 'table',
+      }),
+    ).toEqual({ type: 'add-style', kind: 'table-style', name: 'grid', basedOn: 'table' });
+    expect(
+      parseStylesWebviewMessage({ type: 'delete-style', kind: 'character-style', name: 'x' }),
+    ).toEqual({ type: 'delete-style', kind: 'character-style', name: 'x' });
+  });
+
+  it.each([
+    { type: 'add-style', kind: 'page-template', name: 'a' },
+    { type: 'add-style', kind: 'table-style' },
+    { type: 'add-style', kind: 'table-style', name: '' },
+    { type: 'add-style', kind: 'table-style', name: 'a', basedOn: 5 },
+    { type: 'add-style', kind: 'table-style', name: 'x'.repeat(201) },
+    { type: 'delete-style', kind: 'color', name: 'a' },
+    { type: 'delete-style', name: 'a' },
+    { type: 'delete-style', kind: 'table-style' },
+  ])('refuses %j', (value) => {
+    expect(parseStylesWebviewMessage(value)).toBeUndefined();
+  });
 });
 
 describe('parseStylesHostMessage', () => {

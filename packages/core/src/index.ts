@@ -112,6 +112,7 @@ export {
   type ResolvedTableStyle,
 } from './style-resolution.js';
 export { validateStylesheet } from './style-validation.js';
+export { isReservedStyle, styleReferences, type StyleFamily } from './style-references.js';
 export {
   WORD_BUILT_IN_STYLE_NAMES,
   fixedWordStyleName,

@@ -586,3 +586,38 @@ describe('a refused change', () => {
     expect(status?.textContent).toBe('');
   });
 });
+
+describe('deleting a style', () => {
+  const button = (): HTMLButtonElement | null => root.querySelector('button.delete');
+
+  it('asks the host to delete a character style or a table style', () => {
+    panel.show(entry('quote'), stylesheet);
+    button()?.click();
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'delete-style',
+      kind: 'character-style',
+      name: 'quote',
+    });
+    panel.show(entry('table-grid'), stylesheet);
+    button()?.click();
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'delete-style',
+      kind: 'table-style',
+      name: 'table-grid',
+    });
+  });
+
+  it('has no button for a style that every stylesheet needs', () => {
+    for (const name of ['body', 'heading-1', 'list-bulleted', 'table']) {
+      panel.show(entry(name), stylesheet);
+      expect(button()).toBeNull();
+    }
+  });
+
+  it('clears an old refusal when it asks again', () => {
+    panel.show(entry('quote'), stylesheet);
+    panel.refused('The character style "quote" was not deleted.');
+    button()?.click();
+    expect(root.querySelector('.status')?.textContent).toBe('');
+  });
+});

@@ -1,15 +1,33 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
-import { setProperty, unsetProperty, type StylesheetEdit } from '@phrase/format';
+import { isStyleName, type StyleFamily, type StyleName, type Stylesheet } from '@phrase/core';
+import { parseStylesheet, setProperty, unsetProperty, type StylesheetEdit } from '@phrase/format';
+import { loadProject, styleUsage, type StyleUse } from '@phrase/project';
 import {
   parseStylesWebviewMessage,
+  type StyleKind,
   type StylesHostMessage,
   type StylesWebviewMessage,
 } from '../shared/styles-protocol.js';
 import { lineEdit } from './line-diff.js';
+import { findRoot, storageOf } from './project-files.js';
 import { normalized } from './review.js';
+import { removalBlockers } from './style-removal.js';
 import { buildStylesHtml } from './styles-html.js';
 import { locateStylesheet } from './styles-project.js';
+
+const FAMILY: Record<StyleKind, StyleFamily> = {
+  'paragraph-style': 'paragraph',
+  'character-style': 'character',
+  'table-style': 'table',
+};
+
+const stylesOf = (sheet: Stylesheet, kind: StyleKind) =>
+  kind === 'paragraph-style'
+    ? sheet.paragraphStyles
+    : kind === 'character-style'
+      ? sheet.characterStyles
+      : sheet.tableStyles;
 
 /**
  * Opens the stylesheet of a project in the style editor, bound to the text of the file (ADR 0036).
@@ -99,9 +117,106 @@ class StylesSession {
       case 'unset':
         if (this.accepted) await this.edit(unsetProperty(this.text(), message.path));
         return;
+      case 'add-style':
+        if (this.accepted) await this.addStyle(message.kind, message.name, message.basedOn);
+        return;
+      case 'delete-style':
+        if (this.accepted) await this.deleteStyle(message.kind, message.name);
+        return;
       case undefined:
         return;
     }
+  }
+
+  private async refuse(message: string): Promise<void> {
+    await this.post({ type: 'edit-refused', message });
+  }
+
+  /** The stylesheet as it is now, or why it cannot be read. */
+  private current(): { readonly text: string; readonly sheet: Stylesheet } | string {
+    const text = this.text();
+    const parsed = parseStylesheet(text);
+    return parsed.diagnostics.some((diagnostic) => diagnostic.severity === 'error')
+      ? 'The stylesheet has errors, so no style was changed.'
+      : { text, sheet: parsed.stylesheet };
+  }
+
+  /** Adds an empty style (ADR 0053). */
+  private async addStyle(
+    kind: StyleKind,
+    name: string,
+    basedOn: string | undefined,
+  ): Promise<void> {
+    const current = this.current();
+    if (typeof current === 'string') {
+      await this.refuse(current);
+      return;
+    }
+    const family = FAMILY[kind];
+    const styles = stylesOf(current.sheet, kind);
+    if (!isStyleName(name)) {
+      await this.refuse('A style name is in kebab-case, such as note or warning-note.');
+    } else if (styles.has(name)) {
+      await this.refuse(`There is a ${family} style "${name}" already.`);
+    } else if (basedOn !== undefined && !(isStyleName(basedOn) && styles.has(basedOn))) {
+      await this.refuse(`There is no ${family} style "${basedOn}" to be based on.`);
+    } else {
+      const value = basedOn === undefined ? {} : { 'based-on': basedOn };
+      await this.edit(setProperty(current.text, [`${kind}s`, name], value));
+    }
+  }
+
+  /** The uses of a style in the documents of the project, or why they cannot be known. */
+  private async usesOf(
+    sheet: Stylesheet,
+    family: StyleFamily,
+    name: StyleName,
+  ): Promise<readonly StyleUse[] | string> {
+    const root = await findRoot(this.document.uri);
+    if (root === undefined) return 'The project of the stylesheet was not found.';
+    const loaded = await loadProject(storageOf(root));
+    if (loaded.stylesheet === undefined) {
+      return 'The project has errors, so the documents that use the style cannot be known.';
+    }
+    const usage = styleUsage(loaded.documents, sheet);
+    const map =
+      family === 'paragraph'
+        ? usage.paragraphStyles
+        : family === 'character'
+          ? usage.characterStyles
+          : usage.tableStyles;
+    return map.get(name) ?? [];
+  }
+
+  /** Deletes a style that nothing uses or refers to, after the person says yes (ADR 0053). */
+  private async deleteStyle(kind: StyleKind, name: string): Promise<void> {
+    const current = this.current();
+    if (typeof current === 'string') {
+      await this.refuse(current);
+      return;
+    }
+    const family = FAMILY[kind];
+    if (!isStyleName(name) || !stylesOf(current.sheet, kind).has(name)) {
+      await this.refuse(`There is no ${family} style "${name}".`);
+      return;
+    }
+    const uses = await this.usesOf(current.sheet, family, name);
+    if (typeof uses === 'string') {
+      await this.refuse(uses);
+      return;
+    }
+    const blockers = removalBlockers(current.sheet, family, name, uses);
+    if (blockers.length > 0) {
+      await this.refuse(`The ${family} style "${name}" was not deleted. ${blockers.join(' ')}`);
+      return;
+    }
+    const answer = await vscode.window.showWarningMessage(
+      `Delete the ${family} style "${name}"? Nothing uses it.`,
+      { modal: true },
+      'Delete',
+    );
+    if (answer !== 'Delete') return;
+    await this.edit(unsetProperty(this.text(), [`${kind}s`, name]));
   }
 
   /**
