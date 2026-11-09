@@ -30,4 +30,5 @@ export {
 } from './new-project.js';
 export { DOCUMENT_SUFFIX, PROJECT_FILE } from './files.js';
 export { loadProject, type LoadedDocument, type LoadedProject } from './load.js';
+export { styleUsage, type StyleUse, type StyleUsage, type UseKind } from './style-usage.js';
 export type { DirectoryEntry, ProjectStorage } from './storage.js';
