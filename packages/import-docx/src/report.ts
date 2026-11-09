@@ -55,20 +55,16 @@ const CODES = {
   'table-flattened': {
     severity: 'warning',
     message:
-      'A table without a header row, or with rows of different lengths, was written as paragraphs: one for each cell with text.',
+      'A table without a header row, or with rows of different lengths, was written as the paragraphs and lists of its cells.',
   },
   'merged-cells': {
     severity: 'warning',
     message:
       'A merged cell kept its text in the first cell, and the cells that it covered are empty.',
   },
-  'cell-joined': {
-    severity: 'warning',
-    message: 'A table cell with several paragraphs or a list had its text joined with spaces.',
-  },
   'nested-table': {
     severity: 'warning',
-    message: 'A table inside a table cell had its text joined into the cell.',
+    message: 'A table inside a table cell had its text joined into one paragraph of the cell.',
   },
   'toc-field': {
     severity: 'info',

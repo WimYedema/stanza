@@ -1,51 +1,83 @@
-import { normalizeInlines, plainCell, type Paragraph, type Table, type Text } from '@phrase/core';
+import {
+  normalizeInlines,
+  type Block,
+  type CellBlock,
+  type Paragraph,
+  type TableCell,
+  type Text,
+} from '@phrase/core';
+import { BlockWriter, paragraphNumbering } from './block-writer.js';
 import type { ImportContext } from './context.js';
 import { readParagraph } from './paragraph.js';
 import { toggleOf } from './styles.js';
-import { childOf, elementsOf, type XmlElement } from './xml.js';
+import { childOf, descendantsOf, elementsOf, type XmlElement } from './xml.js';
 
 interface Row {
   readonly header: boolean;
   /** One entry for every column of the grid, so that a merged cell is followed by empty ones. */
-  readonly cells: readonly (readonly Text[])[];
+  readonly cells: readonly TableCell[];
 }
 
 const SPACE: Text = { type: 'text', text: ' ', marks: [] };
 
-/** The paragraphs of a cell, in order, with those of tables inside it. Returns whether there was one. */
-function collectParagraphs(container: XmlElement, found: XmlElement[]): boolean {
-  let nested = false;
-  for (const child of elementsOf(container)) {
-    if (child.name === 'p') {
-      found.push(child);
-    } else if (child.name === 'tbl') {
-      nested = true;
-      for (const row of elementsOf(child, 'tr')) {
-        for (const cell of elementsOf(row, 'tc')) collectParagraphs(cell, found);
-      }
-    } else if (child.name === 'sdt') {
-      const inner = childOf(child, 'sdtContent');
-      if (inner !== undefined) nested = collectParagraphs(inner, found) || nested;
-    }
-  }
-  return nested;
-}
-
-/** The text of a cell as one run of inlines: its paragraphs joined with spaces. */
-function readCell(cell: XmlElement, ctx: ImportContext, place: string): Text[] {
-  const paragraphs: XmlElement[] = [];
-  const nested = collectParagraphs(cell, paragraphs);
+/** The text of a table inside a cell, which a cell cannot hold: its paragraphs joined with spaces. */
+function nestedText(table: XmlElement, ctx: ImportContext): Paragraph | undefined {
   const pieces: Text[][] = [];
-  for (const paragraph of paragraphs) {
+  for (const paragraph of descendantsOf(table, 'p')) {
     const read = readParagraph(paragraph, ctx);
     const inlines = [...read.inlines, ...read.extras.flatMap((extra) => extra.content)];
     if (normalizeInlines(inlines).length > 0) pieces.push(inlines);
   }
-  if (nested) ctx.report.add('nested-table', place);
-  else if (pieces.length > 1) ctx.report.add('cell-joined', place);
+  const content = pieces.flatMap((inlines, index) => (index === 0 ? inlines : [SPACE, ...inlines]));
+  return content.length === 0 ? undefined : { type: 'paragraph', content };
+}
+
+/**
+ * The blocks of a cell (ADR 0048): its paragraphs, and the lists that its numbered paragraphs make.
+ * A heading style in a cell is a paragraph, and a table in a cell is joined into one paragraph.
+ */
+function readCell(cell: XmlElement, ctx: ImportContext, place: string): TableCell {
+  const writer = new BlockWriter();
+  const visit = (container: XmlElement): void => {
+    for (const child of elementsOf(container)) {
+      if (child.name === 'p') {
+        const properties = childOf(child, 'pPr');
+        const styleId = childOf(properties, 'pStyle')?.attrs['val'];
+        const read = readParagraph(child, ctx);
+        const content = normalizeInlines(read.inlines);
+        const numbering =
+          ctx.styles.headingLevel(styleId) === undefined
+            ? paragraphNumbering(ctx, properties, styleId)
+            : undefined;
+        if (content.length > 0 && numbering !== undefined) {
+          let kind = ctx.numbering.kindOf(numbering.numId, numbering.level);
+          if (kind === undefined) {
+            ctx.report.add('unknown-numbering', place);
+            kind = 'bulleted';
+          }
+          writer.addItem(kind, numbering.numId, numbering.level, content, read.extras);
+          continue;
+        }
+        if (content.length > 0) writer.push({ type: 'paragraph', content });
+        for (const extra of read.extras) writer.push(extra);
+      } else if (child.name === 'tbl') {
+        ctx.report.add('nested-table', place);
+        const joined = nestedText(child, ctx);
+        if (joined !== undefined) writer.push(joined);
+      } else if (child.name === 'sdt') {
+        const inner = childOf(child, 'sdtContent');
+        if (inner !== undefined) visit(inner);
+      }
+    }
+  };
+  visit(cell);
   // A table of contents in a cell is read as text, so it makes no block of its own.
   ctx.pendingToc = undefined;
-  return pieces.flatMap((inlines, index) => (index === 0 ? inlines : [SPACE, ...inlines]));
+  return {
+    blocks: writer.blocks.filter(
+      (block): block is CellBlock => block.type === 'paragraph' || block.type === 'list',
+    ),
+  };
 }
 
 /** Word marks the first row as a header with a repeating row or with the look of the table. */
@@ -63,7 +95,7 @@ function readRow(row: XmlElement, ctx: ImportContext, place: string): Row | unde
     ctx.report.add('tracked-changes');
     return undefined;
   }
-  const cells: Text[][] = [];
+  const cells: TableCell[] = [];
   for (const cell of elementsOf(row, 'tc')) {
     const cellProperties = childOf(cell, 'tcPr');
     const span = Number(childOf(cellProperties, 'gridSpan')?.attrs['val'] ?? '1') || 1;
@@ -71,18 +103,16 @@ function readRow(row: XmlElement, ctx: ImportContext, place: string): Row | unde
       ctx.report.add('merged-cells', place);
     }
     cells.push(readCell(cell, ctx, place));
-    for (let extra = 1; extra < span; extra += 1) cells.push([]);
+    for (let extra = 1; extra < span; extra += 1) cells.push({ blocks: [] });
   }
   return { header: toggleOf(properties, 'tblHeader') === true, cells };
 }
 
-const isEmpty = (inlines: readonly Text[]): boolean => normalizeInlines(inlines).length === 0;
-
 /**
- * A table of the document, or its cells as paragraphs when it cannot be a table (ADR 0046): the
+ * A table of the document, or the blocks of its cells when it cannot be a table (ADR 0046): the
  * model needs a header row and rows of equal length.
  */
-export function importTable(table: XmlElement, ctx: ImportContext): (Table | Paragraph)[] {
+export function importTable(table: XmlElement, ctx: ImportContext): Block[] {
   const place = `table after ${ctx.place()}`;
   const rows = elementsOf(table, 'tr').flatMap((row) => readRow(row, ctx, place) ?? []);
   const first = rows[0];
@@ -92,13 +122,11 @@ export function importTable(table: XmlElement, ctx: ImportContext): (Table | Par
     return [
       {
         type: 'table',
-        header: first.cells.map((content) => plainCell(content)),
-        rows: rows.slice(1).map((row) => row.cells.map((content) => plainCell(content))),
+        header: [...first.cells],
+        rows: rows.slice(1).map((row) => [...row.cells]),
       },
     ];
   }
   ctx.report.add('table-flattened', place);
-  return rows.flatMap((row) =>
-    row.cells.filter((cell) => !isEmpty(cell)).map((content) => ({ type: 'paragraph', content })),
-  );
+  return rows.flatMap((row) => row.cells.flatMap((cell) => cell.blocks));
 }

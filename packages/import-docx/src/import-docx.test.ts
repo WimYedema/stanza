@@ -569,12 +569,58 @@ describe('tables', () => {
     expect(codes(parts)).toContain('table-flattened');
   });
 
-  it('joins the paragraphs of a cell with spaces, and reports it', () => {
-    const joined = cell(text('first') + text('second') + item('third', '1'));
+  it('keeps the paragraphs and the lists of a cell, with nothing to report', () => {
+    const joined = cell(text('first') + text('second') + item('third', '1') + item('fourth', '1'));
     const body = table(row(cells('A')) + row(joined));
     const parts = { numbering: numbering('1', 'bullet'), body };
-    expect(imported(parts).document.blocks[0]).toMatchObject({ rows: [[C('first second third')]] });
-    expect(diagnostic(parts, 'cell-joined')?.count).toBe(1);
+    expect(imported(parts).document.blocks[0]).toMatchObject({
+      rows: [
+        [
+          {
+            blocks: [
+              { type: 'paragraph', content: [{ text: 'first' }] },
+              { type: 'paragraph', content: [{ text: 'second' }] },
+              {
+                type: 'list',
+                kind: 'bulleted',
+                items: [
+                  { blocks: [{ content: [{ text: 'third' }] }] },
+                  { blocks: [{ content: [{ text: 'fourth' }] }] },
+                ],
+              },
+            ],
+          },
+        ],
+      ],
+    });
+    expect(codes(parts)).toEqual([]);
+  });
+
+  it('nests the lists of a cell by their level, and takes a heading style there as a paragraph', () => {
+    const defs = numbering('1', 'bullet') + numbering('2', 'decimal');
+    const heading = para(run('Not a heading'), '<w:pStyle w:val="Heading1"/>');
+    const body = table(
+      row(cells('A')) + row(cell(heading + item('top', '2', 0) + item('sub', '1', 1))),
+    );
+    const parts = { styles: HEADING_STYLES, numbering: defs, body };
+    expect(imported(parts).document.blocks[0]).toMatchObject({
+      rows: [
+        [
+          {
+            blocks: [
+              { type: 'paragraph', content: [{ text: 'Not a heading' }] },
+              {
+                type: 'list',
+                kind: 'numbered',
+                items: [
+                  { blocks: [{ content: [{ text: 'top' }] }, { type: 'list', kind: 'bulleted' }] },
+                ],
+              },
+            ],
+          },
+        ],
+      ],
+    });
   });
 
   it('keeps the text of a merged cell in the first cell and leaves the covered ones empty', () => {
@@ -599,11 +645,13 @@ describe('tables', () => {
     expect(diagnostic(parts, 'merged-cells')?.count).toBe(3);
   });
 
-  it('joins the text of a table inside a cell into the cell, and reports it', () => {
+  it('joins the text of a table inside a cell into a paragraph of the cell, and reports it', () => {
     const inner = `<w:tbl>${row(cells('in1', 'in2'))}</w:tbl>`;
     const body = table(row(cells('A')) + row(cell(text('outer') + inner + para(''))));
     const parts = { body };
-    expect(imported(parts).document.blocks[0]).toMatchObject({ rows: [[C('outer in1 in2')]] });
+    expect(imported(parts).document.blocks[0]).toMatchObject({
+      rows: [[{ blocks: [C('outer').blocks[0], C('in1 in2').blocks[0]] }]],
+    });
     expect(diagnostic(parts, 'nested-table')?.count).toBe(1);
   });
 
