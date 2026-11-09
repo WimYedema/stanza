@@ -30,29 +30,30 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
   #detail { margin: 0; padding: 8px 12px 16px; border-top: 1px solid #3c3c3c; }
   #detail dt { margin-top: 6px; color: #9d9d9d; font-size: 11px; }
   #detail dd { margin: 0; }
-  #panel, #theme { border-top: 1px solid #3c3c3c; padding: 0 0 16px; }
-  #panel summary, #theme summary { margin: 0; padding: 8px 12px 2px; font-size: 11px; font-weight: 600;
+  .side-panel { border-top: 1px solid #3c3c3c; padding: 0 0 16px; }
+  .side-panel summary { margin: 0; padding: 8px 12px 2px; font-size: 11px; font-weight: 600;
     text-transform: uppercase; color: #9d9d9d; cursor: pointer; }
-  #panel .subgroup, #panel .variant { margin-left: 12px; border-left: 2px solid #3c3c3c; }
-  #panel .subgroup > summary, #panel .variant > summary { font-weight: 400; text-transform: none; }
-  #panel .row, #theme .row { display: grid; grid-template-columns: 110px 1fr 20px; gap: 2px 6px;
+  .side-panel .subgroup, .side-panel .variant { margin-left: 12px; border-left: 2px solid #3c3c3c; }
+  .side-panel .subgroup > summary, .side-panel .variant > summary { font-weight: 400;
+    text-transform: none; }
+  .side-panel .row { display: grid; grid-template-columns: 110px 1fr 20px; gap: 2px 6px;
     align-items: center; padding: 2px 12px; }
-  #panel .title, #theme .title { font-size: 12px; }
-  #panel .hint, #theme .hint { margin: 0 12px 4px; font-size: 11px; color: #9d9d9d; }
-  #panel .control, #theme .control { display: flex; gap: 4px; align-items: center; }
+  .side-panel .title { font-size: 12px; }
+  .side-panel .hint { margin: 0 12px 4px; font-size: 11px; color: #9d9d9d; }
+  .side-panel .control { display: flex; gap: 4px; align-items: center; }
   #theme .control { flex-wrap: wrap; }
-  #panel input, #panel select, #theme input, #theme select { box-sizing: border-box; width: 100%;
-    min-width: 0; padding: 2px 4px; font: 12px sans-serif; background: #3c3c3c; color: #cccccc;
+  .side-panel input, .side-panel select { box-sizing: border-box; width: 100%; min-width: 0;
+    padding: 2px 4px; font: 12px sans-serif; background: #3c3c3c; color: #cccccc;
     border: 1px solid #555555; }
   #theme input[type="color"] { flex: none; width: 32px; padding: 0; }
   #theme button { padding: 2px 10px; font: 12px sans-serif; }
-  #panel .unit { font-size: 11px; color: #9d9d9d; }
-  #panel .reset { padding: 0; border: 0; background: none; color: #9d9d9d; cursor: pointer; }
-  #panel .note { grid-column: 2 / 4; font-size: 11px; color: #9d9d9d; }
-  #panel .note:empty { display: none; }
-  #panel .status, #theme .status { margin: 0; padding: 6px 12px; background: #5a1d1d; color: #ffb4b4;
+  .side-panel .unit { font-size: 11px; color: #9d9d9d; }
+  .side-panel .reset { padding: 0; border: 0; background: none; color: #9d9d9d; cursor: pointer; }
+  .side-panel .note { grid-column: 2 / 4; font-size: 11px; color: #9d9d9d; }
+  .side-panel .note:empty { display: none; }
+  .side-panel .status { margin: 0; padding: 6px 12px; background: #5a1d1d; color: #ffb4b4;
     font-size: 12px; }
-  #panel .status:empty, #theme .status:empty { display: none; }
+  .side-panel .status:empty { display: none; }
   #desk { padding: 12px 0 48px; overflow-x: auto; }
   #page { box-sizing: border-box; max-width: 560pt; margin: 12px auto; padding: 36pt;
     background: #ffffff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
@@ -72,8 +73,9 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
     <div id="side">
       <ul id="list"></ul>
       <dl id="detail"></dl>
-      <div id="panel" hidden></div>
-      <div id="theme" hidden></div>
+      <div id="panel" class="side-panel" hidden></div>
+      <div id="theme" class="side-panel" hidden></div>
+      <div id="pages" class="side-panel" hidden></div>
     </div>
     <div id="desk">
       <div id="page"><div id="sample"></div></div>

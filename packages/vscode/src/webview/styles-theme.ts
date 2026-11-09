@@ -1,6 +1,7 @@
 import { isStyleName, type Stylesheet } from '@phrase/core';
 import type { StylesWebviewMessage, Value } from '../shared/styles-protocol.js';
 import type { Entry, Family } from './styles-families.js';
+import { el, simpleRow as row, simpleSection as section } from './styles-dom.js';
 
 /**
  * The theme tab of the style editor (ADR 0050): the value of the selected color or font token, and
@@ -29,17 +30,6 @@ export interface ThemePanel {
   refused(message: string): void;
 }
 
-const el = <K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] => {
-  const element = document.createElement(tag);
-  if (className !== undefined) element.className = className;
-  if (text !== undefined) element.textContent = text;
-  return element;
-};
-
 /** The families of a typed list, or undefined for none. */
 function familiesFrom(text: string): readonly string[] | undefined {
   const families = text
@@ -47,23 +37,6 @@ function familiesFrom(text: string): readonly string[] | undefined {
     .map((family) => family.trim())
     .filter((family) => family !== '');
   return families.length === 0 ? undefined : families;
-}
-
-function section(title: string, ...parts: HTMLElement[]): HTMLElement {
-  const node = el('section');
-  const group = el('details');
-  group.open = true;
-  group.append(el('summary', undefined, title), ...parts);
-  node.append(group);
-  return node;
-}
-
-function row(title: string, ...controls: HTMLElement[]): HTMLElement {
-  const node = el('div', 'row');
-  const control = el('span', 'control');
-  control.append(...controls);
-  node.append(el('label', 'title', title), control);
-  return node;
 }
 
 export function createThemePanel({ root, send }: ThemePanelOptions): ThemePanel {

@@ -15,6 +15,7 @@ import {
 import { DEFAULT_VARIANTS } from '@phrase/format';
 import type { StylesWebviewMessage, Value } from '../shared/styles-protocol.js';
 import type { Entry, Family } from './styles-families.js';
+import { el, option } from './styles-dom.js';
 import { paragraphGroups } from './styles-groups.js';
 import {
   LINE_SPACING_RULES,
@@ -50,23 +51,6 @@ interface Control {
    * truth, so the control is overwritten even when it has the focus (after an undo, say).
    */
   show(own: unknown, inherited: string | undefined): void;
-}
-
-const el = <K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] => {
-  const element = document.createElement(tag);
-  if (className !== undefined) element.className = className;
-  if (text !== undefined) element.textContent = text;
-  return element;
-};
-
-function option(value: string, text: string): HTMLOptionElement {
-  const created = el('option', undefined, text);
-  created.value = value;
-  return created;
 }
 
 const inheritedLabel = (inherited: string | undefined): string =>

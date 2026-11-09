@@ -8,6 +8,7 @@ import {
   type StylesWebviewMessage,
 } from '../shared/styles-protocol.js';
 import { createPanel } from './styles-panel.js';
+import { createPagePanel } from './styles-pages.js';
 import { focusSample, sampleDocument } from './styles-sample.js';
 import { createThemePanel } from './styles-theme.js';
 import { createStylesView } from './styles-view.js';
@@ -43,15 +44,19 @@ let latest: Stylesheet | undefined;
 const detail = element('detail');
 const panel = createPanel({ root: element('panel'), send });
 const theme = createThemePanel({ root: element('theme'), send });
+const pages = createPagePanel({ root: element('pages'), send });
 
 const view = createStylesView(
   { tabs: element('tabs'), list: element('list'), detail },
   (entry, family) => {
     focusSample(sample, entry);
     if (latest === undefined) return;
-    const inPanel = panel.show(entry, latest);
-    const inTheme = theme.show(entry, family, latest);
-    detail.hidden = inPanel || inTheme;
+    const shown = [
+      panel.show(entry, latest),
+      theme.show(entry, family, latest),
+      pages.show(entry, latest),
+    ];
+    detail.hidden = shown.includes(true);
   },
 );
 
@@ -121,6 +126,7 @@ function handle(message: StylesHostMessage): void {
     case 'edit-refused':
       panel.refused(message.message);
       theme.refused(message.message);
+      pages.refused(message.message);
       return;
   }
 }
