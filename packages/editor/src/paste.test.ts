@@ -80,6 +80,27 @@ describe('normalizePastedHtml', () => {
     ).toBe('<p><span data-phrase-style="marker">a</span>b</p>');
   });
 
+  it('keeps the paragraphs and lists of a cell, without style names, and flattens a table in a cell', () => {
+    expect(
+      clean(
+        '<table><tbody><tr><td><p data-phrase-style="note">a</p><ul data-phrase-style="note"><li>b</li></ul></td></tr></tbody></table>',
+      ),
+    ).toBe('<table><tbody><tr><td><p>a</p><ul><li>b</li></ul></td></tr></tbody></table>');
+    expect(
+      clean(
+        '<table><tbody><tr><td>outer<table><tbody><tr><td>in1</td><td>in2</td></tr></tbody></table></td></tr></tbody></table>',
+      ),
+    ).toBe('<table><tbody><tr><td>outer<p>in1</p><p>in2</p></td></tr></tbody></table>');
+  });
+
+  it('reduces a paste into a cell to paragraphs and lists, and leaves out a phrase block', () => {
+    const html =
+      '<h1>T</h1><pre>c</pre><table><tbody><tr><td>x</td></tr></tbody></table><div data-phrase-kind="toc">t</div><ul><li>l</li></ul>';
+    expect(normalizePastedHtml(html, stylesheet, true)).toBe(
+      '<p>T</p><p>c</p><p>x</p><ul><li>l</li></ul>',
+    );
+  });
+
   it('keeps a phrase block with its kind and body, and not one with a bad kind', () => {
     expect(
       clean(
@@ -190,6 +211,31 @@ describe('pasting into the editor', () => {
     expect(heading?.attrs['id']).not.toBe('k7m2q9x4zb');
     expect(heading?.attrs).toMatchObject({ level: 2 });
     expect(text?.attrs).toMatchObject({ id: null, style: null });
+  });
+
+  it('pastes paragraphs and a list into a cell, and a heading there becomes a paragraph', () => {
+    const current = open({
+      type: 'table',
+      content: [
+        {
+          type: 'tableRow',
+          content: [
+            {
+              type: 'tableCell',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }],
+            },
+          ],
+        },
+      ],
+    });
+    current.commands.setTextSelection(5);
+    current.view.pasteHTML('<p>one</p><h1>Two</h1><ul><li>three</li></ul>');
+    const cell = current.state.doc.firstChild?.firstChild?.firstChild;
+    const kinds = (cell?.children ?? []).map((child) => child.type.name);
+    expect(kinds).toContain('bulletList');
+    expect(kinds).not.toContain('heading');
+    expect(cell?.textContent).toContain('Two');
+    expect(notices).toEqual([]);
   });
 
   it('keeps a pasted phrase block with its body', () => {

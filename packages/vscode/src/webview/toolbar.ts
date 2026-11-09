@@ -115,7 +115,7 @@ const INSERT_GROUP: GroupSpec = {
 
 const TABLE_GROUP: GroupSpec = {
   name: 'table',
-  when: (context) => context.block === 'table-cell',
+  when: (context) => context.inTable,
   buttons: [
     { text: '+Row', label: 'Add row below', command: { type: 'add-row', where: 'after' } },
     { text: '+Col', label: 'Add column after', command: { type: 'add-column', where: 'after' } },

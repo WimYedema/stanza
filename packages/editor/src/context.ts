@@ -10,7 +10,7 @@ import {
 import type { Mark } from '@tiptap/pm/model';
 import type { EditorState } from '@tiptap/pm/state';
 import { styleOf, textStyle } from './block-styles.js';
-import { markActive, selectedBlocks } from './selection.js';
+import { cellPlace, markActive, selectedBlocks, tableDepth } from './selection.js';
 
 export interface MarkState {
   /** The text at the selection has the mark, or typing at the cursor will have it. */
@@ -26,6 +26,8 @@ export interface MarkState {
 export interface EditorContext {
   /** The first block of text of the selection, or undefined where there is none. */
   readonly block: 'paragraph' | 'heading' | 'code-block' | 'table-cell' | undefined;
+  /** The first block is anywhere in a table, so that the commands on the table apply. */
+  readonly inTable: boolean;
   /** The level of the first block, when it is a heading. */
   readonly level: HeadingLevel | undefined;
   /** The kind of the innermost list that holds the first block. */
@@ -82,6 +84,8 @@ function listKind(state: EditorState, pos: number): 'bulleted' | 'numbered' | un
     const name = $pos.node(depth).type.name;
     if (name === 'bulletList') return 'bulleted';
     if (name === 'orderedList') return 'numbered';
+    // A list around a table is not the list of what is in its cells.
+    if (name === 'tableCell' || name === 'tableHeader') return undefined;
   }
   return undefined;
 }
@@ -100,6 +104,7 @@ export function editorContext(state: EditorState, stylesheet: Stylesheet): Edito
   const blocks = selectedBlocks(state);
   const first = blocks[0];
   const kind = first?.node.type.name;
+  const place = first === undefined ? undefined : cellPlace(state.doc.resolve(first.pos));
   const block =
     kind === undefined
       ? undefined
@@ -107,13 +112,13 @@ export function editorContext(state: EditorState, stylesheet: Stylesheet): Edito
         ? 'heading'
         : kind === 'codeBlock'
           ? 'code-block'
-          : kind === 'tableCell' || kind === 'tableHeader'
+          : place === 'cell'
             ? 'table-cell'
             : 'paragraph';
   let style: StyleName | undefined;
   if (first !== undefined) {
     const $pos = state.doc.resolve(first.pos);
-    style = styleOf(block === 'table-cell' ? $pos.node($pos.depth - 1) : first.node);
+    style = styleOf(block === 'table-cell' ? $pos.node(tableDepth($pos)) : first.node);
   }
   const marks = Object.fromEntries(
     VARIANT_MARKS.map((mark) => {
@@ -135,6 +140,7 @@ export function editorContext(state: EditorState, stylesheet: Stylesheet): Edito
   const level: unknown = block === 'heading' ? first?.node.attrs['level'] : undefined;
   return {
     block,
+    inTable: place !== undefined,
     level:
       typeof level === 'number' && level >= 1 && level <= 6 ? (level as HeadingLevel) : undefined,
     list: first === undefined ? undefined : listKind(state, first.pos),

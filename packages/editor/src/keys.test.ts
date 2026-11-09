@@ -201,4 +201,46 @@ describe('the keys of the editor', () => {
     expect(current.state.doc.child(0).type.name).toBe('paragraph');
     expect(current.state.doc.child(1).type.name).toBe('bulletList');
   });
+
+  it('splits a paragraph of a cell into two paragraphs of the same cell with Enter', () => {
+    const current = open({
+      type: 'table',
+      content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph('ab')] }] }],
+    });
+    current.commands.setTextSelection(positionOf(current, 'ab', 1));
+    press('Enter');
+    const cell = current.state.doc.firstChild?.firstChild?.firstChild;
+    expect(cell?.children.map((child) => child.textContent)).toEqual(['a', 'b']);
+  });
+
+  it('leaves Tab in the cell of a table in a list item to the table, not to the list', () => {
+    const current = open({
+      type: 'bulletList',
+      content: [
+        {
+          type: 'listItem',
+          content: [
+            paragraph('Item'),
+            {
+              type: 'table',
+              content: [
+                {
+                  type: 'tableRow',
+                  content: [
+                    { type: 'tableCell', content: [paragraph('one')] },
+                    { type: 'tableCell', content: [paragraph('two')] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        { type: 'listItem', content: [paragraph('Other')] },
+      ],
+    });
+    current.commands.setTextSelection(positionOf(current, 'one'));
+    press('Tab');
+    expect(notices).toEqual([]);
+    expect(current.state.selection.$from.parent.textContent).toBe('two');
+  });
 });

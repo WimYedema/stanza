@@ -26,7 +26,7 @@ import {
   selectedRect,
 } from '@tiptap/pm/tables';
 import { introducedViolations, textStyle } from './block-styles.js';
-import { markActive, selectedBlocks, type Located } from './selection.js';
+import { cellPlace, markActive, selectedBlocks, tableDepth, type Located } from './selection.js';
 
 /**
  * The semantic commands of the editor (ADR 0023). A command is data, and says what to do and not how
@@ -304,7 +304,14 @@ function planParagraph(state: EditorState): Plan {
 function planStyle(state: EditorState, style: StyleName | null, stylesheet: Stylesheet): Plan {
   const blocks = selectedBlocks(state);
   if (blocks.length === 0) return refuse('not-applicable', NO_BLOCK);
-  const cells = blocks.filter(({ node }) => ['tableCell', 'tableHeader'].includes(node.type.name));
+  const places = blocks.map(({ pos }) => cellPlace(state.doc.resolve(pos)));
+  if (places.includes('inside')) {
+    return refuse(
+      'not-applicable',
+      'A list in a table cell takes the cell style of the table. Put the cursor in the text of the cell.',
+    );
+  }
+  const cells = blocks.filter((_block, index) => places[index] === 'cell');
   const tr = state.tr;
   if (cells.length > 0) {
     if (cells.length !== blocks.length) {
@@ -316,7 +323,7 @@ function planStyle(state: EditorState, style: StyleName | null, stylesheet: Styl
     const tables = new Set(
       cells.map(({ pos }) => {
         const $pos = state.doc.resolve(pos);
-        return $pos.before($pos.depth - 1);
+        return $pos.before(tableDepth($pos));
       }),
     );
     for (const pos of tables) tr.setNodeAttribute(pos, 'style', style);
@@ -446,13 +453,15 @@ function planInsertTable(state: EditorState, columns: number, rows: number): Pla
       `A table has from 1 to ${String(MAX_ROWS)} rows besides the header.`,
     );
   }
-  const row = (cell: typeof tableCell): EditorNode =>
-    tableRow.create(
-      null,
-      Array.from({ length: columns }, () => cell.create()),
-    );
+  const row = (cell: typeof tableCell): EditorNode | null => {
+    const cells = Array.from({ length: columns }, () => cell.createAndFill());
+    return cells.every((made) => made !== null) ? tableRow.create(null, cells) : null;
+  };
+  const head = row(tableHeader);
   const body = Array.from({ length: rows }, () => row(tableCell));
-  return insertBlock(state, table.create(null, [row(tableHeader), ...body]));
+  if (head === null || body.some((made) => made === null))
+    return refuse('not-applicable', NO_BLOCK);
+  return insertBlock(state, table.create(null, [head, ...(body as EditorNode[])]));
 }
 
 const firstRowIsHeader = (table: EditorNode): boolean =>

@@ -112,8 +112,9 @@ describe('createPhraseEditor', () => {
     expect(classOf('p.phrase-p-note')).not.toBeNull();
     expect(classOf('pre')).toContain('phrase-p-code');
     expect(classOf('table')).toContain('phrase-t-table');
-    expect(classOf('td')).toContain('phrase-p-table-cell');
-    expect(classOf('th')).toContain('phrase-p-table-cell');
+    expect(classOf('td > p')).toContain('phrase-p-table-cell');
+    expect(classOf('th > p')).toContain('phrase-p-table-cell');
+    expect(classOf('td')).toBeNull();
     expect(classOf('ul')).toBe('phrase-list');
   });
 
@@ -266,6 +267,7 @@ Some **strong** text.
       api.setPosition({ block: 2, offset: 0 });
       const context = api.getContext();
       expect(context.block).toBe('table-cell');
+      expect(context.inTable).toBe(true);
       expect(context.textStyle).toBe('table-cell');
       expect(context.available.table).toEqual(['table', 'table-grid']);
       expect(context.available.character).toEqual(['marker', 'muted']);
@@ -374,7 +376,7 @@ Some **strong** text.
       ]),
     };
     expect(api.setStylesheet(roomy)).toEqual([]);
-    expect(classOf('td')).toContain('phrase-p-code');
+    expect(classOf('td > p')).toContain('phrase-p-code');
     expect(element.querySelector('style')?.textContent).toContain('.phrase-t-table');
   });
 
@@ -387,7 +389,7 @@ Some **strong** text.
     };
     expect(api.setStylesheet(broken).length).toBeGreaterThan(0);
     expect(element.querySelector('style')?.textContent).toBe(before);
-    expect(classOf('td')).toContain('phrase-p-table-cell');
+    expect(classOf('td > p')).toContain('phrase-p-table-cell');
   });
 
   it('refuses to start with a stylesheet that has errors', () => {

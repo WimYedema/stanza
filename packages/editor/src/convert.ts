@@ -2,9 +2,8 @@ import {
   isNodeId,
   isStyleName,
   normalizeDocument,
-  plainCell,
-  plainCellInlines,
   type Block,
+  type CellBlock,
   type Diagnostic,
   type Document,
   type DocumentMeta,
@@ -14,6 +13,7 @@ import {
   type ListItemBlock,
   type Mark,
   type NodeId,
+  type Paragraph,
   type StyleName,
   type Table,
   type TableCell,
@@ -62,13 +62,11 @@ const inlinesJson = (inlines: readonly Inline[]): JSONContent[] =>
       ...(inline.marks.length > 0 ? { marks: inline.marks.map(markJson) } : {}),
     }));
 
-const cellJson = (type: 'tableHeader' | 'tableCell', cell: TableCell): JSONContent => {
-  const inlines = plainCellInlines(cell);
-  // The cells of the editor hold inline text until the editor item of ADR 0048.
-  if (inlines === undefined)
-    throw new Error('The editor cannot show a table cell with more than text yet.');
-  return { type, content: inlinesJson(inlines) };
-};
+const cellJson = (type: 'tableHeader' | 'tableCell', cell: TableCell): JSONContent => ({
+  type,
+  // A cell of the editor always holds a block, so an empty cell holds an empty paragraph.
+  content: cell.blocks.length === 0 ? [{ type: 'paragraph' }] : cell.blocks.map(itemBlockJson),
+});
 
 function tableJson(table: Table): JSONContent {
   const rows: JSONContent[] = [];
@@ -218,7 +216,35 @@ class Reader {
     if (node.attrs['colspan'] !== 1 || node.attrs['rowspan'] !== 1) {
       this.problem('A table cell cannot span several columns or rows.', path);
     }
-    return plainCell(this.inlines(node, path));
+    const blocks: CellBlock[] = [];
+    node.forEach((child, _offset, index) => {
+      const here = `${path}.blocks[${String(index)}]`;
+      const block = this.itemBlock(child, here);
+      if (block === undefined) return;
+      if (block.type !== 'paragraph' && block.type !== 'list') {
+        this.problem(`A table cell holds paragraphs and lists, not ${block.type} blocks.`, here);
+        return;
+      }
+      this.inCell(block, here);
+      blocks.push(block);
+    });
+    return { blocks };
+  }
+
+  /** What the checks of the document ask of a block in a cell, the same at the boundary. */
+  private inCell(block: Paragraph | List, path: string): void {
+    if (block.id !== undefined || block.style !== undefined) {
+      this.problem('A block in a table cell takes the style of the cell and has no ID.', path);
+    }
+    if (block.type !== 'list') return;
+    block.items.forEach((item, itemIndex) => {
+      item.blocks.forEach((child, index) => {
+        const here = `${path}.items[${String(itemIndex)}].blocks[${String(index)}]`;
+        if (child.type === 'paragraph' || child.type === 'list') this.inCell(child, here);
+        else
+          this.problem(`A table cell holds paragraphs and lists, not ${child.type} blocks.`, here);
+      });
+    });
   }
 
   private table(node: EditorNode, path: string): Table {

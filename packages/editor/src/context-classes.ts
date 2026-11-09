@@ -52,6 +52,11 @@ function decorations(doc: EditorNode, stylesheet: Stylesheet): DecorationSet {
         break;
       }
       case 'paragraph':
+        // A paragraph of a cell takes the cell style of its table, whatever it says itself.
+        if (['tableCell', 'tableHeader'].includes(context.parent.type.name)) {
+          add(node, pos, context.cellStyle, paragraphClass);
+          break;
+        }
         // The first paragraph of a list item takes its look from the item.
         if (context.parent.type.name === 'listItem' && context.index === 0) break;
         if (context.parent.type.name === 'listItem' && styleOf(node) === undefined) break;
@@ -83,10 +88,6 @@ function decorations(doc: EditorNode, stylesheet: Stylesheet): DecorationSet {
         };
         break;
       }
-      case 'tableCell':
-      case 'tableHeader':
-        add(node, pos, context.cellStyle, paragraphClass);
-        break;
     }
     node.forEach((child, offset, index) => {
       visit(child, pos + 1 + offset, { ...inner, parent: node, index });

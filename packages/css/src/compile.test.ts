@@ -293,12 +293,17 @@ describe('compileStylesheetToCss', () => {
       'font-weight: 700;',
       'background-color: #F2F2F2;',
     ]);
+    // The paragraphs and list items of a header cell have their own reset, so they get the header text.
+    expect(
+      rule(text, '.phrase-document .phrase-t-table th p,\n.phrase-document .phrase-t-table th li'),
+    ).toEqual(['font-weight: 700;']);
   });
 
   it('does not let the browser style header cells of a table without a header row', () => {
     expect(rule(css(sheet('')), '.phrase-document .phrase-t-table th')).toEqual([
       'font-weight: 400;',
     ]);
+    expect(css(sheet(''))).not.toContain('phrase-t-table th p');
   });
 
   it('compiles the example stylesheet to the same text every time, without gaps', () => {

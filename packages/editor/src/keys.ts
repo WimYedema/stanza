@@ -48,7 +48,10 @@ export const PhraseKeys = Extension.create<PhraseKeysOptions>({
     const inListItem = (): boolean => {
       const { $from } = editor.state.selection;
       for (let depth = $from.depth; depth > 0; depth -= 1) {
-        if ($from.node(depth).type.name === 'listItem') return true;
+        const name = $from.node(depth).type.name;
+        if (name === 'listItem') return true;
+        // A table in a list item has cells of its own, with the keys of a table.
+        if (name === 'tableCell' || name === 'tableHeader') return false;
       }
       return false;
     };

@@ -32,6 +32,9 @@ const KEPT = new Set([
   'code',
 ]);
 
+/** The parts of a table, which are unwrapped when the table is inside a cell. */
+const NESTED_TABLE = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr']);
+
 /** Elements whose names of paragraph styles are kept. */
 const PARAGRAPH_STYLED = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'ul', 'ol']);
 
@@ -78,8 +81,15 @@ const isBold = (weight: string): boolean =>
 
 const isItalic = (style: string): boolean => style === 'italic' || style === 'oblique';
 
-/** The HTML of a paste, reduced to the structure of the document. */
-export function normalizePastedHtml(html: string, stylesheet: Stylesheet): string {
+/**
+ * The HTML of a paste, reduced to the structure of the document. Where the paste lands in a table
+ * cell (`intoCell`), it is reduced further to what a cell holds: paragraphs and lists (ADR 0048).
+ */
+export function normalizePastedHtml(
+  html: string,
+  stylesheet: Stylesheet,
+  intoCell = false,
+): string {
   const source = new DOMParser().parseFromString(html, 'text/html');
   const out = source.implementation.createHTMLDocument('');
 
@@ -137,6 +147,8 @@ export function normalizePastedHtml(html: string, stylesheet: Stylesheet): strin
       return;
     }
     if (tag === 'div' && from.hasAttribute(KIND_ATTRIBUTE)) {
+      // A phrase block does not fit in a cell.
+      if (intoCell || from.parentElement?.closest('td, th') != null) return;
       const kind = from.getAttribute(KIND_ATTRIBUTE) ?? '';
       if (!KIND.test(kind)) return;
       const made = out.createElement('div');
@@ -163,8 +175,20 @@ export function normalizePastedHtml(html: string, stylesheet: Stylesheet): strin
       return;
     }
     if (KEPT.has(tag)) {
+      // A cell holds paragraphs and lists (ADR 0048): a table in a cell is flattened into the text
+      // of its cells, a heading or code there is a paragraph, and the blocks of a cell take the
+      // cell style, so they keep no style name.
+      const inCell = intoCell || from.parentElement?.closest('td, th') != null;
+      if (inCell && NESTED_TABLE.has(tag)) {
+        copy(from, into);
+        return;
+      }
+      if (inCell && (tag === 'td' || tag === 'th' || tag === 'pre' || /^h[1-6]$/.test(tag))) {
+        wrap(from, into, 'p');
+        return;
+      }
       const known = tag === 'table' ? stylesheet.tableStyles : stylesheet.paragraphStyles;
-      const styled = tag === 'table' || PARAGRAPH_STYLED.has(tag);
+      const styled = (tag === 'table' || PARAGRAPH_STYLED.has(tag)) && !inCell;
       const style = styled ? styleName(from, known) : null;
       wrap(from, into, tag, style === null ? {} : { [STYLE_ATTRIBUTE]: style });
       return;

@@ -46,7 +46,7 @@ const Text = Node.create({ name: 'text', group: 'inline' });
 
 const Paragraph = Node.create({
   name: 'paragraph',
-  group: 'block listItemBlock',
+  group: 'block listItemBlock cellBlock',
   content: 'inline*',
   addAttributes: () => ({ id, style }),
   parseHTML: () => [{ tag: 'p' }],
@@ -75,7 +75,7 @@ const Heading = Node.create({
 
 const BulletList = Node.create({
   name: 'bulletList',
-  group: 'block listItemBlock',
+  group: 'block listItemBlock cellBlock',
   content: 'listItem+',
   addAttributes: () => ({ id, style }),
   parseHTML: () => [{ tag: 'ul' }],
@@ -88,7 +88,7 @@ const BulletList = Node.create({
 
 const OrderedList = Node.create({
   name: 'orderedList',
-  group: 'block listItemBlock',
+  group: 'block listItemBlock cellBlock',
   content: 'listItem+',
   addAttributes: () => ({ id, style }),
   parseHTML: () => [{ tag: 'ol' }],
@@ -174,14 +174,15 @@ const TableNode = Table.configure({ resizable: false }).extend({
   renderHTML: ({ HTMLAttributes }) => ['table', HTMLAttributes, ['tbody', 0]],
 });
 
+// A cell holds paragraphs and lists (ADR 0048). The paragraphs take the cell style of the table.
 const Cell = TableCell.extend({
-  content: 'inline*',
+  content: 'cellBlock+',
   addAttributes: cellAttributes,
   renderHTML: () => ['td', 0],
 });
 
 const HeaderCell = TableHeader.extend({
-  content: 'inline*',
+  content: 'cellBlock+',
   addAttributes: cellAttributes,
   renderHTML: () => ['th', 0],
 });

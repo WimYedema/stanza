@@ -53,9 +53,9 @@ describe('the schema against the vocabulary of core', () => {
     expect(Object.keys(schema.nodes).filter((name) => !known.has(name))).toEqual([]);
   });
 
-  it('has table cells with inline content only, and no marks in code', () => {
-    expect(schema.nodes['tableCell']?.spec.content).toBe('inline*');
-    expect(schema.nodes['tableHeader']?.spec.content).toBe('inline*');
+  it('has table cells of paragraphs and lists, and no marks in code', () => {
+    expect(schema.nodes['tableCell']?.spec.content).toBe('cellBlock+');
+    expect(schema.nodes['tableHeader']?.spec.content).toBe('cellBlock+');
     expect(schema.nodes['codeBlock']?.spec.marks).toBe('');
   });
 });

@@ -78,7 +78,7 @@ const heading = (value: string, attrs: object = {}) => ({
 });
 const cell = (type: 'tableHeader' | 'tableCell', value: string) => ({
   type,
-  content: [{ type: 'text', text: value }],
+  content: [{ type: 'paragraph', content: [{ type: 'text', text: value }] }],
 });
 const table = (attrs: object = {}) => ({
   type: 'table',
@@ -129,7 +129,9 @@ describe('IDs of new blocks', () => {
     current.commands.setTextSelection(positionOf(current, 'One'));
     expect(run(current, { type: 'insert-table', columns: 2, rows: 1 })).toEqual({ ok: true });
     expect(idsOf(current)).toEqual([null, A]);
-    expect(run(current, { type: 'toggle-list', kind: 'bulleted' }).ok).toBe(false);
+    // A list in a cell is a block of the cell, and needs no ID.
+    expect(run(current, { type: 'toggle-list', kind: 'bulleted' })).toEqual({ ok: true });
+    expect(idsOf(current)).toEqual([null, A]);
     current.commands.setTextSelection(positionOf(current, 'One'));
     expect(run(current, { type: 'toggle-list', kind: 'bulleted' })).toEqual({ ok: true });
     expect(idsOf(current)).toEqual([null, A]);

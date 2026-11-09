@@ -33,15 +33,11 @@ describe('reviewText', () => {
     expect(result.reasons[0]?.line).toBe(8);
   });
 
-  it('refuses a table with a cell of more than text, instead of letting the editor flatten it', () => {
+  it('takes a table with paragraphs and lists in its cells, which the editor shows', () => {
     const rich = '```phrase-table\n- - H\n- - one\n\n    two\n```\n';
     const list = `- item\n\n  \`\`\`phrase-table\n  - - H\n  - - one\n\n      two\n  \`\`\`\n`;
     for (const body of [rich, list]) {
-      const result = reviewText(`${FRONT}${body}`);
-      expect(result.ok).toBe(false);
-      if (result.ok) return;
-      expect(result.formatted).toBeUndefined();
-      expect(result.reasons[0]?.message).toContain('paragraphs or lists');
+      expect(reviewText(`${FRONT}${body}`)).toEqual({ ok: true, text: `${FRONT}${body}` });
     }
   });
 

@@ -23,8 +23,7 @@ const formats = new URL('../../../fixtures/format/', import.meta.url);
 const project = new URL('../../../fixtures/example-project/documents/', import.meta.url);
 const fixtures = [
   ...readdirSync(formats)
-    // The editor holds cells of text only until its item of ADR 0048.
-    .filter((name) => name.endsWith('.phrase.md') && name !== 'rich-tables.phrase.md')
+    .filter((name) => name.endsWith('.phrase.md'))
     .map((name) => [`format/${name}`, new URL(name, formats)] as const),
   ...readdirSync(project)
     .filter((name) => name.endsWith('.phrase.md'))
@@ -202,19 +201,58 @@ describe('fromEditorContent', () => {
     ]);
   });
 
-  it('refuses to show a table cell that holds more than text, instead of flattening it', () => {
+  it('takes the paragraphs and lists of a cell through the editor and back', () => {
     const paragraphOf = (text: string) =>
       ({ type: 'paragraph', content: [{ type: 'text', text, marks: [] }] }) as const;
+    const list = {
+      type: 'list',
+      kind: 'bulleted',
+      items: [{ blocks: [paragraphOf('a'), paragraphOf('a2')] }, { blocks: [paragraphOf('b')] }],
+    } as const;
     const document: Document = {
       meta: { fields: {} },
       blocks: [
         {
           type: 'table',
-          header: [{ blocks: [paragraphOf('H')] }],
-          rows: [[{ blocks: [paragraphOf('one'), paragraphOf('two')] }]],
+          header: [{ blocks: [paragraphOf('H')] }, { blocks: [] }],
+          rows: [[{ blocks: [paragraphOf('one'), paragraphOf('two'), list] }, { blocks: [list] }]],
         },
       ],
     };
-    expect(() => toEditorContent(document)).toThrow('more than text');
+    expect(viaEditor(document)).toEqual(document);
+  });
+
+  it('gives an empty cell an empty paragraph in the editor, since a cell always holds a block', () => {
+    const document: Document = {
+      meta: { fields: {} },
+      blocks: [{ type: 'table', header: [{ blocks: [] }], rows: [] }],
+    };
+    const content = toEditorContent(document);
+    expect(content.content?.[0]?.content?.[0]?.content?.[0]?.content).toEqual([
+      { type: 'paragraph' },
+    ]);
+  });
+
+  it('refuses what a cell may not hold: a style or an ID on its blocks, and code in its lists', () => {
+    const cellOf = (...content: object[]) =>
+      docOf([
+        {
+          type: 'table',
+          content: [{ type: 'tableRow', content: [{ type: 'tableCell', content }] }],
+        },
+      ]);
+    const problems = (node: ReturnType<typeof docOf>) =>
+      fromEditorContent(node, meta).diagnostics.map((d) => `${d.code} ${d.path ?? ''}`);
+    expect(problems(cellOf({ type: 'paragraph', attrs: { style: 'note' } }))).toEqual([
+      'editor-invalid-content blocks[0].rows[0].cells[0].blocks[0]',
+    ]);
+    expect(
+      problems(
+        cellOf({
+          type: 'bulletList',
+          content: [{ type: 'listItem', content: [{ type: 'codeBlock' }] }],
+        }),
+      ),
+    ).toEqual(['editor-invalid-content blocks[0].rows[0].cells[0].blocks[0].items[0].blocks[0]']);
   });
 });

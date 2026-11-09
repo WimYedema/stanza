@@ -218,6 +218,13 @@ class Compiler {
       if (background !== undefined) header.set('background-color', background);
     }
     rules.push(this.rule([`${table} th`], header));
+    // The blocks of a header cell have the reset of their own class, so they take the header text
+    // from this rule, which is more specific, and not from the cell they are in.
+    const headerText: Declarations = new Map();
+    if (style.headerRow !== undefined) this.text(style.headerRow.text, headerText);
+    if (headerText.size > 0) {
+      rules.push(this.rule([`${table} th p`, `${table} th li`], headerText));
+    }
     return rules;
   }
 

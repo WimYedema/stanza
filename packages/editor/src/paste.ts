@@ -4,6 +4,7 @@ import { VARIANT_MARKS, markAllowed, type StyleName, type Stylesheet } from '@ph
 import { textStyle } from './block-styles.js';
 import type { Notice } from './notice.js';
 import { normalizePastedHtml } from './paste-html.js';
+import { cellPlace } from './selection.js';
 
 export interface PhrasePasteOptions {
   /** The stylesheet in force, read whenever something is pasted. */
@@ -30,7 +31,12 @@ export const PhrasePaste = Extension.create<PhrasePasteOptions>({
       new Plugin({
         key: new PluginKey('phrase-paste'),
         props: {
-          transformPastedHTML: (html) => normalizePastedHtml(html, stylesheet()),
+          transformPastedHTML: (html, view) =>
+            normalizePastedHtml(
+              html,
+              stylesheet(),
+              cellPlace(view.state.selection.$from) !== undefined,
+            ),
         },
         appendTransaction(transactions, _before, state) {
           const sheet = stylesheet();

@@ -10,6 +10,7 @@ import {
   type CommandResult,
   type EditorCommand,
 } from './commands.js';
+import { editorContext } from './context.js';
 import { schemaExtensions } from './schema.js';
 import { COMMANDS_STYLESHEET } from './styles.testing.js';
 
@@ -37,7 +38,7 @@ const item = (...blocks: object[]) => ({ type: 'listItem', content: blocks });
 const bullets = (...items: object[]) => ({ type: 'bulletList', content: items });
 const cell = (type: 'tableHeader' | 'tableCell', value: string, marks: string[] = []) => ({
   type,
-  content: value === '' ? [] : [text(value, marks)],
+  content: [{ type: 'paragraph', content: value === '' ? [] : [text(value, marks)] }],
 });
 const row = (...cells: object[]) => ({ type: 'tableRow', content: cells });
 
@@ -570,7 +571,9 @@ describe('tables', () => {
       ['tableCell', 'tableCell', 'tableCell'],
       ['tableCell', 'tableCell', 'tableCell'],
     ]);
-    expect(outcome.next.selection.$from.parent.type.name).toBe('tableHeader');
+    expect(
+      outcome.next.selection.$from.node(outcome.next.selection.$from.depth - 1).type.name,
+    ).toBe('tableHeader');
   });
 
   it.each([

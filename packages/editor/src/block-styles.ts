@@ -12,6 +12,7 @@ import {
   type VariantMark,
 } from '@phrase/core';
 import type { Node as EditorNode } from '@tiptap/pm/model';
+import { cellPlace, tableDepth } from './selection.js';
 
 /**
  * Which style a block of text has, and so which marks it may carry (ADR 0006, ADR 0023). The
@@ -44,15 +45,16 @@ export function textStyle(
   switch (node.type.name) {
     case 'heading':
       return own ?? defaultHeadingStyle(Number(node.attrs['level']));
-    case 'paragraph':
-      return $pos.parent.type.name === 'listItem'
-        ? (own ?? listStyleOf($pos.node($pos.depth - 1)))
-        : (own ?? BODY_STYLE);
-    case 'tableCell':
-    case 'tableHeader': {
-      const table = $pos.node($pos.depth - 1);
-      const name = styleOf(table) ?? RESERVED_TABLE_STYLE;
-      return resolveTableStyle(stylesheet, name)?.cellStyle ?? BODY_STYLE;
+    case 'paragraph': {
+      const parent = $pos.parent.type.name;
+      if (parent === 'listItem') return own ?? listStyleOf($pos.node($pos.depth - 1));
+      if (cellPlace($pos) === 'cell') {
+        // A paragraph of a cell has no style of its own: it takes the cell style of its table.
+        const table = $pos.node(tableDepth($pos));
+        const name = styleOf(table) ?? RESERVED_TABLE_STYLE;
+        return resolveTableStyle(stylesheet, name)?.cellStyle ?? BODY_STYLE;
+      }
+      return own ?? BODY_STYLE;
     }
     default:
       return undefined;
