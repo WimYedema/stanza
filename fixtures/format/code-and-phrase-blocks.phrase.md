@@ -11,6 +11,6 @@ let x = 1;
 A fence with ``` inside
 ````
 
-```phrase-table
+```phrase-chart
 raw body kept verbatim
 ```

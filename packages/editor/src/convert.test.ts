@@ -23,7 +23,8 @@ const formats = new URL('../../../fixtures/format/', import.meta.url);
 const project = new URL('../../../fixtures/example-project/documents/', import.meta.url);
 const fixtures = [
   ...readdirSync(formats)
-    .filter((name) => name.endsWith('.phrase.md'))
+    // The editor holds cells of text only until its item of ADR 0048.
+    .filter((name) => name.endsWith('.phrase.md') && name !== 'rich-tables.phrase.md')
     .map((name) => [`format/${name}`, new URL(name, formats)] as const),
   ...readdirSync(project)
     .filter((name) => name.endsWith('.phrase.md'))

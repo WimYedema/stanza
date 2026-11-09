@@ -104,23 +104,45 @@ function serializeList(list: List, alternateMarker: boolean): string[] {
   return lines;
 }
 
-/** Until the `phrase-table` block (ADR 0048), only a cell of plain text can be written. */
-function plainContent(cell: TableCell): readonly Inline[] {
-  const inlines = plainCellInlines(cell);
-  if (inlines === undefined) {
-    throw new Error('A table cell with more than one plain paragraph cannot be written yet.');
-  }
-  return inlines;
+const isPlain = (table: Table): boolean =>
+  [table.header, ...table.rows].every((row) =>
+    row.every((cell) => plainCellInlines(cell) !== undefined),
+  );
+
+/**
+ * A pipe table when every cell is plain text, which GitHub shows as a table; otherwise a
+ * `phrase-table` block (ADR 0048). The form follows from the content alone.
+ */
+function serializeTable(table: Table): string[] {
+  return isPlain(table) ? serializePipeTable(table) : serializePhraseTable(table);
 }
 
-function serializeTable(table: Table): string[] {
+function serializePipeTable(table: Table): string[] {
   const row = (cells: readonly TableCell[]): string =>
-    `| ${cells.map((cell) => serializeInlines(plainContent(cell), 'cell')).join(' | ')} |`;
+    `| ${cells.map((cell) => serializeInlines(plainCellInlines(cell) ?? [], 'cell')).join(' | ')} |`;
   return [
     row(table.header),
     `| ${table.header.map(() => '---').join(' | ')} |`,
     ...table.rows.map(row),
   ];
+}
+
+/** Rows are the items of the outer list and cells the items of the list in each row. */
+function serializePhraseTable(table: Table): string[] {
+  const lines: string[] = [];
+  for (const row of [table.header, ...table.rows]) {
+    if (row.length === 0) lines.push('-');
+    row.forEach((cell, index) => {
+      const marker = index === 0 ? '- -' : '  -';
+      const content = serializeBlocks(cell.blocks, itemBlank);
+      if (content.length === 0) lines.push(marker);
+      content.forEach((line, lineIndex) => {
+        if (lineIndex === 0) lines.push(`${marker} ${line}`);
+        else lines.push(line === '' ? '' : `    ${line}`);
+      });
+    });
+  }
+  return fence(lines.join('\n'), 'phrase-table');
 }
 
 function fence(text: string, info: string): string[] {

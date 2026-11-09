@@ -1,11 +1,14 @@
 import {
   normalizeDocument,
   plainCell,
+  type CellBlock,
   type Document,
   type Inline,
+  type List,
   type Mark,
   type Paragraph,
   type StyleName,
+  type TableCell,
 } from '@phrase/core';
 import { describe, expect, it } from 'vitest';
 import { parseDocument } from './parse.js';
@@ -285,14 +288,113 @@ describe('random sequences of marked runs', () => {
   });
 });
 
-describe('a table cell that a pipe table cannot write', () => {
-  it('is refused for now, instead of being written with something lost', () => {
-    const paragraphOf = (text: string): Paragraph => ({ type: 'paragraph', content: [run(text)] });
-    const document = documentOf({
-      type: 'table',
-      header: [plainCell([run('H')])],
-      rows: [[{ blocks: [paragraphOf('one'), paragraphOf('two')] }]],
-    });
-    expect(() => serializeDocument(document)).toThrow('cannot be written yet');
+describe('a table with cells that are more than plain text', () => {
+  const cell = (...blocks: CellBlock[]): TableCell => ({ blocks });
+  const bullets = (...items: string[]): List => ({
+    type: 'list',
+    kind: 'bulleted',
+    items: items.map((item) => ({ blocks: [paragraph(run(item))] })),
+  });
+  const tableOf = (header: TableCell[], ...rows: TableCell[][]): Document['blocks'][number] => ({
+    type: 'table',
+    header,
+    rows,
+  });
+  const rich = tableOf(
+    [plainCell([run('Control')]), plainCell([run('Notes')])],
+    [plainCell([run('Logging')]), cell(paragraph(run('One')), paragraph(run('Two')))],
+    [plainCell([run('Review')]), cell(bullets('monthly', 'after incidents'))],
+    [cell(), plainCell([run('An empty first cell')])],
+  );
+
+  it('is written as a phrase-table block, with a list of rows of cells', () => {
+    expect(serializeDocument(documentOf(rich))).toBe(
+      [
+        '---',
+        'phrase-format: 1',
+        '---',
+        '',
+        '```phrase-table',
+        '- - Control',
+        '  - Notes',
+        '- - Logging',
+        '  - One',
+        '',
+        '    Two',
+        '- - Review',
+        '  - - monthly',
+        '    - after incidents',
+        '- -',
+        '  - An empty first cell',
+        '```',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('keeps the annotation before the block, the same as for a pipe table', () => {
+    const annotated = { ...rich, id: 'n3d8w5r1ya' as never, widths: [30, 70] };
+    const text = serializeDocument(documentOf(annotated));
+    expect(text).toContain('<!-- phrase: #n3d8w5r1ya widths="30 70" -->\n```phrase-table\n');
+    expectRoundTrip(documentOf(annotated));
+  });
+
+  it('is still a pipe table when every cell is plain, so that GitHub shows a table', () => {
+    const plain = tableOf([plainCell([run('A')])], [plainCell([run('b')])], [cell()]);
+    expect(serializeDocument(documentOf(plain))).toContain('| A |\n| --- |\n| b |\n|  |\n');
+  });
+
+  it('round trips paragraphs, lists, empty cells and text that looks like markup', () => {
+    expectRoundTrip(documentOf(rich));
+    expectRoundTrip(
+      documentOf(
+        tableOf(
+          [plainCell([run('H1')]), plainCell([run('H2')])],
+          [
+            cell(bullets('a', 'b')),
+            cell(paragraph(run('- not a list')), paragraph(run('1. not a list either'))),
+          ],
+          [
+            cell({
+              type: 'list',
+              kind: 'numbered',
+              items: [{ blocks: [paragraph(run('one'), run(' two', strong))] }],
+            }),
+            cell(paragraph(run('a | b ', code), run('and `ticks`'))),
+          ],
+          [cell(paragraph(run('x', link)), bullets('y')), cell(bullets('p'), bullets('q'))],
+        ),
+      ),
+    );
+  });
+
+  it('round trips nested lists in a cell, and a cell with a paragraph then a list', () => {
+    const nested: List = {
+      type: 'list',
+      kind: 'bulleted',
+      items: [{ blocks: [paragraph(run('outer')), bullets('inner', 'more')] }],
+    };
+    expectRoundTrip(
+      documentOf(tableOf([plainCell([run('H')])], [cell(paragraph(run('intro')), nested)])),
+    );
+  });
+
+  it('round trips a table in a list item and next to a pipe table', () => {
+    const list: List = {
+      type: 'list',
+      kind: 'bulleted',
+      items: [{ blocks: [paragraph(run('item')), rich as never] }],
+    };
+    const pipe = tableOf([plainCell([run('A')])], [plainCell([run('b')])]);
+    expectRoundTrip(documentOf(list, pipe, rich));
+  });
+
+  it('rewrites a phrase-table with only plain cells as a pipe table', () => {
+    const text = '---\nphrase-format: 1\n---\n\n```phrase-table\n- - A\n  - B\n- - 1\n  - 2\n```\n';
+    const parsed = parseDocument(text);
+    expect(parsed.diagnostics).toEqual([]);
+    expect(serializeDocument(parsed.document)).toBe(
+      '---\nphrase-format: 1\n---\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n',
+    );
   });
 });

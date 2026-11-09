@@ -128,12 +128,12 @@ describe('blocks', () => {
 
   it('reads code and phrase blocks', () => {
     const { document, diagnostics } = parseBody(
-      '```ts\nlet x;\n```\n\n```phrase-table\nraw\n```\n\n    indented\n',
+      '```ts\nlet x;\n```\n\n```phrase-chart\nraw\n```\n\n    indented\n',
     );
     expect(diagnostics).toEqual([]);
     expect(document.blocks).toEqual([
       { type: 'code', language: 'ts', text: 'let x;' },
-      { type: 'phrase', kind: 'table', text: 'raw' },
+      { type: 'phrase', kind: 'chart', text: 'raw' },
       { type: 'code', text: 'indented' },
     ]);
   });
@@ -225,5 +225,99 @@ describe('inline content', () => {
       type: 'paragraph',
       content: [{ type: 'text', text: 'one two', marks: [] }],
     });
+  });
+});
+
+describe('phrase-table blocks', () => {
+  const para = (text: string) => ({
+    type: 'paragraph',
+    content: [{ type: 'text', text, marks: [] }],
+  });
+  const table = (body: string) => parseBody(`\`\`\`phrase-table\n${body}\n\`\`\``);
+
+  it('reads rows of cells, with paragraphs and lists in a cell, as a table', () => {
+    const { document, diagnostics } = table(
+      '- - H1\n  - H2\n- - one\n\n    two\n  - - a\n    - b\n- -\n  - last',
+    );
+    expect(diagnostics).toEqual([]);
+    expect(document.blocks).toEqual([
+      {
+        type: 'table',
+        header: [{ blocks: [para('H1')] }, { blocks: [para('H2')] }],
+        rows: [
+          [
+            { blocks: [para('one'), para('two')] },
+            {
+              blocks: [
+                {
+                  type: 'list',
+                  kind: 'bulleted',
+                  items: [{ blocks: [para('a')] }, { blocks: [para('b')] }],
+                },
+              ],
+            },
+          ],
+          [{ blocks: [] }, { blocks: [para('last')] }],
+        ],
+      },
+    ]);
+  });
+
+  it('takes the ID, style and widths from the annotation, as for a pipe table', () => {
+    const { document, diagnostics } = parseBody(
+      '<!-- phrase: #n3d8w5r1ya .table-grid widths="30 70" -->\n```phrase-table\n- - A\n  - B\n```',
+    );
+    expect(diagnostics).toEqual([]);
+    expect(document.blocks[0]).toMatchObject({
+      type: 'table',
+      id: 'n3d8w5r1ya',
+      style: 'table-grid',
+      widths: [30, 70],
+    });
+  });
+
+  it('reads a table in a list item', () => {
+    const { document, diagnostics } = parseBody(
+      '- item\n\n  ```phrase-table\n  - - A\n  - - b\n\n      c\n  ```',
+    );
+    expect(diagnostics).toEqual([]);
+    expect(document.blocks[0]).toMatchObject({
+      type: 'list',
+      items: [
+        { blocks: [{ type: 'paragraph' }, { type: 'table', rows: [[{ blocks: [{}, {}] }]] }] },
+      ],
+    });
+  });
+
+  it.each([
+    ['an empty body', ''],
+    ['text', 'just words'],
+    ['a numbered list', '1. - A'],
+    ['rows that are not lists of cells', '- A\n- B'],
+    ['a row that holds a paragraph too', '- - A\n\n  text'],
+    ['more than one list', '- - A\n\ntext\n\n- - B'],
+    ['an annotation in the body', '<!-- phrase: #n3d8w5r1ya -->\n- - A'],
+  ])('refuses %s', (_name, body) => {
+    expect(codes(`\`\`\`phrase-table\n${body}\n\`\`\``)).toEqual(['invalid-table-body']);
+  });
+
+  it('refuses a block that a cell may not hold, and says where the table starts', () => {
+    const { diagnostics } = parseBody(
+      'text\n\n```phrase-table\n- - A\n- - ```ts\n    code\n    ```\n```',
+    );
+    expect(diagnostics).toEqual([
+      expect.objectContaining({ code: 'table-cell-block', severity: 'error' }),
+    ]);
+  });
+
+  it('points a problem inside a cell at its own line', () => {
+    const { diagnostics } = parseBody('text\n\n```phrase-table\n- - A\n- - # heading\n```');
+    expect(diagnostics).toEqual([expect.objectContaining({ code: 'heading-in-list', line: 9 })]);
+  });
+
+  it('keeps rows of different length for the checks of the document to report', () => {
+    const { document, diagnostics } = table('- - A\n  - B\n- - 1');
+    expect(diagnostics).toEqual([]);
+    expect(document.blocks[0]).toMatchObject({ rows: [[{ blocks: [para('1')] }]] });
   });
 });

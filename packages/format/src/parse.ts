@@ -4,11 +4,13 @@ import {
   plainCell,
   plainCellInlines,
   type Block,
+  type CellBlock,
   type Diagnostic,
   type Document,
   type DocumentMeta,
   type HeadingLevel,
   type Inline,
+  type List,
   type ListItem,
   type ListItemBlock,
   type Mark,
@@ -332,6 +334,7 @@ function fenceBlock(state: State, token: Token): Block {
       token,
     );
   }
+  if (first === 'phrase-table') return parsePhraseTable(state, token, text);
   if (first.startsWith('phrase-')) {
     const kind = first.slice('phrase-'.length);
     if (kind === '')
@@ -339,6 +342,65 @@ function fenceBlock(state: State, token: Token): Block {
     return { type: 'phrase', kind, text };
   }
   return first === '' ? { type: 'code', text } : { type: 'code', language: first, text };
+}
+
+const isPlainBulletList = (block: Block | undefined): block is List =>
+  block?.type === 'list' &&
+  block.kind === 'bulleted' &&
+  block.id === undefined &&
+  block.style === undefined;
+
+function cellOf(state: State, fence: Token, blocks: readonly ListItemBlock[]): TableCell {
+  const kept = blocks.filter(
+    (block): block is CellBlock => block.type === 'paragraph' || block.type === 'list',
+  );
+  if (kept.length < blocks.length) {
+    report(
+      state,
+      'error',
+      'table-cell-block',
+      'A table cell holds paragraphs and lists only.',
+      fence,
+    );
+  }
+  return { blocks: kept };
+}
+
+/**
+ * The body of a `phrase-table` (ADR 0048): a bullet list of rows, each a bullet list of cells, each
+ * cell holding blocks. The first row is the header. The levels count by position, so a list in a
+ * cell does not clash with the rows and cells. Rows of different length are left for the checks of
+ * the document to report.
+ */
+function parsePhraseTable(state: State, fence: Token, text: string): Block {
+  const body: State = {
+    tokens: markdown.parse(text, {}),
+    pos: 0,
+    diagnostics: state.diagnostics,
+    lineOffset: state.lineOffset + (fence.map?.[0] ?? 0) + 1,
+  };
+  const invalid = (message: string): Block => {
+    report(state, 'error', 'invalid-table-body', message, fence);
+    return { type: 'table', header: [], rows: [] };
+  };
+  const [rowList, ...others] = parseBlocks(body, undefined, false);
+  if (!isPlainBulletList(rowList) || others.length > 0) {
+    return invalid(
+      'The body of a phrase-table must be one bullet list of rows, as in "- - first cell".',
+    );
+  }
+  const rows: TableCell[][] = [];
+  for (const [index, row] of rowList.items.entries()) {
+    const [cells, ...more] = row.blocks;
+    if (!isPlainBulletList(cells) || more.length > 0) {
+      return invalid(
+        `Row ${String(index + 1)} of a phrase-table must be a bullet list of cells, as in "- - first cell".`,
+      );
+    }
+    rows.push(cells.items.map((item) => cellOf(state, fence, item.blocks)));
+  }
+  const [header = [], ...rest] = rows;
+  return { type: 'table', header, rows: rest };
 }
 
 function inlineRuns(state: State, token: Token | undefined, block: Token): readonly Inline[] {
