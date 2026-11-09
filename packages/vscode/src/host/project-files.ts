@@ -46,6 +46,15 @@ export async function pickedProjectFile(): Promise<vscode.Uri | undefined> {
   return picked?.uri;
 }
 
+/** The project of the file in front, or the one that is picked when that file is in none. */
+export async function projectRoot(): Promise<vscode.Uri | undefined> {
+  const from = activeFile();
+  const near = from === undefined ? undefined : await findRoot(from);
+  if (near !== undefined) return near;
+  const picked = await pickedProjectFile();
+  return picked === undefined ? undefined : findRoot(picked);
+}
+
 /** The URI of a path in a project. */
 export const uriInProject = (root: vscode.Uri, path: string): vscode.Uri =>
   path === '' ? root : vscode.Uri.joinPath(root, ...path.split('/'));

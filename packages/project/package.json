@@ -15,7 +15,8 @@
   "dependencies": {
     "@phrase/core": "*",
     "@phrase/export-docx": "*",
-    "@phrase/format": "*"
+    "@phrase/format": "*",
+    "@phrase/import-docx": "*"
   },
   "devDependencies": {
     "fflate": "^0.8.3"

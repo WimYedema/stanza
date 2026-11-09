@@ -60,6 +60,10 @@
         "title": "Phrase: New Document"
       },
       {
+        "command": "phrase.importWord",
+        "title": "Phrase: Import Word Document"
+      },
+      {
         "command": "phrase.openInWord",
         "title": "Phrase: Open in Word",
         "icon": "$(link-external)"
@@ -83,7 +87,8 @@
     "@phrase/project": "*"
   },
   "devDependencies": {
-    "@types/vscode": "1.90.0"
+    "@types/vscode": "1.90.0",
+    "fflate": "^0.8.3"
   },
   "scripts": {
     "build": "node build.mjs && tsc -p tsconfig.json && tsc -p tsconfig.webview.json",

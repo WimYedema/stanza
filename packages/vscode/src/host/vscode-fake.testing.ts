@@ -88,6 +88,8 @@ export const world = {
   infoChoice: undefined as string | undefined,
   /** The folders that the editor was opened on are not in the workspace. */
   outsideWorkspace: false,
+  /** The files whose content is bytes, such as a DOCX, by absolute path. */
+  binary: new Map<string, Uint8Array>(),
   /** Set in a remote window. */
   remoteName: undefined as string | undefined,
   /** The files handed to the system to open, and whether that works. */
@@ -135,6 +137,7 @@ export function reset(
   world.infoChoice = undefined;
   world.outsideWorkspace = false;
   world.remoteName = undefined;
+  world.binary = new Map();
   world.opened = [];
   world.failOpen = false;
   const uri = new FakeUri(documentPath);
@@ -249,6 +252,8 @@ export function createFakeVscode(): Record<string, unknown> {
         stat: (uri: FakeUri) =>
           exists(uri.path) ? Promise.resolve({}) : Promise.reject(new Error(`No ${uri.path}`)),
         readFile: (uri: FakeUri) => {
+          const binary = world.binary.get(uri.path);
+          if (binary !== undefined) return Promise.resolve(binary);
           const text = world.files.get(uri.path);
           return text === undefined
             ? Promise.reject(new Error(`No ${uri.path}`))

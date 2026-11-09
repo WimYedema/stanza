@@ -7,5 +7,10 @@
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/*.testing.ts"],
-  "references": [{ "path": "../core" }, { "path": "../format" }, { "path": "../export-docx" }]
+  "references": [
+    { "path": "../core" },
+    { "path": "../format" },
+    { "path": "../export-docx" },
+    { "path": "../import-docx" }
+  ]
 }

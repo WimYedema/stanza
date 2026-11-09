@@ -1,27 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 import { addDocument } from '@phrase/project';
-import {
-  activeFile,
-  findRoot,
-  pickedProjectFile,
-  storageOf,
-  uriInProject,
-} from './project-files.js';
+import { projectRoot, storageOf, uriInProject } from './project-files.js';
 
 export const NEW_DOCUMENT_COMMAND = 'phrase.newDocument';
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
-
-/** The project of the file in front, or the one that is picked when that file is in none. */
-async function projectRoot(): Promise<vscode.Uri | undefined> {
-  const from = activeFile();
-  const near = from === undefined ? undefined : await findRoot(from);
-  if (near !== undefined) return near;
-  const picked = await pickedProjectFile();
-  return picked === undefined ? undefined : findRoot(picked);
-}
 
 /** "Phrase: New Document" adds a document to a project and opens it (ADR 0044). */
 export function registerNewDocument(): vscode.Disposable {

@@ -82,8 +82,15 @@ export default tseslint.config(
     files: ['packages/project/src/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.testing.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', '!@phrase/format', '!@phrase/export-docx', 'node:*'],
-      'project may import core, format, and export-docx, and no Node built-ins.',
+      [
+        '@phrase/*',
+        '!@phrase/core',
+        '!@phrase/format',
+        '!@phrase/export-docx',
+        '!@phrase/import-docx',
+        'node:*',
+      ],
+      'project may import core, format, export-docx and import-docx, and no Node built-ins.',
     ),
   },
   {

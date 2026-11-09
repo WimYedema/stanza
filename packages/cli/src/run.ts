@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { basename, dirname, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { basename, dirname, extname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { isSafeRelativePath, nodeIdFromRandomBytes } from '@phrase/core';
 import {
@@ -9,6 +10,8 @@ import {
   formatDocuments,
   formatProject,
   hasErrors,
+  importWordDocument,
+  describeImport,
   loadProject,
   type ProjectDiagnostic,
   type ProjectStorage,
@@ -24,6 +27,8 @@ export interface Io {
   readonly openStorage?: (root: string) => ProjectStorage;
   /** The source of new IDs; random unless a test replaces it. */
   readonly generateId?: () => string;
+  /** The bytes of a Word file; read from the filesystem unless a test replaces it. */
+  readonly readBytes?: (path: string) => Promise<Uint8Array>;
 }
 
 const USAGE = `Usage: phrase <command> [project] [options]
@@ -34,6 +39,11 @@ Commands:
   format [path]        Rewrite documents in canonical form. The path is a project, or a
                        single ${DOCUMENT_SUFFIX} file. A document that holds something the
                        model cannot keep is reported and left as it is.
+  import <file.docx> [project]
+                       Add the content of a Word document to the project as a new
+                       ${DOCUMENT_SUFFIX} document in documents/, named after the file, with IDs
+                       given. An existing document is never replaced: a taken name gets a
+                       number. What could not be carried over is listed.
 
 Options for build:
   --out <dir>          Output directory, relative to the project (default: build).
@@ -120,8 +130,50 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   }
 
   const [command, project = '.', ...extra] = positionals;
-  if (command !== 'validate' && command !== 'build' && command !== 'format') {
+  if (
+    command !== 'validate' &&
+    command !== 'build' &&
+    command !== 'format' &&
+    command !== 'import'
+  ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
+  }
+  if (command === 'import') {
+    if (
+      values.out !== undefined ||
+      values.date !== undefined ||
+      values.check === true ||
+      values['assign-ids'] === true
+    ) {
+      return usage('import takes no options.');
+    }
+    const [file, folder = '.', ...more] = positionals.slice(1);
+    if (file === undefined || extname(file).toLowerCase() !== '.docx') {
+      return usage('import needs a Word file, as in: phrase import report.docx [project].');
+    }
+    if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
+    let bytes: Uint8Array;
+    try {
+      bytes = await (io.readBytes ?? readFile)(resolve(io.cwd, file));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      io.stderr(`phrase: cannot read ${file}: ${reason}\n`);
+      return 2;
+    }
+    const imported = await importWordDocument(
+      (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder)),
+      bytes,
+      { name: basename(file, extname(file)), randomBytes: () => randomBytes(10) },
+    );
+    if (!imported.ok) {
+      io.stderr(`phrase: ${imported.message}\n`);
+      return 2;
+    }
+    const ids = plural(imported.assigned, 'ID');
+    io.stdout(`Imported ${file} as ${imported.document} (${ids} assigned).\n`);
+    for (const line of describeImport(imported.report)) io.stdout(`  ${line}\n`);
+    io.stdout(imported.diagnostics.map(formatDiagnostic).join(''));
+    return hasErrors(imported.diagnostics) ? 1 : 0;
   }
   if (extra.length > 0) return usage(`unexpected argument "${extra.join(' ')}".`);
   if (command !== 'build' && (values.out !== undefined || values.date !== undefined)) {

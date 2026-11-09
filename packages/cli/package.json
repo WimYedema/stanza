@@ -15,5 +15,8 @@
   },
   "scripts": {
     "typecheck:tests": "tsc -p tsconfig.test.json"
+  },
+  "devDependencies": {
+    "fflate": "^0.8.3"
   }
 }

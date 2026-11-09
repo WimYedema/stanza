@@ -14,6 +14,12 @@ export {
   type FormatStatus,
 } from './format.js';
 export { hasErrors, type ProjectDiagnostic } from './diagnostics.js';
+export {
+  describeImport,
+  importWordDocument,
+  type ImportWordOptions,
+  type ImportWordResult,
+} from './import-word.js';
 export { DEFAULT_STYLESHEET } from './default-stylesheet.js';
 export { addDocument, type NewDocumentOptions, type NewDocumentResult } from './new-document.js';
 export {

@@ -3,6 +3,9 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { strToU8, zipSync } from 'fflate';
+import { createProject } from '@phrase/project';
+import { nodeStorage } from './node-storage.js';
 import { run } from './run.js';
 
 const EXAMPLE = fileURLToPath(new URL('../../../fixtures/example-project/', import.meta.url));
@@ -228,12 +231,103 @@ describe('phrase usage', () => {
     [['build', '--date', '1979-12-31'], '--date must be'],
     [['build', '--out', '../x'], '--out must be a relative path'],
     [['build', '--out', '/x'], '--out must be a relative path'],
+    [['import'], 'import needs a Word file'],
+    [['import', 'notes.txt'], 'import needs a Word file'],
+    [['import', 'a.docx', 'project', 'x'], 'unexpected argument "x"'],
+    [['import', 'a.docx', '--check'], 'import takes no options'],
   ])('refuses %j with exit code 2 and the usage', async (argv, message) => {
     const result = await phrase(...argv);
     expect(result.code).toBe(2);
     expect(result.err).toContain(message);
     expect(result.err).toContain('Usage: phrase');
     expect(result.out).toBe('');
+  });
+});
+
+describe('phrase import', () => {
+  const WORD =
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+    '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Scope</w:t></w:r></w:p>' +
+    '<w:p><w:r><w:rPr><w:color w:val="FF0000"/></w:rPr><w:t>Some text.</w:t></w:r></w:p>' +
+    '</w:body></w:document>';
+  const writeWord = (name = 'Meeting notes.docx'): void => {
+    writeFileSync(join(work, name), zipSync({ 'word/document.xml': strToU8(WORD) }));
+  };
+  const documentsOf = (...path: string[]): string => join(work, 'plain', 'documents', ...path);
+
+  // A plain project has no required fields, which the example project has.
+  beforeEach(async () => {
+    await createProject(nodeStorage(join(work, 'plain')), {
+      title: 'Plain',
+      randomBytes: () => Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    });
+  });
+
+  it('adds the content as a new document, names it after the file and lists the losses', async () => {
+    writeWord();
+    const result = await phrase('import', 'Meeting notes.docx', 'plain');
+    expect(result.code).toBe(0);
+    expect(result.out).toContain(
+      'Imported Meeting notes.docx as documents/meeting-notes.phrase.md (1 ID assigned).',
+    );
+    expect(result.out).toContain('info: Direct formatting');
+    const text = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
+    expect(text).toContain('# Scope');
+    expect(text).toContain('Some text.');
+    expect((await phrase('validate', 'plain')).out).toBe(
+      'Checked 2 documents: 0 errors, 0 warnings.\n',
+    );
+  });
+
+  it('shows what the project says about the new document, and exits with 1 for an error', async () => {
+    writeWord();
+    const result = await phrase('import', 'Meeting notes.docx', 'project');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('missing-field');
+    expect(existsSync(join(work, 'project', 'documents', 'meeting-notes.phrase.md'))).toBe(true);
+  });
+
+  it('uses the current directory by default', async () => {
+    writeWord();
+    let out = '';
+    const code = await run(['import', '../Meeting notes.docx'], {
+      cwd: join(work, 'plain'),
+      stdout: (text) => (out += text),
+      stderr: () => undefined,
+    });
+    expect(code).toBe(0);
+    expect(out).toContain('documents/meeting-notes.phrase.md');
+  });
+
+  it('never writes over a document: a second import gets a number', async () => {
+    writeWord();
+    await phrase('import', 'Meeting notes.docx', 'plain');
+    const first = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
+    const again = await phrase('import', 'Meeting notes.docx', 'plain');
+    expect(again.out).toContain('documents/meeting-notes-2.phrase.md');
+    expect(readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8')).toBe(first);
+    expect(existsSync(documentsOf('meeting-notes-2.phrase.md'))).toBe(true);
+  });
+
+  it('says so, with exit code 2, when the Word file cannot be read', async () => {
+    const result = await phrase('import', 'missing.docx', 'plain');
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('cannot read missing.docx');
+  });
+
+  it('refuses a file that is not a DOCX, and writes nothing', async () => {
+    writeFileSync(join(work, 'old.docx'), Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0, 0]));
+    const result = await phrase('import', 'old.docx', 'plain');
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('old Word file');
+    expect(existsSync(documentsOf('old.phrase.md'))).toBe(false);
+  });
+
+  it('refuses a folder that is not a project', async () => {
+    writeWord();
+    const result = await phrase('import', 'Meeting notes.docx', 'nowhere');
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('no project in order');
   });
 });
 
