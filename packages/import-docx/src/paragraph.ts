@@ -4,7 +4,10 @@ import { isMonospace, toggleOf } from './styles.js';
 import { childOf, descendantsOf, elementsOf, plainText, type XmlElement } from './xml.js';
 
 export interface ParagraphContent {
+  /** The text of the paragraph with its parts joined by spaces, for what cannot split it. */
   readonly inlines: Text[];
+  /** The text between double line breaks (ADR 0049): one part, or more. */
+  readonly parts: Text[][];
   /** Paragraphs that follow this one: placeholders, and the text of text boxes. */
   readonly extras: Paragraph[];
   /** The paragraph mark is a tracked deletion, so the paragraph joins the next one. */
@@ -14,7 +17,17 @@ export interface ParagraphContent {
 interface Sink {
   readonly inlines: Text[];
   readonly extras: Paragraph[];
+  /** Parts that a double line break closed. */
+  readonly earlier: Text[][];
+  /** Line breaks seen since the last text. */
+  pending: number;
 }
+
+const SPACE: Text = { type: 'text', text: ' ', marks: [] };
+
+/** The parts of a paragraph as one run of text, with a space between them. */
+export const joinParts = (parts: readonly (readonly Text[])[]): Text[] =>
+  parts.flatMap((part, index) => (index === 0 ? [...part] : [SPACE, ...part]));
 
 /** Run properties that carry no look, or that the import reads. Everything else is direct formatting. */
 const READ_OR_NEUTRAL_RUN_PROPERTIES = new Set([
@@ -195,9 +208,21 @@ function readRun(run: XmlElement, link: string | undefined, ctx: ImportContext, 
     sink.inlines.push({ type: 'text', text: buffer, marks });
     buffer = '';
   };
+  // Before text: a double line break ends the part, a single one is a space (ADR 0049).
+  const startText = (): void => {
+    if (sink.pending >= 2) {
+      flush();
+      sink.earlier.push(sink.inlines.splice(0));
+    } else if (sink.pending === 1) {
+      buffer += ' ';
+    }
+    sink.pending = 0;
+  };
   const add = (text: string): void => {
-    buffer += text;
     state.emitted = true;
+    if (text === '') return;
+    startText();
+    buffer += text;
   };
 
   const visit = (children: readonly (XmlElement | string)[]): void => {
@@ -222,7 +247,7 @@ function readRun(run: XmlElement, link: string | undefined, ctx: ImportContext, 
           if (child.attrs['type'] === 'page' || child.attrs['type'] === 'column') {
             ctx.report.add('page-break', ctx.place());
           } else if (showing()) {
-            add(' ');
+            sink.pending += 1;
           }
           break;
         case 'noBreakHyphen':
@@ -243,6 +268,7 @@ function readRun(run: XmlElement, link: string | undefined, ctx: ImportContext, 
         case 'footnoteReference':
         case 'endnoteReference':
           if (showing()) {
+            startText();
             flush();
             const footnote = child.name === 'footnoteReference';
             sink.inlines.push(
@@ -366,9 +392,10 @@ function walk(
 /** The text of a paragraph as runs with marks, with what it holds that is not text kept apart. */
 export function readParagraph(paragraph: XmlElement, ctx: ImportContext): ParagraphContent {
   ctx.paragraphNumber += 1;
-  const sink: Sink = { inlines: [], extras: [] };
+  const sink: Sink = { inlines: [], extras: [], earlier: [], pending: 0 };
   walk(paragraph, undefined, ctx, sink);
   const markDeleted = childOf(childOf(childOf(paragraph, 'pPr'), 'rPr'), 'del') !== undefined;
   if (markDeleted) ctx.report.add('tracked-changes');
-  return { ...sink, markDeleted };
+  const parts = [...sink.earlier, sink.inlines];
+  return { inlines: joinParts(parts), parts, extras: sink.extras, markDeleted };
 }

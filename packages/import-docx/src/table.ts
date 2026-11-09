@@ -44,21 +44,28 @@ function readCell(cell: XmlElement, ctx: ImportContext, place: string): TableCel
         const properties = childOf(child, 'pPr');
         const styleId = childOf(properties, 'pStyle')?.attrs['val'];
         const read = readParagraph(child, ctx);
-        const content = normalizeInlines(read.inlines);
-        const numbering =
-          ctx.styles.headingLevel(styleId) === undefined
-            ? paragraphNumbering(ctx, properties, styleId)
-            : undefined;
-        if (content.length > 0 && numbering !== undefined) {
+        const isHeading = ctx.styles.headingLevel(styleId) !== undefined;
+        // Double line breaks end paragraphs (ADR 0049).
+        const [content, ...rest] = read.parts
+          .map((part) => normalizeInlines(part))
+          .filter((part) => part.length > 0);
+        const numbering = isHeading ? undefined : paragraphNumbering(ctx, properties, styleId);
+        if (content !== undefined && numbering !== undefined) {
           let kind = ctx.numbering.kindOf(numbering.numId, numbering.level);
           if (kind === undefined) {
             ctx.report.add('unknown-numbering', place);
             kind = 'bulleted';
           }
-          writer.addItem(kind, numbering.numId, numbering.level, content, read.extras);
+          const more = rest.map((part): Paragraph => ({ type: 'paragraph', content: part }));
+          writer.addItem(kind, numbering.numId, numbering.level, content, [
+            ...more,
+            ...read.extras,
+          ]);
           continue;
         }
-        if (content.length > 0) writer.push({ type: 'paragraph', content });
+        for (const part of [content, ...rest]) {
+          if (part !== undefined) writer.push({ type: 'paragraph', content: part });
+        }
         for (const extra of read.extras) writer.push(extra);
       } else if (child.name === 'tbl') {
         ctx.report.add('nested-table', place);

@@ -9,7 +9,7 @@ import {
 } from '@phrase/core';
 import type { ImportContext } from './context.js';
 import { BlockWriter, paragraphNumbering } from './block-writer.js';
-import { readParagraph } from './paragraph.js';
+import { joinParts, readParagraph } from './paragraph.js';
 import { importTable } from './table.js';
 import { toggleOf } from './styles.js';
 import { childOf, elementsOf, type XmlElement } from './xml.js';
@@ -39,7 +39,7 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
   const referenced = new Set<string>();
   let lastHeading: HeadingLevel | undefined;
   let carried:
-    { inlines: Text[]; extras: Paragraph[]; properties: XmlElement | undefined } | undefined;
+    { parts: Text[][]; extras: Paragraph[]; properties: XmlElement | undefined } | undefined;
 
   const section = (properties: XmlElement, isBreak: boolean): void => {
     if (isBreak) ctx.report.add('section-break', ctx.place());
@@ -57,19 +57,23 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
 
   const emit = (
     properties: XmlElement | undefined,
-    inlines: Text[],
+    parts: Text[][],
     extras: Paragraph[],
     inToc: boolean,
   ): void => {
     const styleId = childOf(properties, 'pStyle')?.attrs['val'];
-    const content = normalizeInlines(inlines);
-    if (content.length === 0) {
+    const heading = ctx.styles.headingLevel(styleId);
+    // A heading is one line, so its parts are joined (ADR 0049).
+    const contents = (heading === undefined ? parts : [joinParts(parts)])
+      .map((part) => normalizeInlines(part))
+      .filter((part) => part.length > 0);
+    const [content, ...rest] = contents;
+    if (content === undefined) {
       if (extras.length === 0 && !inToc) ctx.report.add('empty-paragraph', ctx.place());
       for (const extra of extras) writer.push(extra);
       return;
     }
     const word = ctx.styles.nameOf(styleId);
-    const heading = ctx.styles.headingLevel(styleId);
     const numbering = numberingOf(properties, styleId);
     if (heading !== undefined) {
       ctx.report.useStyle(word, `heading-${String(heading)}`);
@@ -88,10 +92,13 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
         ctx.report.add('unknown-numbering', ctx.place());
         kind = 'bulleted';
       }
-      writer.addItem(kind, numbering.numId, numbering.level, content, extras);
+      writer.addItem(kind, numbering.numId, numbering.level, content, [
+        ...rest.map((part): Paragraph => ({ type: 'paragraph', content: part })),
+        ...extras,
+      ]);
     } else {
       ctx.report.useStyle(word, 'body');
-      writer.push({ type: 'paragraph', content });
+      for (const part of contents) writer.push({ type: 'paragraph', content: part });
       for (const extra of extras) writer.push(extra);
     }
   };
@@ -115,11 +122,17 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
     ) {
       ctx.report.add('direct-formatting', ctx.place());
     }
-    const inlines = [...(carried?.inlines ?? []), ...read.inlines];
+    const parts = [...read.parts];
+    if (carried !== undefined) {
+      const [first = [], ...later] = parts;
+      const earlier = carried.parts.slice(0, -1);
+      const last = carried.parts[carried.parts.length - 1] ?? [];
+      parts.splice(0, parts.length, ...earlier, [...last, ...first], ...later);
+    }
     const extras = [...(carried?.extras ?? []), ...read.extras];
     carried = undefined;
-    if (read.markDeleted) carried = { inlines, extras, properties };
-    else emit(properties, inlines, extras, inToc);
+    if (read.markDeleted) carried = { parts, extras, properties };
+    else emit(properties, parts, extras, inToc);
     if (toc !== undefined) {
       const text = toc.depth === undefined ? '' : `depth: ${String(toc.depth)}`;
       writer.push({ type: 'phrase', kind: TOC_PHRASE_KIND, text });
@@ -129,9 +142,9 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
 
   const flushCarried = (): void => {
     if (carried === undefined) return;
-    const { inlines, extras, properties } = carried;
+    const { parts, extras, properties } = carried;
     carried = undefined;
-    emit(properties, inlines, extras, false);
+    emit(properties, parts, extras, false);
   };
 
   const visit = (container: XmlElement): void => {

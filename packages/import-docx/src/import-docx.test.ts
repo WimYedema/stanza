@@ -50,6 +50,29 @@ describe('paragraphs', () => {
     expect(imported({ body }).document.blocks).toEqual([P('one two three four')]);
   });
 
+  it('ends the paragraph at two line breaks in a row, also across runs (ADR 0049)', () => {
+    const body = para(
+      `<w:r><w:t>one</w:t><w:br/><w:br/><w:t>two</w:t></w:r>` +
+        `<w:r><w:br/></w:r><w:r><w:br/><w:t>three</w:t></w:r><w:r><w:br/><w:br/><w:br/></w:r>`,
+    );
+    expect(imported({ body }).document.blocks).toEqual([P('one'), P('two'), P('three')]);
+  });
+
+  it('joins the parts of a heading and keeps the parts of a list item in the item', () => {
+    const split = `<w:r><w:t>a</w:t><w:br/><w:br/><w:t>b</w:t></w:r>`;
+    const body =
+      para(split, '<w:pStyle w:val="Heading1"/>') +
+      para(split, '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>');
+    const parts = { styles: HEADING_STYLES, numbering: numbering('1', 'bullet'), body };
+    expect(imported(parts).document.blocks).toMatchObject([
+      { type: 'heading', content: [{ text: 'a b' }] },
+      {
+        type: 'list',
+        items: [{ blocks: [{ content: [{ text: 'a' }] }, { content: [{ text: 'b' }] }] }],
+      },
+    ]);
+  });
+
   it('leaves out page breaks and counts them', () => {
     const body = para(
       `<w:r><w:t>before</w:t></w:r><w:r><w:br w:type="page"/></w:r><w:r><w:t> after</w:t></w:r>`,
@@ -594,6 +617,25 @@ describe('tables', () => {
       ],
     });
     expect(codes(parts)).toEqual([]);
+  });
+
+  it('makes the paragraphs of a cell of the text between double line breaks', () => {
+    const split = para(
+      `<w:r><w:t>one</w:t><w:br/><w:t>still one</w:t><w:br/><w:br/><w:t>two</w:t></w:r>`,
+    );
+    const body = table(row(cells('A')) + row(cell(split)));
+    expect(imported({ body }).document.blocks[0]).toMatchObject({
+      rows: [
+        [
+          {
+            blocks: [
+              { type: 'paragraph', content: [{ text: 'one still one' }] },
+              { type: 'paragraph', content: [{ text: 'two' }] },
+            ],
+          },
+        ],
+      ],
+    });
   });
 
   it('nests the lists of a cell by their level, and takes a heading style there as a paragraph', () => {
