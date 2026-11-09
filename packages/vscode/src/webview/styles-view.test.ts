@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseStylesheet } from '@phrase/format';
-import type { Entry } from './styles-families.js';
+import type { Entry, Family } from './styles-families.js';
 import { createStylesView, type StylesView } from './styles-view.js';
 
 const SOURCE = readFileSync(
@@ -20,7 +20,7 @@ let tabs: HTMLElement;
 let list: HTMLElement;
 let detail: HTMLElement;
 let view: StylesView;
-const selected = vi.fn<(entry: Entry | undefined) => void>();
+const selected = vi.fn<(entry: Entry | undefined, family: Family) => void>();
 
 beforeEach(() => {
   tabs = document.createElement('div');
@@ -69,7 +69,7 @@ describe('the tabs', () => {
     expect(tab('Headings').getAttribute('aria-selected')).toBe('true');
     expect(tab('Paragraphs').getAttribute('aria-selected')).toBe('false');
     expect(items()).toHaveLength(6);
-    expect(selected).toHaveBeenLastCalledWith(undefined);
+    expect(selected).toHaveBeenLastCalledWith(undefined, 'headings');
   });
 });
 
@@ -87,6 +87,7 @@ describe('the list', () => {
     ]);
     expect(selected).toHaveBeenLastCalledWith(
       expect.objectContaining({ name: 'heading-2', kind: 'paragraph-style' }),
+      'headings',
     );
   });
 
@@ -114,11 +115,14 @@ describe('the list', () => {
     choose('body');
     view.show(parseStylesheet(SOURCE.replace('size: 11', 'size: 12')).stylesheet);
     expect(list.querySelector('[aria-current="true"]')?.firstChild?.textContent).toBe('body');
-    expect(selected).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'body' }));
+    expect(selected).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: 'body' }),
+      'paragraphs',
+    );
     tab('Pages').click();
     choose('page');
     view.show(parseStylesheet(SOURCE.slice(0, SOURCE.indexOf('page-templates:'))).stylesheet);
-    expect(selected).toHaveBeenLastCalledWith(undefined);
+    expect(selected).toHaveBeenLastCalledWith(undefined, 'pages');
   });
 
   it('writes text and never markup', () => {

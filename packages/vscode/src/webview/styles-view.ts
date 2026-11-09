@@ -31,7 +31,7 @@ const keyOf = (entry: Entry): string => `${entry.kind}:${entry.name}`;
  */
 export function createStylesView(
   elements: StylesViewElements,
-  onSelect: (entry: Entry | undefined) => void,
+  onSelect: (entry: Entry | undefined, family: Family) => void,
 ): StylesView {
   let stylesheet: Stylesheet | undefined;
   let entries: readonly Entry[] = [];
@@ -59,7 +59,7 @@ export function createStylesView(
           family = id;
           selectedKey = undefined;
           draw();
-          onSelect(undefined);
+          onSelect(undefined, family);
         });
         return tab;
       }),
@@ -85,7 +85,7 @@ export function createStylesView(
           choose.addEventListener('click', () => {
             selectedKey = keyOf(entry);
             draw();
-            onSelect(entry);
+            onSelect(entry, family);
           });
           item.append(choose);
           return item;
@@ -113,7 +113,7 @@ export function createStylesView(
       entries = entriesOf(next);
       if (selected() === undefined) selectedKey = undefined;
       draw();
-      onSelect(selected());
+      onSelect(selected(), family);
     },
   };
 }

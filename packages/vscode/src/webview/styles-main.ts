@@ -9,6 +9,7 @@ import {
 } from '../shared/styles-protocol.js';
 import { createPanel } from './styles-panel.js';
 import { focusSample, sampleDocument } from './styles-sample.js';
+import { createThemePanel } from './styles-theme.js';
 import { createStylesView } from './styles-view.js';
 import { showRefused } from './views.js';
 
@@ -41,11 +42,18 @@ let latest: Stylesheet | undefined;
 
 const detail = element('detail');
 const panel = createPanel({ root: element('panel'), send });
+const theme = createThemePanel({ root: element('theme'), send });
 
-const view = createStylesView({ tabs: element('tabs'), list: element('list'), detail }, (entry) => {
-  focusSample(sample, entry);
-  detail.hidden = latest !== undefined && panel.show(entry, latest);
-});
+const view = createStylesView(
+  { tabs: element('tabs'), list: element('list'), detail },
+  (entry, family) => {
+    focusSample(sample, entry);
+    if (latest === undefined) return;
+    const inPanel = panel.show(entry, latest);
+    const inTheme = theme.show(entry, family, latest);
+    detail.hidden = inPanel || inTheme;
+  },
+);
 
 const reasonOf = (diagnostic: Diagnostic): Reason => ({
   message: `${diagnostic.message}${diagnostic.path === undefined ? '' : ` [${diagnostic.path}]`}`,
@@ -112,6 +120,7 @@ function handle(message: StylesHostMessage): void {
       return;
     case 'edit-refused':
       panel.refused(message.message);
+      theme.refused(message.message);
       return;
   }
 }
