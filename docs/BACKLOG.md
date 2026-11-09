@@ -73,6 +73,7 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 
 Placed before Phases 3 and 4 by the product owner.
 
+97. [S] - Word import: two or more line breaks in a row inside a paragraph become a paragraph break, in cells and in the body; a single line break stays a space. A short ADR first, since ADR 0043 says every line break becomes a space. Found with a real document whose cells use double line breaks between paragraphs.
 72. [S] - Style editor, theme: the values of the color and font tokens, and adding a token. No renaming, since styles refer to tokens by name.
 73. [M] - Style editor, page templates: size, margins, and the header and footer slots. The cover entries come later.
 61. [M] - Style usage index in `project`: for each style, the documents and blocks that use it directly, by default, or through inheritance, over the documents found in the project folder.
@@ -86,6 +87,7 @@ Placed before Phases 3 and 4 by the product owner.
 77. [M] - Colors and fonts only from theme tokens: ADR first, since ADR 0006 allows hex colors and family lists in styles. Then the stylesheet reading and validation, the exporters, and the fixtures follow; a raw value becomes a diagnostic that says which token to use. Added at the request of the product owner.
 78. [S] - Style editor, theme values in the panel: colors and fonts are chosen from a list of the theme's tokens with a swatch or a font sample, the row says where the value comes from ("Theme: mono"), and a value that is not a token shows as "Custom" with a warning until a token is picked. A note in the panel says that these values come from the theme. Replaces the text fields with suggestions of item 68.
 79. [S] - Style editor, link to the theme: from a color or font row, a link to that token in the Theme tab. Needs item 72.
+98. [M] - Banded table rows: a table style property for the background of odd and even rows, from color tokens. Compiled to the browser CSS and to a Word table style band (not to direct formatting), with a control in the style editor and a short ADR. Added at the request of the product owner.
 94. [M] - Adopting a Markdown file as a Phrase document: a command line command and a VS Code command that write the front matter, the IDs and the canonical form of an ordinary Markdown file as a new `.phrase.md`, never over the original, and report what the dialect cannot hold (block quotes, thematic breaks, raw HTML, hard line breaks, images, reference links, column alignment). ADR first, for what is converted and what is only reported. Added at the request of the product owner.
 95. [S] - The documents of this repository as a Phrase project: `docs/` and `README.md` become a project with its own stylesheet, adopted with item 94, so that the product describes itself. Added at the request of the product owner.
 
