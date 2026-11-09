@@ -435,6 +435,69 @@ describe('headings and styles', () => {
   });
 });
 
+describe('table cells with paragraphs and lists', () => {
+  const inCell = (...blocks: object[]) =>
+    build({
+      type: 'table',
+      attrs: { style: 'table' },
+      content: [
+        row(cell('tableHeader', 'Head')),
+        { type: 'tableRow', content: [{ type: 'tableCell', content: blocks }] },
+      ],
+    });
+  const numbered = (value: string) => ({
+    type: 'orderedList',
+    content: [{ type: 'listItem', content: [paragraph(value)] }],
+  });
+
+  it('makes a list in a cell and takes it out again', () => {
+    const on = run(select(inCell(paragraph('Body')), 'Body'), {
+      type: 'toggle-list',
+      kind: 'bulleted',
+    });
+    expect(on.result).toEqual({ ok: true });
+    expect(names(on.next.doc)).toContain('bulletList');
+    const off = run(on.next, { type: 'toggle-list', kind: 'bulleted' });
+    expect(off.result).toEqual({ ok: true });
+    expect(names(off.next.doc)).not.toContain('bulletList');
+  });
+
+  it('checks the marks of a paragraph of a cell against the cell style, and of a list item against its list', () => {
+    const doc = inCell(paragraph('Body'), numbered('Item'));
+    const strong = { type: 'toggle-mark', mark: 'strong' } as const;
+    expect(run(select(doc, 'Body', 4), strong).result).toEqual({ ok: true });
+    // The numbered list style offers no marks.
+    expect(refusal(run(select(doc, 'Item', 4), strong))).toBe('mark-not-allowed');
+  });
+
+  it('sets the table style from any paragraph of a cell, and gives a list in a cell no style', () => {
+    const doc = inCell(paragraph('Body'), numbered('Item'));
+    const set = run(select(doc, 'Body'), { type: 'set-style', style: 'table-plain' as StyleName });
+    expect(set.next.doc.firstChild?.attrs['style']).toBe('table-plain');
+    const list = run(select(doc, 'Item'), { type: 'set-style', style: 'note' as StyleName });
+    expect(refusal(list)).toBe('not-applicable');
+    expect(list.changed).toBe(false);
+  });
+
+  it('tells a paragraph of a cell from a paragraph of a list in the cell', () => {
+    const doc = inCell(paragraph('Body'), numbered('Item'));
+    const plain = editorContext(select(doc, 'Body'), stylesheet);
+    expect([plain.block, plain.inTable, plain.list]).toEqual(['table-cell', true, undefined]);
+    expect(plain.style).toBe('table');
+    const listed = editorContext(select(doc, 'Item'), stylesheet);
+    expect([listed.block, listed.inTable, listed.list]).toEqual(['paragraph', true, 'numbered']);
+    expect(editorContext(select(build(paragraph('x')), 'x'), stylesheet).inTable).toBe(false);
+  });
+
+  it('does not make a heading or a code block in a cell', () => {
+    const doc = inCell(paragraph('Body'));
+    expect(refusal(run(select(doc, 'Body'), { type: 'set-heading', level: 1 }))).toBe(
+      'not-applicable',
+    );
+    expect(refusal(run(select(doc, 'Body'), { type: 'toggle-code-block' }))).toBe('not-applicable');
+  });
+});
+
 describe('lists', () => {
   it('makes a list of a paragraph and takes it out again', () => {
     const doc = build(paragraph('One'), paragraph('Two'));
