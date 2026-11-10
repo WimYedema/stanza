@@ -78,3 +78,4 @@ One line per finished item, in completion order. Detail is in the ADR named on t
 98. [M] - Banded table rows (ADR 0059): `banded-rows` with `odd` and `even` in a table style, in the CSS, in a Word table style band and in the style editor.
 94. [M] - Adopting a Markdown file as a Phrase document (ADR 0060): `phrase adopt` and "Phrase: Adopt Markdown File" write a new `.phrase.md` with front matter, IDs and canonical form, never over the original, and report what the dialect cannot hold.
 110. [S] - Go to heading: "Phrase: Go to Heading" (`Ctrl+Shift+O` in the document editor) lists the headings with their numbers and scrolls the editor to the chosen one, under the bar at the top.
+109. [S] - Find in the document editor: the find widget of VS Code is switched on for the webview (`Ctrl+F`), tried by the product owner in VS Code.
