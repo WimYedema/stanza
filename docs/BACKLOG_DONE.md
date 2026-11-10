@@ -76,3 +76,4 @@ One line per finished item, in completion order. Detail is in the ADR named on t
 105. [L] - Context diet: shorter instructions, `BACKLOG_DONE.md`, `docs/INDEX.md`, package READMEs, spikes removed, two files split. ADR archiving and test trimming judged not worthwhile.
 63. [M] - Spike: page break guides. Findings in ADR 0058; paged.js rejected; whether to show pages is left open as item 108.
 98. [M] - Banded table rows (ADR 0059): `banded-rows` with `odd` and `even` in a table style, in the CSS, in a Word table style band and in the style editor.
+94. [M] - Adopting a Markdown file as a Phrase document (ADR 0060): `phrase adopt` and "Phrase: Adopt Markdown File" write a new `.phrase.md` with front matter, IDs and canonical form, never over the original, and report what the dialect cannot hold.

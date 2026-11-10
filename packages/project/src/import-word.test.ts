@@ -4,30 +4,10 @@ import { exportDocx } from '@phrase/export-docx';
 import { loadProject } from './load.js';
 import { memoryStorage, type MemoryStorage } from './memory-storage.testing.js';
 import { describeImport, importWordDocument } from './import-word.js';
-import { createProject } from './new-project.js';
-
-const bytes = (last: number) => (): Uint8Array =>
-  Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, last]);
+import { bytes, counting, project, projectFiles } from './new-project.testing.js';
 
 const text = (value: string, marks: readonly { type: 'strong' }[] = []) =>
   ({ type: 'text', text: value, marks }) as const;
-
-/** The files of a new project, as a storage that holds them. */
-async function project(): Promise<MemoryStorage> {
-  return memoryStorage(await projectFiles());
-}
-
-async function projectFiles(): Promise<Record<string, string>> {
-  const created = memoryStorage({});
-  await createProject(created, { title: 'My Report', randomBytes: bytes(10) });
-  return Object.fromEntries(created.texts);
-}
-
-/** Random bytes that differ at each call, starting with the given last byte. */
-const counting = (first: number) => {
-  let next = first;
-  return (): Uint8Array => bytes(next++)();
-};
 
 /** A Word file made by the exporter, which holds a heading, a paragraph and a table. */
 async function wordFile(storage: MemoryStorage): Promise<Uint8Array> {

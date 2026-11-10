@@ -1,16 +1,8 @@
-import {
-  assignMissingIds,
-  collectBlockIds,
-  nodeIdFromRandomBytes,
-  type Document,
-} from '@phrase/core';
-import { checkDocumentText, serializeDocument } from '@phrase/format';
+import type { Document } from '@phrase/core';
 import { importDocx, type ImportReport } from '@phrase/import-docx';
-import { inFile, type ProjectDiagnostic } from './diagnostics.js';
-import { DOCUMENT_SUFFIX } from './files.js';
-import { loadProject } from './load.js';
-import { names, slugOf } from './new-project.js';
+import type { ProjectDiagnostic } from './diagnostics.js';
 import type { ProjectStorage } from './storage.js';
+import { NO_PROJECT_MESSAGE, loadOrderedProject, storeNewDocument } from './store-document.js';
 
 export interface ImportWordOptions {
   /** The name of the Word file without its extension, from which the file name is made. */
@@ -36,16 +28,6 @@ export type ImportWordResult =
       readonly message: string;
     };
 
-const DOCUMENTS_DIR = 'documents';
-
-/** The first name that is free in the documents folder: `a`, then `a-2`, `a-3`. */
-function freeName(base: string, taken: ReadonlySet<string>): string {
-  for (let number = 1; ; number += 1) {
-    const candidate = number === 1 ? base : `${base}-${String(number)}`;
-    if (!taken.has(`${candidate}${DOCUMENT_SUFFIX}`)) return candidate;
-  }
-}
-
 /**
  * Imports a Word document as one new document of a project (ADR 0047). The project must be in
  * order, since the new IDs have to be unique across it. Nothing existing is changed: a name that
@@ -56,15 +38,9 @@ export async function importWordDocument(
   bytes: Uint8Array,
   options: ImportWordOptions,
 ): Promise<ImportWordResult> {
-  const loaded = await loadProject(storage);
-  const { settings, stylesheet } = loaded;
-  if (settings === undefined || stylesheet === undefined) {
-    return {
-      ok: false,
-      reason: 'no-project',
-      message:
-        'The folder has no project in order. Fix the project file and the stylesheet first (see "phrase validate").',
-    };
+  const project = await loadOrderedProject(storage);
+  if (project === undefined) {
+    return { ok: false, reason: 'no-project', message: NO_PROJECT_MESSAGE };
   }
   const imported = importDocx(bytes);
   if (!imported.ok) return imported;
@@ -72,38 +48,43 @@ export async function importWordDocument(
   const name = options.name.trim().replace(/\s+/g, ' ');
   const title = imported.document.meta.title ?? (name === '' ? 'Imported document' : name);
   const content: Document = { ...imported.document, meta: { ...imported.document.meta, title } };
-  const used = new Set<string>(
-    loaded.documents.flatMap(({ document }) => collectBlockIds(document).map((b) => b.id)),
+  const stored = await storeNewDocument(
+    storage,
+    project,
+    content,
+    name === '' ? title : name,
+    options.randomBytes,
   );
-  const withIds = assignMissingIds(content, {
-    used,
-    generate: () => nodeIdFromRandomBytes(options.randomBytes()),
-  });
-  if (withIds.diagnostics.some((d) => d.severity === 'error')) {
-    return { ok: false, reason: 'no-ids', message: 'No unused ID could be made for a heading.' };
-  }
-
-  const taken = new Set(await names(storage, DOCUMENTS_DIR));
-  const path = `${DOCUMENTS_DIR}/${freeName(slugOf(name === '' ? title : name), taken)}${DOCUMENT_SUFFIX}`;
-  const text = serializeDocument(withIds.document);
-  await storage.writeText(path, text);
+  if (!stored.ok) return stored;
   return {
     ok: true,
-    document: path,
-    assigned: withIds.assigned.length,
+    document: stored.document,
+    assigned: stored.assigned,
     report: imported.report,
-    diagnostics: inFile(path, checkDocumentText(text, stylesheet, settings).diagnostics),
+    diagnostics: stored.diagnostics,
   };
 }
 
+/** A report of an import or an adoption: findings with counts and places, and maybe styles. */
+export interface ReportLines {
+  readonly diagnostics: readonly {
+    readonly severity: string;
+    readonly code: string;
+    readonly message: string;
+    readonly count: number;
+    readonly places: readonly string[];
+  }[];
+  readonly styles?: ImportReport['styles'];
+}
+
 /** The report of an import as lines of text, for the command line and the extension. */
-export function describeImport(report: ImportReport): readonly string[] {
+export function describeImport(report: ReportLines): readonly string[] {
   const lines = report.diagnostics.map((d) => {
     const times = d.count === 1 ? '' : ` (${String(d.count)} times)`;
     const places = d.places.length === 0 ? '' : ` Where: ${d.places.join('; ')}.`;
     return `${d.severity}: ${d.message}${times}${places}`;
   });
-  if (report.styles.length > 0) {
+  if (report.styles !== undefined && report.styles.length > 0) {
     const styles = report.styles.map((s) => `${s.word} as ${s.as} (${String(s.count)})`);
     lines.push(`Word styles used: ${styles.join(', ')}.`);
   }

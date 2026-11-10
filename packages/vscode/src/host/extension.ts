@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { StylesheetSaves } from './declare-variant.js';
 import { registerEditStyles } from './edit-styles-command.js';
 import { ExportOnSave } from './export-on-save.js';
+import { registerAdoptMarkdown } from './adopt-markdown-command.js';
 import { registerImportWord } from './import-word-command.js';
 import { registerNewDocument } from './new-document-command.js';
 import { registerNewProject } from './new-project-command.js';
@@ -36,6 +37,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerNewProject(),
     registerNewDocument(),
     registerImportWord(log),
+    registerAdoptMarkdown(log),
     vscode.window.registerCustomEditorProvider(
       StylesEditorProvider.viewType,
       new StylesEditorProvider(context, log),

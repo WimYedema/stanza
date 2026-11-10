@@ -12,7 +12,6 @@ Finished items are in `docs/BACKLOG_DONE.md`, one line each. Item numbers are ke
 
 Placed before Phases 3 and 4 by the product owner.
 
-94. [M] - Adopting a Markdown file as a Phrase document: a command line command and a VS Code command that write the front matter, the IDs and the canonical form of an ordinary Markdown file as a new `.phrase.md`, never over the original, and report what the dialect cannot hold (block quotes, thematic breaks, raw HTML, hard line breaks, images, reference links, column alignment). ADR first, for what is converted and what is only reported. Added at the request of the product owner.
 95. [S] - The documents of this repository as a Phrase project: `docs/` and `README.md` become a project with its own stylesheet, adopted with item 94, so that the product describes itself. Added at the request of the product owner.
 38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
 39. [M] - Show imported comments next to the content in the editor.

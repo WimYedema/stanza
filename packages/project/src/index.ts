@@ -1,4 +1,9 @@
 export {
+  adoptMarkdownDocument,
+  type AdoptMarkdownOptions,
+  type AdoptMarkdownResult,
+} from './adopt-markdown.js';
+export {
   DEFAULT_BUILD_DATE,
   buildProject,
   outputPath,

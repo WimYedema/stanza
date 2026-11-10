@@ -1,3 +1,9 @@
+export {
+  adoptMarkdown,
+  type AdoptDiagnostic,
+  type AdoptReport,
+  type AdoptResult,
+} from './adopt.js';
 export { assignMissingIdsInText, type AssignIdsInTextResult } from './assign-ids.js';
 export { formatAnnotation, parseAnnotation, type Annotation } from './annotation.js';
 export { DEFAULT_VARIANTS, declareVariant, type DeclareVariantResult } from './declare-variant.js';

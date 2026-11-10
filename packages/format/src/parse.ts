@@ -101,14 +101,23 @@ export function parseDocument(source: string): ParseResult {
   }
 
   const body = lines.slice(lineCount).join('\n');
-  const state: State = {
-    tokens: markdown.parse(body, {}),
-    pos: 0,
-    diagnostics,
-    lineOffset: lineCount,
-  };
-  const blocks = parseBlocks(state, undefined, true);
+  const blocks = parseMarkdownBlocks(body, markdown, {}, lineCount, diagnostics);
   return { document: { meta, blocks }, diagnostics, formatVersion };
+}
+
+/**
+ * Reads the Markdown of a body into blocks, adding what it cannot represent to `diagnostics`. The
+ * caller chooses the Markdown rules and gets the parser's environment back (ADR 0060).
+ */
+export function parseMarkdownBlocks(
+  body: string,
+  md: InstanceType<typeof MarkdownIt>,
+  env: Record<string, unknown>,
+  lineOffset: number,
+  diagnostics: Diagnostic[],
+): Block[] {
+  const state: State = { tokens: md.parse(body, env), pos: 0, diagnostics, lineOffset };
+  return parseBlocks(state, undefined, true);
 }
 
 function parseBlocks(state: State, closeType: string | undefined, allowHeading: boolean): Block[] {

@@ -64,6 +64,10 @@
         "title": "Phrase: Import Word Document"
       },
       {
+        "command": "phrase.adoptMarkdown",
+        "title": "Phrase: Adopt Markdown File"
+      },
+      {
         "command": "phrase.openInWord",
         "title": "Phrase: Open in Word",
         "icon": "$(link-external)"

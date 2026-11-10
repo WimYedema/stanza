@@ -24,7 +24,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 ## Word import (`import-docx`, `project`)
 
-- 0043: scope. 0045: reading. 0046: tables and TOC. 0047: command. 0049: line breaks.
+- 0043: scope. 0045: reading. 0046: tables and TOC. 0047: command. 0049: line breaks. 0060: adopting a Markdown file (same pipeline, other source).
 
 ## Project and CLI (`project`, `cli`)
 

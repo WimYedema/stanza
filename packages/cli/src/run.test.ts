@@ -235,6 +235,10 @@ describe('phrase usage', () => {
     [['import', 'notes.txt'], 'import needs a Word file'],
     [['import', 'a.docx', 'project', 'x'], 'unexpected argument "x"'],
     [['import', 'a.docx', '--check'], 'import takes no options'],
+    [['adopt'], 'adopt needs a Markdown file'],
+    [['adopt', 'notes.txt'], 'adopt needs a Markdown file'],
+    [['adopt', 'a.md', 'project', 'x'], 'unexpected argument "x"'],
+    [['adopt', 'a.md', '--check'], 'adopt takes no options'],
   ])('refuses %j with exit code 2 and the usage', async (argv, message) => {
     const result = await phrase(...argv);
     expect(result.code).toBe(2);
@@ -326,6 +330,77 @@ describe('phrase import', () => {
   it('refuses a folder that is not a project', async () => {
     writeWord();
     const result = await phrase('import', 'Meeting notes.docx', 'nowhere');
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('no project in order');
+  });
+});
+
+describe('phrase adopt', () => {
+  const MARKDOWN = '# Meeting notes\n\nSome *text*.\n\n> quoted\n\n---\n';
+  const writeMarkdown = (name = 'Meeting notes.md', text = MARKDOWN): void => {
+    writeFileSync(join(work, name), text);
+  };
+  const documentsOf = (...path: string[]): string => join(work, 'plain', 'documents', ...path);
+
+  beforeEach(async () => {
+    await createProject(nodeStorage(join(work, 'plain')), {
+      title: 'Plain',
+      randomBytes: () => Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    });
+  });
+
+  it('adds the Markdown as a new document, leaves the original and lists the losses', async () => {
+    writeMarkdown();
+    const result = await phrase('adopt', 'Meeting notes.md', 'plain');
+    expect(result.code).toBe(0);
+    expect(result.out).toContain(
+      'Adopted Meeting notes.md as documents/meeting-notes.phrase.md (1 ID assigned).',
+    );
+    expect(result.out).toContain('warning: Thematic breaks (horizontal rules) were left out.');
+    expect(result.out).toContain('info: Block quotes were written as ordinary blocks.');
+    const text = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
+    expect(text).toContain('# Meeting notes');
+    expect(text).toContain('Some *text*.');
+    expect(readFileSync(join(work, 'Meeting notes.md'), 'utf8')).toBe(MARKDOWN);
+    expect((await phrase('validate', 'plain')).out).toBe(
+      'Checked 2 documents: 0 errors, 0 warnings.\n',
+    );
+  });
+
+  it('shows what the project says about the new document, and exits with 1 for an error', async () => {
+    writeMarkdown();
+    const result = await phrase('adopt', 'Meeting notes.md', 'project');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('missing-field');
+    expect(existsSync(join(work, 'project', 'documents', 'meeting-notes.phrase.md'))).toBe(true);
+  });
+
+  it('never writes over a document: a second adoption gets a number', async () => {
+    writeMarkdown();
+    await phrase('adopt', 'Meeting notes.md', 'plain');
+    const first = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
+    const again = await phrase('adopt', 'Meeting notes.md', 'plain');
+    expect(again.out).toContain('documents/meeting-notes-2.phrase.md');
+    expect(readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8')).toBe(first);
+  });
+
+  it('says so, with exit code 2, when the file cannot be read', async () => {
+    const result = await phrase('adopt', 'missing.md', 'plain');
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('cannot read missing.md');
+  });
+
+  it('refuses a file that is a Phrase document already, and writes nothing', async () => {
+    writeMarkdown('doc.md', '---\nphrase-format: 1\ntitle: T\n---\n\nText\n');
+    const result = await phrase('adopt', 'doc.md', 'plain');
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('is a Phrase document');
+    expect(existsSync(documentsOf('doc.phrase.md'))).toBe(false);
+  });
+
+  it('refuses a folder that is not a project', async () => {
+    writeMarkdown();
+    const result = await phrase('adopt', 'Meeting notes.md', 'nowhere');
     expect(result.code).toBe(2);
     expect(result.err).toContain('no project in order');
   });

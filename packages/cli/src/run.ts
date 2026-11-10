@@ -10,6 +10,7 @@ import {
   formatDocuments,
   formatProject,
   hasErrors,
+  adoptMarkdownDocument,
   importWordDocument,
   describeImport,
   loadProject,
@@ -44,6 +45,10 @@ Commands:
                        ${DOCUMENT_SUFFIX} document in documents/, named after the file, with IDs
                        given. An existing document is never replaced: a taken name gets a
                        number. What could not be carried over is listed.
+  adopt <file.md> [project]
+                       Add an ordinary Markdown file to the project as a new ${DOCUMENT_SUFFIX}
+                       document, in the same way as import. The original is not changed. What
+                       the dialect cannot hold is listed.
 
 Options for build:
   --out <dir>          Output directory, relative to the project (default: build).
@@ -74,6 +79,9 @@ function parseDate(text: string): Date | undefined {
   const year = date.getUTCFullYear();
   return Number.isNaN(date.getTime()) || year < 1980 || year > 2099 ? undefined : date;
 }
+
+const isWordFile = (file: string): boolean => extname(file).toLowerCase() === '.docx';
+const isMarkdownFile = (file: string): boolean => /^\.(md|markdown)$/i.test(extname(file));
 
 const plural = (count: number, word: string): string =>
   `${String(count)} ${word}${count === 1 ? '' : 's'}`;
@@ -134,22 +142,28 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     command !== 'validate' &&
     command !== 'build' &&
     command !== 'format' &&
-    command !== 'import'
+    command !== 'import' &&
+    command !== 'adopt'
   ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
   }
-  if (command === 'import') {
+  if (command === 'import' || command === 'adopt') {
     if (
       values.out !== undefined ||
       values.date !== undefined ||
       values.check === true ||
       values['assign-ids'] === true
     ) {
-      return usage('import takes no options.');
+      return usage(`${command} takes no options.`);
     }
+    const word = command === 'import';
     const [file, folder = '.', ...more] = positionals.slice(1);
-    if (file === undefined || extname(file).toLowerCase() !== '.docx') {
-      return usage('import needs a Word file, as in: phrase import report.docx [project].');
+    if (file === undefined || !(word ? isWordFile : isMarkdownFile)(file)) {
+      return usage(
+        word
+          ? 'import needs a Word file, as in: phrase import report.docx [project].'
+          : 'adopt needs a Markdown file, as in: phrase adopt notes.md [project].',
+      );
     }
     if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
     let bytes: Uint8Array;
@@ -160,20 +174,22 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       io.stderr(`phrase: cannot read ${file}: ${reason}\n`);
       return 2;
     }
-    const imported = await importWordDocument(
-      (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder)),
-      bytes,
-      { name: basename(file, extname(file)), randomBytes: () => randomBytes(10) },
-    );
-    if (!imported.ok) {
-      io.stderr(`phrase: ${imported.message}\n`);
+    const storage = (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder));
+    const options = { name: basename(file, extname(file)), randomBytes: () => randomBytes(10) };
+    const brought = word
+      ? await importWordDocument(storage, bytes, options)
+      : await adoptMarkdownDocument(storage, new TextDecoder().decode(bytes), options);
+    if (!brought.ok) {
+      io.stderr(`phrase: ${brought.message}\n`);
       return 2;
     }
-    const ids = plural(imported.assigned, 'ID');
-    io.stdout(`Imported ${file} as ${imported.document} (${ids} assigned).\n`);
-    for (const line of describeImport(imported.report)) io.stdout(`  ${line}\n`);
-    io.stdout(imported.diagnostics.map(formatDiagnostic).join(''));
-    return hasErrors(imported.diagnostics) ? 1 : 0;
+    const ids = plural(brought.assigned, 'ID');
+    io.stdout(
+      `${word ? 'Imported' : 'Adopted'} ${file} as ${brought.document} (${ids} assigned).\n`,
+    );
+    for (const line of describeImport(brought.report)) io.stdout(`  ${line}\n`);
+    io.stdout(brought.diagnostics.map(formatDiagnostic).join(''));
+    return hasErrors(brought.diagnostics) ? 1 : 0;
   }
   if (extra.length > 0) return usage(`unexpected argument "${extra.join(' ')}".`);
   if (command !== 'build' && (values.out !== undefined || values.date !== undefined)) {

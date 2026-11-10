@@ -90,7 +90,7 @@ packages/
   import-docx/   one-time import of the content of a DOCX (ADR 0043, 0045, 0046)
   css/           browser CSS from the stylesheet, and the class names of the editor markup (ADR 0021)
   project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
-  cli/           validate, build, format and import commands (Node)
+  cli/           validate, build, format, import and adopt commands (Node)
   editor/        Tiptap schema, conversion to and from the domain model, the editor, its commands and paste (ADR 0022, 0023, 0024)
   vscode/        VS Code extension, called phrase-vscode: custom text editor and diagnostics (ADR 0025)
 ```

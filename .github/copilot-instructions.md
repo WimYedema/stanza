@@ -5,7 +5,7 @@ Rationale lives in `docs/ARCHITECTURE.md`, `docs/PRODUCT_VISION.md` and the ADRs
 ## Product invariants
 
 - Local-first: authoring, validation, rendering and export need no backend, account, network or cloud service. AI is not required at runtime.
-- DOCX and PDF are generated outputs, not editable formats. The only import is the content-only Word import of ADR 0043.
+- DOCX and PDF are generated outputs, not editable formats. The only imports are the content-only Word import (ADR 0043) and adopting ordinary Markdown files (ADR 0060).
 - Content holds semantic structure, style IDs and semantic marks, never visual formatting. Formatting commands never create direct formatting or anonymous styles.
 - One typed stylesheet is the source of truth; CSS and DOCX properties are generated from it.
 - Referenceable objects have immutable IDs. References target IDs, never titles, filenames or rendered numbers. A deleted target is a broken-reference diagnostic, never last rendered text.
