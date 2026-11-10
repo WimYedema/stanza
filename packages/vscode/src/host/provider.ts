@@ -3,7 +3,12 @@ import { posix } from 'node:path';
 import * as vscode from 'vscode';
 import { collectBlockIds } from '@phrase/core';
 import { styleUsage, type LoadedProject } from '@phrase/project';
-import { parseWebviewMessage, type HostMessage, type WebviewMessage } from '../shared/protocol.js';
+import {
+  parseWebviewMessage,
+  type HostMessage,
+  type InlineDiagnostic,
+  type WebviewMessage,
+} from '../shared/protocol.js';
 import { buildHtml } from './html.js';
 import { declareVariantInProject, parseFix, type StylesheetSaves } from './declare-variant.js';
 import { EDIT_STYLES_COMMAND } from './edit-styles-command.js';
@@ -62,6 +67,7 @@ class EditorSession {
   private usedKey: string | undefined;
   private defaultsKey: string | undefined;
   private usageKey: string | undefined;
+  private diagnosticsKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
@@ -258,6 +264,29 @@ class EditorSession {
       usedIds,
     });
     await this.postUsage(loaded, root, true);
+    await this.postDiagnostics(loaded, root, true);
+  }
+
+  /** Tells the webview what the checks say about this document, when that is new or asked for. */
+  private async postDiagnostics(
+    loaded: LoadedProject,
+    root: vscode.Uri,
+    force: boolean,
+  ): Promise<void> {
+    const own = posix.relative(root.path, this.document.uri.path);
+    const diagnostics = loaded.diagnostics
+      .filter((entry) => entry.file === own)
+      .map((entry): InlineDiagnostic => ({
+        severity: entry.severity,
+        code: entry.code,
+        message: entry.message,
+        ...(entry.path !== undefined ? { path: entry.path } : {}),
+        ...(entry.nodeId !== undefined ? { nodeId: entry.nodeId } : {}),
+      }));
+    const key = JSON.stringify(diagnostics);
+    if (!force && key === this.diagnosticsKey) return;
+    this.diagnosticsKey = key;
+    await this.post({ type: 'diagnostics', diagnostics });
   }
 
   /** Tells the webview where the styles are used, when that is new or when it is asked for. */
@@ -327,5 +356,6 @@ class EditorSession {
       await this.post({ type: 'defaults', defaults: loaded.settings.defaults });
     }
     await this.postUsage(loaded, root, false);
+    await this.postDiagnostics(loaded, root, false);
   }
 }

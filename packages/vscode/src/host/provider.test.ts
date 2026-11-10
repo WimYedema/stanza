@@ -71,7 +71,14 @@ function open(text = CANONICAL, eol = '\n', projectFiles = files()): void {
 
 /** What the host posted, without the usage of the styles, which has its own tests. */
 const posted = (): HostMessage[] =>
-  (world.posted as HostMessage[]).filter((message) => message.type !== 'usage');
+  (world.posted as HostMessage[]).filter(
+    (message) => message.type !== 'usage' && message.type !== 'diagnostics',
+  );
+const diagnosticsPosted = (): Extract<HostMessage, { type: 'diagnostics' }>[] =>
+  (world.posted as HostMessage[]).filter(
+    (message): message is Extract<HostMessage, { type: 'diagnostics' }> =>
+      message.type === 'diagnostics',
+  );
 const usages = (): Extract<HostMessage, { type: 'usage' }>[] =>
   (world.posted as HostMessage[]).filter(
     (message): message is Extract<HostMessage, { type: 'usage' }> => message.type === 'usage',
@@ -494,5 +501,60 @@ describe('the usage of the styles', () => {
     await settled(() => {
       expect(world.commands).toEqual(['phrase.editStyles']);
     });
+  });
+});
+
+describe('the diagnostics of the document', () => {
+  it('sends none for a document that is in order, after the document', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(diagnosticsPosted()).toHaveLength(1);
+    });
+    expect(diagnosticsPosted()[0]?.diagnostics).toEqual([]);
+  });
+
+  it('sends what the checks say about the blocks of this document, with the path', async () => {
+    open(`${FRONT}# No ID\n`);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(diagnosticsPosted()).toHaveLength(1);
+    });
+    expect(diagnosticsPosted()[0]?.diagnostics).toEqual([
+      expect.objectContaining({ severity: 'warning', code: 'missing-id', path: 'blocks[0]' }),
+    ]);
+  });
+
+  it('leaves out what the checks say about the other documents of the project', async () => {
+    open(CANONICAL, '\n', files({ '/w/p/documents/other.phrase.md': `${FRONT}# No ID\n` }));
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(diagnosticsPosted()).toHaveLength(1);
+    });
+    expect(diagnosticsPosted()[0]?.diagnostics).toEqual([]);
+  });
+
+  it('sends them again when they change, and not when they do not', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(diagnosticsPosted()).toHaveLength(1);
+    });
+    const changeOther = (): void => {
+      const document = {
+        uri: { toString: () => 'other' },
+        fileName: '/w/p/documents/other.phrase.md',
+      };
+      for (const listener of world.changeListeners) listener({ document } as never);
+    };
+    changeOther();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(diagnosticsPosted()).toHaveLength(1);
+
+    changeDocument(`${FRONT}# No ID\n`);
+    await settled(() => {
+      expect(diagnosticsPosted()).toHaveLength(2);
+    });
+    expect(diagnosticsPosted()[1]?.diagnostics).toEqual([
+      expect.objectContaining({ code: 'missing-id' }),
+    ]);
   });
 });

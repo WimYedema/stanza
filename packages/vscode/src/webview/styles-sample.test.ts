@@ -106,7 +106,8 @@ describe('the sample in the editor', () => {
 
   it('is shown and cannot be edited', () => {
     expect(root.querySelector('.ProseMirror')?.getAttribute('contenteditable')).toBe('false');
-    expect(root.querySelector('h1')?.textContent).toBe('Sample document');
+    expect(root.querySelector('h1')?.textContent).toBe('1Sample document');
+    expect(root.querySelector('h1 .phrase-heading-number')?.textContent).toBe('1');
     expect(root.querySelector('.phrase-p-cover-title')?.textContent).toContain('cover-title');
   });
 

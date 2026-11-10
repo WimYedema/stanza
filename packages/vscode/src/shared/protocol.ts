@@ -25,6 +25,16 @@ export interface UsageCount {
   readonly inherited: number;
 }
 
+/** What the checks of the project say about a block of this document (ADR 0057). */
+export interface InlineDiagnostic {
+  readonly severity: 'error' | 'warning';
+  readonly code: string;
+  readonly message: string;
+  /** The path of the block, such as `blocks[2].items[0]`. */
+  readonly path?: string;
+  readonly nodeId?: string;
+}
+
 /** Where the styles of a project are used, by style name. A style that is not used is left out. */
 export interface UsageSummary {
   /** The document of this editor, relative to the project root. */
@@ -53,6 +63,8 @@ export type HostMessage =
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
   /** Where the styles are used, sent after `init` and again when it changes. */
   | { readonly type: 'usage'; readonly usage: UsageSummary }
+  /** What the checks say about this document, sent after `init` and again when it changes. */
+  | { readonly type: 'diagnostics'; readonly diagnostics: readonly InlineDiagnostic[] }
   /**
    * The answer to `declare-variant`. On success the stylesheet message with the change came before
    * it, so the command that was refused can be tried again.
@@ -168,6 +180,22 @@ function parseUsage(value: unknown): UsageSummary | undefined {
   return { current: value['current'], paragraph, character, table };
 }
 
+function parseInlineDiagnostic(value: unknown): InlineDiagnostic | undefined {
+  if (!isRecord(value)) return undefined;
+  const { severity, code, message, path, nodeId } = value;
+  if (severity !== 'error' && severity !== 'warning') return undefined;
+  if (typeof code !== 'string' || typeof message !== 'string') return undefined;
+  if (path !== undefined && typeof path !== 'string') return undefined;
+  if (nodeId !== undefined && typeof nodeId !== 'string') return undefined;
+  return {
+    severity,
+    code,
+    message,
+    ...(path !== undefined ? { path } : {}),
+    ...(nodeId !== undefined ? { nodeId } : {}),
+  };
+}
+
 /** The defaults of a project, or undefined when they are not of that shape. */
 function parseDefaults(value: unknown): Defaults | undefined {
   if (!isRecord(value)) return undefined;
@@ -210,6 +238,17 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
     case 'usage': {
       const usage = parseUsage(value['usage']);
       return usage === undefined ? undefined : { type: 'usage', usage };
+    }
+    case 'diagnostics': {
+      const list = value['diagnostics'];
+      if (!Array.isArray(list)) return undefined;
+      const diagnostics: InlineDiagnostic[] = [];
+      for (const item of list as unknown[]) {
+        const parsed = parseInlineDiagnostic(item);
+        if (parsed === undefined) return undefined;
+        diagnostics.push(parsed);
+      }
+      return { type: 'diagnostics', diagnostics };
     }
     case 'declared': {
       const { ok, message } = value;

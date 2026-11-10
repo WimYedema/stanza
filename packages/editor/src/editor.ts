@@ -6,6 +6,13 @@ import {
   type Stylesheet,
 } from '@phrase/core';
 import { SCOPE_CLASS, compileStylesheetToCss } from '@phrase/css';
+import {
+  Annotations,
+  DIAGNOSTIC_CLASS,
+  HEADING_NUMBER_CLASS,
+  REFRESH_ANNOTATIONS,
+  annotationsKey,
+} from './annotations.js';
 import { BlockIds, type IdSource } from './block-ids.js';
 import { checkCommand, runCommand, type CommandResult, type EditorCommand } from './commands.js';
 import { editorContext, type EditorContext } from './context.js';
@@ -62,6 +69,20 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
 .${SCOPE_CLASS} .${PHRASE_BLOCK_EMPTY_CLASS} {
   color: #888888;
   font: italic 10pt sans-serif;
+}
+
+.${SCOPE_CLASS} .${HEADING_NUMBER_CLASS} {
+  margin-right: 0.6em;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.${SCOPE_CLASS} .${DIAGNOSTIC_CLASS}-error {
+  box-shadow: -8px 0 0 #f14c4c;
+}
+
+.${SCOPE_CLASS} .${DIAGNOSTIC_CLASS}-warning {
+  box-shadow: -8px 0 0 #cca700;
 }
 
 .${SCOPE_CLASS} .selectedCell {
@@ -128,6 +149,11 @@ export interface PhraseEditor {
   setDocument(document: Document, options?: { readonly cursor?: 'at-change' }): void;
   /** Applies a new stylesheet. With errors it changes nothing and returns them. */
   setStylesheet(stylesheet: Stylesheet): readonly Diagnostic[];
+  /**
+   * Marks the blocks that diagnostics are about, by their ID or by the top-level block of their
+   * path, with the messages as a tooltip (ADR 0057). Replaces the diagnostics shown before.
+   */
+  setDiagnostics(diagnostics: readonly Diagnostic[]): void;
   /** Does what a command says, or refuses it and changes nothing (ADR 0023). */
   run(command: EditorCommand): CommandResult;
   /** What `run` would answer, with nothing changed. A refusal can carry a fix (ADR 0026). */
@@ -161,6 +187,7 @@ export function phraseExtensions(
   return [
     ...schemaExtensions(),
     GapCursor,
+    Annotations.configure({ stylesheet }),
     BlockIds.configure({ ...ids, notice }),
     ContextClasses.configure({ stylesheet }),
     PhraseBlockView.configure({ stylesheet }),
@@ -224,8 +251,15 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
       if (compiled.css === '') return compiled.diagnostics;
       stylesheet = next;
       style.textContent = compiled.css;
-      editor.view.dispatch(editor.state.tr.setMeta(contextClassesKey, REFRESH_CLASSES));
+      editor.view.dispatch(
+        editor.state.tr
+          .setMeta(contextClassesKey, REFRESH_CLASSES)
+          .setMeta(annotationsKey, REFRESH_ANNOTATIONS),
+      );
       return compiled.diagnostics;
+    },
+    setDiagnostics(diagnostics) {
+      editor.view.dispatch(editor.state.tr.setMeta(annotationsKey, { diagnostics }));
     },
     destroy() {
       editor.destroy();

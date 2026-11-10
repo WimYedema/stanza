@@ -1,6 +1,6 @@
 import { createPhraseEditor, type PhraseEditor } from '@phrase/editor';
 import { parseDocument, parseStylesheet, serializeDocument } from '@phrase/format';
-import type { Diagnostic } from '@phrase/core';
+import { isNodeId, type Diagnostic } from '@phrase/core';
 import {
   parseHostMessage,
   type HostMessage,
@@ -42,6 +42,8 @@ const CHANGE_DELAY_MS = 300;
 
 let editor: PhraseEditor | undefined;
 let usedIds = new Set<string>();
+/** What the checks of the project say about this document, shown on the blocks. */
+let inline: readonly Diagnostic[] = [];
 /** What the editor holds, as text. What was sent last is the same, unless a send is waiting. */
 let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
@@ -148,6 +150,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     document: parsed.document,
   });
   info.setStylesheet(sheet.stylesheet);
+  editor.setDiagnostics(inline);
   toolbar.refresh();
   info.refresh();
 }
@@ -196,6 +199,16 @@ function handle(message: HostMessage): void {
       return;
     case 'usage':
       info.setUsage(message.usage);
+      return;
+    case 'diagnostics':
+      inline = message.diagnostics.map((entry) => ({
+        severity: entry.severity,
+        code: entry.code,
+        message: entry.message,
+        ...(entry.path !== undefined ? { path: entry.path } : {}),
+        ...(entry.nodeId !== undefined && isNodeId(entry.nodeId) ? { nodeId: entry.nodeId } : {}),
+      }));
+      editor?.setDiagnostics(inline);
       return;
     case 'declared':
       declared(message.ok, message.message);

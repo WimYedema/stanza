@@ -159,3 +159,36 @@ describe('edit-styles', () => {
     expect(parseWebviewMessage(value)).toBeUndefined();
   });
 });
+
+describe('the diagnostics message', () => {
+  it('takes the diagnostics of a document, with or without a path and an ID', () => {
+    const message = {
+      type: 'diagnostics',
+      diagnostics: [
+        { severity: 'warning', code: 'missing-id', message: 'No ID.', path: 'blocks[0]' },
+        { severity: 'error', code: 'unknown-style', message: 'No style.', nodeId: 'k7m2q9x4zb' },
+        { severity: 'error', code: 'x', message: 'Y.' },
+      ],
+    };
+    expect(parseHostMessage(message)).toEqual(message);
+    expect(parseHostMessage({ type: 'diagnostics', diagnostics: [] })).toEqual({
+      type: 'diagnostics',
+      diagnostics: [],
+    });
+  });
+
+  it.each([
+    { type: 'diagnostics' },
+    { type: 'diagnostics', diagnostics: 'x' },
+    { type: 'diagnostics', diagnostics: [{ severity: 'info', code: 'a', message: 'b' }] },
+    { type: 'diagnostics', diagnostics: [{ severity: 'error', code: 1, message: 'b' }] },
+    { type: 'diagnostics', diagnostics: [{ severity: 'error', code: 'a', message: 'b', path: 5 }] },
+    {
+      type: 'diagnostics',
+      diagnostics: [{ severity: 'error', code: 'a', message: 'b', nodeId: 5 }],
+    },
+    { type: 'diagnostics', diagnostics: [null] },
+  ])('refuses %j', (value) => {
+    expect(parseHostMessage(value)).toBeUndefined();
+  });
+});
