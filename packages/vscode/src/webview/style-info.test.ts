@@ -75,7 +75,7 @@ const at = (block: number, offset = 0): void => {
   info.refresh();
 };
 const text = (): string => root.textContent;
-const rows = (): Record<string, string> =>
+const rows = (): Record<string, string | undefined> =>
   Object.fromEntries(
     [...root.querySelectorAll('dt')].map((dt) => [
       dt.textContent,

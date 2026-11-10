@@ -22,7 +22,10 @@ describe('styleReferences', () => {
       'header-footer': plainStyle,
       'cover-title': plainStyle,
     },
-    character: { status: {}, 'status-high': { basedOn: n('status') } },
+    character: {
+      status: { text: {} },
+      'status-high': { text: {}, basedOn: n('status') },
+    },
     table: {
       'table-grid': { basedOn: n('table'), cellStyle: n('note') },
       'cover-table': {},
