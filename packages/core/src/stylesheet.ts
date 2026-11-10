@@ -84,6 +84,12 @@ export interface HeaderRow {
   readonly repeat?: boolean;
 }
 
+/** The background of the odd and the even body rows. The header row is not counted. */
+export interface BandedRows {
+  readonly odd?: ColorValue;
+  readonly even?: ColorValue;
+}
+
 export interface TableStyle {
   readonly basedOn?: StyleName;
   readonly label?: string;
@@ -91,6 +97,7 @@ export interface TableStyle {
   readonly cellStyle?: StyleName;
   readonly border?: TableBorders;
   readonly headerRow?: HeaderRow;
+  readonly bandedRows?: BandedRows;
   readonly cellPaddingPt?: number;
 }
 

@@ -172,6 +172,45 @@ describe('the default stylesheet fixture', () => {
   });
 });
 
+describe('banded rows of a table style', () => {
+  const withBands = (bands: string): string =>
+    sheet('tokens:\n  colors:\n    band: "#EEEEEE"').replace(
+      '  table: {}',
+      `  table:\n    banded-rows:\n${bands}`,
+    );
+
+  it('are read as the colors of the odd and the even rows', () => {
+    const result = parseStylesheet(withBands("      odd: '#f2f2f2'\n      even: band\n"));
+    expect(result.diagnostics).toEqual([]);
+    expect(result.stylesheet.tableStyles.get(name('table'))?.bandedRows).toEqual({
+      odd: { kind: 'hex', hex: '#F2F2F2' },
+      even: { kind: 'token', name: 'band' },
+    });
+  });
+
+  it('can give one of the two, and are absent when the file gives none', () => {
+    const one = parseStylesheet(withBands('      even: band\n'));
+    expect(one.stylesheet.tableStyles.get(name('table'))?.bandedRows).toEqual({
+      even: { kind: 'token', name: 'band' },
+    });
+    expect(parseStylesheet(sheet('')).stylesheet.tableStyles.get(name('table'))).not.toHaveProperty(
+      'bandedRows',
+    );
+  });
+
+  it('are reported for an unknown key, a value that is not a color and an unknown token', () => {
+    expect(problems(withBands('      third: band\n'))).toEqual([
+      ['unknown-property', 'table-styles.table.banded-rows.third'],
+    ]);
+    expect(problems(withBands('      odd: 12\n'))).toEqual([
+      ['invalid-type', 'table-styles.table.banded-rows.odd'],
+    ]);
+    expect(problems(withBands('      odd: nope\n'))).toEqual([
+      ['unknown-token', 'table-styles.table.banded-rows.odd'],
+    ]);
+  });
+});
+
 describe('parseStylesheet', () => {
   it('reports invalid YAML and a missing format version', () => {
     expect(problems('a: [\n')[0]?.[0]).toBe('invalid-yaml');

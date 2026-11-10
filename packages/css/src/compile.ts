@@ -225,6 +225,24 @@ class Compiler {
     if (headerText.size > 0) {
       rules.push(this.rule([`${table} th p`, `${table} th li`], headerText));
     }
+    // The header row is not counted: the first body row is odd, as in a Word table style band.
+    const headed = `${table}:has(tr:first-child > th)`;
+    const headless = `${table}:not(:has(tr:first-child > th))`;
+    const band = (color: ColorValue | undefined, headedRow: string, headlessRow: string): void => {
+      const value = color === undefined ? undefined : this.color(color);
+      if (value === undefined) return;
+      rules.push(
+        this.rule(
+          [
+            `${headed} tr:nth-child(${headedRow}) > td`,
+            `${headless} tr:nth-child(${headlessRow}) > td`,
+          ],
+          new Map([['background-color', value]]),
+        ),
+      );
+    };
+    band(style.bandedRows?.odd, 'even', 'odd');
+    band(style.bandedRows?.even, 'odd', 'even');
     return rules;
   }
 

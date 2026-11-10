@@ -6,6 +6,7 @@ import {
   propertyKeys,
   validateStylesheet,
   VARIANT_MARKS,
+  type BandedRows,
   type Border,
   type CharacterStyle,
   type ColorValue,
@@ -290,6 +291,20 @@ function readTableStyle(map: Data, path: string, report: Report): TableStyle {
       const repeat = readBoolean(row, 'repeat', here, report);
       if (repeat !== undefined) header.repeat = repeat;
       style.headerRow = header;
+    }
+  }
+
+  if (map['banded-rows'] !== undefined) {
+    const here = join(path, 'banded-rows');
+    const bands = asMap(map['banded-rows'], here, report);
+    if (bands !== undefined) {
+      checkKeys(bands, propertyKeys('banded-rows'), here, report);
+      const result: Mutable<BandedRows> = {};
+      const odd = readColor(bands, 'odd', here, report);
+      if (odd !== undefined) result.odd = odd;
+      const even = readColor(bands, 'even', here, report);
+      if (even !== undefined) result.even = even;
+      style.bandedRows = result;
     }
   }
 

@@ -14,6 +14,8 @@ export type PropertyPlace =
   /** The text properties of a mark in `variants`. */
   | 'variant'
   | 'header-row'
+  /** The `odd` and `even` backgrounds of the `banded-rows` of a table style. */
+  | 'banded-rows'
   /** The three sides of the `border` of a table style. */
   | 'borders'
   /** The width and color of one border. */
@@ -40,7 +42,8 @@ export type PropertyType =
   | { readonly kind: 'variants' }
   | { readonly kind: 'borders' }
   | { readonly kind: 'border' }
-  | { readonly kind: 'header-row' };
+  | { readonly kind: 'header-row' }
+  | { readonly kind: 'banded-rows' };
 
 export interface StyleProperty {
   /** The name in the stylesheet file, in kebab-case. */
@@ -131,9 +134,12 @@ export const STYLE_PROPERTIES: readonly StyleProperty[] = [
   },
   { key: 'border', type: { kind: 'borders' }, places: ['table-style'] },
   { key: 'header-row', type: { kind: 'header-row' }, places: ['table-style'] },
+  { key: 'banded-rows', type: { kind: 'banded-rows' }, places: ['table-style'] },
   { key: 'cell-padding', type: pt('non-negative'), places: ['table-style'] },
   { key: 'background', type: { kind: 'color' }, places: ['header-row'] },
   { key: 'repeat', type: flag, places: ['header-row'] },
+  { key: 'odd', type: { kind: 'color' }, places: ['banded-rows'] },
+  { key: 'even', type: { kind: 'color' }, places: ['banded-rows'] },
   { key: 'outer', type: { kind: 'border' }, places: ['borders'] },
   { key: 'inside-horizontal', type: { kind: 'border' }, places: ['borders'] },
   { key: 'inside-vertical', type: { kind: 'border' }, places: ['borders'] },

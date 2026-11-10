@@ -299,6 +299,36 @@ describe('compileStylesheetToCss', () => {
     ).toEqual(['font-weight: 700;']);
   });
 
+  it('writes banded rows by their place among the body rows, not counting the header row', () => {
+    const text = css(
+      sheet(
+        'tokens:\n  colors:\n    band: "#EEEEEE"',
+        '  body: {}\n',
+        `  table:
+    banded-rows:
+      odd: band
+      even: "#FFFFFF"
+  table-b:
+    based-on: table
+    banded-rows:
+      even: "#DDDDDD"
+`,
+      ),
+    );
+    const bands = (table: string, odd: boolean): string => {
+      const headed = `.phrase-document .phrase-t-${table}:has(tr:first-child > th)`;
+      const headless = `.phrase-document .phrase-t-${table}:not(:has(tr:first-child > th))`;
+      return odd
+        ? `${headed} tr:nth-child(even) > td,\n${headless} tr:nth-child(odd) > td`
+        : `${headed} tr:nth-child(odd) > td,\n${headless} tr:nth-child(even) > td`;
+    };
+    expect(rule(text, bands('table', true))).toEqual(['background-color: #EEEEEE;']);
+    expect(rule(text, bands('table', false))).toEqual(['background-color: #FFFFFF;']);
+    expect(rule(text, bands('table-b', true))).toEqual(['background-color: #EEEEEE;']);
+    expect(rule(text, bands('table-b', false))).toEqual(['background-color: #DDDDDD;']);
+    expect(css(sheet(''))).not.toContain(':has(');
+  });
+
   it('does not let the browser style header cells of a table without a header row', () => {
     expect(rule(css(sheet('')), '.phrase-document .phrase-t-table th')).toEqual([
       'font-weight: 400;',

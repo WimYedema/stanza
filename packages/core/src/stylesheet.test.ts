@@ -151,6 +151,19 @@ describe('resolveTableStyle', () => {
     expect(resolveTableStyle(sheet(), RESERVED_TABLE_STYLE)).toEqual({ name: 'table' });
   });
 
+  it('merges the odd and even backgrounds of banded rows one by one', () => {
+    const stylesheet = sheet({
+      table: {
+        table: { bandedRows: { odd: hex('#F2F2F2'), even: hex('#FFFFFF') } },
+        'table-b': { basedOn: n('table'), bandedRows: { even: hex('#EEEEEE') } },
+      },
+    });
+    expect(resolveTableStyle(stylesheet, n('table-b'))?.bandedRows).toEqual({
+      odd: hex('#F2F2F2'),
+      even: hex('#EEEEEE'),
+    });
+  });
+
   it('inherits the cell style and lets a style replace it', () => {
     const stylesheet = sheet({
       paragraph: { cell: plainStyle },
@@ -290,6 +303,7 @@ describe('validateStylesheet', () => {
         table: {
           border: { outer: { widthPt: 1, color: token('nope') } },
           headerRow: { text: {}, background: token('nope') },
+          bandedRows: { odd: token('nope'), even: token('nope') },
         },
       },
     });
@@ -301,6 +315,8 @@ describe('validateStylesheet', () => {
       ['unknown-token', 'character-styles.marker.highlight'],
       ['unknown-token', 'table-styles.table.border.outer.color'],
       ['unknown-token', 'table-styles.table.header-row.background'],
+      ['unknown-token', 'table-styles.table.banded-rows.odd'],
+      ['unknown-token', 'table-styles.table.banded-rows.even'],
     ]);
   });
 

@@ -3,6 +3,7 @@ import type { StyleName } from './style-name.js';
 import {
   VARIANT_MARKS,
   type HeaderRow,
+  type BandedRows,
   type ParagraphProps,
   type Stylesheet,
   type TableBorders,
@@ -122,6 +123,10 @@ export function resolveTableStyle(
   if (!result.ok) return undefined;
   const border = mergeBorders(result.chain.map((style) => style.border));
   const headerRow = mergeHeaderRows(result.chain.map((style) => style.headerRow));
+  const banded = result.chain
+    .map((style) => style.bandedRows)
+    .filter((layer): layer is BandedRows => layer !== undefined);
+  const bandedRows = banded.length === 0 ? undefined : merge(banded, {});
   const padding = result.chain.map((style) => style.cellPaddingPt).filter((p) => p !== undefined);
   const cellPaddingPt = padding[padding.length - 1];
   const cellStyles = result.chain.map((style) => style.cellStyle).filter((s) => s !== undefined);
@@ -131,6 +136,7 @@ export function resolveTableStyle(
     ...(cellStyle !== undefined ? { cellStyle } : {}),
     ...(border !== undefined ? { border } : {}),
     ...(headerRow !== undefined ? { headerRow } : {}),
+    ...(bandedRows !== undefined ? { bandedRows } : {}),
     ...(cellPaddingPt !== undefined ? { cellPaddingPt } : {}),
   };
 }

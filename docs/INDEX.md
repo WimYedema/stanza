@@ -13,7 +13,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 ## Stylesheet and pages (`core`, `format`, `css`)
 
-- 0006: typed stylesheet (read first). 0035: comment-preserving text edits.
+- 0006: typed stylesheet (read first). 0035: comment-preserving text edits. 0059: banded table rows.
 - 0016, 0017, 0019: page templates, header and footer slots, cover page.
 - 0021: browser CSS.
 

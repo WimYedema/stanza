@@ -105,6 +105,17 @@ describe('setProperty', () => {
     ).toBe(withTable('  table:\n    cell-padding: 4\n    header-row:\n      bold: true\n'));
   });
 
+  it('makes the banded rows of a table style, sets one color and takes it off, which removes the empty mapping', () => {
+    const path = (key: string): string[] => ['table-styles', 'table', 'banded-rows', key];
+    const base = '  table:\n    cell-padding: 4\n';
+    const banded = `${base}    banded-rows:\n      odd: '#F2F2F2'\n`;
+    expect(set(withTable(base), path('odd'), '#F2F2F2')).toBe(withTable(banded));
+    expect(set(withTable(banded), path('even'), '#FFFFFF')).toBe(
+      withTable(`${banded}      even: '#FFFFFF'\n`),
+    );
+    expect(unset(withTable(banded), path('odd'))).toBe(withTable(base));
+  });
+
   describe('in a mapping that is written on one line', () => {
     it('adds a property inside the braces, and replaces one', () => {
       expect(set(sheet('  body: { size: 11 }\n'), [...BODY, 'bold'], true)).toBe(

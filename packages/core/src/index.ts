@@ -75,6 +75,7 @@ export {
   SLOT_TOKENS,
   VARIANT_MARKS,
   type Alignment,
+  type BandedRows,
   type Border,
   type CharacterStyle,
   type ColorValue,

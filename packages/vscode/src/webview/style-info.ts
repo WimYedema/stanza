@@ -106,6 +106,12 @@ function tableRows(sheet: Stylesheet, name: StyleName): Rows {
   if (headerRow?.repeat !== undefined) {
     rows.push(['Header repeats', headerRow.repeat ? 'yes' : 'no']);
   }
+  if (resolved.bandedRows?.odd !== undefined) {
+    rows.push(['Odd rows', colorText(resolved.bandedRows.odd)]);
+  }
+  if (resolved.bandedRows?.even !== undefined) {
+    rows.push(['Even rows', colorText(resolved.bandedRows.even)]);
+  }
   return rows;
 }
 

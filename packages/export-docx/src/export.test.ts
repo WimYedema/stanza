@@ -316,6 +316,45 @@ describe('exportDocx tables', () => {
     );
   });
 
+  describe('banded rows', () => {
+    const banded = parseStylesheet(
+      STYLESHEET_TEXT.replace(
+        /cell-padding: 4\r?\n/,
+        "cell-padding: 4\n    banded-rows:\n      odd: '#EEEEEE'\n      even: rule\n",
+      ),
+    ).stylesheet;
+
+    it('are written as the horizontal bands of the table style, and switched on in the table', async () => {
+      const { stylesXml, documentXml } = await build(TABLE, banded);
+      const table = styleXml(stylesXml, 'Table');
+      expect(table).toContain('<w:tblStyleRowBandSize w:val="1"/>');
+      expect(table).toContain(
+        '<w:tblStylePr w:type="band1Horz"><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="EEEEEE"/></w:tcPr></w:tblStylePr>',
+      );
+      expect(table).toContain(
+        '<w:tblStylePr w:type="band2Horz"><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="BFBFBF"/></w:tcPr></w:tblStylePr>',
+      );
+      expect(documentXml).toMatch(/<w:tblLook [^>]*w:noHBand="false"/);
+      expect(documentXml).not.toContain('<w:shd ');
+    });
+
+    it('are left out, with the bands off, when the style has none', async () => {
+      const { stylesXml, documentXml } = await build(TABLE);
+      expect(styleXml(stylesXml, 'Table')).not.toContain('Horz');
+      expect(styleXml(stylesXml, 'Table')).not.toContain('BandSize');
+      expect(documentXml).toMatch(/<w:tblLook [^>]*w:noHBand="true"/);
+    });
+
+    it('come to a derived table style through its base', async () => {
+      const { stylesXml } = await build(
+        '<!-- phrase: .table-grid -->\n| A |\n| --- |\n| b |\n',
+        banded,
+      );
+      expect(styleXml(stylesXml, 'TableGrid')).toContain('w:type="band1Horz"');
+      expect(styleXml(stylesXml, 'TableGrid')).toContain('<w:tblStyleRowBandSize w:val="1"/>');
+    });
+  });
+
   it('writes inherited properties into the derived table style and keeps it independent', async () => {
     const { stylesXml, documentXml } = await build(
       '<!-- phrase: .table-grid -->\n| A |\n| --- |\n| b |\n',

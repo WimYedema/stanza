@@ -75,3 +75,4 @@ One line per finished item, in completion order. Detail is in the ADR named on t
 89. [M] - Rich table cells, editor (ADR 0048).
 105. [L] - Context diet: shorter instructions, `BACKLOG_DONE.md`, `docs/INDEX.md`, package READMEs, spikes removed, two files split. ADR archiving and test trimming judged not worthwhile.
 63. [M] - Spike: page break guides. Findings in ADR 0058; paged.js rejected; whether to show pages is left open as item 108.
+98. [M] - Banded table rows (ADR 0059): `banded-rows` with `odd` and `even` in a table style, in the CSS, in a Word table style band and in the style editor.

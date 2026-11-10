@@ -306,6 +306,8 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
       checkColor(style.headerRow.background, `${path}.header-row.background`);
     }
     checkNotNegative(style.cellPaddingPt, `${path}.cell-padding`);
+    checkColor(style.bandedRows?.odd, `${path}.banded-rows.odd`);
+    checkColor(style.bandedRows?.even, `${path}.banded-rows.even`);
     if (style.cellStyle !== undefined && !stylesheet.paragraphStyles.has(style.cellStyle)) {
       error(
         'unknown-cell-style',

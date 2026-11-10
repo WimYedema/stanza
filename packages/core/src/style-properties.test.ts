@@ -17,6 +17,7 @@ const PLACES: readonly PropertyPlace[] = [
   'table-style',
   'variant',
   'header-row',
+  'banded-rows',
   'borders',
   'border',
 ];
@@ -60,9 +61,11 @@ describe('the list of style properties', () => {
       'cell-style',
       'border',
       'header-row',
+      'banded-rows',
       'cell-padding',
     ]);
     expect(propertyKeys('header-row')).toEqual([...text, 'background', 'repeat']);
+    expect(propertyKeys('banded-rows')).toEqual(['odd', 'even']);
     expect(propertyKeys('borders')).toEqual(['outer', 'inside-horizontal', 'inside-vertical']);
     expect(propertyKeys('border')).toEqual(['width', 'color']);
   });

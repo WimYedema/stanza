@@ -1,6 +1,7 @@
 import {
   resolveTableStyle,
   type Border,
+  type ColorValue,
   type StyleName,
   type Stylesheet,
   type TextProps,
@@ -69,10 +70,22 @@ function tableStyleXml(name: StyleName, stylesheet: Stylesheet): string {
       : ['top', 'left', 'bottom', 'right']
           .map((tag) => `<w:${tag} w:w="${padding}" w:type="dxa"/>`)
           .join('');
-  const tblPr =
-    borders === '' && margins === ''
+  // Word counts the bands after the first row when the table look has a header row.
+  const band = (type: 'band1Horz' | 'band2Horz', color: ColorValue | undefined): string => {
+    const fill = color === undefined ? undefined : colorHex(stylesheet.tokens, color);
+    return fill === undefined
       ? ''
-      : `<w:tblPr>${borders === '' ? '' : `<w:tblBorders>${borders}</w:tblBorders>`}${margins === '' ? '' : `<w:tblCellMar>${margins}</w:tblCellMar>`}</w:tblPr>`;
+      : `<w:tblStylePr w:type="${type}"><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="${fill}"/></w:tcPr></w:tblStylePr>`;
+  };
+  const bands =
+    band('band1Horz', style.bandedRows?.odd) + band('band2Horz', style.bandedRows?.even);
+
+  // Word shows no bands unless the band size is written.
+  const bandSize = bands === '' ? '' : '<w:tblStyleRowBandSize w:val="1"/>';
+  const tblPr =
+    bandSize === '' && borders === '' && margins === ''
+      ? ''
+      : `<w:tblPr>${bandSize}${borders === '' ? '' : `<w:tblBorders>${borders}</w:tblBorders>`}${margins === '' ? '' : `<w:tblCellMar>${margins}</w:tblCellMar>`}</w:tblPr>`;
 
   const header = style.headerRow;
   const background =
@@ -90,7 +103,7 @@ function tableStyleXml(name: StyleName, stylesheet: Stylesheet): string {
   return (
     `<w:style w:type="table" w:customStyle="1" w:styleId="${wordStyleId(name)}">` +
     `<w:name w:val="${escape(wordStyleName(name, stylesheet.tableStyles.get(name)?.label))}"/><w:basedOn w:val="TableNormal"/>` +
-    `<w:uiPriority w:val="59"/>${tblPr}${firstRow}</w:style>`
+    `<w:uiPriority w:val="59"/>${tblPr}${bands}${firstRow}</w:style>`
   );
 }
 

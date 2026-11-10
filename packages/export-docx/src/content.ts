@@ -357,7 +357,7 @@ function buildTable(
   );
   return new Table({
     style: wordStyleId(styleName),
-    tableLook: { firstRow: hasHeader, noHBand: true, noVBand: true },
+    tableLook: { firstRow: hasHeader, noHBand: resolved?.bandedRows === undefined, noVBand: true },
     layout: TableLayoutType.AUTOFIT,
     width:
       indentTwips > 0

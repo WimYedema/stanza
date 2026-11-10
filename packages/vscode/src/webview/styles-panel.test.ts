@@ -48,6 +48,8 @@ table-styles:
     header-row:
       bold: true
       repeat: true
+    banded-rows:
+      odd: '#F2F2F2'
   table-grid:
     based-on: table
     border:
@@ -220,7 +222,7 @@ describe('showing a table style', () => {
   });
 
   it('has the groups of a table style and nothing of text or marks', () => {
-    expect(titles()).toEqual(['Style', 'Table', 'Borders', 'Header row']);
+    expect(titles()).toEqual(['Style', 'Table', 'Borders', 'Header row', 'Banded rows']);
   });
 
   it('shows the cell style, the padding and the borders it sets', () => {
@@ -235,6 +237,29 @@ describe('showing a table style', () => {
     expect(control('Bold', 'select').value).toBe('true');
     expect(control('Repeat', 'select').value).toBe('true');
     expect(control('Italic', 'select').value).toBe('');
+  });
+
+  it('shows the colors of the banded rows, and where the even one comes from', () => {
+    expect(control('Odd', 'input').value).toBe('#F2F2F2');
+    expect(control('Even', 'input').value).toBe('');
+    panel.show(entry('table-grid'), stylesheet);
+    expect(control('Odd', 'input').value).toBe('');
+    expect(control('Odd', 'input').placeholder).toBe('#F2F2F2');
+    expect(rowOf('Odd').textContent).toContain('from table');
+  });
+
+  it('sends changes of the banded rows and takes one off', () => {
+    change(control('Even', 'input'), 'brand');
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'set',
+      path: path('table', 'banded-rows', 'even'),
+      value: 'brand',
+    });
+    control('Odd', '.reset').click();
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'unset',
+      path: path('table', 'banded-rows', 'odd'),
+    });
   });
 
   it('offers the paragraph styles for the cell style and the other table styles as a base', () => {

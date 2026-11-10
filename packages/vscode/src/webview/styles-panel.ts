@@ -285,6 +285,19 @@ export function createPanel({ root, send }: PanelOptions): Panel {
     headerText.append(...headerTextRows);
     header.push(headerText);
 
+    const bands: HTMLElement[] = [];
+    for (const key of ['odd', 'even'] as const) {
+      add(
+        bands,
+        propertyRow(
+          key,
+          typeOf('banded-rows', key),
+          path('banded-rows', key),
+          state((style) => style.bandedRows?.[key]),
+        ),
+      );
+    }
+
     return [
       section('Table', undefined, ...table),
       section(
@@ -296,6 +309,11 @@ export function createPanel({ root, send }: PanelOptions): Panel {
         'Header row',
         'The text of the header row adds to the text of the cell style. Each property can be set on its own.',
         ...header,
+      ),
+      section(
+        'Banded rows',
+        'The background of the odd and the even rows of the body. The header row is not counted, so the first body row is odd.',
+        ...bands,
       ),
     ];
   }
