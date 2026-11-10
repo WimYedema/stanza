@@ -230,6 +230,22 @@ describe('createPhraseEditor', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  describe('the element of a block', () => {
+    it('is the element drawn for the top-level block, by its number', () => {
+      const api = open('# Title\n\nSome text.\n\n- item\n\n| A |\n| - |\n| 1 |\n', stylesheet);
+      expect(api.blockElement(0)?.tagName).toBe('H1');
+      expect(api.blockElement(1)?.textContent).toBe('Some text.');
+      expect(api.blockElement(2)?.tagName).toBe('UL');
+      expect(api.blockElement(3)?.tagName).toBe('TABLE');
+    });
+
+    it('is undefined for a number that is not a block', () => {
+      const api = open('Only this.\n', stylesheet);
+      expect(api.blockElement(1)).toBeUndefined();
+      expect(api.blockElement(-1)).toBeUndefined();
+    });
+  });
+
   describe('replacing the content with the cursor at the change', () => {
     const THREE = 'First.\n\nSecond one.\n\nThird.\n';
 

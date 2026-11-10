@@ -164,6 +164,8 @@ export interface PhraseEditor {
   getPosition(): EditorPosition;
   /** Puts the cursor at a position, or as near to it as the document allows. */
   setPosition(position: EditorPosition): void;
+  /** The element drawn for a top-level block, to scroll to it. */
+  blockElement(block: number): HTMLElement | undefined;
   destroy(): void;
 }
 
@@ -268,6 +270,14 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
     getPosition: () => editorPosition(editor.state),
     setPosition(position) {
       editor.view.dispatch(moveTo(editor.state, position));
+    },
+    blockElement(block) {
+      const { doc } = editor.state;
+      if (block < 0 || block >= doc.childCount) return undefined;
+      let start = 0;
+      for (let child = 0; child < block; child += 1) start += doc.child(child).nodeSize;
+      const dom = editor.view.nodeDOM(start);
+      return dom instanceof HTMLElement ? dom : undefined;
     },
     run: (command) =>
       runCommand(

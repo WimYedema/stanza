@@ -3,6 +3,7 @@ import { StylesheetSaves } from './declare-variant.js';
 import { registerEditStyles } from './edit-styles-command.js';
 import { ExportOnSave } from './export-on-save.js';
 import { registerAdoptMarkdown } from './adopt-markdown-command.js';
+import { registerGoToHeading } from './go-to-heading-command.js';
 import { registerImportWord } from './import-word-command.js';
 import { registerNewDocument } from './new-document-command.js';
 import { registerNewProject } from './new-project-command.js';
@@ -17,6 +18,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const log = vscode.window.createOutputChannel('Phrase');
   const saves = new StylesheetSaves(log);
   const exporter = new ExportOnSave(diagnostics, log);
+  const editors = new PhraseEditorProvider(context, diagnostics, log, saves);
   context.subscriptions.push(
     diagnostics,
     log,
@@ -26,13 +28,17 @@ export function activate(context: vscode.ExtensionContext): void {
     ...registerDeclareVariant(diagnostics, saves),
     vscode.window.registerCustomEditorProvider(
       PhraseEditorProvider.viewType,
-      new PhraseEditorProvider(context, diagnostics, log, saves),
-      // The editor keeps its state when its tab is hidden, and one editor serves a document.
+      editors,
+      // The editor keeps its state when its tab is hidden, and one editor serves a document. The
+      // find widget of VS Code searches the page, so the text of the document can be found.
       {
-        webviewOptions: { retainContextWhenHidden: true },
+        webviewOptions: { retainContextWhenHidden: true, enableFindWidget: true },
         supportsMultipleEditorsPerDocument: false,
       },
     ),
+    registerGoToHeading((uri, block) => {
+      editors.reveal(uri, block);
+    }),
     registerEditStyles(),
     registerNewProject(),
     registerNewDocument(),

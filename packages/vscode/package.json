@@ -68,9 +68,21 @@
         "title": "Phrase: Adopt Markdown File"
       },
       {
+        "command": "phrase.goToHeading",
+        "title": "Phrase: Go to Heading"
+      },
+      {
         "command": "phrase.openInWord",
         "title": "Phrase: Open in Word",
         "icon": "$(link-external)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "phrase.goToHeading",
+        "key": "ctrl+shift+o",
+        "mac": "cmd+shift+o",
+        "when": "activeCustomEditorId == phrase.editor"
       }
     ],
     "menus": {

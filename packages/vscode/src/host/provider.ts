@@ -25,12 +25,20 @@ const REFRESH_DELAY_MS = 300;
 export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
   static readonly viewType = 'phrase.editor';
 
+  /** The open editors by document, to tell one of them to scroll. */
+  private readonly sessions = new Map<string, EditorSession>();
+
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly diagnostics: ProjectDiagnostics,
     private readonly log: vscode.OutputChannel,
     private readonly saves: StylesheetSaves,
   ) {}
+
+  /** Scrolls the editor of a document to a top-level block, if that document has one open. */
+  reveal(uri: vscode.Uri, block: number): void {
+    this.sessions.get(uri.toString())?.reveal(block);
+  }
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     const session = new EditorSession(
@@ -41,7 +49,10 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
       document,
       panel,
     );
+    const key = document.uri.toString();
+    this.sessions.set(key, session);
     panel.onDidDispose(() => {
+      this.sessions.delete(key);
       session.dispose();
     });
     session.start();
@@ -104,6 +115,13 @@ class EditorSession {
   dispose(): void {
     clearTimeout(this.refreshTimer);
     for (const disposable of this.disposables) disposable.dispose();
+  }
+
+  /** Asks the webview to scroll to a block, when it shows the editor and not a refusal. */
+  reveal(block: number): void {
+    this.enqueue(async () => {
+      if (this.shown === 'editor') await this.post({ type: 'reveal', block });
+    });
   }
 
   private enqueue(work: () => Promise<void>): void {

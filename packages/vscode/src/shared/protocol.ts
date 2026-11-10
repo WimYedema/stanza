@@ -61,6 +61,8 @@ export type HostMessage =
   | { readonly type: 'stylesheet'; readonly text: string }
   | { readonly type: 'defaults'; readonly defaults: Defaults }
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
+  /** Scroll to a top-level block of the document and put the cursor at its start. */
+  | { readonly type: 'reveal'; readonly block: number }
   /** Where the styles are used, sent after `init` and again when it changes. */
   | { readonly type: 'usage'; readonly usage: UsageSummary }
   /** What the checks say about this document, sent after `init` and again when it changes. */
@@ -234,6 +236,12 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
     case 'used-ids': {
       const ids = value['ids'];
       return isStringList(ids) ? { type: 'used-ids', ids } : undefined;
+    }
+    case 'reveal': {
+      const block = value['block'];
+      return typeof block === 'number' && Number.isInteger(block) && block >= 0
+        ? { type: 'reveal', block }
+        : undefined;
     }
     case 'usage': {
       const usage = parseUsage(value['usage']);

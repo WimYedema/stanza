@@ -558,3 +558,58 @@ describe('the diagnostics of the document', () => {
     ]);
   });
 });
+
+describe('revealing a block', () => {
+  /** Opens a document in a new provider, as the extension does, and returns the provider. */
+  function openIn(projectFiles = files()): PhraseEditorProvider {
+    reset({ ...projectFiles, [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
+    const provider = newProvider();
+    provider.resolveCustomTextEditor(
+      world.document as unknown as vscode.TextDocument,
+      fakePanel() as unknown as vscode.WebviewPanel,
+    );
+    return provider;
+  }
+  const documentUri = (): vscode.Uri => world.document?.uri as unknown as vscode.Uri;
+  const reveals = (): HostMessage[] => posted().filter((message) => message.type === 'reveal');
+
+  it('tells the webview of that document to scroll to the block', async () => {
+    const provider = openIn();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    provider.reveal(documentUri(), 2);
+    await settled(() => {
+      expect(reveals()).toEqual([{ type: 'reveal', block: 2 }]);
+    });
+  });
+
+  it('does nothing for a document that has no editor open, or after the editor is closed', async () => {
+    const provider = openIn();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    provider.reveal({ toString: () => 'file:///w/p/documents/other.phrase.md' } as vscode.Uri, 1);
+    for (const close of world.disposers) close();
+    provider.reveal(documentUri(), 1);
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    expect(reveals()).toEqual([]);
+  });
+
+  it('does nothing while the editor shows a refusal', async () => {
+    const provider = openIn({ '/w/p/documents/other.phrase.md': OTHER });
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    expect(posted()[0]).toMatchObject({ type: 'refused' });
+    provider.reveal(documentUri(), 0);
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+  });
+});

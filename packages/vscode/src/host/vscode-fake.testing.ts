@@ -86,6 +86,9 @@ export const world = {
   /** The information messages shown, and the button that is pressed on them. */
   infos: [] as string[],
   infoChoice: undefined as string | undefined,
+  /** The lists shown in quick picks, and which entry is picked (undefined: the pick is cancelled). */
+  quickPicks: [] as unknown[][],
+  quickPickIndex: 0 as number | undefined,
   /** The warnings asked with buttons, and the button that is pressed on them. */
   warnings: [] as string[],
   warningChoice: undefined as string | undefined,
@@ -138,6 +141,8 @@ export function reset(
   world.inputOptions = undefined;
   world.infos = [];
   world.infoChoice = undefined;
+  world.quickPicks = [];
+  world.quickPickIndex = 0;
   world.warnings = [];
   world.warningChoice = undefined;
   world.outsideWorkspace = false;
@@ -369,7 +374,12 @@ export function createFakeVscode(): Record<string, unknown> {
       get tabGroups() {
         return { activeTabGroup: { activeTab: world.activeTab } };
       },
-      showQuickPick: (items: readonly unknown[]) => Promise.resolve(items[0]),
+      showQuickPick: (items: readonly unknown[]) => {
+        world.quickPicks.push([...items]);
+        return Promise.resolve(
+          world.quickPickIndex === undefined ? undefined : items[world.quickPickIndex],
+        );
+      },
       showOpenDialog: () =>
         Promise.resolve(
           world.dialogFolder === undefined ? undefined : [new FakeUri(world.dialogFolder)],

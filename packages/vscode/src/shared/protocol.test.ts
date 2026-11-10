@@ -138,6 +138,15 @@ describe('parseHostMessage', () => {
   });
 });
 
+describe('the reveal message', () => {
+  it('takes a block number, and nothing else', () => {
+    expect(parseHostMessage({ type: 'reveal', block: 3 })).toEqual({ type: 'reveal', block: 3 });
+    for (const block of [-1, 1.5, '2', undefined, Number.NaN]) {
+      expect(parseHostMessage({ type: 'reveal', block })).toBeUndefined();
+    }
+  });
+});
+
 describe('edit-styles', () => {
   it('takes a request with a style, and one without', () => {
     expect(parseWebviewMessage({ type: 'edit-styles' })).toEqual({ type: 'edit-styles' });

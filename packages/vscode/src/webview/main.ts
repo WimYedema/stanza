@@ -8,6 +8,7 @@ import {
   type WebviewMessage,
 } from '../shared/protocol.js';
 import { createNotices } from './notices.js';
+import { revealBlock } from './reveal.js';
 import { createSheet } from './sheet.js';
 import { createStyleInfo } from './style-info.js';
 import { buildToolbar } from './toolbar.js';
@@ -196,6 +197,9 @@ function handle(message: HostMessage): void {
       return;
     case 'used-ids':
       usedIds = new Set(message.ids);
+      return;
+    case 'reveal':
+      if (editor !== undefined) revealBlock(editor, message.block, element('top'));
       return;
     case 'usage':
       info.setUsage(message.usage);
