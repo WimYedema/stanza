@@ -1,7 +1,6 @@
 dist/
 node_modules/
 .venv/
-spikes/
 word-examples/
 package-lock.json
 *.md

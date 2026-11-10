@@ -1,4 +1,4 @@
-import type { Diagnostic } from '@phrase/core';
+import { isStyleName, type Diagnostic, type StyleName } from '@phrase/core';
 import { parseDocument } from 'yaml';
 import { FORMAT_VERSION } from './front-matter.js';
 
@@ -12,6 +12,19 @@ export const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 export function join(path: string, key: string): string {
   return path === '' ? key : `${path}.${key}`;
+}
+
+export function readName(
+  map: Data,
+  key: string,
+  path: string,
+  report: Report,
+): StyleName | undefined {
+  const value = map[key];
+  if (value === undefined) return undefined;
+  if (typeof value === 'string' && isStyleName(value)) return value;
+  report('invalid-value', 'Expected a kebab-case style name.', join(path, key));
+  return undefined;
 }
 
 export function describe(value: unknown): string {

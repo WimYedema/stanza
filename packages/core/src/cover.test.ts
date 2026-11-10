@@ -18,12 +18,16 @@ const meta: DocumentMeta = {
 };
 
 const text = (value: string): SlotPart => ({ kind: 'text', text: value });
-const token = (name: 'title' | 'authors' | 'classification' | 'version', label = ''): SlotPart => ({
+type ValuePart = Exclude<SlotPart, { kind: 'text' }>;
+const token = (
+  name: 'title' | 'authors' | 'classification' | 'version',
+  label = '',
+): ValuePart => ({
   kind: 'token',
   token: name,
   label,
 });
-const field = (name: string, label = ''): SlotPart => ({ kind: 'field', name, label });
+const field = (name: string, label = ''): ValuePart => ({ kind: 'field', name, label });
 
 describe('slotValue and slotText', () => {
   it('give the value of a token or field, and the label when there is none', () => {

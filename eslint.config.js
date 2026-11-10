@@ -7,14 +7,7 @@ const restrictImports = (group, message) => ({
 
 export default tseslint.config(
   {
-    ignores: [
-      '**/dist/**',
-      '.venv/**',
-      'spikes/**',
-      'word-examples/**',
-      '*.config.*',
-      'packages/*/build.mjs',
-    ],
+    ignores: ['**/dist/**', '.venv/**', 'word-examples/**', '*.config.*', 'packages/*/build.mjs'],
   },
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,

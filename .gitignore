@@ -1,6 +1,6 @@
 .venv/
-spikes/out/
 word-examples/
+*.tsbuildinfo
 __pycache__/
 node_modules/
 dist/

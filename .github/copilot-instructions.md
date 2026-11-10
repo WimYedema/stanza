@@ -1,135 +1,53 @@
-# GitHub Copilot Engineering Constraints
+# Copilot constraints
 
-This file is intended as the source for concise repository-level Copilot instructions. Keep the active instruction file short to reduce repeated context and token/credit use. Put explanations in the product and architecture documents and reference them only when needed.
+Rationale lives in `docs/ARCHITECTURE.md`, `docs/PRODUCT_VISION.md` and the ADRs. Find the right ADR through `docs/INDEX.md`. Do not rediscover decisions; do not load whole directories.
 
 ## Product invariants
 
-- The product is local-first. Core authoring, validation, rendering, and export must not require a backend, account, network connection, or cloud service.
-- DOCX and PDF are generated publication formats, not canonical editable formats.
-- Arbitrary DOCX import and DOCX round-tripping are outside the initial scope. The only import is the one-time, content-only import of ADR 0043, which never applies formatting from the DOCX.
-- The product deliberately supports less formatting power than Word.
-- Document content contains semantic structure, style identifiers, and semantic marks. It does not contain arbitrary visual formatting.
-- Formatting commands must never silently create direct formatting or anonymous styles.
-- Styling has one typed source of truth that compiles to browser CSS and publication-specific properties.
-- Projects may contain multiple documents, shared styles, shared assets, and cross-references.
-- All referenceable objects have immutable IDs. References target IDs, never titles, filenames, or rendered numbers.
-- Git is the versioning mechanism. GitHub and other remotes are optional.
-- AI is not required by the product runtime.
+- Local-first: authoring, validation, rendering and export need no backend, account, network or cloud service. AI is not required at runtime.
+- DOCX and PDF are generated outputs, not editable formats. The only import is the content-only Word import of ADR 0043.
+- Content holds semantic structure, style IDs and semantic marks, never visual formatting. Formatting commands never create direct formatting or anonymous styles.
+- One typed stylesheet is the source of truth; CSS and DOCX properties are generated from it.
+- Referenceable objects have immutable IDs. References target IDs, never titles, filenames or rendered numbers. A deleted target is a broken-reference diagnostic, never last rendered text.
+- Git is the versioning mechanism; remotes are optional.
 
-## Architecture constraints
+## Architecture
 
-- Keep the domain independent of React, Tiptap, ProseMirror, browser APIs, filesystem APIs, Git libraries, and DOCX/PDF libraries.
-- Treat editor, storage, Git, and exporters as adapters around the domain and application layers.
-- Do not use ProseMirror JSON as the canonical domain model merely because the editor uses ProseMirror.
-- Do not expose DOCX-library types outside the DOCX adapter.
-- Do not introduce a server, database, authentication system, cloud storage SDK, telemetry service, or realtime collaboration framework unless explicitly requested.
-- Do not add a dependency when a small, well-tested implementation using existing dependencies is sufficient.
-- Do not build a custom rich-text engine, browser layout engine, DOCX package writer, or version-control system when a maintained component satisfies the constrained requirement.
-- Prefer pure functions for validation, style resolution, reference resolution, numbering, migrations, and serialization.
-- Keep persistence deterministic and format-versioned.
-- Surface invalid or unsupported states as diagnostics. Do not repair or discard document content silently.
+- `core` and the domain import no React, Tiptap, ProseMirror, browser, filesystem, Git or DOCX/PDF libraries. Editor, storage, Git and exporters are adapters. Do not expose `docx` types outside the DOCX adapter.
+- ProseMirror JSON is not the domain model; convert at the adapter.
+- No server, database, auth, cloud SDK, telemetry or realtime collaboration. No new dependency when a small implementation with existing ones will do. Do not build a rich-text engine, layout engine, DOCX writer or VCS.
+- Prefer pure functions for validation, style and reference resolution, numbering, migrations, serialization. Persistence is deterministic and format-versioned; a persisted-format change needs a version decision and a migration test.
+- Invalid or unsupported state is a diagnostic. Never repair or discard content silently.
 
-## Scope discipline
+## Scope
 
-- Work only on items in `docs/BACKLOG.md`, from the top down. Do not skip ahead.
-- Do not reorder backlog items; ask the user.
-- Suggest missing items instead of doing unlisted work; the user decides their placement.
-- If an item turns out larger than its size estimate, stop and escalate so the user can reprioritize.
-- Implement only the requested vertical slice.
-- Do not add speculative extensibility, plugin systems, generic abstractions, feature flags, compatibility layers, or service boundaries.
-- Prefer the smallest change that preserves the architectural constraints.
-- Before adding a new concept, check whether it belongs in the domain, an application use case, or an adapter.
-- Keep modules cohesive. Split files when they mix responsibilities, not solely to meet a line-count target.
-- Avoid broad refactors while implementing a focused feature unless the current structure prevents a correct implementation.
+- Work only on items in `docs/BACKLOG.md`, top down. Never reorder (ask); suggest missing items instead of doing them; stop and escalate when an item outgrows its size.
+- Smallest change that keeps the invariants: no speculative extensibility, plugin systems, feature flags or compatibility layers. Check whether a concept belongs in the domain, a use case or an adapter first.
+- Stop and report when a request contradicts an invariant.
 
-## TypeScript rules
+## TypeScript
 
-- Use strict TypeScript. Avoid `any`; use `unknown` at input boundaries and validate it.
-- Model identifiers with branded or opaque types where useful.
-- Prefer discriminated unions for document nodes, commands, diagnostics, and build results.
-- Make invalid states difficult to represent, but do not create deeply generic type machinery.
-- Validate external JSON, editor state, filesystem data, clipboard input, and exporter configuration at their boundaries.
-- Keep serialization schemas explicit and versioned.
-- Avoid classes unless identity, encapsulated mutable state, or framework integration clearly benefits from them.
+- Strict; no `any` (use `unknown` and validate at boundaries: JSON, editor state, files, clipboard, exporter config). Branded IDs where useful, discriminated unions for nodes, commands, diagnostics, results. Avoid classes.
 
-## Editing rules
+## Editing, style, export
 
-- Editor commands express semantic operations, not visual properties.
-- Do not implement font-family, font-size, arbitrary color, arbitrary weight, or free-form spacing attributes on document nodes.
-- Strong, emphasis, code, and similar actions are semantic marks resolved through the active style.
-- If an applicable declared variant is missing, return a diagnostic or invoke explicit style configuration. Never invent direct formatting.
-- Paste handling may preserve supported semantic structure but must remove unsupported direct-formatting attributes.
-- Transform editor state to domain commands through an adapter; do not let editor transactions become application persistence APIs.
+- Editor commands are semantic operations. No font, size, color, weight or spacing attributes on nodes. Marks resolve through the active style. A missing variant is a diagnostic or an explicit style configuration, never invented formatting. Paste keeps supported structure and strips direct formatting.
+- Style inheritance and variants resolve deterministically; detect cycles and missing bases. Do not copy resolved values into content. What no declared style or variant can express is unsupported.
+- Export only validated snapshots. Keep semantic-to-DOCX mappings small, explicit, testable; prefer named Word styles; centralise library workarounds with a reason. No pagination-parity promises. Do not commit generated artifacts.
 
-## Style rules
+## Tests
 
-- The typed stylesheet is canonical. CSS is generated output.
-- DOCX style and run properties are generated output.
-- Style inheritance and contextual variants must have deterministic resolution rules.
-- Detect inheritance cycles and missing base styles.
-- Do not duplicate resolved style values into document content.
-- A visual result that cannot be represented by a declared style or variant is unsupported until the model is extended explicitly.
+- Every behavior change or bug fix gets a test (regression test for fixes). Small fixtures, one feature each; reuse shared builders. Test domain without React/Tiptap, adapters for commands and paste, serialization twice for determinism, DOCX structurally. Never weaken or delete tests just to pass.
 
-## Reference rules
+## Git and docs
 
-- Assign immutable IDs when referenceable nodes are created.
-- Moving, renaming, or renumbering a target must not change its ID.
-- Deleting a referenced target produces a broken-reference diagnostic.
-- Derive display text and numbering during rendering or publication.
-- Never replace a broken reference silently with its last rendered text.
+- Deterministic file order and formatting; do not rewrite unrelated files on save or migration. Never auto-resolve conflict markers. Keep generated outputs out of Git.
+- Accepted ADRs are not rewritten: add a new ADR that refers to the old one. New ADRs stay under about 2 KB and get a line in `docs/INDEX.md`. When an item is done, move it to `docs/BACKLOG_DONE.md` as one line.
 
-## Export rules
+## Working efficiently
 
-- Export only validated project snapshots.
-- Keep semantic-to-DOCX mappings small, explicit, and testable.
-- Prefer named Word styles over repeated direct properties.
-- Centralize workaround code for exporter/library limitations and document why it exists.
-- An exporter limitation must not leak DOCX-specific fields into the domain model without an explicit architectural decision.
-- Do not promise exact pagination parity between browser rendering and Word.
-- Generated artifacts should not be committed unless a fixture or release process explicitly requires them.
+- Read the nearest module and its test first, plus the package README; reuse existing types, adapters and fixtures. Prefer patches over full rewrites. Run the narrowest tests first, then `npm run check`.
 
-## Testing rules
+## Done means
 
-- Add or update tests with every behavior change.
-- Prefer small fixtures that each demonstrate one feature or regression.
-- Test domain behavior independently of React and Tiptap.
-- Test editor adapters for semantic command behavior and paste normalization.
-- Test deterministic serialization by serializing the same model more than once.
-- Test DOCX packages structurally; use reviewed golden artifacts sparingly.
-- Every bug fix should include a regression test when practical.
-- Do not weaken, delete, or broadly rewrite tests merely to make a change pass.
-
-## Git and migration rules
-
-- Preserve deterministic file ordering and formatting to keep diffs small.
-- Do not rewrite unrelated project files during save or migration.
-- Every persisted-format change requires a format-version decision and migration test.
-- Never auto-resolve Git conflict markers as document content.
-- Keep generated outputs, caches, previews, and temporary files out of source control by default.
-- Accepted ADRs are not rewritten. Record a change in a new ADR that refers to the old one; the old one's status line may point to it.
-
-## Efficient Copilot usage
-
-- Request and implement one well-defined change at a time.
-- Read the nearest relevant module and test first; do not load the entire repository by default.
-- Reuse established domain types, adapters, fixtures, and patterns.
-- Prefer precise patches over generating complete replacement files.
-- Run the narrowest relevant tests first, then the full required checks.
-- Use inexpensive models for mechanical code, tests, types, and local refactors. Reserve stronger models for architecture, difficult ProseMirror behavior, exporter defects, and cross-module debugging.
-- Keep prompts self-contained but short: state the goal, relevant invariant, acceptance criteria, and files likely involved.
-- Do not ask Copilot to rediscover documented architectural decisions. Point it to the relevant section or ADR.
-- Avoid repeatedly generating large sample documents. Maintain small reusable fixtures instead.
-- Stop and report a conflict when a request contradicts a product invariant rather than working around the invariant silently.
-
-## Definition of done
-
-A change is complete when:
-
-- behavior satisfies explicit acceptance criteria;
-- product and architecture invariants remain intact;
-- relevant tests pass;
-- persisted output remains deterministic;
-- no unrelated files changed;
-- new diagnostics are actionable;
-- documentation or an ADR is updated when the change introduces a durable decision;
-- the feature works without a network connection unless it is explicitly a remote-Git feature.
+Acceptance criteria met; invariants intact; tests pass; persisted output deterministic; no unrelated files changed; diagnostics actionable; docs or an ADR updated for durable decisions; works offline.

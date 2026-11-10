@@ -154,17 +154,7 @@ Prefer several cohesive files over one very large file, but do not fragment indi
 
 ## 7. Semantic editing model
 
-The editor should support a narrow schema. A first schema might include:
-
-- document;
-- section or heading;
-- paragraph;
-- text;
-- strong, emphasis, inline code, and link marks;
-- ordered list, unordered list, and list item;
-- table, row, and cell;
-- figure/image and caption;
-- cross-reference.
+The editor supports a narrow schema (ADR 0022): headings, paragraphs, lists, tables, code and phrase blocks, with strong, emphasis, code, link and character-style marks. Figures and cross-references are not built yet.
 
 Do not include generic text-style attributes such as `fontFamily`, `fontSize`, `color`, or `fontWeight` in document nodes.
 
@@ -261,18 +251,7 @@ PDF is a later adapter. It must consume the same validated project and styleshee
 
 ## 11. Storage and local-first operation
 
-Define a project-storage interface independent of the host:
-
-```typescript
-interface ProjectStorage {
-  openProject(): Promise<ProjectSnapshot>;
-  readFile(path: ProjectPath): Promise<Uint8Array>;
-  writeFile(path: ProjectPath, content: Uint8Array): Promise<void>;
-  listFiles(path: ProjectPath): Promise<ProjectPath[]>;
-}
-```
-
-The first implementation uses the Node filesystem, in the CLI and the VS Code extension host. A VS Code virtual-filesystem implementation can follow for the browser host. The architectural requirement is that core authoring remains operable with local files and without a backend.
+Project access goes through the `ProjectStorage` port (`packages/project/src/storage.ts`), independent of the host. The first implementation uses the Node filesystem, in the CLI and the VS Code extension host. A VS Code virtual-filesystem implementation can follow for the browser host. The architectural requirement is that core authoring remains operable with local files and without a backend.
 
 Saving should be explicit and robust. Use atomic-write behavior where the host environment permits it, and warn about external changes rather than overwriting them silently.
 
@@ -320,20 +299,7 @@ Examples:
 
 ### Export tests
 
-Maintain small fixtures covering one concern each:
-
-```text
-fixtures/
-  basic-paragraphs/
-  headings-and-styles/
-  contextual-variants/
-  lists/
-  tables/
-  images/
-  cross-references/
-```
-
-Test the generated package structurally. Add a limited number of reviewed golden DOCX artifacts for end-to-end regression checks. Avoid fragile binary snapshots as the only assertion.
+Maintain small fixtures covering one concern each (`fixtures/format/`). Test the generated package structurally. Add a limited number of reviewed golden DOCX artifacts for end-to-end regression checks. Avoid fragile binary snapshots as the only assertion.
 
 ## 14. Security and privacy
 
@@ -354,52 +320,7 @@ The delivery order is `docs/BACKLOG.md`. The earlier vertical-slice plan is supe
 
 Architecture decision records live in `docs/adr/`.
 
-Accepted:
-
-- ADR 0001: Markdown dialect. Also covers Git-native text storage and stable IDs.
-- ADR 0002: host environment and dependency policy. Also covers local-first operation with no required backend and DOCX as output.
-- ADR 0003: editor state and the domain model. Also covers the canonical domain model independent of ProseMirror.
-- ADR 0004: domain document model.
-- ADR 0005: Markdown dialect and normal form, implementation details.
-- ADR 0006: typed stylesheet.
-- ADR 0007: project file and metadata declarations.
-- ADR 0008: DOCX export mapping.
-- ADR 0009: DOCX bookmarks.
-- ADR 0010: DOCX lists.
-- ADR 0011: heading numbering.
-- ADR 0012: DOCX tables and page breaks in styles.
-- ADR 0013: code blocks and tables in list items.
-- ADR 0014: project package and command line.
-- ADR 0015: the format command.
-- ADR 0016: page templates.
-- ADR 0017: header and footer slots.
-- ADR 0018: table of contents.
-- ADR 0019: cover page.
-- ADR 0020: assigning missing IDs.
-- ADR 0021: browser CSS from the stylesheet.
-- ADR 0022: editor schema and adapter.
-- ADR 0023: editor commands and paste.
-- ADR 0024: IDs of new blocks in the editor.
-- ADR 0025: the VS Code editor.
-- ADR 0026: style choice and allowing a mark in a style.
-- ADR 0027: editor toolbar and keys.
-- ADR 0028: the paper look in the editor.
-- ADR 0029: toolbar groups, the block list and the heading depth rule.
-- ADR 0030: DOCX review protection.
-- ADR 0031: phrase blocks in the editor.
-- ADR 0032: export on save.
-- ADR 0033: the list of style properties.
-- ADR 0034: labels of styles.
-- ADR 0035: edits of the text of a stylesheet.
-- ADR 0036: the style editor, shell.
-- ADR 0037: the style editor, paragraph panel.
-- ADR 0038: the style editor, groups by family.
-- ADR 0039: the style editor, character styles.
-- ADR 0040: the style editor, table styles.
-- ADR 0041: the style editor, collapsible groups.
-- ADR 0042: starting a project.
-- ADR 0043: one-time import of a Word document.
-- ADR 0028: the paper look in the editor.
+The accepted ADRs are listed by topic and package in `docs/INDEX.md`.
 
 Still to capture:
 

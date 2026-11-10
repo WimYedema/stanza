@@ -5,7 +5,8 @@
 - `docs/PRODUCT_VISION.md` explains the product problem, vision, principles, target users, scope, and non-goals.
 - `docs/ARCHITECTURE.md` defines the proposed technical boundaries, domain model, storage, rendering, publication, testing, and initial vertical slices.
 - `docs/BACKLOG.md` lists the prioritized work items with relative sizes.
-- `docs/SPIKE_FINDINGS.md` records what the DOCX round-trip and TOC spikes showed.
+- `docs/SPIKE_FINDINGS.md` records what the DOCX round-trip and TOC spikes showed (the throwaway tooling is in Git history only).
+- `docs/INDEX.md` lists the ADRs by topic and package.
 
 ## Development
 

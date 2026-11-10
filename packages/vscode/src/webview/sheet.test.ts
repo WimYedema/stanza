@@ -80,11 +80,9 @@ describe('createSheet', () => {
   let sheet: Sheet;
 
   beforeEach(() => {
-    [cover, header, footer] = [0, 1, 2].map(() => document.createElement('div')) as [
-      HTMLElement,
-      HTMLElement,
-      HTMLElement,
-    ];
+    cover = document.createElement('div');
+    header = document.createElement('div');
+    footer = document.createElement('div');
     document.body.append(cover, header, footer);
     sheet = createSheet({ cover, header, footer });
   });

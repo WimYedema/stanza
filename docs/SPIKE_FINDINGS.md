@@ -1,6 +1,6 @@
 # Spike findings
 
-Backlog items 1 to 4. Corpus: one real policy document (11 pages, 9 tables, 33 comments, tracked changes). Tooling is in `spikes/` and is throwaway.
+Backlog items 1 to 4. Corpus: one real policy document (11 pages, 9 tables, 33 comments, tracked changes). The throwaway tooling was removed from the tree; it remains in Git history.
 
 ## What worked
 
