@@ -97,6 +97,17 @@ describe('parseStylesHostMessage', () => {
       type: 'edit-refused',
       message: 'No.',
     });
+    expect(
+      parseStylesHostMessage({ type: 'select-style', kind: 'table-style', name: 'table' }),
+    ).toEqual({ type: 'select-style', kind: 'table-style', name: 'table' });
+  });
+
+  it.each([
+    { type: 'select-style', kind: 'color', name: 'brand' },
+    { type: 'select-style', kind: 'table-style' },
+    { type: 'select-style', name: 'table' },
+  ])('refuses %j', (value) => {
+    expect(parseStylesHostMessage(value)).toBeUndefined();
   });
 
   it.each([

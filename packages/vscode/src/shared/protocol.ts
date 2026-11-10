@@ -74,8 +74,11 @@ export type WebviewMessage =
   | { readonly type: 'format' }
   /** The person editing allows a mark in a paragraph style (ADR 0026). The host checks both. */
   | { readonly type: 'declare-variant'; readonly style: string; readonly mark: string }
-  /** Opens the style editor on the stylesheet of the project. */
-  | { readonly type: 'edit-styles' }
+  /** Opens the style editor on the stylesheet of the project, at a style when one is given. */
+  | {
+      readonly type: 'edit-styles';
+      readonly style?: { readonly kind: 'paragraph-style' | 'table-style'; readonly name: string };
+    }
   | { readonly type: 'open-as-text' };
 
 /** A style or mark name is short, whatever it is. */
@@ -93,9 +96,19 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
   switch (value['type']) {
     case 'ready':
     case 'format':
-    case 'edit-styles':
     case 'open-as-text':
       return { type: value['type'] };
+    case 'edit-styles': {
+      const style = value['style'];
+      if (style === undefined) return { type: 'edit-styles' };
+      if (!isRecord(style)) return undefined;
+      const { kind, name } = style;
+      if (kind !== 'paragraph-style' && kind !== 'table-style') return undefined;
+      if (typeof name !== 'string' || name.length === 0 || name.length > MAX_NAME_LENGTH) {
+        return undefined;
+      }
+      return { type: 'edit-styles', style: { kind, name } };
+    }
     case 'change': {
       const text = value['text'];
       if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) return undefined;

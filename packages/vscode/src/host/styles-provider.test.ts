@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscode from 'vscode';
 import type { StylesHostMessage } from '../shared/styles-protocol.js';
-import { StylesEditorProvider } from './styles-provider.js';
+import { StylesEditorProvider, requestStyleSelection } from './styles-provider.js';
 import { changeDocument, fakePanel, fromWebview, reset, world } from './vscode-fake.testing.js';
 
 vi.mock('vscode', async () => {
@@ -327,5 +327,50 @@ table-styles:
     await ready({ '/w/p/phrase.yaml': `${PROJECT}defaults:\n  page-template: nowhere\n` });
     fromWebview({ type: 'delete-style', kind: 'paragraph-style', name: 'loose' });
     expect(await refusal()).toContain('cannot be known');
+  });
+});
+
+describe('selecting a style on request', () => {
+  const uri = (): vscode.Uri => world.document?.uri as unknown as vscode.Uri;
+  const selection = { kind: 'table-style', name: 'table' } as const;
+
+  it('selects the style after the start when it was asked for before', async () => {
+    requestStyleSelection(uri(), selection);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    expect(posted()[0]).toMatchObject({ type: 'init' });
+    expect(posted()[1]).toEqual({ type: 'select-style', kind: 'table-style', name: 'table' });
+  });
+
+  it('selects the style at once when the editor is open, and only once', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    requestStyleSelection(uri(), selection);
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    expect(posted()[1]).toMatchObject({ type: 'select-style', name: 'table' });
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(3);
+    });
+    expect(posted()[2]).toMatchObject({ type: 'init' });
+  });
+
+  it('does not select anything in an editor that was refused', async () => {
+    panel = open('/w/p/styles/other.yaml', 'phrase-format: 1\n', {
+      ...project(),
+      '/w/p/styles/other.yaml': 'phrase-format: 1\n',
+    });
+    requestStyleSelection(uri(), selection);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    expect(posted()[0]).toMatchObject({ type: 'refused' });
   });
 });

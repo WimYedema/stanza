@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPhraseEditor, type CommandResult, type PhraseEditor } from '@phrase/editor';
 import type { StyleName } from '@phrase/core';
 import { parseDocument, parseStylesheet } from '@phrase/format';
-import { buildToolbar, type Toolbar } from './toolbar.js';
+import { buildToolbar, describeContext, type Toolbar } from './toolbar.js';
 
 const STYLES_TEXT = readFileSync(
   join(
@@ -108,7 +108,7 @@ describe('the buttons', () => {
 });
 
 describe('the state at the cursor', () => {
-  const stateLine = (): string => toolbar.querySelector('.state')?.textContent ?? '';
+  const stateLine = (): string => describeContext(editor.getContext());
 
   it('shows the block, its style and the marks that are on', () => {
     editor.setPosition({ block: 0, offset: 1 });
@@ -155,12 +155,12 @@ describe('the state at the cursor', () => {
   it('follows the cursor after a pause, and not for every move', () => {
     vi.useFakeTimers();
     try {
-      editor.setPosition({ block: 0, offset: 1 });
+      editor.setPosition({ block: 1, offset: 8 });
       shown.schedule();
       shown.schedule();
-      expect(stateLine()).toBe('');
+      expect(button('Bold').getAttribute('aria-pressed')).toBeNull();
       vi.advanceTimersByTime(200);
-      expect(stateLine()).toBe('Heading 1 | style: default | no marks');
+      expect(button('Bold').getAttribute('aria-pressed')).toBe('true');
     } finally {
       vi.useRealTimers();
     }
@@ -316,7 +316,7 @@ describe('the labels of styles', () => {
         ok: true,
       });
       view.refresh();
-      expect(bar.querySelector('.state')?.textContent).toBe(
+      expect(describeContext(other.getContext())).toBe(
         'Paragraph | style: Cover details | Status marker',
       );
       expect(shown(characters)).toContainEqual(['marker', 'Status marker (on)']);

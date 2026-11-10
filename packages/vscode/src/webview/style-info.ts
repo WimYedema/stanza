@@ -11,13 +11,15 @@ import {
 import type { PhraseEditor } from '@phrase/editor';
 import type { UsageCount, UsageSummary } from '../shared/protocol.js';
 import { el } from './styles-dom.js';
+import { describeContext } from './toolbar.js';
 import { borderText, colorText, stateOf, titleOf, valueText } from './styles-properties.js';
 
 /**
- * The style at the cursor, read only (ADR 0054): what the stylesheet says about it with the bases
- * applied, which documents use it, and a button that opens the style editor. It does not change
- * anything. It is drawn again when the cursor moves to another style, or the stylesheet or the
- * usage changes, and not on every key.
+ * The state at the cursor on one line, and under it, when opened, the style at the cursor, read
+ * only (ADR 0054): what the stylesheet says about it with the bases applied, which documents use
+ * it, and a button that opens the style editor at the style. It does not change anything. The
+ * line follows the cursor, and the cards are drawn again only when the style, the stylesheet or
+ * the usage changes, and not on every key.
  */
 
 const DRAW_DELAY_MS = 150;
@@ -25,8 +27,8 @@ const DRAW_DELAY_MS = 150;
 export interface StyleInfoOptions {
   readonly root: HTMLElement;
   readonly editor: () => PhraseEditor | undefined;
-  /** Opens the style editor. */
-  readonly edit: () => void;
+  /** Opens the style editor at a style. */
+  readonly edit: (kind: 'paragraph-style' | 'table-style', name: StyleName) => void;
 }
 
 export interface StyleInfo {
@@ -151,12 +153,21 @@ export function createStyleInfo({ root, editor, edit }: StyleInfoOptions): Style
   let drawn: string | undefined;
   let waiting: ReturnType<typeof setTimeout> | undefined;
 
-  function card(title: string, rows: Rows, chain: readonly StyleName[], uses: HTMLElement) {
+  function card(
+    kind: 'paragraph-style' | 'table-style',
+    name: StyleName,
+    title: string,
+    rows: Rows,
+    chain: readonly StyleName[],
+    uses: HTMLElement,
+  ) {
     const node = el('section', 'card');
     const button = el('button', undefined, 'Edit style');
     button.type = 'button';
-    button.title = 'Open the style editor on the stylesheet of the project';
-    button.addEventListener('click', edit);
+    button.title = 'Open the style editor at this style';
+    button.addEventListener('click', () => {
+      edit(kind, name);
+    });
     const head = el('p', 'card-title', title);
     head.append(button);
     const based = chain.length > 1 ? chain.slice(1).join(' \u2192 ') : 'nothing';
@@ -178,16 +189,17 @@ export function createStyleInfo({ root, editor, edit }: StyleInfoOptions): Style
     const paragraph = context.textStyle;
     const table = context.inTable ? (context.style ?? RESERVED_TABLE_STYLE) : undefined;
     const key = JSON.stringify([paragraph, table, version]);
-    root.hidden = paragraph === undefined && table === undefined;
-    if (key === drawn || root.hidden) return;
+    root.hidden = false;
+    summary.textContent = describeContext(context);
+    if (key === drawn) return;
     drawn = key;
     const cards: HTMLElement[] = [];
-    const names: string[] = [];
     if (paragraph !== undefined) {
       const label = context.labels.paragraph.get(paragraph);
-      names.push(label ?? paragraph);
       cards.push(
         card(
+          'paragraph-style',
+          paragraph,
           `Paragraph style ${label === undefined ? paragraph : `${label} (${paragraph})`}`,
           paragraphRows(sheet, paragraph),
           chainOf(sheet.paragraphStyles, paragraph),
@@ -197,9 +209,10 @@ export function createStyleInfo({ root, editor, edit }: StyleInfoOptions): Style
     }
     if (table !== undefined) {
       const label = context.labels.table.get(table);
-      names.push(label ?? table);
       cards.push(
         card(
+          'table-style',
+          table,
           `Table style ${label === undefined ? table : `${label} (${table})`}`,
           tableRows(sheet, table),
           chainOf(sheet.tableStyles, table),
@@ -207,7 +220,6 @@ export function createStyleInfo({ root, editor, edit }: StyleInfoOptions): Style
         ),
       );
     }
-    summary.textContent = `Style: ${names.join(' \u00b7 ')}`;
     body.replaceChildren(...cards);
   }
 

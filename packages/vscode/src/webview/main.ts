@@ -51,8 +51,8 @@ const toolbar = buildToolbar(element('toolbar'), { editor: () => editor, answere
 const info = createStyleInfo({
   root: element('info'),
   editor: () => editor,
-  edit: () => {
-    send({ type: 'edit-styles' });
+  edit: (kind, name) => {
+    send({ type: 'edit-styles', style: { kind, name } });
   },
 });
 const pages = createSheet({

@@ -132,7 +132,7 @@ class EditorSession {
         await vscode.commands.executeCommand('workbench.action.reopenTextEditor');
         return;
       case 'edit-styles':
-        await vscode.commands.executeCommand(EDIT_STYLES_COMMAND);
+        await vscode.commands.executeCommand(EDIT_STYLES_COMMAND, message.style);
         return;
       case 'declare-variant':
         await this.declareVariant(message.style, message.mark);

@@ -12,6 +12,8 @@ export type StylesHostMessage =
   | { readonly type: 'text'; readonly text: string }
   /** A change that the webview asked for was not made, and why. */
   | { readonly type: 'edit-refused'; readonly message: string }
+  /** Selects a style, such as the one that the person was looking at in a document. */
+  | { readonly type: 'select-style'; readonly kind: StyleKind; readonly name: string }
   /** The file is not the stylesheet of a project, and why. */
   | { readonly type: 'refused'; readonly title: string; readonly reasons: readonly Reason[] };
 
@@ -132,6 +134,10 @@ export function parseStylesHostMessage(value: unknown): StylesHostMessage | unde
     case 'edit-refused': {
       const message = value['message'];
       return typeof message === 'string' ? { type: 'edit-refused', message } : undefined;
+    }
+    case 'select-style': {
+      const { kind, name } = value;
+      return isStyleKind(kind) && isName(name) ? { type: 'select-style', kind, name } : undefined;
     }
     default:
       return undefined;

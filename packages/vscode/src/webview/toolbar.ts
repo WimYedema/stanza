@@ -413,9 +413,6 @@ export function buildToolbar(container: HTMLElement, host: ToolbarHost): Toolbar
     buildGroup(container, INSERT_GROUP, host),
     buildGroup(container, TABLE_GROUP, host),
   ];
-  const state = document.createElement('div');
-  state.className = 'state';
-  container.append(state);
 
   let waiting: ReturnType<typeof setTimeout> | undefined;
   const refresh = (): void => {
@@ -430,7 +427,6 @@ export function buildToolbar(container: HTMLElement, host: ToolbarHost): Toolbar
       for (const [button, spec] of group.buttons) showButton(button, spec, editor);
     }
     refreshLists();
-    state.textContent = describeContext(context);
   };
   const schedule = (): void => {
     if (waiting === undefined) waiting = setTimeout(refresh, REFRESH_DELAY_MS);

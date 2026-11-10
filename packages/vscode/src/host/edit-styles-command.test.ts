@@ -21,11 +21,11 @@ const files = (extra: Record<string, string> = {}): Record<string, string> => ({
   ...extra,
 });
 
-async function run(): Promise<void> {
+async function run(...args: unknown[]): Promise<void> {
   registerEditStyles();
   const handler = world.commandHandlers.get(EDIT_STYLES_COMMAND);
   if (handler === undefined) throw new Error('The command is not registered.');
-  await (handler as () => Promise<void>)();
+  await (handler as (...given: unknown[]) => Promise<void>)(...args);
 }
 
 beforeEach(() => {
@@ -69,6 +69,13 @@ describe('Phrase: Edit Styles', () => {
     );
     await run();
     expect(world.commands).toEqual(['vscode.openWith']);
+  });
+
+  it('opens the stylesheet whether or not it is given a style to select', async () => {
+    await run({ kind: 'table-style', name: 'table' });
+    await run({ kind: 'color', name: 5 });
+    await run('table');
+    expect(world.commands).toEqual(['vscode.openWith', 'vscode.openWith', 'vscode.openWith']);
   });
 
   it('says so when there is no project', async () => {

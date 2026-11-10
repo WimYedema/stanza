@@ -137,3 +137,25 @@ describe('parseHostMessage', () => {
     expect(parseHostMessage(value)).toBeUndefined();
   });
 });
+
+describe('edit-styles', () => {
+  it('takes a request with a style, and one without', () => {
+    expect(parseWebviewMessage({ type: 'edit-styles' })).toEqual({ type: 'edit-styles' });
+    expect(
+      parseWebviewMessage({
+        type: 'edit-styles',
+        style: { kind: 'table-style', name: 'table' },
+      }),
+    ).toEqual({ type: 'edit-styles', style: { kind: 'table-style', name: 'table' } });
+  });
+
+  it.each([
+    { type: 'edit-styles', style: 'table' },
+    { type: 'edit-styles', style: { kind: 'color', name: 'brand' } },
+    { type: 'edit-styles', style: { kind: 'table-style' } },
+    { type: 'edit-styles', style: { kind: 'table-style', name: '' } },
+    { type: 'edit-styles', style: { kind: 'table-style', name: 'x'.repeat(201) } },
+  ])('refuses %j', (value) => {
+    expect(parseWebviewMessage(value)).toBeUndefined();
+  });
+});

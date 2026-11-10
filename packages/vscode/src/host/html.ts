@@ -31,8 +31,8 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
 <title>Phrase</title>
 <style nonce="${nonce}">
   html, body { margin: 0; min-height: 100%; background: #555555; font-family: sans-serif; }
-  #bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: flex-start; gap: 12px;
-    background: #3c3c3c; }
+  #top { position: sticky; top: 0; z-index: 2; background: #3c3c3c; }
+  #bar { display: flex; align-items: flex-start; gap: 12px; }
   #toolbar { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 6px 12px; }
   #toolbar .group { display: flex; align-items: center; gap: 2px; padding-right: 8px;
     border-right: 1px solid #5a5a5a; }
@@ -44,12 +44,14 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #bar button.look-mono { font-family: monospace; }
   #bar button[aria-pressed="true"] { background: #0e639c; color: #ffffff; }
   #bar button.needs-variant { border-style: dashed; }
-  #toolbar .state { flex-basis: 100%; color: #cccccc; font: 12px sans-serif; }
-  #notices { min-height: 1.4em; padding: 4px 12px; color: #ffcc66; font: 13px monospace; }
+  #notices { padding: 4px 12px; color: #ffcc66; font: 13px monospace; }
+  #notices:empty { display: none; }
   #notices button { margin-left: 8px; font: 12px sans-serif; padding: 2px 8px; }
-  #info { background: #2d2d2d; color: #cccccc; font: 12px sans-serif; }
-  #info details { padding: 4px 12px; }
-  #info summary { cursor: pointer; }
+  #info { position: relative; border-top: 1px solid #4a4a4a; color: #cccccc; font: 12px sans-serif; }
+  #info summary { padding: 3px 12px; cursor: pointer; }
+  #info .info-body { position: absolute; left: 0; right: 0; max-height: 60vh; overflow: auto;
+    padding: 4px 12px; background: #2d2d2d; border-top: 1px solid #444444;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); }
   #info .card { margin: 8px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #444444; }
   #info .card-title { display: flex; justify-content: space-between; align-items: center;
     margin: 0 0 4px; font-weight: 600; }
@@ -84,12 +86,14 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
 </head>
 <body>
 <div id="editing" hidden>
-  <div id="bar">
-    <div id="toolbar"></div>
-    <div id="view"></div>
+  <div id="top">
+    <div id="bar">
+      <div id="toolbar"></div>
+      <div id="view"></div>
+    </div>
+    <div id="info" hidden></div>
   </div>
   <div id="notices" role="status"></div>
-  <div id="info" hidden></div>
   <div id="desk" class="paper">
     <div id="cover" class="sheet" hidden></div>
     <div id="page" class="sheet">

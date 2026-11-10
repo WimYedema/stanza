@@ -1,6 +1,6 @@
 # ADR 0054: The style at the cursor, in the document editor
 
-Status: Accepted
+Status: Accepted. Where the panel is, and that the style editor does not open at the style, are replaced by ADR 0055.
 
 ## Context
 

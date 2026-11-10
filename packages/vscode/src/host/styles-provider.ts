@@ -22,6 +22,31 @@ const FAMILY: Record<StyleKind, StyleFamily> = {
   'table-style': 'table',
 };
 
+/** A style to select in the style editor of a stylesheet (ADR 0054). */
+export interface StyleSelection {
+  readonly kind: StyleKind;
+  readonly name: string;
+}
+
+const SELECTION_LIFETIME_MS = 10_000;
+
+/** The open editors by the URI of their stylesheet, and the selections that wait for one. */
+const sessions = new Map<string, StylesSession>();
+const requested = new Map<string, StyleSelection>();
+
+/**
+ * Asks the style editor of a stylesheet to select a style: at once if it is open, else when it has
+ * started. A request that nothing took up is dropped, so a later start does not jump to a style.
+ */
+export function requestStyleSelection(uri: vscode.Uri, selection: StyleSelection): void {
+  const key = uri.toString();
+  requested.set(key, selection);
+  setTimeout(() => {
+    if (requested.get(key) === selection) requested.delete(key);
+  }, SELECTION_LIFETIME_MS);
+  sessions.get(key)?.deliverSelection();
+}
+
 const stylesOf = (sheet: Stylesheet, kind: StyleKind) =>
   kind === 'paragraph-style'
     ? sheet.paragraphStyles
@@ -82,10 +107,27 @@ class StylesSession {
         this.enqueue(() => this.post({ type: 'text', text: this.text() }));
       }),
     );
+    sessions.set(this.document.uri.toString(), this);
   }
 
   dispose(): void {
+    if (sessions.get(this.document.uri.toString()) === this) {
+      sessions.delete(this.document.uri.toString());
+    }
     for (const disposable of this.disposables) disposable.dispose();
+  }
+
+  /** Tells the page to select the style that was asked for, once the editor has started. */
+  deliverSelection(): void {
+    this.enqueue(() => this.sendSelection());
+  }
+
+  private async sendSelection(): Promise<void> {
+    const key = this.document.uri.toString();
+    const selection = requested.get(key);
+    if (!this.accepted || selection === undefined) return;
+    requested.delete(key);
+    await this.post({ type: 'select-style', kind: selection.kind, name: selection.name });
   }
 
   private enqueue(work: () => Promise<void>): void {
@@ -266,5 +308,6 @@ class StylesSession {
     }
     await this.post({ type: 'init', text: this.text() });
     this.accepted = true;
+    await this.sendSelection();
   }
 }

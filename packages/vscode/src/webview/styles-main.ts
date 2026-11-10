@@ -132,6 +132,10 @@ function handle(message: StylesHostMessage): void {
     case 'refused':
       refuse(message.title, message.reasons);
       return;
+    case 'select-style':
+      view.selectWhenShown(message.kind, message.name);
+      if (latest !== undefined) view.show(latest);
+      return;
     case 'edit-refused':
       panel.refused(message.message);
       theme.refused(message.message);

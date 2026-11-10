@@ -49,7 +49,7 @@ let root: HTMLElement;
 let editor: PhraseEditor;
 let info: StyleInfo;
 let present = true;
-const edit = vi.fn<() => void>();
+const edit = vi.fn<(kind: 'paragraph-style' | 'table-style', name: string) => void>();
 
 beforeEach(() => {
   root = document.createElement('div');
@@ -84,20 +84,46 @@ const rows = (): Record<string, string | undefined> =>
   );
 
 describe('the style at the cursor', () => {
-  it('names the paragraph style of the block, and is hidden where there is none', () => {
+  const line = (): string | null | undefined => root.querySelector('summary')?.textContent;
+
+  it('shows the state at the cursor on one line, and the style when it is opened', () => {
     at(1, 2);
     expect(root.hidden).toBe(false);
-    expect(root.querySelector('summary')?.textContent).toBe('Style: body');
+    expect(line()).toBe('Paragraph | style: default | no marks');
     expect(text()).toContain('Paragraph style body');
     present = false;
     info.refresh();
     expect(root.hidden).toBe(true);
   });
 
+  it('keeps the line with the cursor, and the marks that are on', () => {
+    at(0, 1);
+    expect(line()).toBe('Heading 1 | style: default | no marks');
+    editor.setPosition({ block: 1, offset: 2 });
+    editor.run({ type: 'toggle-mark', mark: 'emphasis' });
+    info.refresh();
+    expect(line()).toContain('| emphasis');
+  });
+
+  it('follows the cursor after a pause, and not for every move', () => {
+    vi.useFakeTimers();
+    try {
+      at(1, 2);
+      editor.setPosition({ block: 0, offset: 1 });
+      info.schedule();
+      info.schedule();
+      expect(line()).toBe('Paragraph | style: default | no marks');
+      vi.advanceTimersByTime(200);
+      expect(line()).toBe('Heading 1 | style: default | no marks');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows the style with its bases applied, and where a value comes from', () => {
     at(0, 1);
     const shown = rows();
-    expect(root.querySelector('summary')?.textContent).toBe('Style: heading-1');
+    expect(text()).toContain('Paragraph style heading-1');
     expect(shown['Bold']).toBe('yes');
     expect(shown['Size']).toMatch(/^\d+(\.\d+)? pt$/);
     expect(shown['Font']).toContain('(from body)');
@@ -107,16 +133,19 @@ describe('the style at the cursor', () => {
 
   it('shows the table style as well as the cell style when the cursor is in a table', () => {
     at(2, 0);
-    expect(root.querySelector('summary')?.textContent).toBe('Style: table-cell \u00b7 table');
+    expect(line()).toContain('Table cell');
     expect(text()).toContain('Table style table');
     expect(text()).toContain('Paragraph style table-cell');
     expect(rows()['Cell style']).toBe('table-cell');
   });
 
-  it('opens the style editor with the button', () => {
-    at(1, 2);
-    root.querySelector('button')?.click();
-    expect(edit).toHaveBeenCalledOnce();
+  it('opens the style editor at the style of the card whose button is clicked', () => {
+    at(2, 0);
+    const buttons = root.querySelectorAll('button');
+    buttons[0]?.click();
+    expect(edit).toHaveBeenLastCalledWith('paragraph-style', 'table-cell');
+    buttons[1]?.click();
+    expect(edit).toHaveBeenLastCalledWith('table-style', 'table');
   });
 });
 
