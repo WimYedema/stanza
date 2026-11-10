@@ -69,7 +69,13 @@ function open(text = CANONICAL, eol = '\n', projectFiles = files()): void {
   );
 }
 
-const posted = (): HostMessage[] => world.posted as HostMessage[];
+/** What the host posted, without the usage of the styles, which has its own tests. */
+const posted = (): HostMessage[] =>
+  (world.posted as HostMessage[]).filter((message) => message.type !== 'usage');
+const usages = (): Extract<HostMessage, { type: 'usage' }>[] =>
+  (world.posted as HostMessage[]).filter(
+    (message): message is Extract<HostMessage, { type: 'usage' }> => message.type === 'usage',
+  );
 const settled = async (check: () => void): Promise<void> => {
   await vi.waitFor(check);
 };
@@ -432,6 +438,61 @@ describe('allowing a mark in a style', () => {
       type: 'declared',
       ok: false,
       message: 'The edit of the stylesheet was not applied.',
+    });
+  });
+});
+
+describe('the usage of the styles', () => {
+  const ONE = 'documents/one.phrase.md';
+  const OTHER_FILE = 'documents/other.phrase.md';
+
+  it('sends where the styles are used, for each document, after the document', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(usages()).toHaveLength(1);
+    });
+    const { usage } = usages()[0] ?? { usage: undefined };
+    expect(usage?.current).toBe(ONE);
+    expect(usage?.paragraph['heading-1']).toEqual([
+      { file: ONE, direct: 0, default: 1, inherited: 0 },
+      { file: OTHER_FILE, direct: 0, default: 1, inherited: 0 },
+    ]);
+    expect(usage?.paragraph['body']).toEqual([{ file: ONE, direct: 0, default: 1, inherited: 0 }]);
+    expect(usage?.paragraph['list-bulleted']).toBeUndefined();
+    expect(usage?.table).toEqual({});
+  });
+
+  it('sends it again when another document starts to use a style, and not when nothing changed', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(usages()).toHaveLength(1);
+    });
+    const changeOther = (): void => {
+      const document = {
+        uri: { toString: () => 'other' },
+        fileName: '/w/p/documents/other.phrase.md',
+      };
+      for (const listener of world.changeListeners) listener({ document } as never);
+    };
+    changeOther();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(usages()).toHaveLength(1);
+
+    world.files.set('/w/p/documents/other.phrase.md', `${OTHER}\nA paragraph.\n`);
+    changeOther();
+    await settled(() => {
+      expect(usages()).toHaveLength(2);
+    });
+    expect(usages()[1]?.usage.paragraph['body']).toEqual([
+      { file: ONE, direct: 0, default: 1, inherited: 0 },
+      { file: OTHER_FILE, direct: 0, default: 1, inherited: 0 },
+    ]);
+  });
+
+  it('opens the style editor when the page asks for it', async () => {
+    fromWebview({ type: 'edit-styles' });
+    await settled(() => {
+      expect(world.commands).toEqual(['phrase.editStyles']);
     });
   });
 });

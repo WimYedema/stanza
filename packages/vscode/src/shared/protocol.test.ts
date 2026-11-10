@@ -6,6 +6,7 @@ describe('parseWebviewMessage', () => {
     expect(parseWebviewMessage({ type: 'ready' })).toEqual({ type: 'ready' });
     expect(parseWebviewMessage({ type: 'format', extra: 1 })).toEqual({ type: 'format' });
     expect(parseWebviewMessage({ type: 'open-as-text' })).toEqual({ type: 'open-as-text' });
+    expect(parseWebviewMessage({ type: 'edit-styles' })).toEqual({ type: 'edit-styles' });
     expect(parseWebviewMessage({ type: 'change', text: 'a\n' })).toEqual({
       type: 'change',
       text: 'a\n',
@@ -39,6 +40,48 @@ describe('parseWebviewMessage', () => {
 });
 
 describe('parseHostMessage', () => {
+  it('takes the usage of the styles', () => {
+    const usage = {
+      type: 'usage',
+      usage: {
+        current: 'documents/a.phrase.md',
+        paragraph: {
+          body: [{ file: 'documents/a.phrase.md', direct: 0, default: 4, inherited: 1 }],
+        },
+        character: {},
+        table: {},
+      },
+    };
+    expect(parseHostMessage(usage)).toEqual(usage);
+  });
+
+  it.each([
+    { type: 'usage' },
+    { type: 'usage', usage: { current: 'a', paragraph: {}, character: {} } },
+    { type: 'usage', usage: { current: 5, paragraph: {}, character: {}, table: {} } },
+    { type: 'usage', usage: { current: 'a', paragraph: { body: 1 }, character: {}, table: {} } },
+    {
+      type: 'usage',
+      usage: {
+        current: 'a',
+        paragraph: { body: [{ file: 'a', direct: -1, default: 0, inherited: 0 }] },
+        character: {},
+        table: {},
+      },
+    },
+    {
+      type: 'usage',
+      usage: {
+        current: 'a',
+        paragraph: { body: [{ file: 'a', direct: 1, inherited: 0 }] },
+        character: {},
+        table: {},
+      },
+    },
+  ])('refuses %j', (value) => {
+    expect(parseHostMessage(value)).toBeUndefined();
+  });
+
   it('takes the messages of the protocol', () => {
     const init = {
       type: 'init',

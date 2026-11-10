@@ -2,14 +2,16 @@ import { randomBytes } from 'node:crypto';
 import { posix } from 'node:path';
 import * as vscode from 'vscode';
 import { collectBlockIds } from '@phrase/core';
-import type { LoadedProject } from '@phrase/project';
+import { styleUsage, type LoadedProject } from '@phrase/project';
 import { parseWebviewMessage, type HostMessage, type WebviewMessage } from '../shared/protocol.js';
 import { buildHtml } from './html.js';
 import { declareVariantInProject, parseFix, type StylesheetSaves } from './declare-variant.js';
+import { EDIT_STYLES_COMMAND } from './edit-styles-command.js';
 import { lineEdit } from './line-diff.js';
 import { findRoot, storageOf } from './project-files.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { normalized, reviewText } from './review.js';
+import { summarizeUsage } from './usage-summary.js';
 
 /** After a change, the project is checked again when nothing has changed for this long. */
 const REFRESH_DELAY_MS = 300;
@@ -59,6 +61,7 @@ class EditorSession {
   private stylesheetText: string | undefined;
   private usedKey: string | undefined;
   private defaultsKey: string | undefined;
+  private usageKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
@@ -127,6 +130,9 @@ class EditorSession {
       }
       case 'open-as-text':
         await vscode.commands.executeCommand('workbench.action.reopenTextEditor');
+        return;
+      case 'edit-styles':
+        await vscode.commands.executeCommand(EDIT_STYLES_COMMAND);
         return;
       case 'declare-variant':
         await this.declareVariant(message.style, message.mark);
@@ -251,6 +257,18 @@ class EditorSession {
       defaults: loaded.settings.defaults,
       usedIds,
     });
+    await this.postUsage(loaded, root, true);
+  }
+
+  /** Tells the webview where the styles are used, when that is new or when it is asked for. */
+  private async postUsage(loaded: LoadedProject, root: vscode.Uri, force: boolean): Promise<void> {
+    if (loaded.stylesheet === undefined) return;
+    const own = posix.relative(root.path, this.document.uri.path);
+    const usage = summarizeUsage(styleUsage(loaded.documents, loaded.stylesheet), own);
+    const key = JSON.stringify(usage);
+    if (!force && key === this.usageKey) return;
+    this.usageKey = key;
+    await this.post({ type: 'usage', usage });
   }
 
   /** Watches the files of the project, which can change without this document changing. */
@@ -308,5 +326,6 @@ class EditorSession {
       this.defaultsKey = defaultsKey;
       await this.post({ type: 'defaults', defaults: loaded.settings.defaults });
     }
+    await this.postUsage(loaded, root, false);
   }
 }

@@ -16,6 +16,24 @@ export interface Reason {
   readonly line?: number;
 }
 
+/** The blocks of a document that use a style, by how (ADR 0052, 0054). */
+export interface UsageCount {
+  /** The document, relative to the project root. */
+  readonly file: string;
+  readonly direct: number;
+  readonly default: number;
+  readonly inherited: number;
+}
+
+/** Where the styles of a project are used, by style name. A style that is not used is left out. */
+export interface UsageSummary {
+  /** The document of this editor, relative to the project root. */
+  readonly current: string;
+  readonly paragraph: Readonly<Record<string, readonly UsageCount[]>>;
+  readonly character: Readonly<Record<string, readonly UsageCount[]>>;
+  readonly table: Readonly<Record<string, readonly UsageCount[]>>;
+}
+
 export type HostMessage =
   /**
    * Starts the editor with a document, the stylesheet, the defaults of the project, which the
@@ -33,6 +51,8 @@ export type HostMessage =
   | { readonly type: 'stylesheet'; readonly text: string }
   | { readonly type: 'defaults'; readonly defaults: Defaults }
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
+  /** Where the styles are used, sent after `init` and again when it changes. */
+  | { readonly type: 'usage'; readonly usage: UsageSummary }
   /**
    * The answer to `declare-variant`. On success the stylesheet message with the change came before
    * it, so the command that was refused can be tried again.
@@ -54,6 +74,8 @@ export type WebviewMessage =
   | { readonly type: 'format' }
   /** The person editing allows a mark in a paragraph style (ADR 0026). The host checks both. */
   | { readonly type: 'declare-variant'; readonly style: string; readonly mark: string }
+  /** Opens the style editor on the stylesheet of the project. */
+  | { readonly type: 'edit-styles' }
   | { readonly type: 'open-as-text' };
 
 /** A style or mark name is short, whatever it is. */
@@ -71,6 +93,7 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
   switch (value['type']) {
     case 'ready':
     case 'format':
+    case 'edit-styles':
     case 'open-as-text':
       return { type: value['type'] };
     case 'change': {
@@ -98,6 +121,38 @@ function isReason(value: unknown): value is Reason {
     typeof value['message'] === 'string' &&
     (value['line'] === undefined || typeof value['line'] === 'number')
   );
+}
+
+const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+function parseUsageCounts(value: unknown): Record<string, UsageCount[]> | undefined {
+  if (!isRecord(value)) return undefined;
+  const counts: Record<string, UsageCount[]> = {};
+  for (const [name, list] of Object.entries(value)) {
+    if (!Array.isArray(list)) return undefined;
+    const entries: UsageCount[] = [];
+    for (const item of list as unknown[]) {
+      if (!isRecord(item)) return undefined;
+      const { file, direct, inherited } = item;
+      const byDefault = item['default'];
+      if (typeof file !== 'string' || !isCount(direct) || !isCount(inherited)) return undefined;
+      if (!isCount(byDefault)) return undefined;
+      entries.push({ file, direct, default: byDefault, inherited });
+    }
+    counts[name] = entries;
+  }
+  return counts;
+}
+
+/** Where the styles are used, or undefined when the value is not of that shape. */
+function parseUsage(value: unknown): UsageSummary | undefined {
+  if (!isRecord(value) || typeof value['current'] !== 'string') return undefined;
+  const paragraph = parseUsageCounts(value['paragraph']);
+  const character = parseUsageCounts(value['character']);
+  const table = parseUsageCounts(value['table']);
+  if (paragraph === undefined || character === undefined || table === undefined) return undefined;
+  return { current: value['current'], paragraph, character, table };
 }
 
 /** The defaults of a project, or undefined when they are not of that shape. */
@@ -138,6 +193,10 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
     case 'used-ids': {
       const ids = value['ids'];
       return isStringList(ids) ? { type: 'used-ids', ids } : undefined;
+    }
+    case 'usage': {
+      const usage = parseUsage(value['usage']);
+      return usage === undefined ? undefined : { type: 'usage', usage };
     }
     case 'declared': {
       const { ok, message } = value;

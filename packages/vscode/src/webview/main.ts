@@ -9,6 +9,7 @@ import {
 } from '../shared/protocol.js';
 import { createNotices } from './notices.js';
 import { createSheet } from './sheet.js';
+import { createStyleInfo } from './style-info.js';
 import { buildToolbar } from './toolbar.js';
 import { buildViewControls, parseViewState } from './view.js';
 import { showRefused } from './views.js';
@@ -47,6 +48,13 @@ let waiting: ReturnType<typeof setTimeout> | undefined;
 
 const { say, answered, declared } = createNotices(notices, send, (command) => editor?.run(command));
 const toolbar = buildToolbar(element('toolbar'), { editor: () => editor, answered });
+const info = createStyleInfo({
+  root: element('info'),
+  editor: () => editor,
+  edit: () => {
+    send({ type: 'edit-styles' });
+  },
+});
 const pages = createSheet({
   cover: element('cover'),
   header: element('header'),
@@ -74,6 +82,7 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
   waiting = undefined;
   editor?.destroy();
   editor = undefined;
+  info.refresh();
   editing.hidden = true;
   refused.hidden = false;
   showRefused(refused, title, reasons, canFormat, {
@@ -127,7 +136,10 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
       say(`${notice.code}: ${notice.message}`);
     },
     usedIds: () => usedIds,
-    onContextChange: toolbar.schedule,
+    onContextChange: () => {
+      toolbar.schedule();
+      info.schedule();
+    },
     ...(nonce !== undefined ? { styleNonce: nonce } : {}),
   });
   pages.update({
@@ -135,7 +147,9 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     defaults: message.defaults,
     document: parsed.document,
   });
+  info.setStylesheet(sheet.stylesheet);
   toolbar.refresh();
+  info.refresh();
 }
 
 function handle(message: HostMessage): void {
@@ -171,6 +185,8 @@ function handle(message: HostMessage): void {
       say(problems.map((d) => d.message).join(' '));
       if (editor !== undefined && problems.every((d) => d.severity !== 'error')) {
         pages.update({ stylesheet: sheet.stylesheet });
+        info.setStylesheet(sheet.stylesheet);
+        info.refresh();
       }
       return;
     }
@@ -179,6 +195,9 @@ function handle(message: HostMessage): void {
       return;
     case 'used-ids':
       usedIds = new Set(message.ids);
+      return;
+    case 'usage':
+      info.setUsage(message.usage);
       return;
     case 'declared':
       declared(message.ok, message.message);

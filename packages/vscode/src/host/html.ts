@@ -47,6 +47,19 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #toolbar .state { flex-basis: 100%; color: #cccccc; font: 12px sans-serif; }
   #notices { min-height: 1.4em; padding: 4px 12px; color: #ffcc66; font: 13px monospace; }
   #notices button { margin-left: 8px; font: 12px sans-serif; padding: 2px 8px; }
+  #info { background: #2d2d2d; color: #cccccc; font: 12px sans-serif; }
+  #info details { padding: 4px 12px; }
+  #info summary { cursor: pointer; }
+  #info .card { margin: 8px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #444444; }
+  #info .card-title { display: flex; justify-content: space-between; align-items: center;
+    margin: 0 0 4px; font-weight: 600; }
+  #info .card-title button { font: 12px sans-serif; padding: 2px 8px; }
+  #info .based { margin: 0 0 4px; color: #9d9d9d; }
+  #info dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 4px 0; }
+  #info dt { color: #9d9d9d; }
+  #info dd { margin: 0; }
+  #info .usage p { margin: 4px 0; }
+  #info .usage ul { margin: 0; padding-left: 18px; }
   #desk { padding: 12px 0 48px; overflow-x: auto; }
   .sheet { box-sizing: border-box; position: relative; margin: 12px auto; background: #ffffff; }
   #desk.paper .sheet { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
@@ -76,6 +89,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
     <div id="view"></div>
   </div>
   <div id="notices" role="status"></div>
+  <div id="info" hidden></div>
   <div id="desk" class="paper">
     <div id="cover" class="sheet" hidden></div>
     <div id="page" class="sheet">
