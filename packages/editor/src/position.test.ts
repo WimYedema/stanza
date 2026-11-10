@@ -1,7 +1,7 @@
 import { getSchema } from '@tiptap/core';
 import { EditorState, TextSelection } from '@tiptap/pm/state';
 import { describe, expect, it } from 'vitest';
-import { editorPosition, moveTo } from './position.js';
+import { changeEnd, editorPosition, moveTo, moveToPosition } from './position.js';
 import { schemaExtensions } from './schema.js';
 
 const schema = getSchema(schemaExtensions());
@@ -71,5 +71,69 @@ describe('the position of the cursor', () => {
     expect(moved.selection.$head.parent.type.name).not.toBe('phraseBlock');
     const empty = EditorState.create({ schema, doc: doc() });
     expect(moveTo(empty, { block: 0, offset: 0 }).docChanged).toBe(false);
+  });
+});
+
+describe('the end of a change', () => {
+  const paragraphs = (...texts: string[]) => doc(...texts.map((value) => paragraph(text(value))));
+  const at = (document: typeof SAMPLE, pos: number): EditorState =>
+    EditorState.create({ schema, doc: document, selection: TextSelection.create(document, pos) });
+
+  it('is undefined when the documents are the same', () => {
+    expect(changeEnd(SAMPLE, doc(...SAMPLE.children.map((node) => node.toJSON() as object)))).toBe(
+      undefined,
+    );
+  });
+
+  it('is after the text that was inserted, as after a redo', () => {
+    const before = paragraphs('One', 'Hello world', 'Three');
+    const after = paragraphs('One', 'Hello brave world', 'Three');
+    const end = changeEnd(before, after);
+    expect(end).toBe(posOf('brave', after) + 'brave '.length);
+    expect(editorPosition(at(after, end ?? 0))).toEqual({ block: 1, offset: 12 });
+  });
+
+  it('is at the place where text was taken out, as after an undo of typing', () => {
+    const before = paragraphs('One', 'Hello brave world', 'Three');
+    const after = paragraphs('One', 'Hello world', 'Three');
+    expect(editorPosition(at(after, changeEnd(before, after) ?? 0))).toEqual({
+      block: 1,
+      offset: 6,
+    });
+  });
+
+  it('copes with a change at the start of the text and at its end', () => {
+    expect(changeEnd(paragraphs('abc'), paragraphs('Xabc'))).toBe(2);
+    expect(changeEnd(paragraphs('abc'), paragraphs('abcX'))).toBe(5);
+    expect(changeEnd(paragraphs('aa'), paragraphs('aaa'))).toBe(4);
+  });
+
+  it('is in the block that changed, with other blocks the same before and after', () => {
+    const before = paragraphs('One', 'Two', 'Three', 'Four');
+    const after = paragraphs('One', 'Two', 'Three!', 'Four');
+    expect(editorPosition(at(after, changeEnd(before, after) ?? 0)).block).toBe(2);
+  });
+
+  it('moves to the end of the text before a block that was taken out at the end', () => {
+    const before = paragraphs('One', 'Two', 'Three');
+    const gone = paragraphs('One', 'Two');
+    const state = at(gone, 1);
+    expect(
+      editorPosition(state.apply(moveToPosition(state, changeEnd(before, gone) ?? 0))),
+    ).toEqual({ block: 1, offset: 3 });
+  });
+
+  it('moves to the end of a block that was added at the end', () => {
+    const before = paragraphs('One');
+    const added = paragraphs('One', 'Two');
+    const state = at(added, 1);
+    expect(
+      editorPosition(state.apply(moveToPosition(state, changeEnd(before, added) ?? 0))),
+    ).toEqual({ block: 1, offset: 3 });
+  });
+
+  it('keeps a place that is beyond the document inside it', () => {
+    const state = at(paragraphs('Hi'), 1);
+    expect(state.apply(moveToPosition(state, 999)).selection.head).toBe(3);
   });
 });

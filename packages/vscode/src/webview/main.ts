@@ -167,9 +167,7 @@ function handle(message: HostMessage): void {
       // The text that came in is newer than anything that was waiting to be sent.
       clearTimeout(waiting);
       waiting = undefined;
-      const position = editor.getPosition();
-      editor.setDocument(parsed.document);
-      editor.setPosition(position);
+      editor.setDocument(parsed.document, { cursor: 'at-change' });
       lastText = serializeDocument(parsed.document);
       pages.update({ document: parsed.document });
       return;

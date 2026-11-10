@@ -230,6 +230,38 @@ describe('createPhraseEditor', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  describe('replacing the content with the cursor at the change', () => {
+    const THREE = 'First.\n\nSecond one.\n\nThird.\n';
+
+    it('puts the cursor after the text that is new, as after a redo', () => {
+      const api = open(THREE, stylesheet);
+      api.setPosition({ block: 0, offset: 2 });
+      api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'), { cursor: 'at-change' });
+      expect(api.getPosition()).toEqual({ block: 1, offset: 'Second big '.length });
+    });
+
+    it('puts the cursor where the text was taken out, as after an undo', () => {
+      const api = open('First.\n\nSecond big one.\n\nThird.\n', stylesheet);
+      api.setPosition({ block: 2, offset: 3 });
+      api.setDocument(documentOf(THREE), { cursor: 'at-change' });
+      expect(api.getPosition()).toEqual({ block: 1, offset: 'Second '.length });
+    });
+
+    it('keeps the cursor where it was when nothing changed', () => {
+      const api = open(THREE, stylesheet);
+      api.setPosition({ block: 2, offset: 3 });
+      api.setDocument(documentOf(THREE), { cursor: 'at-change' });
+      expect(api.getPosition()).toEqual({ block: 2, offset: 3 });
+    });
+
+    it('does not move the cursor on its own without the option', () => {
+      const api = open(THREE, stylesheet);
+      api.setPosition({ block: 2, offset: 3 });
+      api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'));
+      expect(api.getPosition()).not.toEqual({ block: 1, offset: 'Second big '.length });
+    });
+  });
+
   describe('the state at the cursor', () => {
     const TEXT = `<!-- phrase: #k7m2q9x4zb -->
 # Title

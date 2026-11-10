@@ -20,7 +20,13 @@ import {
   PHRASE_BLOCK_EMPTY_CLASS,
   PHRASE_BLOCK_LABEL_CLASS,
 } from './phrase-block-view.js';
-import { editorPosition, moveTo, type EditorPosition } from './position.js';
+import {
+  changeEnd,
+  editorPosition,
+  moveTo,
+  moveToPosition,
+  type EditorPosition,
+} from './position.js';
 import { PHRASE_BLOCK_CLASS, schemaExtensions } from './schema.js';
 
 /**
@@ -114,8 +120,12 @@ export interface PhraseEditorOptions {
 export interface PhraseEditor {
   /** The document the editor holds, with the metadata it was given. */
   getDocument(): FromEditorResult;
-  /** Replaces the content, for example after the file changed on disk. Does not call `onChange`. */
-  setDocument(document: Document): void;
+  /**
+   * Replaces the content, for example after the file changed on disk. Does not call `onChange`. With
+   * `cursor: 'at-change'` the cursor goes to where the content changed, as after an undo or a redo,
+   * and stays where it was when nothing changed.
+   */
+  setDocument(document: Document, options?: { readonly cursor?: 'at-change' }): void;
   /** Applies a new stylesheet. With errors it changes nothing and returns them. */
   setStylesheet(stylesheet: Stylesheet): readonly Diagnostic[];
   /** Does what a command says, or refuses it and changes nothing (ADR 0023). */
@@ -198,9 +208,16 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
 
   return {
     getDocument: () => fromEditorContent(editor.state.doc, meta),
-    setDocument(document) {
+    setDocument(document, options) {
       meta = document.meta;
+      const before = editor.state.doc;
+      const position = editorPosition(editor.state);
       editor.commands.setContent(toEditorContent(document), { emitUpdate: false });
+      if (options?.cursor !== 'at-change') return;
+      const end = changeEnd(before, editor.state.doc);
+      editor.view.dispatch(
+        end === undefined ? moveTo(editor.state, position) : moveToPosition(editor.state, end),
+      );
     },
     setStylesheet(next) {
       const compiled = compile(next);
