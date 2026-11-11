@@ -16,6 +16,21 @@ export interface ProjectDefaults {
   readonly pageTemplate?: string;
 }
 
+/**
+ * An entry of the outline of a project (ADR 0072): a document by its path, or a group with a title
+ * that holds more entries. A group has no file; it only gives the documents a place.
+ */
+export type OutlineEntry =
+  | { readonly kind: 'document'; readonly path: string }
+  | { readonly kind: 'group'; readonly title: string; readonly items: readonly OutlineEntry[] };
+
+/** The paths of the documents of an outline, in order, groups left out. */
+export function outlinePaths(entries: readonly OutlineEntry[]): readonly string[] {
+  return entries.flatMap((entry) =>
+    entry.kind === 'document' ? [entry.path] : outlinePaths(entry.items),
+  );
+}
+
 export interface ProjectSettings {
   readonly title?: string;
   /** Path of the stylesheet, relative to the project root. */
@@ -23,6 +38,8 @@ export interface ProjectSettings {
   readonly defaults: ProjectDefaults;
   /** Undefined when the project declares nothing, in which case any field is accepted. */
   readonly fields: ReadonlyMap<string, FieldDeclaration> | undefined;
+  /** The documents in order, with groups. Absent when not declared: all documents, by path. */
+  readonly documents?: readonly OutlineEntry[];
 }
 
 /** Names that belong to the hardcoded metadata and cannot be declared as custom fields. */
@@ -133,6 +150,25 @@ export function validateProjectSettings(settings: ProjectSettings): readonly Dia
         path: `metadata-fields.${name}`,
       });
     }
+  }
+  const listed = new Set<string>();
+  for (const path of outlinePaths(settings.documents ?? [])) {
+    if (!isSafeRelativePath(path)) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'invalid-path',
+        message: `"${path}" must be a relative path with "/" separators and no "..".`,
+        path: 'documents',
+      });
+    } else if (listed.has(path)) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'duplicate-document',
+        message: `The document "${path}" is listed more than once.`,
+        path: 'documents',
+      });
+    }
+    listed.add(path);
   }
   return diagnostics;
 }

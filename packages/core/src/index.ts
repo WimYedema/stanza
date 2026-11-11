@@ -72,10 +72,12 @@ export {
   HARDCODED_FIELD_NAMES,
   applyDefaults,
   isSafeRelativePath,
+  outlinePaths,
   validateMetadata,
   validateProjectSettings,
   type FieldDeclaration,
   type FieldType,
+  type OutlineEntry,
   type ProjectDefaults,
   type ProjectSettings,
 } from './project.js';

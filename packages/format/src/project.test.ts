@@ -107,3 +107,64 @@ describe('parseProject', () => {
     ).toEqual(['reserved-field-name@metadata-fields.title']);
   });
 });
+
+describe('the documents of a project', () => {
+  const head = 'phrase-format: 1\nstylesheet: s.yaml\n';
+
+  it('leaves the outline absent when the file does not declare one', () => {
+    expect(parseProject(head).settings.documents).toBeUndefined();
+  });
+
+  it('reads paths and groups, down through the groups, in order', () => {
+    const result = parseProject(
+      `${head}documents:\n  - intro.phrase.md\n  - group: Reference\n    items:\n      - a.phrase.md\n      - group: Deeper\n        items:\n          - b.phrase.md\n  - last.phrase.md\n`,
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.settings.documents).toEqual([
+      { kind: 'document', path: 'intro.phrase.md' },
+      {
+        kind: 'group',
+        title: 'Reference',
+        items: [
+          { kind: 'document', path: 'a.phrase.md' },
+          {
+            kind: 'group',
+            title: 'Deeper',
+            items: [{ kind: 'document', path: 'b.phrase.md' }],
+          },
+        ],
+      },
+      { kind: 'document', path: 'last.phrase.md' },
+    ]);
+  });
+
+  it('accepts an empty list and a group without items', () => {
+    expect(parseProject(`${head}documents: []\n`).settings.documents).toEqual([]);
+    expect(parseProject(`${head}documents:\n  - group: Later\n`).settings.documents).toEqual([
+      { kind: 'group', title: 'Later', items: [] },
+    ]);
+  });
+
+  it('reports what is not a list, a path or a group', () => {
+    expect(codes(`${head}documents: a.phrase.md\n`)).toEqual(['invalid-type@documents']);
+    expect(codes(`${head}documents:\n  - 3\n  - [x]\n`)).toEqual([
+      'invalid-type@documents[0]',
+      'invalid-type@documents[1]',
+    ]);
+    expect(codes(`${head}documents:\n  - items: []\n`)).toEqual(['missing-property@documents[0]']);
+    expect(codes(`${head}documents:\n  - group: ''\n    colour: red\n`)).toEqual([
+      'unknown-property@documents[0].colour',
+      'invalid-value@documents[0].group',
+    ]);
+    expect(codes(`${head}documents:\n  - group: G\n    items: a\n`)).toEqual([
+      'invalid-type@documents[0].items',
+    ]);
+  });
+
+  it('checks the paths and the repeats once the file is read cleanly', () => {
+    expect(codes(`${head}documents:\n  - ../a.phrase.md\n`)).toEqual(['invalid-path@documents']);
+    expect(codes(`${head}documents:\n  - a.phrase.md\n  - a.phrase.md\n`)).toEqual([
+      'duplicate-document@documents',
+    ]);
+  });
+});

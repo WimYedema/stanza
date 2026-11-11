@@ -28,7 +28,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 ## Project and CLI (`project`, `cli`)
 
-- 0002: host and dependencies. 0014: project package and CLI. 0015: format command.
+- 0002: host and dependencies. 0014: project package and CLI. 0015: format command. 0072: the list of documents (order, groups).
 - 0042, 0044: new project, new document. 0052: style usage index. 0061: AGENTS.md for coding agents. 0064: the documentation as a Phrase project.
 
 ## Editor (`editor`)

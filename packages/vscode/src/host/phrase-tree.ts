@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { loadProject } from '@phrase/project';
 import type { HeadingNode } from './headings.js';
-import { outlineOf, type OutlineDocument } from './outline.js';
+import { outlineOf, type OutlineDocument, type OutlineGroup, type OutlineItem } from './outline.js';
 import { storageOf, uriInProject } from './project-files.js';
 import type { PhraseEditorProvider } from './provider.js';
 
@@ -18,7 +18,14 @@ type Node =
       readonly root: vscode.Uri;
       readonly title: string;
       readonly inOrder: boolean;
-      readonly documents: readonly OutlineDocument[];
+      readonly items: readonly OutlineItem[];
+    }
+  | {
+      readonly kind: 'group';
+      readonly root: vscode.Uri;
+      readonly group: OutlineGroup;
+      /** Where the group is in the outline, to tell it from the others. */
+      readonly trail: string;
     }
   | {
       readonly kind: 'document';
@@ -30,6 +37,12 @@ type Node =
   | { readonly kind: 'none' };
 
 const folderName = (root: vscode.Uri): string => root.path.slice(root.path.lastIndexOf('/') + 1);
+
+/** The node of an entry of the outline: a document, or a group with its entries below it. */
+function nodeOf(root: vscode.Uri, item: OutlineItem, alone: boolean, trail: string): Node {
+  if (item.kind === 'group') return { kind: 'group', root, group: item, trail };
+  return { kind: 'document', uri: uriInProject(root, item.path), document: item, alone };
+}
 
 /** The projects of the workspace, their documents and the headings of each (item 111). */
 export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposable {
@@ -48,12 +61,13 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
     if (node === undefined) return this.projects();
     switch (node.kind) {
       case 'project':
-        return node.documents.map((document) => ({
-          kind: 'document',
-          uri: uriInProject(node.root, document.path),
-          document,
-          alone: node.documents.length === 1,
-        }));
+        return node.items.map((item, index) =>
+          nodeOf(node.root, item, node.items.length === 1, String(index)),
+        );
+      case 'group':
+        return node.group.items.map((item, index) =>
+          nodeOf(node.root, item, false, `${node.trail}.${String(index)}`),
+        );
       case 'document':
         return node.document.headings.map((heading) => ({
           kind: 'heading',
@@ -80,6 +94,15 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
         if (!node.inOrder) item.description = 'has errors';
         return item;
       }
+      case 'group': {
+        const item = new vscode.TreeItem(
+          node.group.title,
+          vscode.TreeItemCollapsibleState.Expanded,
+        );
+        item.id = `${node.root.toString()}#group:${node.trail}`;
+        item.iconPath = new vscode.ThemeIcon('folder');
+        return item;
+      }
       case 'document': {
         const item = new vscode.TreeItem(
           node.document.title,
@@ -88,7 +111,8 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
             : vscode.TreeItemCollapsibleState.Collapsed,
         );
         item.id = node.uri.toString();
-        item.description = node.document.path.slice(node.document.path.lastIndexOf('/') + 1);
+        const file = node.document.path.slice(node.document.path.lastIndexOf('/') + 1);
+        item.description = node.document.listed ? file : `${file} (not listed)`;
         item.iconPath = new vscode.ThemeIcon('file');
         item.command = { command: OPEN_AT_COMMAND, title: 'Open', arguments: [node.uri] };
         return item;
@@ -133,7 +157,7 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
           root,
           title: loaded.settings?.title ?? folderName(root),
           inOrder: loaded.settings !== undefined && loaded.stylesheet !== undefined,
-          documents: outlineOf(loaded),
+          items: outlineOf(loaded),
         };
       }),
     );

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { DocumentMeta } from './document.js';
 import {
   applyDefaults,
+  outlinePaths,
   validateMetadata,
   validateProjectSettings,
   type FieldDeclaration,
+  type OutlineEntry,
   type ProjectSettings,
 } from './project.js';
 
@@ -91,6 +93,46 @@ describe('validateMetadata', () => {
   it('treats an empty declaration as declaring no fields at all', () => {
     expect(problems({ fields: { x: 'y' } }, settings({}))).toEqual([
       ['warning', 'undeclared-field', 'x'],
+    ]);
+  });
+});
+
+describe('the outline of the documents', () => {
+  const doc = (path: string): OutlineEntry => ({ kind: 'document', path });
+  const group = (title: string, ...items: OutlineEntry[]): OutlineEntry => ({
+    kind: 'group',
+    title,
+    items,
+  });
+  const problems = (documents: readonly OutlineEntry[]) =>
+    validateProjectSettings(settings(undefined, { documents })).map((d) => [d.code, d.path]);
+
+  it('lists the paths in order, down through the groups', () => {
+    expect(
+      outlinePaths([
+        doc('a.phrase.md'),
+        group('G', doc('b.phrase.md'), group('H', doc('c.phrase.md'))),
+        doc('d.phrase.md'),
+      ]),
+    ).toEqual(['a.phrase.md', 'b.phrase.md', 'c.phrase.md', 'd.phrase.md']);
+    expect(outlinePaths([])).toEqual([]);
+  });
+
+  it('accepts safe paths, in groups too, and no outline at all', () => {
+    expect(problems([doc('documents/a.phrase.md'), group('G', doc('b.phrase.md'))])).toEqual([]);
+    expect(validateProjectSettings(settings())).toEqual([]);
+  });
+
+  it('rejects a path that is not a safe relative one', () => {
+    expect(problems([group('G', doc('../a.phrase.md')), doc('/b.phrase.md')])).toEqual([
+      ['invalid-path', 'documents'],
+      ['invalid-path', 'documents'],
+    ]);
+  });
+
+  it('rejects a document listed twice, also in another group', () => {
+    expect(problems([doc('a.phrase.md'), group('G', doc('a.phrase.md'))])).toEqual([
+      ['duplicate-document', 'documents'],
     ]);
   });
 });

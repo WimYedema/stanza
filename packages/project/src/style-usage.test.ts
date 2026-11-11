@@ -43,6 +43,7 @@ const paragraph = (value: string, extra: object = {}): Block => ({
 const doc = (path: string, ...blocks: Block[]): LoadedDocument => ({
   path,
   document: { meta: { fields: {} }, blocks } satisfies Document,
+  listed: true,
 });
 
 /** The uses of a style as `kind path` and `via`, for short assertions. */

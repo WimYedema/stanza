@@ -3,6 +3,7 @@ import {
   type Diagnostic,
   type FieldDeclaration,
   type FieldType,
+  type OutlineEntry,
   type ProjectDefaults,
   type ProjectSettings,
 } from '@phrase/core';
@@ -96,6 +97,44 @@ function readFields(data: Data, report: Report): ReadonlyMap<string, FieldDeclar
   return fields;
 }
 
+/** The list of `documents`: a path, or a mapping with a `group` title and its `items`. */
+function readOutline(
+  raw: unknown,
+  path: string,
+  report: Report,
+): readonly OutlineEntry[] | undefined {
+  if (!Array.isArray(raw)) {
+    report('invalid-type', `Expected a list, found ${describe(raw)}.`, path);
+    return undefined;
+  }
+  const entries: OutlineEntry[] = [];
+  (raw as unknown[]).forEach((item, index) => {
+    const at = `${path}[${String(index)}]`;
+    if (typeof item === 'string') {
+      entries.push({ kind: 'document', path: item });
+      return;
+    }
+    const map = asMap(item, at, report);
+    if (map === undefined) return;
+    checkKeys(map, ['group', 'items'], at, report);
+    const title = readString(map, 'group', at, report);
+    if (map['group'] === undefined) {
+      report('missing-property', 'A group needs a "group" title.', at);
+    } else if (title !== undefined && title.trim() === '') {
+      report('invalid-value', 'The title of a group cannot be empty.', join(at, 'group'));
+    }
+    const items =
+      map['items'] === undefined ? [] : readOutline(map['items'], join(at, 'items'), report);
+    if (title !== undefined && items !== undefined) entries.push({ kind: 'group', title, items });
+  });
+  return entries;
+}
+
+function readDocuments(data: Data, report: Report): readonly OutlineEntry[] | undefined {
+  const raw = data['documents'];
+  return raw === undefined ? undefined : readOutline(raw, 'documents', report);
+}
+
 /** Reads a project file. Problems in the file are reported and the rest is still read. */
 export function parseProject(source: string): ProjectParseResult {
   const diagnostics: Diagnostic[] = [];
@@ -108,7 +147,7 @@ export function parseProject(source: string): ProjectParseResult {
 
   checkKeys(
     data,
-    ['phrase-format', 'title', 'stylesheet', 'defaults', 'metadata-fields'],
+    ['phrase-format', 'title', 'stylesheet', 'defaults', 'metadata-fields', 'documents'],
     '',
     report,
   );
@@ -119,11 +158,13 @@ export function parseProject(source: string): ProjectParseResult {
   if (data['stylesheet'] === undefined) {
     report('missing-property', 'The project file must name its "stylesheet".', 'stylesheet');
   }
+  const documents = readDocuments(data, report);
   const settings: ProjectSettings = {
     ...(title !== undefined ? { title } : {}),
     stylesheet: stylesheet ?? '',
     defaults: readDefaults(data, report),
     fields: readFields(data, report),
+    ...(documents !== undefined ? { documents } : {}),
   };
 
   // The meaning of the settings is only checked once they have been read without errors.

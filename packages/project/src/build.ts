@@ -51,7 +51,9 @@ export async function buildProject(
   if (problem !== undefined) return { written: [], documents: 0, diagnostics: [problem] };
 
   const loaded = await loadProject(storage);
-  const documents = loaded.documents.length;
+  // A document that the list leaves out is checked, and not built (ADR 0072).
+  const built = loaded.documents.filter((entry) => entry.listed);
+  const documents = built.length;
   const { settings, stylesheet } = loaded;
   if (hasErrors(loaded.diagnostics) || settings === undefined || stylesheet === undefined) {
     return { written: [], documents, diagnostics: loaded.diagnostics };
@@ -59,7 +61,7 @@ export async function buildProject(
 
   const diagnostics: ProjectDiagnostic[] = [...loaded.diagnostics];
   const outputs: { path: string; bytes: Uint8Array }[] = [];
-  for (const { path, document } of loaded.documents) {
+  for (const { path, document } of built) {
     // The effective metadata has the project's defaults filled in.
     const effective = { ...document, meta: applyDefaults(settings, document.meta) };
     const result = await exportDocx(effective, stylesheet, { timestamp: options.timestamp });

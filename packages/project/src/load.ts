@@ -1,8 +1,10 @@
 import {
   collectBlockIds,
+  outlinePaths,
   resolvePageTemplate,
   type Document,
   type NodeId,
+  type OutlineEntry,
   type ProjectSettings,
   type Stylesheet,
 } from '@phrase/core';
@@ -15,6 +17,8 @@ export interface LoadedDocument {
   /** Relative to the project root, with `/` separators. */
   readonly path: string;
   readonly document: Document;
+  /** False for a document that the list of documents leaves out (ADR 0072): checked, not built. */
+  readonly listed: boolean;
 }
 
 export interface LoadedProject {
@@ -22,8 +26,10 @@ export interface LoadedProject {
   readonly settings: ProjectSettings | undefined;
   /** Undefined when settings are, or the stylesheet could not be read or has errors. */
   readonly stylesheet: Stylesheet | undefined;
-  /** Empty until the project file and the stylesheet are in order. */
+  /** Empty until the project file and the stylesheet are in order. Listed ones come first, in order. */
   readonly documents: readonly LoadedDocument[];
+  /** The outline as the project file gives it, or all documents by path when it gives none. */
+  readonly outline: readonly OutlineEntry[];
   readonly diagnostics: readonly ProjectDiagnostic[];
 }
 
@@ -60,6 +66,7 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
     settings,
     stylesheet,
     documents: [],
+    outline: settings?.documents ?? [],
     diagnostics,
   });
 
@@ -103,13 +110,50 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
   }
 
   const documents: LoadedDocument[] = [];
-  for (const path of paths) {
+  // The list gives the order. What it leaves out is still checked, after the rest (ADR 0072).
+  const listedPaths = settings.documents === undefined ? paths : outlinePaths(settings.documents);
+  const listed = new Set(listedPaths);
+  const found = new Set(paths);
+  for (const path of listedPaths) {
+    if (!path.endsWith(DOCUMENT_SUFFIX)) {
+      diagnostics.push({
+        file: PROJECT_FILE,
+        severity: 'error',
+        code: 'invalid-path',
+        message: `The document "${path}" must end in ${DOCUMENT_SUFFIX}.`,
+        path: 'documents',
+      });
+    } else if (!found.has(path)) {
+      diagnostics.push({
+        file: PROJECT_FILE,
+        severity: 'error',
+        code: 'missing-document',
+        message: `The document "${path}" in the list of documents does not exist.`,
+        path: 'documents',
+      });
+    }
+  }
+  const order = [
+    ...listedPaths.filter((path) => found.has(path)),
+    ...paths.filter((path) => !listed.has(path)),
+  ];
+  for (const path of order) {
+    if (!listed.has(path)) {
+      diagnostics.push({
+        file: path,
+        severity: 'warning',
+        code: 'unlisted-document',
+        message: `The document is not in the list of documents of ${PROJECT_FILE}, so it is checked but not built.`,
+      });
+    }
     const text = await readText(storage, path, diagnostics);
     if (text === undefined) continue;
     const checked = checkDocumentText(text, stylesheet, settings);
     diagnostics.push(...inFile(path, checked.diagnostics));
-    documents.push({ path, document: checked.document });
+    documents.push({ path, document: checked.document, listed: listed.has(path) });
   }
   diagnostics.push(...duplicateIds(documents));
-  return { settings, stylesheet, documents, diagnostics };
+  const outline =
+    settings.documents ?? paths.map((path): OutlineEntry => ({ kind: 'document', path }));
+  return { settings, stylesheet, documents, outline, diagnostics };
 }

@@ -95,6 +95,27 @@ describe('the Phrase tree', () => {
     expect(await listing(tree, scope)).toEqual([expect.objectContaining({ label: '1.1 Aim' })]);
   });
 
+  it('shows the groups and the order of the list of documents, and the documents it leaves out last', async () => {
+    const tree = show(
+      files({
+        '/w/p/phrase.yaml': `${PROJECT}documents:\n  - group: Part one\n    items:\n      - documents/reference.phrase.md\n`,
+      }),
+    );
+    const project = only(await tree.getChildren());
+    expect(await listing(tree, project)).toEqual([
+      expect.objectContaining({ label: 'Part one' }),
+      expect.objectContaining({
+        label: 'Introduction',
+        description: 'introduction.phrase.md (not listed)',
+      }),
+    ]);
+    const group = only(await tree.getChildren(project));
+    expect(tree.getTreeItem(group).id).toContain('group:0');
+    expect(await listing(tree, group)).toEqual([
+      expect.objectContaining({ label: 'Reference', description: 'reference.phrase.md' }),
+    ]);
+  });
+
   it('opens a document at its heading when a heading is clicked, and at its start for a document', async () => {
     const tree = show();
     const introduction = only(await tree.getChildren(only(await tree.getChildren())));

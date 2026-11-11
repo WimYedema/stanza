@@ -29,6 +29,23 @@ describe('buildProject', () => {
     }
   });
 
+  it('builds only the documents of the list, and says that the others are not built', async () => {
+    const files = exampleProject();
+    files['phrase.yaml'] =
+      `${files['phrase.yaml'] ?? ''}documents:\n  - documents/reference.phrase.md\n`;
+    const storage = memoryStorage(files);
+    const result = await buildProject(storage, options);
+    expect(result.documents).toBe(1);
+    expect(result.written).toEqual(['build/documents/reference.docx']);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        file: 'documents/introduction.phrase.md',
+        severity: 'warning',
+        code: 'unlisted-document',
+      }),
+    ]);
+  });
+
   it('gives the same bytes for the same project and date, and other bytes for another date', async () => {
     const build = async (timestamp: Date): Promise<Uint8Array | undefined> => {
       const storage = memoryStorage(exampleProject());

@@ -16,9 +16,9 @@ Placed before the themes "Pipeline (CLI, no editor)" and "Collections and refere
 
 The references inside one document are done (items 116 to 118, 120; item 119 is under Later). A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
 
-30. [M] - Project model: multiple documents, shared stylesheet, document order.
 31. [M] - Cross-document references: the reference index of item 116 across the documents of a project, with computed display text. Needs items 30 and 116.
 32. [M] - Numbering across a project (headings, figures, tables, appendices).
+123. [S] - Keep the list of documents in step (ADR 0072): "new document", "import Word" and "adopt Markdown" append the new file to the `documents` list when the project has one, with a comment-preserving edit of `phrase.yaml`; a quick fix for an unlisted or a missing document; reorder and regroup in the Phrase view. Added with item 30.
 
 
 ## Theme: Word import
@@ -59,3 +59,4 @@ The references inside one document are done (items 116 to 118, 120; item 119 is 
 121. [M] - References to table rows and to paragraphs in table cells (for example the boundaries TB1 to TB8 of the threat model): IDs on blocks inside cells and rows, which annotations do not allow now (they are read only before top-level blocks). Dialect decision first. Added with item 116.
 122. [S] - Computed text of a reference in the document: the number or the title of the target, kept up to date, instead of the text as written. Added with item 116.
 119. [M] - Editor, find possible references, postponed by the product owner: a command that lists the places where the text equals the title of a heading, or a name that the author gave it, with a preview, and turns one or all of them into references. Nothing is changed without the person choosing it. Phrase does not know how a document names its headings (codes such as T6; ADR 0070), so an ADR first settles how the author says it: an alias on a heading in its annotation, or a pattern in the project file that reads the name from the heading text, or the full text of the heading only. A coding assistant may do the bulk conversion as well; the single reference is item 118.
+124. [L] - Collections and publications, design first (ADR 0072): several outlines (collections) with a document in more than one, each with the same tree of groups, and a collection that is built as one output (a publication) with its own cover, table of contents and numbering. Needs a decision on the context that numbers and cross-reference text depend on (a build for a collection, as in `phrase build --collection`). Needs item 32. Added with item 30.

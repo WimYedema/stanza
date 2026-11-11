@@ -152,3 +152,79 @@ describe('loadProject', () => {
     expect(loaded.documents.map((d) => d.path)).toEqual(['documents/reference.phrase.md']);
   });
 });
+
+describe('the list of documents', () => {
+  const withList = (list: string): Record<string, string> => {
+    const files = exampleProject();
+    files['phrase.yaml'] = `${files['phrase.yaml'] ?? ''}${list}`;
+    return files;
+  };
+  const INTRO = 'documents/introduction.phrase.md';
+  const REFERENCE = 'documents/reference.phrase.md';
+
+  it('lists all the documents by path when the project gives no list', async () => {
+    const loaded = await loadProject(memoryStorage(exampleProject()));
+    expect(loaded.documents.every((d) => d.listed)).toBe(true);
+    expect(loaded.outline).toEqual([
+      { kind: 'document', path: INTRO },
+      { kind: 'document', path: REFERENCE },
+    ]);
+  });
+
+  it('loads the documents in the order of the list, through the groups', async () => {
+    const loaded = await loadProject(
+      memoryStorage(
+        withList(`documents:\n  - group: Part\n    items:\n      - ${REFERENCE}\n  - ${INTRO}\n`),
+      ),
+    );
+    expect(loaded.diagnostics).toEqual([]);
+    expect(loaded.documents.map((d) => d.path)).toEqual([REFERENCE, INTRO]);
+    expect(loaded.outline).toEqual([
+      { kind: 'group', title: 'Part', items: [{ kind: 'document', path: REFERENCE }] },
+      { kind: 'document', path: INTRO },
+    ]);
+  });
+
+  it('warns about a document that is not listed, still checks it, and puts it last', async () => {
+    const files = withList(`documents:\n  - ${REFERENCE}\n`);
+    files['notes.phrase.md'] = GOOD_DOCUMENT('abcdefghjk');
+    const loaded = await loadProject(memoryStorage(files));
+    expect(summary(loaded.diagnostics)).toEqual([
+      `${INTRO}: unlisted-document`,
+      'notes.phrase.md: unlisted-document',
+    ]);
+    expect(loaded.diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+    expect(loaded.documents.map((d) => [d.path, d.listed])).toEqual([
+      [REFERENCE, true],
+      [INTRO, false],
+      ['notes.phrase.md', false],
+    ]);
+  });
+
+  it('checks a document that is not listed like any other', async () => {
+    const files = withList(`documents:\n  - ${REFERENCE}\n  - ${INTRO}\n`);
+    files['notes.phrase.md'] = '---\nphrase-format: 1\nbogus: 1\n---\n';
+    const loaded = await loadProject(memoryStorage(files));
+    const own = loaded.diagnostics.filter((d) => d.file === 'notes.phrase.md');
+    expect(own.some((d) => d.severity === 'error')).toBe(true);
+  });
+
+  it('reports a listed document that does not exist, and one that is not a document file', async () => {
+    const loaded = await loadProject(
+      memoryStorage(withList(`documents:\n  - ${REFERENCE}\n  - gone.phrase.md\n  - notes.md\n`)),
+    );
+    expect(loaded.diagnostics.filter((d) => d.file === 'phrase.yaml')).toEqual([
+      expect.objectContaining({ code: 'missing-document', severity: 'error', path: 'documents' }),
+      expect.objectContaining({ code: 'invalid-path', severity: 'error', path: 'documents' }),
+    ]);
+    expect(loaded.documents.map((d) => d.path)).toEqual([REFERENCE, INTRO]);
+  });
+
+  it('reports a problem in the list as a problem of the project file', async () => {
+    const loaded = await loadProject(
+      memoryStorage(withList(`documents:\n  - ${INTRO}\n  - ${INTRO}\n`)),
+    );
+    expect(summary(loaded.diagnostics)).toEqual(['phrase.yaml: duplicate-document']);
+    expect(loaded.documents).toEqual([]);
+  });
+});
