@@ -67,12 +67,14 @@ const entry = (name: string): Entry => {
 let root: HTMLElement;
 let panel: Panel;
 const send = vi.fn<(message: StylesWebviewMessage) => void>();
+const openToken = vi.fn<(kind: 'color' | 'font', name: string) => void>();
 
 beforeEach(() => {
   root = document.createElement('div');
   document.body.append(root);
   send.mockClear();
-  panel = createPanel({ root, send });
+  openToken.mockClear();
+  panel = createPanel({ root, send, openToken });
   panel.show(entry('heading-1'), stylesheet);
 });
 afterEach(() => {
@@ -564,6 +566,33 @@ describe('changes from the page', () => {
   it('has no warning for a token', () => {
     panel.show(entry('body'), stylesheet);
     expect(rowOf('Font').querySelector<HTMLElement>('.warning')?.hidden).toBe(true);
+  });
+
+  it('links a font or a color to its token in the Theme tab, also when it comes from a base', () => {
+    const link = (title: string): HTMLButtonElement => {
+      const found = rowOf(title).querySelector<HTMLButtonElement>('.token-link');
+      if (found === null) throw new Error(`No link in ${title}.`);
+      return found;
+    };
+    expect(link('Font').hidden).toBe(false);
+    expect(link('Font').title).toBe('Show the token body in the Theme tab');
+    link('Font').click();
+    expect(openToken).toHaveBeenLastCalledWith('font', 'body');
+    panel.show(entry('table-grid'), stylesheet);
+    link('Odd').click();
+    expect(openToken).toHaveBeenLastCalledWith('color', 'pale');
+  });
+
+  it('has no link when nothing is set or the value is not a token', () => {
+    expect(rowOf('Color').querySelector<HTMLButtonElement>('.token-link')?.hidden).toBe(true);
+    const custom = parseStylesheet(
+      `phrase-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\nparagraph-styles:\n  body:\n    color: '#123456'\n`,
+    ).stylesheet;
+    panel.show(
+      entriesOf(custom).find((candidate) => candidate.name === 'body'),
+      custom,
+    );
+    expect(rowOf('Color').querySelector<HTMLButtonElement>('.token-link')?.hidden).toBe(true);
   });
 
   it('sets a line spacing with a rule and a number', () => {

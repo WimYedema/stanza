@@ -12,7 +12,6 @@ Finished items are in `docs/BACKLOG_DONE.md`, one line each. Item numbers are ke
 
 Placed before the themes "Pipeline (CLI, no editor)" and "Collections and references" by the product owner.
 
-79. [S] - Style editor, link to the theme: from a color or font row, a link to that token in the Theme tab. Needs item 72.
 
 ## Theme: Word import
 38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.

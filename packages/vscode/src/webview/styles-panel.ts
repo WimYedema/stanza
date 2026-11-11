@@ -32,6 +32,7 @@ import {
   type Commit,
   type Control,
   type Row,
+  type OpenToken,
 } from './styles-controls.js';
 import { paragraphGroups } from './styles-groups.js';
 import {
@@ -63,6 +64,7 @@ const FAMILY_OF: Record<StyleKind, StyleFamily> = {
 export interface PanelOptions {
   readonly root: HTMLElement;
   readonly send: (message: StylesWebviewMessage) => void;
+  readonly openToken: OpenToken;
 }
 
 export interface Panel {
@@ -77,7 +79,7 @@ export interface Panel {
 
 const NO_TOKENS: Tokens = { colors: new Map(), fonts: new Map() };
 
-export function createPanel({ root, send }: PanelOptions): Panel {
+export function createPanel({ root, send, openToken }: PanelOptions): Panel {
   const status = el('p', 'status');
   status.setAttribute('role', 'status');
   const themeNote = el(
@@ -137,9 +139,9 @@ export function createPanel({ root, send }: PanelOptions): Panel {
       case 'choice':
         return choiceControl(type.values, commit);
       case 'color':
-        return tokenControl('color', tokens, commit);
+        return tokenControl('color', tokens, commit, openToken);
       case 'font':
-        return tokenControl('font', tokens, commit);
+        return tokenControl('font', tokens, commit, openToken);
       case 'line-spacing':
         return lineSpacingControl(commit);
       case 'style-name':
@@ -238,7 +240,12 @@ export function createPanel({ root, send }: PanelOptions): Panel {
         borders,
         row(
           titleOf(key),
-          borderControl(commit, () => read().inherited?.value as Border | undefined, tokens),
+          borderControl(
+            commit,
+            () => read().inherited?.value as Border | undefined,
+            tokens,
+            openToken,
+          ),
           read,
           (value) => borderText(value as Border),
           () => {

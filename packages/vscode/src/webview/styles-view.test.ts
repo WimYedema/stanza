@@ -159,4 +159,14 @@ describe('selecting a style that was just added', () => {
     view.show(stylesheet);
     expect(tab('Paragraphs').getAttribute('aria-selected')).toBe('true');
   });
+
+  it('moves to the Theme tab for a token that a style row links to', () => {
+    view.selectWhenShown('color', 'brand');
+    view.show(stylesheet);
+    expect(tab('Theme').getAttribute('aria-selected')).toBe('true');
+    expect(selected).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: 'brand', kind: 'color' }),
+      'theme',
+    );
+  });
 });

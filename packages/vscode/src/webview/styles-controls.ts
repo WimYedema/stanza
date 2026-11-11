@@ -114,6 +114,9 @@ export function textControl(
 
 export type TokenKind = 'color' | 'font';
 
+/** Shows a token in the Theme tab. */
+export type OpenToken = (kind: TokenKind, name: string) => void;
+
 const CUSTOM = '\u0000custom';
 
 /** A font as CSS: every family quoted, so that no name can end the declaration. */
@@ -133,12 +136,19 @@ function tokenPicker(
   kind: TokenKind,
   tokens: () => Tokens,
   pick: (name: string | null) => void,
+  open: OpenToken,
 ): TokenPicker {
   const select = el('select');
   const sample = kind === 'color' ? el('span', 'swatch') : el('span', 'sample', 'Aa');
+  const link = el('button', 'token-link', '\u2192');
+  link.type = 'button';
+  let target: string | undefined;
+  link.addEventListener('click', () => {
+    if (target !== undefined) open(kind, target);
+  });
   const warning = el('span', 'warning', 'Not a token of the theme. Pick one.');
   const node = el('span', 'control tokens');
-  node.append(select, sample, warning);
+  node.append(select, sample, link, warning);
   select.addEventListener('change', () => {
     if (select.value !== CUSTOM) pick(select.value === '' ? null : select.value);
   });
@@ -164,6 +174,10 @@ function tokenPicker(
       select.value = own === undefined ? '' : custom ? CUSTOM : (chosen ?? '');
       warning.hidden = !custom;
       const shown = own === undefined ? inherited : chosen;
+      target = shown !== undefined && !custom && known.includes(shown) ? shown : undefined;
+      link.hidden = target === undefined;
+      link.title = target === undefined ? '' : `Show the token ${target} in the Theme tab`;
+      link.setAttribute('aria-label', link.title);
       if (kind === 'color') {
         sample.style.background = shown === undefined ? '' : (tokens().colors.get(shown) ?? '');
       } else {
@@ -174,8 +188,13 @@ function tokenPicker(
   };
 }
 
-export function tokenControl(kind: TokenKind, tokens: () => Tokens, commit: Commit): Control {
-  const picker = tokenPicker(kind, tokens, commit);
+export function tokenControl(
+  kind: TokenKind,
+  tokens: () => Tokens,
+  commit: Commit,
+  open: OpenToken,
+): Control {
+  const picker = tokenPicker(kind, tokens, commit, open);
   return {
     node: picker.node,
     show(own, inherited) {
@@ -294,6 +313,7 @@ export function borderControl(
   commit: Commit,
   fallback: () => Border | undefined,
   tokens: () => Tokens,
+  open: OpenToken,
 ): Control {
   let has = false;
   let chosen = '';
@@ -317,10 +337,15 @@ export function borderControl(
     if (color === undefined) return;
     commit({ width: typed ?? inherited?.widthPt ?? DEFAULT_BORDER_WIDTH, color });
   };
-  const picker = tokenPicker('color', tokens, (name) => {
-    chosen = name ?? '';
-    send();
-  });
+  const picker = tokenPicker(
+    'color',
+    tokens,
+    (name) => {
+      chosen = name ?? '';
+      send();
+    },
+    open,
+  );
   width.addEventListener('change', send);
   const node = el('span', 'control');
   node.append(width, el('span', 'unit', 'pt'), picker.node);

@@ -43,7 +43,14 @@ let editor: PhraseEditor | undefined;
 let latest: Stylesheet | undefined;
 
 const detail = element('detail');
-const panel = createPanel({ root: element('panel'), send });
+const panel = createPanel({
+  root: element('panel'),
+  send,
+  openToken: (kind, name) => {
+    view.selectWhenShown(kind, name);
+    if (latest !== undefined) view.show(latest);
+  },
+});
 const theme = createThemePanel({ root: element('theme'), send });
 const pages = createPagePanel({ root: element('pages'), send });
 const adder = createAddPanel({

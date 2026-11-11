@@ -54,6 +54,8 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
   .side-panel button:not(.reset) { padding: 2px 10px; font: 12px sans-serif; }
   .side-panel .unit { font-size: 11px; color: #9d9d9d; }
   .side-panel .reset { padding: 0; border: 0; background: none; color: #9d9d9d; cursor: pointer; }
+  .side-panel button.token-link { flex: none; padding: 0 4px; border: 0; background: none;
+    color: #3794ff; cursor: pointer; }
   .side-panel .note { grid-column: 2 / 4; font-size: 11px; color: #9d9d9d; }
   .side-panel .note:empty { display: none; }
   .side-panel .status { margin: 0; padding: 6px 12px; background: #5a1d1d; color: #ffb4b4;
