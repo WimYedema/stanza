@@ -613,3 +613,69 @@ describe('revealing a block', () => {
     });
   });
 });
+
+describe('opening a document at a block', () => {
+  const start = (): PhraseEditorProvider => {
+    reset({ ...files(), [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
+    return newProvider();
+  };
+  const documentUri = (): vscode.Uri => world.document?.uri as unknown as vscode.Uri;
+  const resolve = (provider: PhraseEditorProvider): void => {
+    provider.resolveCustomTextEditor(
+      world.document as unknown as vscode.TextDocument,
+      fakePanel() as unknown as vscode.WebviewPanel,
+    );
+  };
+
+  it('keeps the block until the editor is shown, and scrolls to it after the document is sent', async () => {
+    const provider = start();
+    await provider.open(documentUri(), 2);
+    expect(world.commands).toEqual(['vscode.openWith']);
+    expect(world.commandArgs[0]?.[1]).toBe('phrase.editor');
+    resolve(provider);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted().map((message) => message.type)).toEqual(['init', 'reveal']);
+    });
+    expect(posted()[1]).toEqual({ type: 'reveal', block: 2 });
+  });
+
+  it('scrolls an editor that is open already, and brings it to the front', async () => {
+    const provider = start();
+    resolve(provider);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    await provider.open(documentUri(), 3);
+    await settled(() => {
+      expect(posted()[1]).toEqual({ type: 'reveal', block: 3 });
+    });
+    expect(world.commands).toEqual(['vscode.openWith']);
+  });
+
+  it('only shows the document when there is no block', async () => {
+    const provider = start();
+    await provider.open(documentUri());
+    resolve(provider);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    expect(posted()[0]?.type).toBe('init');
+  });
+
+  it('does not keep the block for another editor that opens later', async () => {
+    const provider = start();
+    await provider.open(documentUri(), 2);
+    resolve(provider);
+    for (const close of world.disposers) close();
+    world.posted = [];
+    resolve(provider);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted().map((message) => message.type)).toContain('init');
+    });
+    expect(posted().map((message) => message.type)).not.toContain('reveal');
+  });
+});

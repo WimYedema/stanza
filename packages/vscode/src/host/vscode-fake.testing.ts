@@ -89,6 +89,8 @@ export const world = {
   /** The lists shown in quick picks, and which entry is picked (undefined: the pick is cancelled). */
   quickPicks: [] as unknown[][],
   quickPickIndex: 0 as number | undefined,
+  /** The tree data providers that were registered, by view ID. */
+  treeProviders: new Map<string, unknown>(),
   /** The warnings asked with buttons, and the button that is pressed on them. */
   warnings: [] as string[],
   warningChoice: undefined as string | undefined,
@@ -143,6 +145,7 @@ export function reset(
   world.infoChoice = undefined;
   world.quickPicks = [];
   world.quickPickIndex = 0;
+  world.treeProviders = new Map();
   world.warnings = [];
   world.warningChoice = undefined;
   world.outsideWorkspace = false;
@@ -219,6 +222,32 @@ export function createFakeVscode(): Record<string, unknown> {
     ) {}
   }
   const FileType = { File: 1, Directory: 2, SymbolicLink: 64 };
+  class EventEmitter<T> {
+    private readonly listeners: ((event: T) => void)[] = [];
+    readonly event = (listener: (event: T) => void): ReturnType<typeof disposable> => {
+      this.listeners.push(listener);
+      return disposable(() => undefined);
+    };
+    fire(event: T): void {
+      for (const listener of this.listeners) listener(event);
+    }
+    dispose(): void {
+      this.listeners.length = 0;
+    }
+  }
+  class TreeItem {
+    id?: string;
+    description?: string;
+    iconPath?: unknown;
+    command?: { command: string; title: string; arguments?: unknown[] };
+    constructor(
+      readonly label: string,
+      readonly collapsibleState = 0,
+    ) {}
+  }
+  class ThemeIcon {
+    constructor(readonly id: string) {}
+  }
   const exists = (path: string): boolean =>
     world.files.has(path) || [...world.files.keys()].some((file) => file.startsWith(`${path}/`));
 
@@ -231,6 +260,10 @@ export function createFakeVscode(): Record<string, unknown> {
     CodeActionKind: { QuickFix: 'quickfix' },
     DiagnosticSeverity: { Error: 0, Warning: 1 },
     FileType,
+    EventEmitter,
+    TreeItem,
+    ThemeIcon,
+    TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     UIKind: { Desktop: 1, Web: 2 },
     env: {
       get remoteName() {
@@ -331,6 +364,7 @@ export function createFakeVscode(): Record<string, unknown> {
         listen(world.saveListeners, listener),
       onDidChangeTextDocument: (listener: Listener<{ document: FakeDocument }>) =>
         listen(world.changeListeners, listener),
+      onDidChangeWorkspaceFolders: () => disposable(() => undefined),
       createFileSystemWatcher: () => ({
         onDidChange: () => disposable(() => undefined),
         onDidCreate: () => disposable(() => undefined),
@@ -371,6 +405,10 @@ export function createFakeVscode(): Record<string, unknown> {
         return disposable(() => undefined);
       },
       registerCustomEditorProvider: () => disposable(() => undefined),
+      registerTreeDataProvider: (id: string, provider: unknown) => {
+        world.treeProviders.set(id, provider);
+        return disposable(() => undefined);
+      },
       get tabGroups() {
         return { activeTabGroup: { activeTab: world.activeTab } };
       },

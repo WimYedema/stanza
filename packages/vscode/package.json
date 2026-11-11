@@ -46,6 +46,15 @@
         "priority": "option"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "phrase.outline",
+          "name": "Phrase",
+          "when": "workspaceFolderCount > 0"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "phrase.editStyles",

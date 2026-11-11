@@ -8,6 +8,7 @@ import { registerImportWord } from './import-word-command.js';
 import { registerNewDocument } from './new-document-command.js';
 import { registerNewProject } from './new-project-command.js';
 import { registerOpenInWord } from './open-in-word-command.js';
+import { registerPhraseTree } from './phrase-tree.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import { PhraseEditorProvider } from './provider.js';
 import { registerDeclareVariant } from './quick-fix.js';
@@ -39,6 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerGoToHeading((uri, block) => {
       editors.reveal(uri, block);
     }),
+    registerPhraseTree(editors),
     registerEditStyles(),
     registerNewProject(),
     registerNewDocument(),

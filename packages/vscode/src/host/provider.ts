@@ -27,6 +27,8 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
 
   /** The open editors by document, to tell one of them to scroll. */
   private readonly sessions = new Map<string, EditorSession>();
+  /** Blocks to scroll to in documents whose editor is about to open. */
+  private readonly waiting = new Map<string, number>();
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -40,6 +42,20 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
     this.sessions.get(uri.toString())?.reveal(block);
   }
 
+  /**
+   * Shows a document in the Phrase editor, in front, and scrolls to a block when one is given. The
+   * editor may not be open yet, so the block is kept until it is.
+   */
+  async open(uri: vscode.Uri, block?: number): Promise<void> {
+    const key = uri.toString();
+    if (block !== undefined) {
+      const session = this.sessions.get(key);
+      if (session === undefined) this.waiting.set(key, block);
+      else session.reveal(block);
+    }
+    await vscode.commands.executeCommand('vscode.openWith', uri, PhraseEditorProvider.viewType);
+  }
+
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     const session = new EditorSession(
       this.context,
@@ -51,6 +67,11 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
     );
     const key = document.uri.toString();
     this.sessions.set(key, session);
+    const block = this.waiting.get(key);
+    if (block !== undefined) {
+      this.waiting.delete(key);
+      session.reveal(block);
+    }
     panel.onDidDispose(() => {
       this.sessions.delete(key);
       session.dispose();
@@ -72,6 +93,8 @@ class EditorSession {
   /** The text of the document after the last change that came from the webview. */
   private fromWebview: string | undefined;
   private shown: Shown = 'nothing';
+  /** A block to scroll to once the editor is shown. */
+  private revealing: number | undefined;
   private root: vscode.Uri | undefined;
   private watched: string | undefined;
   private stylesheetText: string | undefined;
@@ -117,10 +140,11 @@ class EditorSession {
     for (const disposable of this.disposables) disposable.dispose();
   }
 
-  /** Asks the webview to scroll to a block, when it shows the editor and not a refusal. */
+  /** Asks the webview to scroll to a block, or does so as soon as the editor is shown. */
   reveal(block: number): void {
     this.enqueue(async () => {
       if (this.shown === 'editor') await this.post({ type: 'reveal', block });
+      else if (this.shown === 'nothing') this.revealing = block;
     });
   }
 
@@ -283,6 +307,10 @@ class EditorSession {
     });
     await this.postUsage(loaded, root, true);
     await this.postDiagnostics(loaded, root, true);
+    if (this.revealing !== undefined) {
+      await this.post({ type: 'reveal', block: this.revealing });
+      this.revealing = undefined;
+    }
   }
 
   /** Tells the webview what the checks say about this document, when that is new or asked for. */
