@@ -80,3 +80,4 @@ One line per finished item, in completion order. Detail is in the ADR named on t
 110. [S] - Go to heading: "Phrase: Go to Heading" (`Ctrl+Shift+O` in the document editor) lists the headings with their numbers and scrolls the editor to the chosen one, under the bar at the top.
 109. [S] - Find in the document editor: the find widget of VS Code is switched on for the webview (`Ctrl+F`), tried by the product owner in VS Code.
 111. [M] - Phrase tree view in the Explorer: project, documents, headings with numbers, from the loaded project so that several documents work; a click opens the document at that heading, also when its editor is not open yet.
+112. [S] - Agent instructions (ADR 0061): "Phrase: New Project" writes `AGENTS.md` into the project when there is none, and "Phrase: Add Agent Instructions" does so for an existing project; it states the rules of the dialect and the loop of `phrase format` and `phrase validate`, and never replaces a file.

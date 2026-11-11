@@ -77,6 +77,10 @@
         "title": "Phrase: Adopt Markdown File"
       },
       {
+        "command": "phrase.addAgentInstructions",
+        "title": "Phrase: Add Agent Instructions"
+      },
+      {
         "command": "phrase.goToHeading",
         "title": "Phrase: Go to Heading"
       },

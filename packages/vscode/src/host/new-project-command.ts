@@ -52,6 +52,11 @@ export function registerNewProject(): vscode.Disposable {
       );
       return;
     }
+    if (result.agentInstructions === 'exists') {
+      void vscode.window.showInformationMessage(
+        'Phrase: the folder has an AGENTS.md already, so the instructions for agents were not written.',
+      );
+    }
 
     if (vscode.workspace.getWorkspaceFolder(folder) !== undefined) {
       await vscode.commands.executeCommand(

@@ -3,6 +3,7 @@ import { StylesheetSaves } from './declare-variant.js';
 import { registerEditStyles } from './edit-styles-command.js';
 import { ExportOnSave } from './export-on-save.js';
 import { registerAdoptMarkdown } from './adopt-markdown-command.js';
+import { registerAddAgentInstructions } from './add-agent-instructions-command.js';
 import { registerGoToHeading } from './go-to-heading-command.js';
 import { registerImportWord } from './import-word-command.js';
 import { registerNewDocument } from './new-document-command.js';
@@ -46,6 +47,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerNewDocument(),
     registerImportWord(log),
     registerAdoptMarkdown(log),
+    registerAddAgentInstructions(),
     vscode.window.registerCustomEditorProvider(
       StylesEditorProvider.viewType,
       new StylesEditorProvider(context, log),

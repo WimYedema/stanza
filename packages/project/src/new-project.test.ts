@@ -4,6 +4,7 @@ import { checkDocumentText } from '@phrase/format';
 import { buildProject } from './build.js';
 import { loadProject } from './load.js';
 import { memoryStorage } from './memory-storage.testing.js';
+import { AGENT_INSTRUCTIONS } from './agent-instructions.js';
 import { createProject, slugOf } from './new-project.js';
 
 const randomBytes = (): Uint8Array => Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -34,7 +35,9 @@ describe('createProject', () => {
       ok: true,
       files: ['phrase.yaml', 'styles/default.yaml', 'documents/my-report.phrase.md'],
       document: 'documents/my-report.phrase.md',
+      agentInstructions: 'written',
     });
+    expect(files['AGENTS.md']).toBe(AGENT_INSTRUCTIONS);
     expect(files['phrase.yaml']).toBe(
       "phrase-format: 1\ntitle: 'My Report'\nstylesheet: 'styles/default.yaml'\n",
     );
@@ -108,5 +111,14 @@ describe('createProject', () => {
   it('writes into a folder that has other files', async () => {
     const { result } = await created('My Report', { 'notes.txt': 'kept' });
     expect(result.ok).toBe(true);
+  });
+
+  it('leaves an AGENTS.md that is there alone, writes the project, and says so', async () => {
+    const { result, files, storage } = await created('My Report', {
+      'AGENTS.md': 'My own rules.\n',
+    });
+    expect(result).toMatchObject({ ok: true, agentInstructions: 'exists' });
+    expect(storage.texts.has('AGENTS.md')).toBe(false);
+    expect(files['phrase.yaml']).toBeDefined();
   });
 });

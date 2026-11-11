@@ -26,6 +26,7 @@ describe('Phrase: New Project', () => {
   it('writes the project into the folder and opens the first document in the Phrase editor', async () => {
     await run();
     expect([...world.files.keys()].sort()).toEqual([
+      `${FOLDER}/AGENTS.md`,
       `${FOLDER}/documents/my-report.phrase.md`,
       `${FOLDER}/phrase.yaml`,
       `${FOLDER}/styles/default.yaml`,
@@ -54,6 +55,15 @@ describe('Phrase: New Project', () => {
     await run();
     expect(world.files.size).toBe(0);
     expect(world.commands).toEqual([]);
+  });
+
+  it('keeps an AGENTS.md that is in the folder, writes the project, and says so', async () => {
+    world.files.set(`${FOLDER}/AGENTS.md`, 'My own rules.\n');
+    await run();
+    expect(world.files.get(`${FOLDER}/AGENTS.md`)).toBe('My own rules.\n');
+    expect(world.files.has(`${FOLDER}/phrase.yaml`)).toBe(true);
+    expect(world.infos).toEqual([expect.stringContaining('AGENTS.md already')]);
+    expect(world.errors).toEqual([]);
   });
 
   it('writes nothing and says why when the folder has a project already', async () => {
@@ -85,6 +95,6 @@ describe('Phrase: New Project', () => {
     await run();
     expect(world.infos).toHaveLength(1);
     expect(world.commands).toEqual([]);
-    expect(world.files.size).toBe(3);
+    expect(world.files.size).toBe(4);
   });
 });

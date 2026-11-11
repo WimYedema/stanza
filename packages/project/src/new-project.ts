@@ -1,5 +1,6 @@
 import { nodeIdFromRandomBytes, type Document, type NodeId } from '@phrase/core';
 import { serializeDocument } from '@phrase/format';
+import { addAgentInstructions } from './agent-instructions.js';
 import { DEFAULT_STYLESHEET } from './default-stylesheet.js';
 import { DOCUMENT_SUFFIX, PROJECT_FILE } from './files.js';
 import type { ProjectStorage } from './storage.js';
@@ -12,7 +13,13 @@ export interface NewProjectOptions {
 }
 
 export type NewProjectResult =
-  | { readonly ok: true; readonly files: readonly string[]; readonly document: string }
+  | {
+      readonly ok: true;
+      readonly files: readonly string[];
+      readonly document: string;
+      /** `AGENTS.md` (ADR 0061) is written when the folder has none, and never over one. */
+      readonly agentInstructions: 'written' | 'exists';
+    }
   | { readonly ok: false; readonly reason: 'empty-title' }
   | { readonly ok: false; readonly reason: 'exists'; readonly existing: readonly string[] };
 
@@ -60,7 +67,8 @@ export async function names(
 
 /**
  * Writes a new project into a folder (ADR 0042): the project file, a default stylesheet and a first
- * document. It writes nothing when any of those files exists already.
+ * document. It writes nothing when any of those files exists already. The instructions for agents
+ * (ADR 0061) are the exception: they are written only when there is no such file.
  */
 export async function createProject(
   storage: ProjectStorage,
@@ -88,5 +96,11 @@ export async function createProject(
   if (existing.length > 0) return { ok: false, reason: 'exists', existing };
 
   for (const [path, text] of files) await storage.writeText(path, text);
-  return { ok: true, files: files.map(([path]) => path), document };
+  const instructions = await addAgentInstructions(storage);
+  return {
+    ok: true,
+    files: files.map(([path]) => path),
+    document,
+    agentInstructions: instructions.ok ? 'written' : 'exists',
+  };
 }

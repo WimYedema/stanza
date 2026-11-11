@@ -54,7 +54,7 @@ describe('addDocument', () => {
     const storage = await project();
     const result = await addDocument(storage, { title: '  ', randomBytes: bytes(11) });
     expect(result).toEqual({ ok: false, reason: 'empty-title' });
-    expect(storage.texts.size).toBe(3);
+    expect(storage.texts.size).toBe(4);
   });
 
   it('makes the same file for the same title and bytes', async () => {

@@ -1,4 +1,10 @@
 export {
+  AGENT_INSTRUCTIONS,
+  AGENT_INSTRUCTIONS_FILE,
+  addAgentInstructions,
+  type AddAgentInstructionsResult,
+} from './agent-instructions.js';
+export {
   adoptMarkdownDocument,
   type AdoptMarkdownOptions,
   type AdoptMarkdownResult,
