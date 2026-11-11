@@ -142,6 +142,39 @@ describe('looking for a heading', () => {
   });
 });
 
+describe('opened by typing @', () => {
+  it('lists all the headings, and has the @ replaced by the reference that is chosen', () => {
+    picker.open({ replaces: '@' });
+    expect(root.hidden).toBe(false);
+    expect(items()).toHaveLength(4);
+    key('ArrowDown');
+    key('Enter');
+    expect(run).toHaveBeenLastCalledWith({
+      type: 'set-reference',
+      id: 'bbbbbbbbbb',
+      text: 'S1 \u2014 Unauthorised sign-in',
+      replaces: '@',
+    });
+  });
+
+  it('does not open when there is no heading to offer, so the @ is only text', () => {
+    document_ = parseDocument('---\nphrase-format: 1\n---\n\nJust text.\n').document;
+    picker.open({ replaces: '@' });
+    expect(root.hidden).toBe(true);
+    document_ = undefined;
+    picker.open({ replaces: '@' });
+    expect(root.hidden).toBe(true);
+  });
+
+  it('does not replace anything when opened another way afterwards', () => {
+    picker.open({ replaces: '@' });
+    key('Escape');
+    picker.open();
+    key('Enter');
+    expect(run.mock.calls.at(-1)?.[0]).not.toHaveProperty('replaces');
+  });
+});
+
 describe('choosing', () => {
   it('turns the selection into a reference with Enter, and gives the focus back', () => {
     selected = 'I5';

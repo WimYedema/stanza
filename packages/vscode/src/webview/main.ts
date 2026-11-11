@@ -174,6 +174,9 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     onNotice: (notice) => {
       say(`${notice.code}: ${notice.message}`);
     },
+    onReferenceTrigger: () => {
+      references.open({ replaces: '@' });
+    },
     usedIds: () => usedIds,
     onContextChange: () => {
       toolbar.schedule();

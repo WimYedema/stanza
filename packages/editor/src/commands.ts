@@ -42,7 +42,13 @@ export type EditorCommand =
    * A reference to a block (ADR 0068, 0069): the selected text becomes a link to `#id` and keeps its
    * text; with nothing selected, `text` is inserted as the link.
    */
-  | { readonly type: 'set-reference'; readonly id: string; readonly text: string }
+  | {
+      readonly type: 'set-reference';
+      readonly id: string;
+      readonly text: string;
+      /** Text that stands just before the cursor and goes, such as the `@` that opened the list. */
+      readonly replaces?: string;
+    }
   | { readonly type: 'remove-link' }
   | { readonly type: 'toggle-character-style'; readonly style: StyleName }
   | { readonly type: 'set-heading'; readonly level: HeadingLevel }
@@ -186,7 +192,12 @@ function planLink(state: EditorState, href: string): Plan {
   return done(tr);
 }
 
-function planReference(state: EditorState, id: string, text: string): Plan {
+function planReference(
+  state: EditorState,
+  id: string,
+  text: string,
+  replaces: string | undefined,
+): Plan {
   if (!isNodeId(id)) return refuse('invalid-argument', 'A reference needs the ID of a block.');
   if (!state.selection.empty) return planLink(state, `#${id}`);
   const type = state.schema.marks['link'];
@@ -198,7 +209,12 @@ function planReference(state: EditorState, id: string, text: string): Plan {
     return refuse('invalid-argument', 'A reference needs text on one line.');
   }
   const link = state.schema.text(text, [type.create({ href: `#${id}` })]);
-  return done(state.tr.replaceSelectionWith(link, false));
+  const { $from } = state.selection;
+  const length = replaces?.length ?? 0;
+  const before = parent.textBetween(Math.max(0, $from.parentOffset - length), $from.parentOffset);
+  // One step of the history: the text goes and the reference comes.
+  const from = length > 0 && before === replaces ? $from.pos - length : $from.pos;
+  return done(state.tr.replaceWith(from, $from.pos, link));
 }
 
 function planRemoveLink(state: EditorState): Plan {
@@ -528,7 +544,7 @@ function plan(state: EditorState, command: EditorCommand, stylesheet: Stylesheet
     case 'set-link':
       return planLink(state, command.href);
     case 'set-reference':
-      return planReference(state, command.id, command.text);
+      return planReference(state, command.id, command.text, command.replaces);
     case 'remove-link':
       return planRemoveLink(state);
     case 'toggle-character-style':

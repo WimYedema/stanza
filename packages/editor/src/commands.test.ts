@@ -311,6 +311,30 @@ describe('marks', () => {
       expect(linkOf(made.next, 'for this')).toBeUndefined();
     });
 
+    it('replaces the text just before the cursor, such as the @ that opened the list, in one step', () => {
+      const doc = build(paragraph('See @ for this'));
+      const command: EditorCommand = { type: 'set-reference', id, text: 'I5', replaces: '@' };
+      const state = select(doc, ' for', 0);
+      let steps = 0;
+      const made = runCommand(state, () => (steps += 1), command, stylesheet);
+      expect(made).toEqual({ ok: true });
+      expect(steps).toBe(1);
+      const result = run(state, command);
+      expect(result.next.doc.textContent).toBe('See I5 for this');
+      expect(linkOf(result.next, 'I5')).toEqual({ href: `#${id}` });
+    });
+
+    it('leaves the text alone when it is not what is before the cursor', () => {
+      const doc = build(paragraph('See x for this'));
+      const made = run(select(doc, ' for', 0), {
+        type: 'set-reference',
+        id,
+        text: 'I5',
+        replaces: '@',
+      });
+      expect(made.next.doc.textContent).toBe('See xI5 for this');
+    });
+
     it('works in a table cell and in a heading', () => {
       const doc = build(heading('A title', 2), {
         type: 'table',

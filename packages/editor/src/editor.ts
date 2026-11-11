@@ -31,6 +31,7 @@ import { GapCursor } from './gap-cursor.js';
 import { PhraseKeys } from './keys.js';
 import type { Notice } from './notice.js';
 import { PhrasePaste } from './paste.js';
+import { ReferenceTrigger } from './reference-trigger.js';
 import {
   PhraseBlockView,
   PHRASE_BLOCK_EMPTY_CLASS,
@@ -149,6 +150,8 @@ export interface PhraseEditorOptions {
   readonly styleNonce?: string;
   /** False for a view that only shows the content, such as a sample of a stylesheet. */
   readonly editable?: boolean;
+  /** Called after an `@` was typed where a reference can start, to offer the headings (ADR 0071). */
+  readonly onReferenceTrigger?: () => void;
 }
 
 /** What a replacement of the content changed, as far as it was asked to find out (ADR 0062). */
@@ -218,6 +221,7 @@ export function phraseExtensions(
   stylesheet: () => Stylesheet,
   notice: (notice: Notice) => void,
   ids: IdSource = randomIds,
+  referenceTrigger?: () => void,
 ): Extensions {
   return [
     ...schemaExtensions(),
@@ -229,6 +233,7 @@ export function phraseExtensions(
     PhraseBlockView.configure({ stylesheet }),
     PhraseKeys.configure({ stylesheet, notice }),
     PhrasePaste.configure({ stylesheet, notice }),
+    ReferenceTrigger.configure({ trigger: referenceTrigger }),
   ];
 }
 
@@ -256,6 +261,7 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
         newId: options.newId ?? randomIds.newId,
         usedIds: options.usedIds ?? randomIds.usedIds,
       },
+      options.onReferenceTrigger,
     ),
     content: toEditorContent(options.document),
     editable: options.editable ?? true,

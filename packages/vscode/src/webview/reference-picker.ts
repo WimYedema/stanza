@@ -16,8 +16,12 @@ export interface ReferencePickerHost {
 }
 
 export interface ReferencePicker {
-  /** Shows the list for the selection that the editor has now. */
-  open(): void;
+  /**
+   * Shows the list for the selection that the editor has now. With `replaces`, the text that was
+   * typed to open it (the `@`, ADR 0071) goes when a heading is chosen, and nothing opens when there
+   * is no heading to offer, so that the text is only text.
+   */
+  open(options?: { readonly replaces?: string }): void;
   close(): void;
 }
 
@@ -44,6 +48,7 @@ export function createReferencePicker(
 
   let headings: Document | undefined;
   let selected = '';
+  let replaces: string | undefined;
   let shown: readonly ReferenceSuggestion[] = [];
   let active = 0;
 
@@ -61,6 +66,7 @@ export function createReferencePicker(
       type: 'set-reference',
       id: suggestion.id,
       text: suggestion.text,
+      ...(replaces !== undefined ? { replaces } : {}),
     };
     host.answered(command, editor.run(command));
     editor.focus();
@@ -129,10 +135,14 @@ export function createReferencePicker(
   });
 
   return {
-    open() {
+    open(options) {
       const editor = host.editor();
       if (editor === undefined) return;
       headings = editor.getDocument().document;
+      if (options?.replaces !== undefined) {
+        if (headings === undefined || suggestReferences(headings, '').length === 0) return;
+      }
+      replaces = options?.replaces;
       selected = editor.getSelectedText().replace(/\s+/g, ' ').trim();
       input.value = selected;
       root.hidden = false;
