@@ -14,9 +14,9 @@ Placed before the themes "Pipeline (CLI, no editor)" and "Collections and refere
 
 ## Theme: Collections and references
 
-References inside one document come first (items 119 and 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
+References inside one document come first (item 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
 
-119. [M] - Editor, find possible references: a command that lists the places where the text equals the title of a heading, or a name that the author gave it, with a preview, and turns one or all of them into references. Nothing is changed without the person choosing it. Phrase does not know how a document names its headings (codes such as T6; ADR 0070), so an ADR first settles how the author says it: an alias on a heading in its annotation, or a pattern in the project file that reads the name from the heading text, or the full text of the heading only. Needs item 118.
+
 120. [S] - Editor, typing shorthand: typing `@` opens the list of headings in the editor and picking one inserts a reference. Only an editor shorthand; the file holds the ordinary link. Needs item 118.
 
 30. [M] - Project model: multiple documents, shared stylesheet, document order.
@@ -61,3 +61,4 @@ References inside one document come first (items 119 and 120); the project items
 115. [S] - Links that open the editor at a line, if VS Code allows it later: check whether a custom editor can be given the selection of a link (see ADR 0063), or whether `vscode://` links with a URI handler are let through by the chat, and then scroll to the block without `Ctrl+G`. Added with item 114.
 121. [M] - References to table rows and to paragraphs in table cells (for example the boundaries TB1 to TB8 of the threat model): IDs on blocks inside cells and rows, which annotations do not allow now (they are read only before top-level blocks). Dialect decision first. Added with item 116.
 122. [S] - Computed text of a reference in the document: the number or the title of the target, kept up to date, instead of the text as written. Added with item 116.
+119. [M] - Editor, find possible references, postponed by the product owner: a command that lists the places where the text equals the title of a heading, or a name that the author gave it, with a preview, and turns one or all of them into references. Nothing is changed without the person choosing it. Phrase does not know how a document names its headings (codes such as T6; ADR 0070), so an ADR first settles how the author says it: an alias on a heading in its annotation, or a pattern in the project file that reads the name from the heading text, or the full text of the heading only. A coding assistant may do the bulk conversion as well; the single reference is item 118.
