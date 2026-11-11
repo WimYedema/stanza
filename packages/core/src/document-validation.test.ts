@@ -139,7 +139,7 @@ describe('validateDocument', () => {
     const cellWith = (mark: Mark): Table =>
       table({ header: [plainCell([run('H', mark)])], rows: [[plainCell([run('c', mark)])]] });
     expect(problems(documentOf(cellWith(strong)))).toEqual([]);
-    expect(problems(documentOf(cellWith({ type: 'link', href: '#x' })))).toEqual([
+    expect(problems(documentOf(cellWith({ type: 'link', href: 'https://example.com' })))).toEqual([
       ['mark-not-allowed', 'blocks[0].header[0].blocks[0].content'],
       ['mark-not-allowed', 'blocks[0].rows[0][0].blocks[0].content'],
     ]);

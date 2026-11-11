@@ -7,7 +7,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 - 0001, 0005, 0024: the Markdown dialect, its normal form, IDs of new blocks.
 - 0003, 0004: editor state versus domain model; the document model.
 - 0048: tables with paragraphs and lists in cells (`phrase-table`).
-- 0018: `phrase-toc` block. 0011: heading numbering.
+- 0018: `phrase-toc` block. 0011: heading numbering. 0068: references inside a document.
 - 0007: project file and metadata. 0020: assigning IDs.
 - 0033, 0034: style property list; style labels.
 

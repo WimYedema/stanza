@@ -219,7 +219,7 @@ Every referenceable structural object receives an immutable ID when created: ten
 ## Authentication
 ```
 
-A reference stores the target ID and its display intention, for example number and title. The syntax is defined with the reference index (backlog: reference index); it targets IDs, never paths or titles.
+A reference stores the target ID and its display intention, for example number and title. Inside a document it is a link to `#<id>` (ADR 0068); it targets IDs, never paths or titles.
 
 Resolved text and numbers are derived during rendering. Moving or renaming the target does not alter the reference. Deleting a target creates a validation error rather than silently replacing the reference with plain text.
 

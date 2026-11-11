@@ -14,9 +14,8 @@ Placed before the themes "Pipeline (CLI, no editor)" and "Collections and refere
 
 ## Theme: Collections and references
 
-References inside one document come first (items 116 to 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
+References inside one document come first (items 117 to 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
 
-116. [M] - In-document references, ADR and core: the ADR settles what a reference is (the link with a `#<id>` destination, which the editor already accepts), what can be a target (headings, tables and any top-level block that has an ID) and the diagnostics. A reference index in `core` (resolve, find incoming, find broken) and the error `broken-reference` for a `#id` that has no target. Added at the request of the product owner, after reading the threat model, where about 180 mentions of threat codes (such as "see I5") are plain text.
 117. [S] - References in DOCX: a link to `#<id>` becomes an internal hyperlink to the bookmark of the block (ADR 0009), not an external link as now, so it works in Word. Deterministic. Needs item 116.
 118. [M] - Editor, make a reference: a command on selected text (toolbar, key, palette, and a right-click menu inside the editor if it can be done) that offers the headings, the best match for the selected text first (the leading code of a heading, such as I5, or its title), and turns the selection into a reference that keeps its text. With nothing selected it inserts a reference with the title of the heading. Needs item 116.
 119. [M] - Editor, find possible references: a command that lists the places where the text equals the code or the title of a heading, with a preview, and turns one or all of them into references. Nothing is changed without the person choosing it. Needs item 118.

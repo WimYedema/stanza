@@ -17,8 +17,9 @@ import type {
   TableCell,
 } from './document.js';
 import { numberHeadings } from './heading-numbering.js';
-import type { NodeId } from './ids.js';
+import { isNodeId, type NodeId } from './ids.js';
 import { PAGE_TEMPLATE_FIELD, resolvePageTemplate } from './page-template.js';
+import { findBroken, indexReferences } from './references.js';
 import type { StyleName } from './style-name.js';
 import {
   resolveParagraphStyle,
@@ -347,6 +348,18 @@ export function validateDocument(
   document.blocks.forEach((block, index) => {
     checkBlock(block, `blocks[${String(index)}]`, {});
   });
+  // A reference to a block that is not in the document is an error, never plain text (ADR 0068).
+  for (const broken of findBroken(indexReferences(document))) {
+    report(
+      'error',
+      'broken-reference',
+      isNodeId(broken.target)
+        ? `The reference "${broken.text}" points at the block ${broken.target}, which is not in this document.`
+        : `The link "${broken.text}" goes to "#${broken.target}", which is not the ID of a block.`,
+      broken.path,
+      broken.blockId,
+    );
+  }
   diagnostics.push(...numberHeadings(document, stylesheet).diagnostics);
   return diagnostics;
 }

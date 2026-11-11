@@ -34,6 +34,15 @@ export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
 export { collectBlockIds, type BlockId } from './document-ids.js';
 export {
+  findBroken,
+  findIncoming,
+  indexReferences,
+  resolveReference,
+  type Reference,
+  type ReferenceIndex,
+  type ReferenceTarget,
+} from './references.js';
+export {
   DEFAULT_TOC_DEPTH,
   MAX_TOC_DEPTH,
   TOC_PHRASE_KIND,
