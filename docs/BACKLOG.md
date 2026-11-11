@@ -16,7 +16,6 @@ Placed before the themes "Pipeline (CLI, no editor)" and "Collections and refere
 
 References inside one document come first (item 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
 
-
 120. [S] - Editor, typing shorthand: typing `@` opens the list of headings in the editor and picking one inserts a reference. Only an editor shorthand; the file holds the ordinary link. Needs item 118.
 
 30. [M] - Project model: multiple documents, shared stylesheet, document order.
