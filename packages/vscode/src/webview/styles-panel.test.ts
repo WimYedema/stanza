@@ -9,6 +9,8 @@ const stylesheet = parseStylesheet(`phrase-format: 1
 tokens:
   colors:
     brand: '#2E75B6'
+    rule: '#BFBFBF'
+    pale: '#F2F2F2'
   fonts:
     body: ['Calibri', 'Arial']
 paragraph-styles:
@@ -44,12 +46,12 @@ table-styles:
     cell-padding: 4
     border:
       outer: { width: 0.75, color: brand }
-      inside-horizontal: { width: 0.5, color: '#BFBFBF' }
+      inside-horizontal: { width: 0.5, color: rule }
     header-row:
       bold: true
       repeat: true
     banded-rows:
-      odd: '#F2F2F2'
+      odd: pale
   table-grid:
     based-on: table
     border:
@@ -141,14 +143,23 @@ describe('showing a paragraph style', () => {
     expect(select.options[0]?.textContent).toBe('(from base: 1.15 lines)');
   });
 
-  it('offers the tokens of the theme for colors and fonts', () => {
-    expect(
-      [...root.querySelectorAll('#phrase-colors option')].map((o) => o.getAttribute('value')),
-    ).toEqual(['brand']);
-    expect(
-      [...root.querySelectorAll('#phrase-fonts option')].map((o) => o.getAttribute('value')),
-    ).toEqual(['body']);
-    expect(control('Color', 'input').getAttribute('list')).toBe('phrase-colors');
+  it('offers the tokens of the theme for colors and fonts, and says where they come from', () => {
+    const options = (title: string): (string | undefined)[] =>
+      [...control(title, 'select').options].slice(1).map((o) => o.value);
+    expect(options('Color')).toEqual(['brand', 'rule', 'pale']);
+    expect(options('Font')).toEqual(['body']);
+    expect(root.querySelector('.hint')?.textContent).toContain('theme');
+  });
+
+  it('shows a font token with a sample in its families, and the token it comes from', () => {
+    expect(control('Font', 'select').value).toBe('');
+    expect(control('Font', 'select').options[0]?.textContent).toBe('(from base: body)');
+    const sample = rowOf('Font').querySelector<HTMLElement>('.sample');
+    expect(sample?.style.fontFamily).toBe('"Calibri", "Arial"');
+    expect(rowOf('Font').querySelector('.note')?.textContent).toBe('from body \u00b7 Theme: body');
+    panel.show(entry('body'), stylesheet);
+    expect(control('Font', 'select').value).toBe('body');
+    expect(rowOf('Font').querySelector('.note')?.textContent).toBe('Theme: body');
   });
 
   it('shows what the file says again after an undo, also in the control that has the focus', () => {
@@ -207,7 +218,9 @@ describe('showing a character style', () => {
 
 describe('showing a table style', () => {
   const path = (name: string, ...keys: string[]): string[] => ['table-styles', name, ...keys];
-  const inputs = (title: string): HTMLInputElement[] => [...rowOf(title).querySelectorAll('input')];
+  const inputs = (title: string): (HTMLInputElement | HTMLSelectElement)[] => [
+    ...rowOf(title).querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select'),
+  ];
   const titles = (): (string | null)[] =>
     [...root.querySelectorAll('section > details > summary')].map((node) => node.textContent);
 
@@ -229,7 +242,7 @@ describe('showing a table style', () => {
     expect(control('Cell style', 'select').value).toBe('body');
     expect(control('Cell padding', 'input').value).toBe('4');
     expect(inputs('Outer').map((input) => input.value)).toEqual(['0.75', 'brand']);
-    expect(inputs('Inside horizontal').map((input) => input.value)).toEqual(['0.5', '#BFBFBF']);
+    expect(inputs('Inside horizontal').map((input) => input.value)).toEqual(['0.5', 'rule']);
     expect(inputs('Inside vertical').map((input) => input.value)).toEqual(['', '']);
   });
 
@@ -240,16 +253,19 @@ describe('showing a table style', () => {
   });
 
   it('shows the colors of the banded rows, and where the even one comes from', () => {
-    expect(control('Odd', 'input').value).toBe('#F2F2F2');
-    expect(control('Even', 'input').value).toBe('');
+    expect(control('Odd', 'select').value).toBe('pale');
+    expect(rowOf('Odd').querySelector<HTMLElement>('.swatch')?.style.background).toBe(
+      'rgb(242, 242, 242)',
+    );
+    expect(control('Even', 'select').value).toBe('');
     panel.show(entry('table-grid'), stylesheet);
-    expect(control('Odd', 'input').value).toBe('');
-    expect(control('Odd', 'input').placeholder).toBe('#F2F2F2');
+    expect(control('Odd', 'select').value).toBe('');
+    expect(control('Odd', 'select').options[0]?.textContent).toBe('(from base: pale)');
     expect(rowOf('Odd').textContent).toContain('from table');
   });
 
   it('sends changes of the banded rows and takes one off', () => {
-    change(control('Even', 'input'), 'brand');
+    change(control('Even', 'select'), 'brand');
     expect(send).toHaveBeenLastCalledWith({
       type: 'set',
       path: path('table', 'banded-rows', 'even'),
@@ -274,8 +290,10 @@ describe('showing a table style', () => {
     panel.show(entry('table-grid'), stylesheet);
     const [width, color] = inputs('Outer');
     expect(width?.value).toBe('');
-    expect(width?.placeholder).toBe('0.75');
-    expect(color?.placeholder).toBe('brand');
+    expect((width as HTMLInputElement | undefined)?.placeholder).toBe('0.75');
+    expect((color as HTMLSelectElement | undefined)?.options[0]?.textContent).toBe(
+      '(from base: brand)',
+    );
     expect(rowOf('Outer').querySelector('.note')?.textContent).toBe('from table');
     expect(control('Cell padding', '.reset').hidden).toBe(true);
     expect(inputs('Inside vertical').map((input) => input.value)).toEqual(['0.5', 'brand']);
@@ -290,11 +308,11 @@ describe('showing a table style', () => {
       path: path('table', 'border', 'outer'),
       value: { width: 1, color: 'brand' },
     });
-    change(color, '#112233');
+    change(color, 'rule');
     expect(send).toHaveBeenLastCalledWith({
       type: 'set',
       path: path('table', 'border', 'outer'),
-      value: { width: 1, color: '#112233' },
+      value: { width: 1, color: 'rule' },
     });
   });
 
@@ -516,15 +534,36 @@ describe('changes from the page', () => {
     });
   });
 
-  it('sets a color and a font as typed', () => {
-    change(control('Color', 'input'), 'brand');
+  it('sets a color and a font by picking a token', () => {
+    change(control('Color', 'select'), 'brand');
     expect(send).toHaveBeenLastCalledWith({ type: 'set', path: path('color'), value: 'brand' });
-    change(control('Font', 'input'), 'Georgia, serif');
+    change(control('Font', 'select'), 'body');
+    expect(send).toHaveBeenLastCalledWith({ type: 'set', path: path('font'), value: 'body' });
+  });
+
+  it('shows a value that is not a token as Custom, with a warning, until a token is picked', () => {
+    const custom = parseStylesheet(
+      `phrase-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\nparagraph-styles:\n  body:\n    color: '#123456'\n`,
+    ).stylesheet;
+    panel.show(
+      entriesOf(custom).find((candidate) => candidate.name === 'body'),
+      custom,
+    );
+    const select = control('Color', 'select');
+    expect(select.selectedOptions[0]?.textContent).toBe('Custom');
+    expect(rowOf('Color').querySelector<HTMLElement>('.warning')?.hidden).toBe(false);
+    expect(rowOf('Color').querySelector('.note')?.textContent).toBe('');
+    change(select, 'brand');
     expect(send).toHaveBeenLastCalledWith({
       type: 'set',
-      path: path('font'),
-      value: ['Georgia', 'serif'],
+      path: ['paragraph-styles', 'body', 'color'],
+      value: 'brand',
     });
+  });
+
+  it('has no warning for a token', () => {
+    panel.show(entry('body'), stylesheet);
+    expect(rowOf('Font').querySelector<HTMLElement>('.warning')?.hidden).toBe(true);
   });
 
   it('sets a line spacing with a rule and a number', () => {

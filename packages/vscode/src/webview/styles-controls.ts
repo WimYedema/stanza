@@ -1,4 +1,4 @@
-import type { Border, LineSpacing, PropertyType, StyleName } from '@phrase/core';
+import type { Border, LineSpacing, PropertyType, StyleName, Tokens } from '@phrase/core';
 import type { Value } from '../shared/styles-protocol.js';
 import { el, option } from './styles-dom.js';
 import {
@@ -21,6 +21,8 @@ export interface Control {
    * truth, so the control is overwritten even when it has the focus (after an undo, say).
    */
   show(own: unknown, inherited: string | undefined): void;
+  /** Where the value comes from, when it is not the style or a base: the theme token. */
+  origin?(own: unknown): string | undefined;
 }
 
 const inheritedLabel = (inherited: string | undefined): string =>
@@ -90,16 +92,14 @@ export const choiceControl = (values: readonly string[], commit: Commit): Contro
     String,
   );
 
-/** A line of text, with the names of tokens to offer when a list is given. */
+/** A line of text. */
 export function textControl(
   commit: Commit,
   format: (own: unknown) => string,
   parse: (text: string) => Value | null,
-  list?: string,
 ): Control {
   const input = el('input');
   input.type = 'text';
-  if (list !== undefined) input.setAttribute('list', list);
   input.addEventListener('change', () => {
     commit(parse(input.value));
   });
@@ -108,6 +108,83 @@ export function textControl(
     show(own, inherited) {
       input.value = own === undefined ? '' : format(own);
       input.placeholder = inherited ?? '';
+    },
+  };
+}
+
+export type TokenKind = 'color' | 'font';
+
+const CUSTOM = '\u0000custom';
+
+/** A font as CSS: every family quoted, so that no name can end the declaration. */
+const cssFamilies = (families: readonly string[]): string =>
+  families.map((family) => JSON.stringify(family)).join(', ');
+
+interface TokenPicker {
+  readonly node: HTMLElement;
+  show(own: unknown, inherited: string | undefined): void;
+}
+
+/**
+ * A list of the theme's tokens with a swatch or a font sample. A value that is not a token of the
+ * theme is shown as "Custom" with a warning, until a token is picked (ADR 0066).
+ */
+function tokenPicker(
+  kind: TokenKind,
+  tokens: () => Tokens,
+  pick: (name: string | null) => void,
+): TokenPicker {
+  const select = el('select');
+  const sample = kind === 'color' ? el('span', 'swatch') : el('span', 'sample', 'Aa');
+  const warning = el('span', 'warning', 'Not a token of the theme. Pick one.');
+  const node = el('span', 'control tokens');
+  node.append(select, sample, warning);
+  select.addEventListener('change', () => {
+    if (select.value !== CUSTOM) pick(select.value === '' ? null : select.value);
+  });
+  const names = (): readonly string[] => [
+    ...tokens()[kind === 'color' ? 'colors' : 'fonts'].keys(),
+  ];
+  const tokenName = (value: unknown): string | undefined => {
+    const token = value as { kind?: unknown; name?: unknown } | string | undefined;
+    if (typeof token === 'string') return token;
+    return token?.kind === 'token' && typeof token.name === 'string' ? token.name : undefined;
+  };
+  return {
+    node,
+    show(own, inherited) {
+      const known = names();
+      const chosen = tokenName(own);
+      const custom = own !== undefined && (chosen === undefined || !known.includes(chosen));
+      select.replaceChildren(
+        option('', inheritedLabel(inherited)),
+        ...(custom ? [option(CUSTOM, 'Custom')] : []),
+        ...known.map((name) => option(name, name)),
+      );
+      select.value = own === undefined ? '' : custom ? CUSTOM : (chosen ?? '');
+      warning.hidden = !custom;
+      const shown = own === undefined ? inherited : chosen;
+      if (kind === 'color') {
+        sample.style.background = shown === undefined ? '' : (tokens().colors.get(shown) ?? '');
+      } else {
+        const families = shown === undefined ? undefined : tokens().fonts.get(shown);
+        sample.style.fontFamily = families === undefined ? '' : cssFamilies(families);
+      }
+    },
+  };
+}
+
+export function tokenControl(kind: TokenKind, tokens: () => Tokens, commit: Commit): Control {
+  const picker = tokenPicker(kind, tokens, commit);
+  return {
+    node: picker.node,
+    show(own, inherited) {
+      picker.show(own, inherited);
+    },
+    origin(own) {
+      const known = tokens()[kind === 'color' ? 'colors' : 'fonts'];
+      const name = (own as { name?: unknown } | undefined)?.name;
+      return typeof name === 'string' && known.has(name) ? `Theme: ${name}` : undefined;
     },
   };
 }
@@ -195,35 +272,37 @@ export function row(
       const text = state.inherited === undefined ? undefined : inheritedText(state.inherited.value);
       control.show(state.own, text);
       button.hidden = state.own === undefined;
-      note.textContent =
-        state.own === undefined && state.inherited !== undefined
-          ? `from ${state.inherited.from}`
-          : '';
+      const parts: string[] = [];
+      if (state.own === undefined && state.inherited !== undefined) {
+        parts.push(`from ${state.inherited.from}`);
+      }
+      const origin = control.origin?.(state.own ?? state.inherited?.value);
+      if (origin !== undefined) parts.push(origin);
+      note.textContent = parts.join(' \u00b7 ');
     },
   };
 }
 
-export const COLORS = 'phrase-colors';
-
-const DEFAULT_BORDER = { width: 0.75, color: '#000000' };
+const DEFAULT_BORDER_WIDTH = 0.75;
 
 /**
  * A border is one unit in the file, so both its width and its color are always written. A border
  * that the style has is taken off by emptying a field or by a width of 0; a missing half of a new
- * border comes from the base or from a default.
+ * border comes from the base, and a missing color from the first color token.
  */
-export function borderControl(commit: Commit, fallback: () => Border | undefined): Control {
+export function borderControl(
+  commit: Commit,
+  fallback: () => Border | undefined,
+  tokens: () => Tokens,
+): Control {
   let has = false;
+  let chosen = '';
   const width = el('input');
   width.type = 'number';
   width.step = 'any';
   width.min = '0';
-  const color = el('input');
-  color.type = 'text';
-  color.setAttribute('list', COLORS);
   const send = (): void => {
     const typed = numberFrom(width.value);
-    const chosen = color.value.trim();
     if (typed === undefined) return;
     const incomplete = typed === null || chosen === '';
     const empty = typed === null && chosen === '';
@@ -232,26 +311,29 @@ export function borderControl(commit: Commit, fallback: () => Border | undefined
       return;
     }
     const inherited = fallback();
-    commit({
-      width: typed ?? inherited?.widthPt ?? DEFAULT_BORDER.width,
-      color:
-        chosen || (inherited === undefined ? DEFAULT_BORDER.color : colorText(inherited.color)),
-    });
+    const color =
+      chosen ||
+      (inherited === undefined ? [...tokens().colors.keys()][0] : colorText(inherited.color));
+    if (color === undefined) return;
+    commit({ width: typed ?? inherited?.widthPt ?? DEFAULT_BORDER_WIDTH, color });
   };
+  const picker = tokenPicker('color', tokens, (name) => {
+    chosen = name ?? '';
+    send();
+  });
   width.addEventListener('change', send);
-  color.addEventListener('change', send);
   const node = el('span', 'control');
-  node.append(width, el('span', 'unit', 'pt'), color);
+  node.append(width, el('span', 'unit', 'pt'), picker.node);
   return {
     node,
     show(own) {
       const border = own as Border | undefined;
       has = border !== undefined;
       const inherited = fallback();
+      chosen = border === undefined ? '' : colorText(border.color);
       width.value = border === undefined ? '' : String(border.widthPt);
-      color.value = border === undefined ? '' : colorText(border.color);
       width.placeholder = inherited === undefined ? '' : String(inherited.widthPt);
-      color.placeholder = inherited === undefined ? '' : colorText(inherited.color);
+      picker.show(border?.color, inherited === undefined ? undefined : colorText(inherited.color));
     },
   };
 }

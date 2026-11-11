@@ -11,14 +11,14 @@ import {
   type StyleName,
   type Stylesheet,
   type TableStyle,
+  type Tokens,
   type VariantMark,
 } from '@phrase/core';
 import { DEFAULT_VARIANTS } from '@phrase/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
 import type { Entry, Family } from './styles-families.js';
-import { el, option } from './styles-dom.js';
+import { el } from './styles-dom.js';
 import {
-  COLORS,
   borderControl,
   booleanControl,
   choiceControl,
@@ -28,6 +28,7 @@ import {
   selectControl,
   styleNameControl,
   textControl,
+  tokenControl,
   type Commit,
   type Control,
   type Row,
@@ -35,7 +36,6 @@ import {
 import { paragraphGroups } from './styles-groups.js';
 import {
   borderText,
-  fontFrom,
   stateBy,
   stateOf,
   titleOf,
@@ -75,15 +75,16 @@ export interface Panel {
   refused(message: string): void;
 }
 
-const FONTS = 'phrase-fonts';
+const NO_TOKENS: Tokens = { colors: new Map(), fonts: new Map() };
 
 export function createPanel({ root, send }: PanelOptions): Panel {
   const status = el('p', 'status');
   status.setAttribute('role', 'status');
-  const colors = el('datalist');
-  colors.id = COLORS;
-  const fonts = el('datalist');
-  fonts.id = FONTS;
+  const themeNote = el(
+    'p',
+    'hint',
+    'Colors and fonts come from the theme. Pick a token here; add or change tokens in the Theme tab.',
+  );
   let current:
     | {
         readonly stylesheet: Stylesheet;
@@ -125,6 +126,8 @@ export function createPanel({ root, send }: PanelOptions): Panel {
       ? current.stylesheet.paragraphStyles.get(current.name)
       : undefined;
 
+  const tokens = (): Tokens => current?.stylesheet.tokens ?? NO_TOKENS;
+
   function controlOf(type: PropertyType, commit: Commit): Control {
     switch (type.kind) {
       case 'number':
@@ -134,14 +137,9 @@ export function createPanel({ root, send }: PanelOptions): Panel {
       case 'choice':
         return choiceControl(type.values, commit);
       case 'color':
-        return textControl(
-          commit,
-          (own) => valueText(type, own),
-          (text) => text.trim() || null,
-          COLORS,
-        );
+        return tokenControl('color', tokens, commit);
       case 'font':
-        return textControl(commit, (own) => valueText(type, own), fontFrom, FONTS);
+        return tokenControl('font', tokens, commit);
       case 'line-spacing':
         return lineSpacingControl(commit);
       case 'style-name':
@@ -240,7 +238,7 @@ export function createPanel({ root, send }: PanelOptions): Panel {
         borders,
         row(
           titleOf(key),
-          borderControl(commit, () => read().inherited?.value as Border | undefined),
+          borderControl(commit, () => read().inherited?.value as Border | undefined, tokens),
           read,
           (value) => borderText(value as Border),
           () => {
@@ -375,7 +373,7 @@ export function createPanel({ root, send }: PanelOptions): Panel {
     sections.push(section('Style', undefined, ...identity));
     if (current?.kind === 'table-style') {
       sections.push(...tableSections(add));
-      root.replaceChildren(status, colors, fonts, ...sections);
+      root.replaceChildren(status, themeNote, ...sections);
       return;
     }
 
@@ -386,7 +384,7 @@ export function createPanel({ root, send }: PanelOptions): Panel {
     sections.push(section('Text', undefined, ...text));
 
     if (current?.kind === 'character-style') {
-      root.replaceChildren(status, colors, fonts, ...sections);
+      root.replaceChildren(status, themeNote, ...sections);
       return;
     }
 
@@ -441,13 +439,10 @@ export function createPanel({ root, send }: PanelOptions): Panel {
     }
     sections.push(section('Marks', undefined, ...marks));
 
-    root.replaceChildren(status, colors, fonts, ...sections);
+    root.replaceChildren(status, themeNote, ...sections);
   }
 
   function update(): void {
-    const tokens = current?.stylesheet.tokens;
-    colors.replaceChildren(...[...(tokens?.colors.keys() ?? [])].map((name) => option(name, '')));
-    fonts.replaceChildren(...[...(tokens?.fonts.keys() ?? [])].map((name) => option(name, '')));
     for (const made of rows) made.update();
     for (const { mark, node } of variants) {
       const declared = paragraphStyle()?.variants[mark];

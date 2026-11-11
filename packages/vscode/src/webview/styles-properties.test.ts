@@ -3,7 +3,6 @@ import { PARAGRAPH_PROPERTIES, TEXT_PROPERTIES, type StyleName } from '@phrase/c
 import { parseStylesheet } from '@phrase/format';
 import {
   borderText,
-  fontFrom,
   lineSpacingText,
   numberFrom,
   stateBy,
@@ -208,14 +207,5 @@ describe('numberFrom', () => {
     expect(numberFrom('  ')).toBeNull();
     expect(numberFrom('abc')).toBeUndefined();
     expect(numberFrom('Infinity')).toBeUndefined();
-  });
-});
-
-describe('fontFrom', () => {
-  it('reads the name of a token, families, and nothing', () => {
-    expect(fontFrom('body')).toBe('body');
-    expect(fontFrom('Times New Roman, serif')).toEqual(['Times New Roman', 'serif']);
-    expect(fontFrom(' ')).toBeNull();
-    expect(fontFrom(' , ')).toBeNull();
   });
 });

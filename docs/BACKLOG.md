@@ -12,7 +12,6 @@ Finished items are in `docs/BACKLOG_DONE.md`, one line each. Item numbers are ke
 
 Placed before the themes "Pipeline (CLI, no editor)" and "Collections and references" by the product owner.
 
-78. [S] - Style editor, theme values in the panel: colors and fonts are chosen from a list of the theme's tokens with a swatch or a font sample, the row says where the value comes from ("Theme: mono"), and a value that is not a token shows as "Custom" with a warning until a token is picked. A note in the panel says that these values come from the theme. Replaces the text fields with suggestions of item 68.
 79. [S] - Style editor, link to the theme: from a color or font row, a link to that token in the Theme tab. Needs item 72.
 
 ## Theme: Word import

@@ -42,6 +42,11 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
   .side-panel .hint { margin: 0 12px 4px; font-size: 11px; color: #9d9d9d; }
   .side-panel .control { display: flex; gap: 4px; align-items: center; }
   #theme .control { flex-wrap: wrap; }
+  .side-panel .tokens { flex-wrap: wrap; }
+  .side-panel .tokens select { flex: 1 1 0; width: auto; }
+  .side-panel .swatch { flex: none; width: 18px; height: 18px; border: 1px solid #555555; }
+  .side-panel .sample { flex: none; min-width: 24px; text-align: center; font-size: 14px; }
+  .side-panel .warning { flex: 1 0 100%; font-size: 11px; color: #cca700; }
   .side-panel input, .side-panel select { box-sizing: border-box; width: 100%; min-width: 0;
     padding: 2px 4px; font: 12px sans-serif; background: #3c3c3c; color: #cccccc;
     border: 1px solid #555555; }

@@ -107,26 +107,12 @@ export function titleOf(key: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-const TOKEN_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
-
 /** A number that was typed, `null` for none, or undefined for text that is not a number. */
 export function numberFrom(text: string): number | null | undefined {
   const trimmed = text.trim();
   if (trimmed === '') return null;
   const value = Number(trimmed);
   return Number.isFinite(value) ? value : undefined;
-}
-
-/** A font that was typed: the name of a token, or families separated by commas. `null` for none. */
-export function fontFrom(text: string): string | readonly string[] | null {
-  const trimmed = text.trim();
-  if (trimmed === '') return null;
-  if (TOKEN_NAME.test(trimmed)) return trimmed;
-  const families = trimmed
-    .split(',')
-    .map((family) => family.trim())
-    .filter((family) => family !== '');
-  return families.length === 0 ? null : families;
 }
 
 /**

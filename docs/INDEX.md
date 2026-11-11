@@ -40,4 +40,4 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 - 0025: custom editor (read first). 0032: export on save. 0056: cursor after external change.
 - Document view: 0027 toolbar and keys, 0028 paper look, 0058 page layout findings (open), 0054 and 0055 style cards and state line, 0057 heading numbers and diagnostics.
-- Style editor: 0036 shell, 0037 paragraph panel, 0038 groups, 0039 character styles, 0040 table styles, 0041 collapsible groups, 0050 theme, 0051 page templates, 0053 add and delete.
+- Style editor: 0036 shell, 0037 paragraph panel, 0038 groups, 0039 character styles, 0040 table styles, 0041 collapsible groups, 0050 theme, 0051 page templates, 0053 add and delete, 0066 token pickers.
