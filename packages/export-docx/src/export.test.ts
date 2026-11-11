@@ -320,7 +320,7 @@ describe('exportDocx tables', () => {
     const banded = parseStylesheet(
       STYLESHEET_TEXT.replace(
         /cell-padding: 4\r?\n/,
-        "cell-padding: 4\n    banded-rows:\n      odd: '#EEEEEE'\n      even: rule\n",
+        'cell-padding: 4\n    banded-rows:\n      odd: surface\n      even: rule\n',
       ),
     ).stylesheet;
 
@@ -329,7 +329,7 @@ describe('exportDocx tables', () => {
       const table = styleXml(stylesXml, 'Table');
       expect(table).toContain('<w:tblStyleRowBandSize w:val="1"/>');
       expect(table).toContain(
-        '<w:tblStylePr w:type="band1Horz"><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="EEEEEE"/></w:tcPr></w:tblStylePr>',
+        '<w:tblStylePr w:type="band1Horz"><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F2F2F2"/></w:tcPr></w:tblStylePr>',
       );
       expect(table).toContain(
         '<w:tblStylePr w:type="band2Horz"><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="BFBFBF"/></w:tcPr></w:tblStylePr>',

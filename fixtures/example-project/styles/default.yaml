@@ -6,6 +6,8 @@ tokens:
     heading: '#404040'
     muted: '#7F7F7F'
     rule: '#BFBFBF'
+    surface: '#F2F2F2'
+    white: '#FFFFFF'
   fonts:
     body: ['Calibri', 'Arial']
     mono: ['Consolas', 'Courier New']
@@ -61,7 +63,7 @@ paragraph-styles:
     font: mono
     size: 10
     keep-together: true
-    background: '#F2F2F2'
+    background: surface
     variants:
       strong: false
       emphasis: false
@@ -117,7 +119,7 @@ character-styles:
   marker:
     bold: true
     color: brand
-    highlight: '#FFFFFF'
+    highlight: white
 
   muted:
     color: muted
@@ -130,7 +132,7 @@ table-styles:
       inside-horizontal: { width: 0.5, color: rule }
     header-row:
       bold: true
-      background: '#F2F2F2'
+      background: surface
       repeat: true
     cell-padding: 4
 

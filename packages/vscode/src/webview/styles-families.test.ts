@@ -52,7 +52,16 @@ describe('entriesOf', () => {
     expect(names('tables')).toEqual(['table', 'table-grid']);
     expect(names('characters')).toEqual(['marker', 'muted']);
     expect(names('pages')).toEqual(['page', 'page-letter']);
-    expect(names('theme')).toEqual(['brand', 'heading', 'muted', 'rule', 'body', 'mono']);
+    expect(names('theme')).toEqual([
+      'brand',
+      'heading',
+      'muted',
+      'rule',
+      'surface',
+      'white',
+      'body',
+      'mono',
+    ]);
   });
 
   it('gives the base style of a style, and its label', () => {

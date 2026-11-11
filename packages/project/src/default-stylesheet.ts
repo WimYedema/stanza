@@ -12,6 +12,7 @@ tokens:
     heading: '#404040'
     muted: '#7F7F7F'
     rule: '#BFBFBF'
+    surface: '#F2F2F2'
   fonts:
     body: ['Calibri', 'Arial']
     mono: ['Consolas', 'Courier New']
@@ -68,7 +69,7 @@ paragraph-styles:
     font: mono
     size: 10
     keep-together: true
-    background: '#F2F2F2'
+    background: surface
     variants:
       strong: false
       emphasis: false
@@ -122,7 +123,7 @@ table-styles:
       inside-horizontal: { width: 0.5, color: rule }
     header-row:
       bold: true
-      background: '#F2F2F2'
+      background: surface
       repeat: true
     cell-padding: 4
 

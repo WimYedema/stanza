@@ -50,25 +50,58 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
     diagnostics.push({ severity: 'error', code, message, path });
   };
 
+  const checkHex = (hex: string, path: string): void => {
+    if (!HEX_COLOR.test(hex)) error('invalid-value', `"${hex}" is not a #RRGGBB color.`, path);
+  };
+  /** A color of a style is the name of a color token (ADR 0065). */
   const checkColor = (value: ColorValue | undefined, path: string): void => {
     if (value === undefined) return;
     if (value.kind === 'token') {
       if (!stylesheet.tokens.colors.has(value.name)) {
         error('unknown-token', `There is no color token "${value.name}".`, path);
       }
-    } else if (!HEX_COLOR.test(value.hex)) {
+      return;
+    }
+    if (!HEX_COLOR.test(value.hex)) {
       error('invalid-value', `"${value.hex}" is not a #RRGGBB color.`, path);
+      return;
+    }
+    const same = [...stylesheet.tokens.colors].find(([, hex]) => hex === value.hex)?.[0];
+    error(
+      'raw-color',
+      same === undefined
+        ? `Colors come from the color tokens. Add ${value.hex} to tokens.colors under a name, and use that name here.`
+        : `Colors come from the color tokens. Use the token "${same}" (${value.hex}) here.`,
+      path,
+    );
+  };
+  const checkFamilies = (families: readonly string[], path: string): void => {
+    if (families.length === 0 || families.some((family) => family === '')) {
+      error('invalid-value', 'A font needs at least one family name.', path);
     }
   };
+  /** A font of a style is the name of a font token (ADR 0065). */
   const checkFont = (value: FontValue | undefined, path: string): void => {
     if (value === undefined) return;
     if (value.kind === 'token') {
       if (!stylesheet.tokens.fonts.has(value.name)) {
         error('unknown-token', `There is no font token "${value.name}".`, path);
       }
-    } else if (value.families.length === 0 || value.families.some((family) => family === '')) {
-      error('invalid-value', 'A font needs at least one family name.', path);
+      return;
     }
+    if (value.families.length === 0 || value.families.some((family) => family === '')) {
+      checkFamilies(value.families, path);
+      return;
+    }
+    const list = value.families.join('\u0000');
+    const same = [...stylesheet.tokens.fonts].find(([, f]) => f.join('\u0000') === list)?.[0];
+    error(
+      'raw-font',
+      same === undefined
+        ? 'Fonts come from the font tokens. Add the families to tokens.fonts under a name, and use that name here.'
+        : `Fonts come from the font tokens. Use the token "${same}" here.`,
+      path,
+    );
   };
   const checkPositive = (value: number | undefined, path: string): void => {
     if (value !== undefined && !(Number.isFinite(value) && value > 0)) {
@@ -133,10 +166,10 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
   };
 
   for (const [name, hex] of stylesheet.tokens.colors) {
-    checkColor({ kind: 'hex', hex }, `tokens.colors.${name}`);
+    checkHex(hex, `tokens.colors.${name}`);
   }
   for (const [name, families] of stylesheet.tokens.fonts) {
-    checkFont({ kind: 'families', families }, `tokens.fonts.${name}`);
+    checkFamilies(families, `tokens.fonts.${name}`);
   }
 
   for (const required of RESERVED_PARAGRAPH_STYLES) {

@@ -25,7 +25,7 @@ const withTokens = (body: string): string =>
 
 /** A stylesheet with the given text for the table style `table`. */
 const withTable = (table: string): string =>
-  `phrase-format: 1\nparagraph-styles:\n  body: {}\n${OTHERS}table-styles:\n${table}`;
+  `phrase-format: 1\ntokens:\n  colors:\n    rule: '#BFBFBF'\n    surface: '#F2F2F2'\n    white: '#FFFFFF'\nparagraph-styles:\n  body: {}\n${OTHERS}table-styles:\n${table}`;
 
 const BODY = ['paragraph-styles', 'body'];
 
@@ -81,12 +81,12 @@ describe('setProperty', () => {
         ['table-styles', 'table', 'border', 'outer'],
         {
           width: 0.75,
-          color: '#BFBFBF',
+          color: 'rule',
         },
       ),
     ).toBe(
       withTable(
-        "  table:\n    cell-padding: 4\n    border:\n      outer: { width: 0.75, color: '#BFBFBF' }\n",
+        '  table:\n    cell-padding: 4\n    border:\n      outer: { width: 0.75, color: rule }\n',
       ),
     );
   });
@@ -108,10 +108,10 @@ describe('setProperty', () => {
   it('makes the banded rows of a table style, sets one color and takes it off, which removes the empty mapping', () => {
     const path = (key: string): string[] => ['table-styles', 'table', 'banded-rows', key];
     const base = '  table:\n    cell-padding: 4\n';
-    const banded = `${base}    banded-rows:\n      odd: '#F2F2F2'\n`;
-    expect(set(withTable(base), path('odd'), '#F2F2F2')).toBe(withTable(banded));
-    expect(set(withTable(banded), path('even'), '#FFFFFF')).toBe(
-      withTable(`${banded}      even: '#FFFFFF'\n`),
+    const banded = `${base}    banded-rows:\n      odd: surface\n`;
+    expect(set(withTable(base), path('odd'), 'surface')).toBe(withTable(banded));
+    expect(set(withTable(banded), path('even'), 'white')).toBe(
+      withTable(`${banded}      even: white\n`),
     );
     expect(unset(withTable(banded), path('odd'))).toBe(withTable(base));
   });
@@ -146,10 +146,8 @@ describe('setProperty', () => {
       ['a negative number', ['first-line-indent'], -18, '    first-line-indent: -18\n'],
       ['a flag', ['numbered'], true, '    numbered: true\n'],
       ['a word', ['alignment'], 'center', '    alignment: center\n'],
-      ['a color, quoted', ['color'], '#2E75B6', "    color: '#2E75B6'\n"],
       ['a token', ['color'], 'brand', '    color: brand\n'],
       ['a font token', ['font'], 'body', '    font: body\n'],
-      ['a list of fonts', ['font'], ['Calibri', 'Arial'], "    font: ['Calibri', 'Arial']\n"],
       ['text, quoted', ['label'], 'Side note', "    label: 'Side note'\n"],
       ['text with an apostrophe', ['label'], "It's", "    label: 'It''s'\n"],
       ['a word that YAML reads as something else', ['label'], 'yes', "    label: 'yes'\n"],
@@ -195,6 +193,12 @@ describe('setProperty', () => {
       expect(result.code).toBe('invalid-result');
       expect(result.message).toContain('must be greater than zero');
       expect(refused(source, [...BODY, 'colour'], 'red')).toMatchObject({ code: 'invalid-result' });
+    });
+
+    it('a raw color or a list of fonts, and names the token to use', () => {
+      const raw = withTokens('  body: {}\n');
+      expect(refused(raw, [...BODY, 'color'], '#2E75B6').message).toContain('brand');
+      expect(refused(raw, [...BODY, 'font'], ['Calibri']).message).toContain('body');
     });
 
     it('a value that cannot be written on a line, and a number that is not one', () => {

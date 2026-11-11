@@ -58,7 +58,7 @@ describe('the tabs', () => {
       'Tables (2)',
       'Character styles (2)',
       'Pages (2)',
-      'Theme (6)',
+      'Theme (8)',
     ]);
     expect(tab('Paragraphs').getAttribute('aria-selected')).toBe('true');
     expect(items()[0]).toBe('body');

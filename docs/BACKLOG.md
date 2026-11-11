@@ -8,30 +8,31 @@ Sizes are relative effort: XS, S, M, L, XL. They are not time estimates.
 
 Finished items are in `docs/BACKLOG_DONE.md`, one line each. Item numbers are kept.
 
-## Phase 5: Editor and review
+## Theme: Editor and review
 
-Placed before Phases 3 and 4 by the product owner.
+Placed before the themes "Pipeline (CLI, no editor)" and "Collections and references" by the product owner.
 
-38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
-39. [M] - Show imported comments next to the content in the editor.
-77. [M] - Colors and fonts only from theme tokens: ADR first, since ADR 0006 allows hex colors and family lists in styles. Then the stylesheet reading and validation, the exporters, and the fixtures follow; a raw value becomes a diagnostic that says which token to use. Added at the request of the product owner.
 78. [S] - Style editor, theme values in the panel: colors and fonts are chosen from a list of the theme's tokens with a swatch or a font sample, the row says where the value comes from ("Theme: mono"), and a value that is not a token shows as "Custom" with a warning until a token is picked. A note in the panel says that these values come from the theme. Replaces the text fields with suggestions of item 68.
 79. [S] - Style editor, link to the theme: from a color or font row, a link to that token in the Theme tab. Needs item 72.
 
-## Phase 6: Forms
+## Theme: Word import
+38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
+39. [M] - Show imported comments next to the content in the editor.
+
+## Theme: Forms
 99. [M] - Cell styles chosen by the content of the cell: named cell styles (background, and text properties such as bold) and rules on a table style, "a cell whose whole text equals X (trimmed, case-insensitive) gets cell style Y", resolved when rendering and exporting, so the document stays plain text. Compiled to the browser CSS and to cell shading in DOCX (generated output, centralised). ADR first, including whether a value without a rule is reported. Added at the request of the product owner.
 100. [M] - Forms, design and ADR: a form is a definition in the project (an ordered list of fields, each with an immutable ID, a label, and plain or rich values) and an instance in a document (probably a `phrase-form` block that names the form, with values keyed by field ID), shown as a table of `field | value`. Settle the dialect, the definition file, the diagnostics (missing, unknown, duplicate field), the DOCX mapping, and how an existing table becomes a form. Discuss with the product owner before any code. Added at the request of the product owner.
 101. [L] - Forms, definition, format, core and DOCX (ADR of item 100): read the definition, parse and write the block, the diagnostics, and a table in DOCX and CSS.
 102. [M] - Forms, editor: fixed labels with editable values, and a command that turns a table into a form.
 103. [M] - Forms, allowed values: a field can list the values it accepts, with a diagnostic for others and a choice list in the editor. Colour rules of item 99 can then belong to a field.
 
-## Phase 3: Pipeline (CLI, no editor)
+## Theme: Pipeline (CLI, no editor)
 
 28. [S] - GitHub Actions workflow running build, test, and lint on pull requests. Low priority: local checks are sufficient for now.
 29. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
 53. [S] - VS Code commands in the Command Palette: build the project (one DOCX per document into `build/`), export the current document to DOCX, validate, format, and assign IDs, with their results in the Problems panel or an output channel. Export on save moved to item 65. The exporter and the command line exist already (items 16 and 26); this makes them available without a terminal. Low priority.
 
-## Phase 4: Collections and references
+## Theme: Collections and references
 
 30. [M] - Project model: multiple documents, shared stylesheet, document order.
 31. [M] - Reference index: resolve, find incoming, find broken. Cross-document references with computed display text.

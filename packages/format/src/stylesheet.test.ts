@@ -106,8 +106,8 @@ describe('the default stylesheet fixture', () => {
       firstLineIndentPt: -18,
     });
     expect(result.stylesheet.characterStyles.get(name('marker'))?.text.highlight).toEqual({
-      kind: 'hex',
-      hex: '#FFFFFF',
+      kind: 'token',
+      name: 'white',
     });
   });
 
@@ -174,16 +174,16 @@ describe('the default stylesheet fixture', () => {
 
 describe('banded rows of a table style', () => {
   const withBands = (bands: string): string =>
-    sheet('tokens:\n  colors:\n    band: "#EEEEEE"').replace(
+    sheet('tokens:\n  colors:\n    band: "#EEEEEE"\n    pale: "#F2F2F2"').replace(
       '  table: {}',
       `  table:\n    banded-rows:\n${bands}`,
     );
 
   it('are read as the colors of the odd and the even rows', () => {
-    const result = parseStylesheet(withBands("      odd: '#f2f2f2'\n      even: band\n"));
+    const result = parseStylesheet(withBands('      odd: pale\n      even: band\n'));
     expect(result.diagnostics).toEqual([]);
     expect(result.stylesheet.tableStyles.get(name('table'))?.bandedRows).toEqual({
-      odd: { kind: 'hex', hex: '#F2F2F2' },
+      odd: { kind: 'token', name: 'pale' },
       even: { kind: 'token', name: 'band' },
     });
   });

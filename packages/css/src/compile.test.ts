@@ -113,7 +113,7 @@ describe('compileStylesheetToCss', () => {
   it('writes the resolved properties of a style, with a reset below them', () => {
     const text = css(
       sheet(
-        'tokens:\n  colors:\n    brand: "#2E75B6"\n  fonts:\n    serif: ["Georgia", "Times New Roman"]',
+        'tokens:\n  colors:\n    brand: "#2E75B6"\n    pale: "#EEEEEE"\n  fonts:\n    serif: ["Georgia", "Times New Roman"]',
         `  body:
     font: serif
     size: 11
@@ -123,7 +123,7 @@ describe('compileStylesheetToCss', () => {
     indent-left: 36
     first-line-indent: -18
     alignment: justify
-    background: "#EEEEEE"
+    background: pale
     line-spacing: { multiple: 1.15 }
 `,
       ),
@@ -243,7 +243,10 @@ describe('compileStylesheetToCss', () => {
 
   it('escapes what could end a CSS string or the style element', () => {
     const text = css(
-      sheet('', '  body:\n    font: ["A\\"B", "C</style><b>", "D\\\\E", "F\\nG"]\n'),
+      sheet(
+        'tokens:\n  fonts:\n    odd: ["A\\"B", "C</style><b>", "D\\\\E", "F\\nG"]',
+        '  body:\n    font: odd\n',
+      ),
     );
     const line = rule(text, '.phrase-document .phrase-p-body').find((l) =>
       l.startsWith('font-family'),
@@ -257,15 +260,15 @@ describe('compileStylesheetToCss', () => {
   it('writes a table with its borders, padding and header row', () => {
     const text = css(
       sheet(
-        'tokens:\n  colors:\n    rule: "#BFBFBF"',
+        'tokens:\n  colors:\n    rule: "#BFBFBF"\n    black: "#000000"\n    surface: "#F2F2F2"',
         '  body: {}\n',
         `  table:
     border:
       outer: { width: 0.75, color: rule }
-      inside-horizontal: { width: 0.5, color: "#000000" }
+      inside-horizontal: { width: 0.5, color: black }
     header-row:
       bold: true
-      background: "#F2F2F2"
+      background: surface
     cell-padding: 4
   table-grid:
     based-on: table
@@ -302,16 +305,16 @@ describe('compileStylesheetToCss', () => {
   it('writes banded rows by their place among the body rows, not counting the header row', () => {
     const text = css(
       sheet(
-        'tokens:\n  colors:\n    band: "#EEEEEE"',
+        'tokens:\n  colors:\n    band: "#EEEEEE"\n    white: "#FFFFFF"\n    grey: "#DDDDDD"',
         '  body: {}\n',
         `  table:
     banded-rows:
       odd: band
-      even: "#FFFFFF"
+      even: white
   table-b:
     based-on: table
     banded-rows:
-      even: "#DDDDDD"
+      even: grey
 `,
       ),
     );

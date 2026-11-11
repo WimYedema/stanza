@@ -369,7 +369,96 @@ describe('validateStylesheet', () => {
       ['invalid-value', 'paragraph-styles.body.line-spacing'],
       ['invalid-value', 'paragraph-styles.body.variants.strong.size'],
       ['invalid-value', 'table-styles.table.border.inside-vertical.width'],
+      ['raw-color', 'table-styles.table.border.inside-vertical.color'],
       ['invalid-value', 'table-styles.table.cell-padding'],
     ]);
+  });
+
+  describe('colors and fonts that are not tokens (ADR 0065)', () => {
+    const messages = (stylesheet: ReturnType<typeof sheet>): string[] =>
+      validateStylesheet(stylesheet).map((d) => `${d.code}: ${d.message}`);
+
+    it('names the token that has the color, or says to add one', () => {
+      const stylesheet = sheet({
+        colors: { brand: '#2E75B6' },
+        paragraph: {
+          body: {
+            text: { color: hex('#2E75B6'), highlight: hex('#112233') },
+            paragraph: {},
+            variants: {},
+          },
+        },
+      });
+      expect(messages(stylesheet)).toEqual([
+        'raw-color: Colors come from the color tokens. Use the token "brand" (#2E75B6) here.',
+        'raw-color: Colors come from the color tokens. Add #112233 to tokens.colors under a name, and use that name here.',
+      ]);
+    });
+
+    it('names the token that has the families, or says to add one', () => {
+      const stylesheet = sheet({
+        fonts: { body: ['Calibri', 'Arial'] },
+        paragraph: {
+          body: {
+            text: { font: { kind: 'families', families: ['Calibri', 'Arial'] } },
+            paragraph: {},
+            variants: { code: { font: { kind: 'families', families: ['Courier'] } } },
+          },
+        },
+      });
+      expect(messages(stylesheet)).toEqual([
+        'raw-font: Fonts come from the font tokens. Use the token "body" here.',
+        'raw-font: Fonts come from the font tokens. Add the families to tokens.fonts under a name, and use that name here.',
+      ]);
+    });
+
+    it('finds a raw color wherever a style has one', () => {
+      const raw = hex('#112233');
+      const stylesheet = sheet({
+        paragraph: {
+          body: {
+            text: { color: raw, highlight: raw },
+            paragraph: { background: raw },
+            variants: { strong: { color: raw } },
+          },
+        },
+        character: { marker: { text: { color: raw } } },
+        table: {
+          table: {
+            border: { outer: { widthPt: 1, color: raw } },
+            headerRow: { text: { color: raw }, background: raw },
+            bandedRows: { odd: raw, even: raw },
+          },
+        },
+      });
+      expect(problems(stylesheet)).toEqual([
+        ['raw-color', 'paragraph-styles.body.color'],
+        ['raw-color', 'paragraph-styles.body.highlight'],
+        ['raw-color', 'paragraph-styles.body.background'],
+        ['raw-color', 'paragraph-styles.body.variants.strong.color'],
+        ['raw-color', 'character-styles.marker.color'],
+        ['raw-color', 'table-styles.table.border.outer.color'],
+        ['raw-color', 'table-styles.table.header-row.color'],
+        ['raw-color', 'table-styles.table.header-row.background'],
+        ['raw-color', 'table-styles.table.banded-rows.odd'],
+        ['raw-color', 'table-styles.table.banded-rows.even'],
+        ['header-property-overridden', 'table-styles.table.header-row.color'],
+      ]);
+    });
+
+    it('accepts the values of the tokens themselves, and tokens used by name', () => {
+      const stylesheet = sheet({
+        colors: { brand: '#2E75B6' },
+        fonts: { body: ['Arial'] },
+        paragraph: {
+          body: {
+            text: { color: token('brand'), font: token('body') },
+            paragraph: {},
+            variants: {},
+          },
+        },
+      });
+      expect(validateStylesheet(stylesheet)).toEqual([]);
+    });
   });
 });
