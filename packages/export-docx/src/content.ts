@@ -5,6 +5,7 @@ import {
   RESERVED_TABLE_STYLE,
   TOC_PHRASE_KIND,
   defaultHeadingStyle,
+  isNodeId,
   resolveTableStyle,
   type Block,
   type CodeBlock,
@@ -24,6 +25,7 @@ import {
 import {
   Bookmark,
   ExternalHyperlink,
+  InternalHyperlink,
   Paragraph,
   Tab,
   Table,
@@ -77,6 +79,7 @@ function inlineChildren(
   let index = 0;
   while (index < content.length) {
     const link = linkOf(content[index]);
+    const target = link?.href.startsWith('#') === true ? link.href.slice(1) : undefined;
     // Consecutive runs that share a link target belong to one hyperlink.
     let end = index + 1;
     while (link !== undefined && linkOf(content[end])?.href === link.href) end += 1;
@@ -88,7 +91,10 @@ function inlineChildren(
         }),
     );
     if (link === undefined) children.push(...runs);
-    else children.push(new ExternalHyperlink({ link: link.href, children: runs }));
+    else if (target !== undefined && isNodeId(target)) {
+      // The validation has seen that the block is there, and every block with an ID has a bookmark.
+      children.push(new InternalHyperlink({ anchor: bookmarkName(target), children: runs }));
+    } else children.push(new ExternalHyperlink({ link: link.href, children: runs }));
     index = end;
   }
   return children;

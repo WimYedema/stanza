@@ -130,6 +130,25 @@ describe('exportDocx', () => {
     expect(documentXml).toContain('<w:rStyle w:val="NormalLink"/>');
   });
 
+  it('writes a link to a block as an internal hyperlink to its bookmark', async () => {
+    const { documentXml, relsXml } = await build(
+      '<!-- phrase: #k7m2q9x4zb -->\n# Target\n\nSee [the **big** part](#k7m2q9x4zb) and [a cell](#k7m2q9x4zb).\n\n| H |\n| --- |\n| [in a cell](#k7m2q9x4zb) |\n',
+    );
+    expect(documentXml.match(/<w:hyperlink [^>]*w:anchor="phrase_k7m2q9x4zb"/g)).toHaveLength(3);
+    expect(documentXml).not.toMatch(/<w:hyperlink [^>]*r:id=/);
+    expect(relsXml).not.toContain('Target="#');
+    expect(documentXml).toContain('<w:bookmarkStart w:name="phrase_k7m2q9x4zb"');
+    expect(documentXml).toContain('<w:rStyle w:val="NormalLink"/>');
+  });
+
+  it('does not export a link to a block that is not there', async () => {
+    const result = await exportDocx(read('See [gone](#k7m2q9x4zb).\n'), stylesheet, {
+      timestamp: TIMESTAMP,
+    });
+    expect(result.bytes).toBeUndefined();
+    expect(result.diagnostics.map((d) => d.code)).toContain('broken-reference');
+  });
+
   it('writes code blocks with a line break per line and tabs as tabs', async () => {
     const { documentXml } = await build('```\nfirst\n\tsecond\n```\n');
     expect(documentXml).toContain('<w:pStyle w:val="Code"/>');
