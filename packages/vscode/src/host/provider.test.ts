@@ -639,6 +639,45 @@ describe('revealing a block', () => {
   });
 });
 
+describe('asking for a reference', () => {
+  function openIn(projectFiles = files()): PhraseEditorProvider {
+    reset({ ...projectFiles, [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
+    const provider = newProvider();
+    provider.resolveCustomTextEditor(
+      world.document as unknown as vscode.TextDocument,
+      fakePanel() as unknown as vscode.WebviewPanel,
+    );
+    return provider;
+  }
+  const documentUri = (): vscode.Uri => world.document?.uri as unknown as vscode.Uri;
+  const asked = (): HostMessage[] =>
+    posted().filter((message) => message.type === 'make-reference');
+
+  it('tells the webview of that document to open its list of headings', async () => {
+    const provider = openIn();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    provider.makeReference(documentUri());
+    await settled(() => {
+      expect(asked()).toEqual([{ type: 'make-reference' }]);
+    });
+  });
+
+  it('does nothing while the editor shows a refusal', async () => {
+    const provider = openIn({ '/w/p/documents/other.phrase.md': OTHER });
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    provider.makeReference(documentUri());
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+  });
+});
+
 describe('opening a document at a block', () => {
   const start = (): PhraseEditorProvider => {
     reset({ ...files(), [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);

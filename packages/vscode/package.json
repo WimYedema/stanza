@@ -89,6 +89,10 @@
         "title": "Phrase: Go to Line"
       },
       {
+        "command": "phrase.makeReference",
+        "title": "Phrase: Make Reference"
+      },
+      {
         "command": "phrase.openInWord",
         "title": "Phrase: Open in Word",
         "icon": "$(link-external)"
@@ -105,9 +109,21 @@
         "command": "phrase.goToLine",
         "key": "ctrl+g",
         "when": "activeCustomEditorId == phrase.editor"
+      },
+      {
+        "command": "phrase.makeReference",
+        "key": "ctrl+shift+k",
+        "when": "activeCustomEditorId == phrase.editor"
       }
     ],
     "menus": {
+      "webview/context": [
+        {
+          "command": "phrase.makeReference",
+          "when": "webviewId == 'phrase.editor' && webviewSection == 'editor'",
+          "group": "phrase@1"
+        }
+      ],
       "editor/title": [
         {
           "command": "phrase.openInWord",

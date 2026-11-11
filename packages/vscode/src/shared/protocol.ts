@@ -66,6 +66,8 @@ export type HostMessage =
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
   /** Scroll to a top-level block of the document and put the cursor at its start. */
   | { readonly type: 'reveal'; readonly block: number }
+  /** Open the list of headings for a reference, as the toolbar button does (ADR 0069). */
+  | { readonly type: 'make-reference' }
   /** Where the styles are used, sent after `init` and again when it changes. */
   | { readonly type: 'usage'; readonly usage: UsageSummary }
   /** What the checks say about this document, sent after `init` and again when it changes. */
@@ -252,6 +254,8 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
         ? { type: 'reveal', block }
         : undefined;
     }
+    case 'make-reference':
+      return { type: 'make-reference' };
     case 'usage': {
       const usage = parseUsage(value['usage']);
       return usage === undefined ? undefined : { type: 'usage', usage };

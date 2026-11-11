@@ -33,7 +33,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 ## Editor (`editor`)
 
-- 0022: schema and adapter (read first). 0023: commands and paste. 0026: style choice and variants. 0062: marks for changes from outside. 0063: opening at a line (Go to Line).
+- 0022: schema and adapter (read first). 0023: commands and paste. 0026: style choice and variants. 0062: marks for changes from outside. 0063: opening at a line (Go to Line). 0069: making a reference.
 - 0031: phrase blocks. 0029: heading depth rule.
 
 ## VS Code extension (`vscode`)

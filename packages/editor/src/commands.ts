@@ -1,5 +1,6 @@
 import {
   VARIANT_MARKS,
+  isNodeId,
   isStyleName,
   markAllowed,
   maxHeadingLevel,
@@ -37,6 +38,11 @@ import { cellPlace, markActive, selectedBlocks, tableDepth, type Located } from 
 export type EditorCommand =
   | { readonly type: 'toggle-mark'; readonly mark: 'strong' | 'emphasis' | 'code' }
   | { readonly type: 'set-link'; readonly href: string }
+  /**
+   * A reference to a block (ADR 0068, 0069): the selected text becomes a link to `#id` and keeps its
+   * text; with nothing selected, `text` is inserted as the link.
+   */
+  | { readonly type: 'set-reference'; readonly id: string; readonly text: string }
   | { readonly type: 'remove-link' }
   | { readonly type: 'toggle-character-style'; readonly style: StyleName }
   | { readonly type: 'set-heading'; readonly level: HeadingLevel }
@@ -178,6 +184,21 @@ function planLink(state: EditorState, href: string): Plan {
     tr.addMark(range.$from.pos, range.$to.pos, type.create({ href: href.trim() }));
   }
   return done(tr);
+}
+
+function planReference(state: EditorState, id: string, text: string): Plan {
+  if (!isNodeId(id)) return refuse('invalid-argument', 'A reference needs the ID of a block.');
+  if (!state.selection.empty) return planLink(state, `#${id}`);
+  const type = state.schema.marks['link'];
+  const { parent } = state.selection.$from;
+  if (type === undefined || !parent.isTextblock) return refuse('not-applicable', NO_BLOCK);
+  if (parent.type.name === 'codeBlock')
+    return refuse('mark-not-allowed', 'Code blocks take no marks.');
+  if (text.trim() === '' || /[\r\n]/.test(text)) {
+    return refuse('invalid-argument', 'A reference needs text on one line.');
+  }
+  const link = state.schema.text(text, [type.create({ href: `#${id}` })]);
+  return done(state.tr.replaceSelectionWith(link, false));
 }
 
 function planRemoveLink(state: EditorState): Plan {
@@ -506,6 +527,8 @@ function plan(state: EditorState, command: EditorCommand, stylesheet: Stylesheet
       return planToggleMark(state, command.mark, stylesheet);
     case 'set-link':
       return planLink(state, command.href);
+    case 'set-reference':
+      return planReference(state, command.id, command.text);
     case 'remove-link':
       return planRemoveLink(state);
     case 'toggle-character-style':
@@ -550,6 +573,7 @@ function plan(state: EditorState, command: EditorCommand, stylesheet: Stylesheet
 const MARK_COMMANDS: ReadonlySet<EditorCommand['type']> = new Set([
   'toggle-mark',
   'set-link',
+  'set-reference',
   'toggle-character-style',
 ]);
 

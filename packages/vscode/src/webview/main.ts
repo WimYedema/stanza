@@ -9,6 +9,7 @@ import {
 } from '../shared/protocol.js';
 import { createChangesBar } from './changes.js';
 import { createNotices } from './notices.js';
+import { createReferencePicker } from './reference-picker.js';
 import { revealBlock } from './reveal.js';
 import { createSheet } from './sheet.js';
 import { createStyleInfo } from './style-info.js';
@@ -53,7 +54,17 @@ let waiting: ReturnType<typeof setTimeout> | undefined;
 let removedFromOutside = 0;
 
 const { say, answered, declared } = createNotices(notices, send, (command) => editor?.run(command));
-const toolbar = buildToolbar(element('toolbar'), { editor: () => editor, answered });
+const references = createReferencePicker(element('references'), {
+  editor: () => editor,
+  answered,
+});
+const toolbar = buildToolbar(element('toolbar'), {
+  editor: () => editor,
+  answered,
+  makeReference: () => {
+    references.open();
+  },
+});
 const info = createStyleInfo({
   root: element('info'),
   editor: () => editor,
@@ -106,6 +117,7 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
   waiting = undefined;
   editor?.destroy();
   editor = undefined;
+  references.close();
   removedFromOutside = 0;
   showChanges();
   info.refresh();
@@ -230,6 +242,9 @@ function handle(message: HostMessage): void {
       return;
     case 'reveal':
       if (editor !== undefined) revealBlock(editor, message.block, element('top'));
+      return;
+    case 'make-reference':
+      references.open();
       return;
     case 'usage':
       info.setUsage(message.usage);

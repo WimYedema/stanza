@@ -20,6 +20,8 @@ interface ButtonSpec {
   /** The full name, for screen readers and the title. */
   readonly label: string;
   readonly command: EditorCommand;
+  /** A button that opens something, in place of running its command, which is then only checked. */
+  readonly action?: 'make-reference';
   /** The key, written for the title. */
   readonly key?: string;
   /** How the short form is drawn, as in a word processor. */
@@ -109,6 +111,14 @@ const INSERT_GROUP: GroupSpec = {
       text: 'TOC',
       label: 'Insert table of contents',
       command: { type: 'insert-phrase-block', kind: 'toc', text: 'depth: 2' },
+    },
+    {
+      text: 'Ref',
+      label: 'Make reference',
+      // Checked as a reference to some block, as for the selection or the cursor that there is.
+      command: { type: 'set-reference', id: 'aaaaaaaaaa', text: 'x' },
+      action: 'make-reference',
+      key: 'Ctrl+Shift+K',
     },
   ],
 };
@@ -202,6 +212,8 @@ export interface ToolbarHost {
   editor(): PhraseEditor | undefined;
   /** Shows what a command answered. A refusal with a fix offers it (ADR 0026). */
   answered(command: EditorCommand, result: CommandResult): void;
+  /** Opens the list of headings for a reference (ADR 0069). */
+  makeReference(): void;
 }
 
 export interface Toolbar {
@@ -394,6 +406,10 @@ function buildGroup(container: HTMLElement, spec: GroupSpec, host: ToolbarHost):
     if (item.look !== undefined) button.classList.add(`look-${item.look}`);
     keepSelection(button);
     button.addEventListener('click', () => {
+      if (item.action === 'make-reference') {
+        host.makeReference();
+        return;
+      }
       const editor = host.editor();
       if (editor !== undefined) host.answered(item.command, editor.run(item.command));
     });

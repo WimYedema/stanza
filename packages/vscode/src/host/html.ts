@@ -49,6 +49,16 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #notices { padding: 4px 12px; color: #ffcc66; font: 13px monospace; }
   #notices:empty { display: none; }
   #notices button { margin-left: 8px; font: 12px sans-serif; padding: 2px 8px; }
+  #references { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 5;
+    width: min(560px, 90vw); background: #252526; color: #cccccc; font: 13px sans-serif;
+    border: 1px solid #454545; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6); }
+  #references input { box-sizing: border-box; width: 100%; padding: 6px 8px; font: 13px sans-serif;
+    background: #3c3c3c; color: #cccccc; border: 0; border-bottom: 1px solid #454545; }
+  #references .hint { margin: 0; padding: 4px 8px; font-size: 11px; color: #9d9d9d; }
+  #references ul { margin: 0; padding: 0; list-style: none; max-height: 50vh; overflow-y: auto; }
+  #references li { padding: 3px 8px; cursor: pointer; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+  #references li[aria-selected="true"] { background: #04395e; color: #ffffff; }
   #info { position: relative; border-top: 1px solid #4a4a4a; color: #cccccc; font: 12px sans-serif; }
   #info summary { padding: 3px 12px; cursor: pointer; }
   #info .info-body { position: absolute; left: 0; right: 0; max-height: 60vh; overflow: auto;
@@ -97,7 +107,8 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
     <div id="changes" hidden></div>
   </div>
   <div id="notices" role="status"></div>
-  <div id="desk" class="paper">
+  <div id="references" hidden></div>
+  <div id="desk" class="paper" data-vscode-context='{"webviewSection": "editor"}'>
     <div id="cover" class="sheet" hidden></div>
     <div id="page" class="sheet">
       <div id="header" class="band" hidden></div>

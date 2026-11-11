@@ -43,6 +43,11 @@ export {
   type ReferenceTarget,
 } from './references.js';
 export {
+  suggestReferences,
+  type ReferenceSuggestion,
+  type SuggestionMatch,
+} from './reference-suggestions.js';
+export {
   DEFAULT_TOC_DEPTH,
   MAX_TOC_DEPTH,
   TOC_PHRASE_KIND,

@@ -42,6 +42,11 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
     this.sessions.get(uri.toString())?.reveal(block);
   }
 
+  /** Opens the list of headings for a reference in the editor of a document, if it has one open. */
+  makeReference(uri: vscode.Uri): void {
+    this.sessions.get(uri.toString())?.makeReference();
+  }
+
   /**
    * Shows a document in the Phrase editor, in front, and scrolls to a block when one is given. The
    * editor may not be open yet, so the block is kept until it is.
@@ -150,6 +155,13 @@ class EditorSession {
     this.enqueue(async () => {
       if (this.shown === 'editor') await this.post({ type: 'reveal', block });
       else if (this.shown === 'nothing') this.revealing = block;
+    });
+  }
+
+  /** Asks the webview to open the list of headings for a reference, when the editor is shown. */
+  makeReference(): void {
+    this.enqueue(async () => {
+      if (this.shown === 'editor') await this.post({ type: 'make-reference' });
     });
   }
 

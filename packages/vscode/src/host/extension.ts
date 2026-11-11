@@ -7,6 +7,7 @@ import { registerAddAgentInstructions } from './add-agent-instructions-command.j
 import { registerGoToHeading } from './go-to-heading-command.js';
 import { registerGoToLine } from './go-to-line-command.js';
 import { registerImportWord } from './import-word-command.js';
+import { registerMakeReference } from './make-reference-command.js';
 import { registerNewDocument } from './new-document-command.js';
 import { registerNewProject } from './new-project-command.js';
 import { registerOpenInWord } from './open-in-word-command.js';
@@ -44,6 +45,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     registerGoToLine((uri, block) => {
       editors.reveal(uri, block);
+    }),
+    registerMakeReference((uri) => {
+      editors.makeReference(uri);
     }),
     registerPhraseTree(editors),
     registerEditStyles(),

@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Document, Stylesheet } from '@phrase/core';
-import { parseDocument, parseStylesheet } from '@phrase/format';
+import { parseDocument, parseStylesheet, serializeDocument } from '@phrase/format';
 import { type FromEditorResult } from './convert.js';
 import { createPhraseEditor, type PhraseEditor } from './editor.js';
 
@@ -92,6 +92,22 @@ describe('createPhraseEditor', () => {
     editor.destroy();
     editor = createPhraseEditor({ element, stylesheet, document: documentOf('Some text.\n') });
     expect(element.querySelector('.ProseMirror')?.getAttribute('contenteditable')).toBe('true');
+  });
+
+  it('says what is selected, and gives the focus back to the content', () => {
+    const api = open('Some text.\n');
+    api.setPosition({ block: 0, offset: 2 });
+    expect(api.getSelectedText()).toBe('');
+    api.focus();
+    expect(document.activeElement).toBe(element.querySelector('.ProseMirror'));
+  });
+
+  it('inserts a reference at the cursor, as a link to the block', () => {
+    const api = open('Some text.\n');
+    api.setPosition({ block: 0, offset: 5 });
+    expect(api.run({ type: 'set-reference', id: 'k7m2q9x4zb', text: 'I5' })).toEqual({ ok: true });
+    const text = serializeDocument(api.getDocument().document ?? documentOf(''));
+    expect(text).toContain('Some [I5](#k7m2q9x4zb)text.');
   });
 
   it('scopes the editor and writes the stylesheet next to it', () => {

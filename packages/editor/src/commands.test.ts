@@ -282,6 +282,78 @@ describe('marks', () => {
     expect(refusal(run(select(doc, 'text', 4), { type: 'remove-link' }))).toBe('not-applicable');
   });
 
+  describe('a reference to a block', () => {
+    const id = 'k7m2q9x4zb';
+    const linkOf = (state: EditorState, value: string) => {
+      let found: Record<string, unknown> | undefined;
+      state.doc.descendants((node) => {
+        if (node.isText && node.text?.includes(value) === true) {
+          found = node.marks.find((mark) => mark.type.name === 'link')?.attrs;
+        }
+      });
+      return found;
+    };
+
+    it('makes the selected text a link to the block and keeps the text', () => {
+      const doc = build(paragraph('See I5 for this'));
+      const made = run(select(doc, 'I5', 2), { type: 'set-reference', id, text: 'ignored' });
+      expect(made.result).toEqual({ ok: true });
+      expect(made.next.doc.textContent).toBe('See I5 for this');
+      expect(linkOf(made.next, 'I5')).toEqual({ href: `#${id}` });
+    });
+
+    it('inserts the text as the link when nothing is selected', () => {
+      const doc = build(paragraph('See  for this'));
+      const made = run(select(doc, ' for', 0), { type: 'set-reference', id, text: 'I5' });
+      expect(made.result).toEqual({ ok: true });
+      expect(made.next.doc.textContent).toBe('See I5 for this');
+      expect(linkOf(made.next, 'I5')).toEqual({ href: `#${id}` });
+      expect(linkOf(made.next, 'for this')).toBeUndefined();
+    });
+
+    it('works in a table cell and in a heading', () => {
+      const doc = build(heading('A title', 2), {
+        type: 'table',
+        content: [row(cell('tableHeader', 'H')), row(cell('tableCell', 'see T6'))],
+      });
+      const inCell = run(select(doc, 'T6', 2), { type: 'set-reference', id, text: 'T6' });
+      expect(inCell.result).toEqual({ ok: true });
+      expect(linkOf(inCell.next, 'T6')).toEqual({ href: `#${id}` });
+    });
+
+    it('refuses what is not the ID of a block, an empty text, and a code block', () => {
+      const doc = build(paragraph('Some text'));
+      const refusedFor = (command: EditorCommand, state = select(doc, 'text', 0)): string =>
+        refusal(run(state, command));
+      expect(refusedFor({ type: 'set-reference', id: 'my-title', text: 'x' })).toBe(
+        'invalid-argument',
+      );
+      expect(refusedFor({ type: 'set-reference', id, text: '  ' })).toBe('invalid-argument');
+      expect(refusedFor({ type: 'set-reference', id, text: 'a\nb' })).toBe('invalid-argument');
+      const code = build({
+        type: 'codeBlock',
+        attrs: {},
+        content: [text('const a = 1;')],
+      });
+      expect(refusedFor({ type: 'set-reference', id, text: 'x' }, select(code, 'const', 0))).toBe(
+        'mark-not-allowed',
+      );
+    });
+
+    it('is refused, with the fix, in a style that does not allow links', () => {
+      const doc = build(paragraph('Some text', { style: 'plain' }));
+      const refused = run(select(doc, 'text', 4), { type: 'set-reference', id, text: 'x' });
+      expect(refusal(refused)).toBe('mark-not-allowed');
+      const empty = run(select(doc, 'text', 0), { type: 'set-reference', id, text: 'x' });
+      expect(refusal(empty)).toBe('mark-not-allowed');
+      expect(refused.result.ok ? undefined : refused.result.fix).toEqual({
+        kind: 'declare-variant',
+        style: 'plain',
+        mark: 'link',
+      });
+    });
+  });
+
   it('applies a character style that exists, in every paragraph style', () => {
     const doc = build(paragraph('Some text', { style: 'plain' }));
     const marker = 'marker' as StyleName;

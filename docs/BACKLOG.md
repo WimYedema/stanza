@@ -14,9 +14,8 @@ Placed before the themes "Pipeline (CLI, no editor)" and "Collections and refere
 
 ## Theme: Collections and references
 
-References inside one document come first (items 118 to 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
+References inside one document come first (items 119 and 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
 
-118. [M] - Editor, make a reference: a command on selected text (toolbar, key, palette, and a right-click menu inside the editor if it can be done) that offers the headings, the best match for the selected text first (the leading code of a heading, such as I5, or its title), and turns the selection into a reference that keeps its text. With nothing selected it inserts a reference with the title of the heading. Needs item 116.
 119. [M] - Editor, find possible references: a command that lists the places where the text equals the code or the title of a heading, with a preview, and turns one or all of them into references. Nothing is changed without the person choosing it. Needs item 118.
 120. [S] - Editor, typing shorthand: typing `@` opens the list of headings in the editor and picking one inserts a reference. Only an editor shorthand; the file holds the ordinary link. Needs item 118.
 

@@ -157,6 +157,12 @@ describe('the reveal message', () => {
   });
 });
 
+describe('the make-reference message', () => {
+  it('has no content', () => {
+    expect(parseHostMessage({ type: 'make-reference' })).toEqual({ type: 'make-reference' });
+  });
+});
+
 describe('edit-styles', () => {
   it('takes a request with a style, and one without', () => {
     expect(parseWebviewMessage({ type: 'edit-styles' })).toEqual({ type: 'edit-styles' });

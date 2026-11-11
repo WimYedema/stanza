@@ -193,6 +193,10 @@ export interface PhraseEditor {
   getPosition(): EditorPosition;
   /** Puts the cursor at a position, or as near to it as the document allows. */
   setPosition(position: EditorPosition): void;
+  /** What the selection covers, as plain text; empty when nothing is selected. */
+  getSelectedText(): string;
+  /** Puts the focus back in the content, as after a list that was chosen from. */
+  focus(): void;
   /** The element drawn for a top-level block, to scroll to it. */
   blockElement(block: number): HTMLElement | undefined;
   destroy(): void;
@@ -323,6 +327,13 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
       style.remove();
     },
     getPosition: () => editorPosition(editor.state),
+    getSelectedText() {
+      const { from, to, empty } = editor.state.selection;
+      return empty ? '' : editor.state.doc.textBetween(from, to, ' ');
+    },
+    focus() {
+      editor.view.focus();
+    },
     setPosition(position) {
       editor.view.dispatch(moveTo(editor.state, position));
     },

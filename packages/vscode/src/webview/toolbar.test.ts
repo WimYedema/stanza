@@ -42,6 +42,7 @@ let toolbar: HTMLElement;
 let shown: Toolbar;
 let editor: PhraseEditor;
 const answered = vi.fn<(command: unknown, result: CommandResult) => void>();
+const makeReference = vi.fn<() => void>();
 
 beforeEach(() => {
   const element = document.createElement('div');
@@ -49,7 +50,7 @@ beforeEach(() => {
   document.body.append(toolbar, element);
   const parsed = parseDocument(TEXT);
   editor = createPhraseEditor({ element, stylesheet, document: parsed.document });
-  shown = buildToolbar(toolbar, { editor: () => editor, answered });
+  shown = buildToolbar(toolbar, { editor: () => editor, answered, makeReference });
   answered.mockClear();
 });
 afterEach(() => {
@@ -90,6 +91,18 @@ describe('the buttons', () => {
     editor.setPosition({ block: 1, offset: 2 });
     button('Bold').click();
     expect(answered).toHaveBeenCalledWith({ type: 'toggle-mark', mark: 'strong' }, { ok: true });
+  });
+
+  it('open the list of headings for a reference, and are off where no link can be', () => {
+    editor.setPosition({ block: 1, offset: 2 });
+    expect(button('Make reference').disabled).toBe(false);
+    button('Make reference').click();
+    expect(makeReference).toHaveBeenCalledOnce();
+    expect(answered).not.toHaveBeenCalled();
+    editor.setPosition({ block: 2, offset: 2 });
+    shown.refresh();
+    expect(button('Make reference').disabled).toBe(true);
+    expect(button('Make reference').title).toContain('Code blocks take no marks');
   });
 
   it('are in groups, and the group of the table is shown only in a table', () => {
@@ -299,7 +312,7 @@ describe('the labels of styles', () => {
       document: parseDocument(TEXT).document,
     });
     try {
-      const view = buildToolbar(bar, { editor: () => other, answered });
+      const view = buildToolbar(bar, { editor: () => other, answered, makeReference });
       const [styles, characters] = bar.querySelectorAll('select');
       if (styles === undefined || characters === undefined) throw new Error('No lists.');
       const shown = (select: HTMLSelectElement): (string | null)[][] =>
