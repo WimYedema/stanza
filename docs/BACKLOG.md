@@ -16,8 +16,9 @@ Placed before the themes "Pipeline (CLI, no editor)" and "Collections and refere
 
 The references inside one document are done (items 116 to 118, 120; item 119 is under Later). A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
 
-31. [M] - Cross-document references: the reference index of item 116 across the documents of a project, with computed display text. Needs items 30 and 116.
 32. [M] - Numbering across a project (headings, figures, tables, appendices).
+125. [M] - Editor, references to other documents (ADR 0073): the list of headings of "make a reference" (item 118) and of the `@` shorthand (item 120) also offers the headings of the other documents of the project, the current document first and each group marked with its document. The extension host sends them to the webview, as it does the used IDs, and again when a document changes. Added with item 31.
+126. [M] - Follow and find references: `Ctrl+click` on a reference goes to its target, also in another document, and a command "Find references" lists what points at a heading, from the project index. Added with item 31.
 123. [S] - Keep the list of documents in step (ADR 0072): "new document", "import Word" and "adopt Markdown" append the new file to the `documents` list when the project has one, with a comment-preserving edit of `phrase.yaml`; a quick fix for an unlisted or a missing document; reorder and regroup in the Phrase view. Added with item 30.
 
 

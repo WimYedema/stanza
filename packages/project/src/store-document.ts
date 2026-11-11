@@ -2,6 +2,7 @@ import {
   assignMissingIds,
   collectBlockIds,
   nodeIdFromRandomBytes,
+  projectIds,
   type Document,
   type ProjectSettings,
   type Stylesheet,
@@ -88,7 +89,9 @@ export async function storeNewDocument(
     assigned: withIds.assigned.length,
     diagnostics: inFile(
       path,
-      checkDocumentText(text, project.stylesheet, project.settings).diagnostics,
+      checkDocumentText(text, project.stylesheet, project.settings, {
+        projectIds: projectIds(project.documents),
+      }).diagnostics,
     ),
   };
 }

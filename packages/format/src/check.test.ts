@@ -50,4 +50,15 @@ describe('checkDocumentText', () => {
       'missing-field',
     );
   });
+
+  it('accepts a reference to a block of another document only when the project IDs say so', () => {
+    const text = `${HEADER}See [there](#k7m2q9x4zb).\n`;
+    const codes = (projectIds?: ReadonlySet<string>): string[] =>
+      checkDocumentText(text, stylesheet, undefined, projectIds === undefined ? {} : { projectIds })
+        .diagnostics.filter((d) => d.code === 'broken-reference')
+        .map((d) => d.code);
+    expect(codes()).toEqual(['broken-reference']);
+    expect(codes(new Set(['k7m2q9x4zb']))).toEqual([]);
+    expect(codes(new Set(['aaaaaaaaaa']))).toEqual(['broken-reference']);
+  });
 });

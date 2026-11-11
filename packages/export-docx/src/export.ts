@@ -11,7 +11,7 @@ import {
   type Stylesheet,
 } from '@phrase/core';
 import { Document, Packer } from 'docx';
-import { buildBlocks, type BuildContext } from './content.js';
+import { buildBlocks, type BuildContext, type ReferenceFile } from './content.js';
 import { footerOf, headerOf } from './header-footer.js';
 import { ListNumbering } from './list-numbering.js';
 import { pageGeometry } from './page.js';
@@ -24,6 +24,12 @@ import { tableStylesXml } from './table-styles.js';
 export interface ExportOptions {
   /** Written into the package, so the same inputs give the same bytes. */
   readonly timestamp: Date;
+  /**
+   * The blocks of the other documents of the project, by ID, with the DOCX file of the document
+   * that holds each. A reference to one of them is a link to that file (ADR 0073). Without it the
+   * document stands alone, and a reference must point at a block of its own.
+   */
+  readonly otherTargets?: ReadonlyMap<string, ReferenceFile>;
 }
 
 export interface ExportResult {
@@ -42,7 +48,12 @@ export async function exportDocx(
   options: ExportOptions,
 ): Promise<ExportResult> {
   const diagnostics: Diagnostic[] = [...validateStylesheet(stylesheet)];
-  if (!hasErrors(diagnostics)) diagnostics.push(...validateDocument(document, stylesheet));
+  const otherTargets = options.otherTargets ?? new Map<string, ReferenceFile>();
+  if (!hasErrors(diagnostics)) {
+    const checks =
+      options.otherTargets === undefined ? {} : { projectIds: new Set(otherTargets.keys()) };
+    diagnostics.push(...validateDocument(document, stylesheet, checks));
+  }
   if (!hasErrors(diagnostics)) diagnostics.push(...checkStyleIds(stylesheet));
   if (hasErrors(diagnostics)) return { bytes: undefined, diagnostics };
 
@@ -68,6 +79,7 @@ export async function exportDocx(
     lists: new ListNumbering(stylesheet, ids, diagnostics),
     headingLabels: numberHeadings(document, stylesheet).labels,
     diagnostics,
+    otherTargets,
   };
   const children = buildBlocks(document.blocks, context);
   const coverChildren =

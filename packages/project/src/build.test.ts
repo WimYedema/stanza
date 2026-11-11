@@ -29,6 +29,48 @@ describe('buildProject', () => {
     }
   });
 
+  describe('a reference to a block of another document', () => {
+    const NOTES =
+      '---\nphrase-format: 1\ntitle: "Notes"\ndocument-number: "N-2"\n---\n\nSee [the introduction](#k7m2q9x4zb).\n';
+    const relsOf = (storage: ReturnType<typeof memoryStorage>, path: string): string =>
+      strFromU8(
+        unzipSync(storage.written.get(path) ?? new Uint8Array())['word/_rels/document.xml.rels'] ??
+          new Uint8Array(),
+      );
+
+    it('becomes a link to the file of that document', async () => {
+      const storage = memoryStorage({ ...exampleProject(), 'notes.phrase.md': NOTES });
+      const result = await buildProject(storage, options);
+      expect(result.diagnostics).toEqual([]);
+      expect(relsOf(storage, 'build/notes.docx')).toContain(
+        'Target="documents/introduction.docx" TargetMode="External"',
+      );
+    });
+
+    it('is written with a warning when that document is not built', async () => {
+      const files: Record<string, string> = { ...exampleProject(), 'notes.phrase.md': NOTES };
+      files['phrase.yaml'] = `${files['phrase.yaml'] ?? ''}documents:\n  - notes.phrase.md\n`;
+      const storage = memoryStorage(files);
+      const result = await buildProject(storage, options);
+      expect(result.written).toEqual(['build/notes.docx']);
+      expect(result.diagnostics.map((d) => [d.file, d.code])).toEqual([
+        ['documents/introduction.phrase.md', 'unlisted-document'],
+        ['documents/reference.phrase.md', 'unlisted-document'],
+        ['notes.phrase.md', 'reference-to-unbuilt-document'],
+      ]);
+    });
+
+    it('stops the build when the block is gone', async () => {
+      const files = {
+        ...exampleProject(),
+        'notes.phrase.md': NOTES.replace('k7m2q9x4zb', 'zzzzzzzzzz'),
+      };
+      const result = await buildProject(memoryStorage(files), options);
+      expect(result.written).toEqual([]);
+      expect(result.diagnostics.map((d) => d.code)).toContain('broken-reference');
+    });
+  });
+
   it('builds only the documents of the list, and says that the others are not built', async () => {
     const files = exampleProject();
     files['phrase.yaml'] =

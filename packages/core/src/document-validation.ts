@@ -45,10 +45,14 @@ interface Context {
  *
  * The stylesheet is assumed to have been validated. Where one of its styles is missing, the checks
  * that depend on it are skipped, not repeated for every block.
+ *
+ * A reference to a block is checked against the document alone, or against `projectIds`, the IDs
+ * of all blocks of the project, when the document is one of several (ADR 0073).
  */
 export function validateDocument(
   document: Document,
   stylesheet: Stylesheet,
+  options: { readonly projectIds?: ReadonlySet<string> } = {},
 ): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const report = (
@@ -348,13 +352,15 @@ export function validateDocument(
   document.blocks.forEach((block, index) => {
     checkBlock(block, `blocks[${String(index)}]`, {});
   });
-  // A reference to a block that is not in the document is an error, never plain text (ADR 0068).
+  // A reference to a block that is not there is an error, never plain text (ADR 0068, 0073).
+  const scope = options.projectIds === undefined ? 'this document' : 'this project';
   for (const broken of findBroken(indexReferences(document))) {
+    if (options.projectIds?.has(broken.target) === true) continue;
     report(
       'error',
       'broken-reference',
       isNodeId(broken.target)
-        ? `The reference "${broken.text}" points at the block ${broken.target}, which is not in this document.`
+        ? `The reference "${broken.text}" points at the block ${broken.target}, which is not in ${scope}.`
         : `The link "${broken.text}" goes to "#${broken.target}", which is not the ID of a block.`,
       broken.path,
       broken.blockId,

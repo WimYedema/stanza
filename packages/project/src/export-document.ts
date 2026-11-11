@@ -3,6 +3,7 @@ import { exportDocx } from '@phrase/export-docx';
 import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './diagnostics.js';
 import { PROJECT_FILE } from './files.js';
 import type { LoadedProject } from './load.js';
+import { referenceTargets } from './reference-links.js';
 import type { ProjectStorage } from './storage.js';
 import { outDirProblem, outputPath, type BuildOptions } from './build.js';
 
@@ -42,7 +43,10 @@ export async function exportDocument(
   if (problem !== undefined) return { written: undefined, diagnostics: [problem], blocked: false };
 
   const effective = { ...found.document, meta: applyDefaults(settings, found.document.meta) };
-  const result = await exportDocx(effective, stylesheet, { timestamp: options.timestamp });
+  const result = await exportDocx(effective, stylesheet, {
+    timestamp: options.timestamp,
+    otherTargets: referenceTargets(loaded.documents)(documentPath),
+  });
   // The exporter checks the document again, so its findings repeat those of loading.
   const known = new Set(loaded.diagnostics.map((d) => JSON.stringify([d.file, d.code, d.message])));
   const diagnostics = withoutRepeats(inFile(documentPath, result.diagnostics)).filter(

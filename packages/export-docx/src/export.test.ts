@@ -149,6 +149,63 @@ describe('exportDocx', () => {
     expect(result.diagnostics.map((d) => d.code)).toContain('broken-reference');
   });
 
+  describe('a link to a block of another document of the project', () => {
+    const body = 'See [the other](#a1b2c3d4e5) and [this](#k7m2q9x4zb).\n';
+    const own = '<!-- phrase: #k7m2q9x4zb -->\n# Own\n\n';
+    const exportWith = (otherTargets?: ReadonlyMap<string, { href: string; built: boolean }>) =>
+      exportDocx(read(own + body), stylesheet, {
+        timestamp: TIMESTAMP,
+        ...(otherTargets !== undefined ? { otherTargets } : {}),
+      });
+    const relsOf = (bytes: Uint8Array | undefined): string =>
+      strFromU8(
+        unzipSync(bytes ?? new Uint8Array())['word/_rels/document.xml.rels'] ?? new Uint8Array(),
+      );
+
+    it('is a link to the file of that document, at its bookmark, and own blocks stay internal', async () => {
+      const result = await exportWith(
+        new Map([['a1b2c3d4e5', { href: '../other/b.docx', built: true }]]),
+      );
+      expect(result.diagnostics).toEqual([]);
+      // As Word writes a link to a place in another file: the file in the relationship, the place as an anchor.
+      expect(relsOf(result.bytes)).toContain('Target="../other/b.docx" TargetMode="External"');
+      const xml = strFromU8(
+        unzipSync(result.bytes ?? new Uint8Array())['word/document.xml'] ?? new Uint8Array(),
+      );
+      expect(xml).toContain('w:anchor="phrase_k7m2q9x4zb">');
+      expect(xml).toMatch(/w:anchor="phrase_a1b2c3d4e5" r:id="rId\d+"/);
+      expect(xml.match(/<w:hyperlink /g)).toHaveLength(2);
+    });
+
+    it('is written with a warning when that document is not built', async () => {
+      const result = await exportWith(
+        new Map([['a1b2c3d4e5', { href: '../other/b.docx', built: false }]]),
+      );
+      expect(result.bytes).toBeDefined();
+      expect(result.diagnostics).toEqual([
+        expect.objectContaining({ severity: 'warning', code: 'reference-to-unbuilt-document' }),
+      ]);
+    });
+
+    it('is a broken reference when the document stands alone', async () => {
+      const result = await exportWith();
+      expect(result.bytes).toBeUndefined();
+      expect(result.diagnostics.map((d) => d.message)).toEqual([
+        expect.stringContaining('which is not in this document') as string,
+      ]);
+    });
+
+    it('is a broken reference when no document of the project has the block', async () => {
+      const result = await exportWith(
+        new Map([['zzzzzzzzzz', { href: '../other/b.docx', built: true }]]),
+      );
+      expect(result.bytes).toBeUndefined();
+      expect(result.diagnostics.map((d) => d.message)).toEqual([
+        expect.stringContaining('which is not in this project') as string,
+      ]);
+    });
+  });
+
   it('writes code blocks with a line break per line and tabs as tabs', async () => {
     const { documentXml } = await build('```\nfirst\n\tsecond\n```\n');
     expect(documentXml).toContain('<w:pStyle w:val="Code"/>');

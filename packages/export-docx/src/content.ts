@@ -52,6 +52,15 @@ export interface BuildContext {
   /** The number of each top-level block, as `numberHeadings` gives them. */
   readonly headingLabels: readonly (string | undefined)[];
   readonly diagnostics: Diagnostic[];
+  /** The blocks of the other documents of the project that a reference may point at. */
+  readonly otherTargets: ReadonlyMap<string, ReferenceFile>;
+}
+
+/** Where a block of another document is: the DOCX file of its document, relative to this one. */
+export interface ReferenceFile {
+  readonly href: string;
+  /** False when that document is not built, so the file will not be there. */
+  readonly built: boolean;
 }
 
 interface ListPosition {
@@ -92,8 +101,26 @@ function inlineChildren(
     );
     if (link === undefined) children.push(...runs);
     else if (target !== undefined && isNodeId(target)) {
-      // The validation has seen that the block is there, and every block with an ID has a bookmark.
-      children.push(new InternalHyperlink({ anchor: bookmarkName(target), children: runs }));
+      const other = context.otherTargets.get(target);
+      if (other === undefined) {
+        // The validation has seen that the block is there, and every block with an ID has a bookmark.
+        children.push(new InternalHyperlink({ anchor: bookmarkName(target), children: runs }));
+      } else {
+        if (!other.built) {
+          const text = content
+            .slice(index, end)
+            .map((inline) => inline.text)
+            .join('');
+          context.diagnostics.push({
+            severity: 'warning',
+            code: 'reference-to-unbuilt-document',
+            message: `The reference "${text}" points at a document that is not built, so its link has no file to go to.`,
+          });
+        }
+        children.push(
+          new ExternalHyperlink({ link: `${other.href}#${bookmarkName(target)}`, children: runs }),
+        );
+      }
     } else children.push(new ExternalHyperlink({ link: link.href, children: runs }));
     index = end;
   }

@@ -1,6 +1,7 @@
 import {
   collectBlockIds,
   outlinePaths,
+  projectIds,
   resolvePageTemplate,
   type Document,
   type NodeId,
@@ -8,7 +9,7 @@ import {
   type ProjectSettings,
   type Stylesheet,
 } from '@phrase/core';
-import { checkDocumentText, parseProject, parseStylesheet } from '@phrase/format';
+import { checkDocumentText, parseDocument, parseProject, parseStylesheet } from '@phrase/format';
 import { hasErrors, inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX, PROJECT_FILE, findDocuments, readText } from './files.js';
 import type { ProjectStorage } from './storage.js';
@@ -137,7 +138,14 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
     ...listedPaths.filter((path) => found.has(path)),
     ...paths.filter((path) => !listed.has(path)),
   ];
+  const texts: { readonly path: string; readonly text: string }[] = [];
   for (const path of order) {
+    const text = await readText(storage, path, diagnostics);
+    if (text !== undefined) texts.push({ path, text });
+  }
+  // A reference may point at a block of any document, so every document is read before checking.
+  const ids = projectIds(texts.map(({ text }) => ({ document: parseDocument(text).document })));
+  for (const { path, text } of texts) {
     if (!listed.has(path)) {
       diagnostics.push({
         file: path,
@@ -146,9 +154,7 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
         message: `The document is not in the list of documents of ${PROJECT_FILE}, so it is checked but not built.`,
       });
     }
-    const text = await readText(storage, path, diagnostics);
-    if (text === undefined) continue;
-    const checked = checkDocumentText(text, stylesheet, settings);
+    const checked = checkDocumentText(text, stylesheet, settings, { projectIds: ids });
     diagnostics.push(...inFile(path, checked.diagnostics));
     documents.push({ path, document: checked.document, listed: listed.has(path) });
   }

@@ -153,6 +153,44 @@ describe('loadProject', () => {
   });
 });
 
+describe('references between documents', () => {
+  const withNotes = (extra: string): Record<string, string> => ({
+    ...exampleProject(),
+    'notes.phrase.md': GOOD_DOCUMENT('abcdefghjk', extra),
+  });
+
+  it('accepts a reference to a block of another document of the project', async () => {
+    const loaded = await loadProject(
+      memoryStorage(withNotes('See [the introduction](#k7m2q9x4zb).\n')),
+    );
+    expect(loaded.diagnostics.filter((d) => d.code === 'broken-reference')).toEqual([]);
+  });
+
+  it('reports a reference to a block that no document has, in the document that holds it', async () => {
+    const loaded = await loadProject(memoryStorage(withNotes('See [gone](#zzzzzzzzzz).\n')));
+    expect(loaded.diagnostics.filter((d) => d.code === 'broken-reference')).toEqual([
+      expect.objectContaining({
+        file: 'notes.phrase.md',
+        severity: 'error',
+        message: expect.stringContaining('which is not in this project') as string,
+      }),
+    ]);
+  });
+
+  it('reports the references to a block that was deleted, in each document that had one', async () => {
+    const files = withNotes('See [the introduction](#k7m2q9x4zb).\n');
+    const intro = files['documents/introduction.phrase.md'] ?? '';
+    files['documents/introduction.phrase.md'] = intro.replace(
+      '<!-- phrase: #k7m2q9x4zb -->\n# ',
+      '# ',
+    );
+    const loaded = await loadProject(memoryStorage(files));
+    expect(
+      loaded.diagnostics.filter((d) => d.code === 'broken-reference').map((d) => d.file),
+    ).toEqual(['notes.phrase.md']);
+  });
+});
+
 describe('the list of documents', () => {
   const withList = (list: string): Record<string, string> => {
     const files = exampleProject();

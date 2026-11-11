@@ -19,12 +19,14 @@ export interface CheckResult {
  * Reads a document and checks it against a stylesheet. Constructs the dialect cannot represent are
  * reported while reading, and nothing in the model can express direct formatting, so these two
  * sets of diagnostics cover everything that is unsupported or invalid. When the project settings
- * are given, the metadata is checked against them as well.
+ * are given, the metadata is checked against them as well. With `projectIds`, a reference may point
+ * at a block of another document of the project (ADR 0073).
  */
 export function checkDocumentText(
   source: string,
   stylesheet: Stylesheet,
   settings?: ProjectSettings,
+  options: { readonly projectIds?: ReadonlySet<string> } = {},
 ): CheckResult {
   const parsed = parseDocument(source);
   const metadata =
@@ -35,7 +37,7 @@ export function checkDocumentText(
     document: parsed.document,
     diagnostics: [
       ...parsed.diagnostics,
-      ...validateDocument(parsed.document, stylesheet),
+      ...validateDocument(parsed.document, stylesheet, options),
       ...metadata,
     ],
   };

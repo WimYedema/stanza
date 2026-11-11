@@ -43,6 +43,16 @@ export {
   type ReferenceTarget,
 } from './references.js';
 export {
+  findProjectBroken,
+  findProjectIncoming,
+  indexProjectReferences,
+  projectIds,
+  resolveProjectReference,
+  type ProjectReference,
+  type ProjectReferenceIndex,
+  type ProjectTarget,
+} from './project-references.js';
+export {
   suggestReferences,
   type ReferenceSuggestion,
   type SuggestionMatch,

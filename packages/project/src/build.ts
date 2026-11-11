@@ -3,6 +3,7 @@ import { exportDocx } from '@phrase/export-docx';
 import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX } from './files.js';
 import { loadProject } from './load.js';
+import { referenceTargets } from './reference-links.js';
 import type { ProjectStorage } from './storage.js';
 
 export interface BuildOptions {
@@ -61,10 +62,14 @@ export async function buildProject(
 
   const diagnostics: ProjectDiagnostic[] = [...loaded.diagnostics];
   const outputs: { path: string; bytes: Uint8Array }[] = [];
+  const targetsFor = referenceTargets(loaded.documents);
   for (const { path, document } of built) {
     // The effective metadata has the project's defaults filled in.
     const effective = { ...document, meta: applyDefaults(settings, document.meta) };
-    const result = await exportDocx(effective, stylesheet, { timestamp: options.timestamp });
+    const result = await exportDocx(effective, stylesheet, {
+      timestamp: options.timestamp,
+      otherTargets: targetsFor(path),
+    });
     diagnostics.push(...inFile(path, result.diagnostics));
     if (result.bytes !== undefined) {
       outputs.push({ path: outputPath(options.outDir, path), bytes: result.bytes });
