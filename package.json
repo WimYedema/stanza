@@ -16,7 +16,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run build && npm run typecheck:tests && npm run test && npm run lint && npm run format:check"
+    "check": "npm run build && npm run typecheck:tests && npm run test && npm run lint && npm run format:check && npm run docs:check",
+    "docs:fix": "node packages/cli/dist/main.js format --assign-ids docs",
+    "docs:check": "node packages/cli/dist/main.js validate docs && node packages/cli/dist/main.js format --check --assign-ids docs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

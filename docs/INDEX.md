@@ -1,6 +1,6 @@
 # Documentation index
 
-Read the ADR for the topic you work on; later ADRs refine earlier ones, so read the whole chain named on a line. File names are `docs/adr/NNNN-*.md`. Other files: `ARCHITECTURE.md` (boundaries), `PRODUCT_VISION.md`, `BACKLOG.md` (open work), `BACKLOG_DONE.md` (history), `SPIKE_FINDINGS.md`.
+Read the ADR for the topic you work on; later ADRs refine earlier ones, so read the whole chain named on a line. File names are `docs/documents/NNNN-*.phrase.md`. Other files: `docs/documents/architecture.phrase.md` (boundaries), `docs/documents/product-vision.phrase.md`, `docs/BACKLOG.md` (open work), `docs/BACKLOG_DONE.md` (history), `docs/documents/spike-findings.phrase.md`. The documents are Phrase documents (ADR 0064); this index and the backlog files are plain Markdown.
 
 ## Format and domain (`core`, `format`)
 
@@ -29,7 +29,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 ## Project and CLI (`project`, `cli`)
 
 - 0002: host and dependencies. 0014: project package and CLI. 0015: format command.
-- 0042, 0044: new project, new document. 0052: style usage index. 0061: AGENTS.md for coding agents.
+- 0042, 0044: new project, new document. 0052: style usage index. 0061: AGENTS.md for coding agents. 0064: the documentation as a Phrase project.
 
 ## Editor (`editor`)
 
