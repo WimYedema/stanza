@@ -16,7 +16,7 @@ export {
 } from './edit-stylesheet.js';
 export { checkDocumentText, type CheckResult } from './check.js';
 export { FORMAT_VERSION } from './front-matter.js';
-export { parseDocument, type ParseResult } from './parse.js';
+export { blockStartLines, parseDocument, type ParseResult } from './parse.js';
 export { parseProject, type ProjectParseResult } from './project.js';
 export { serializeDocument } from './serialize.js';
 export { slotSource } from './slot-source.js';

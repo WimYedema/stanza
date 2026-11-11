@@ -5,6 +5,7 @@ import { ExportOnSave } from './export-on-save.js';
 import { registerAdoptMarkdown } from './adopt-markdown-command.js';
 import { registerAddAgentInstructions } from './add-agent-instructions-command.js';
 import { registerGoToHeading } from './go-to-heading-command.js';
+import { registerGoToLine } from './go-to-line-command.js';
 import { registerImportWord } from './import-word-command.js';
 import { registerNewDocument } from './new-document-command.js';
 import { registerNewProject } from './new-project-command.js';
@@ -39,6 +40,9 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     ),
     registerGoToHeading((uri, block) => {
+      editors.reveal(uri, block);
+    }),
+    registerGoToLine((uri, block) => {
       editors.reveal(uri, block);
     }),
     registerPhraseTree(editors),

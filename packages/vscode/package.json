@@ -85,6 +85,10 @@
         "title": "Phrase: Go to Heading"
       },
       {
+        "command": "phrase.goToLine",
+        "title": "Phrase: Go to Line"
+      },
+      {
         "command": "phrase.openInWord",
         "title": "Phrase: Open in Word",
         "icon": "$(link-external)"
@@ -95,6 +99,11 @@
         "command": "phrase.goToHeading",
         "key": "ctrl+shift+o",
         "mac": "cmd+shift+o",
+        "when": "activeCustomEditorId == phrase.editor"
+      },
+      {
+        "command": "phrase.goToLine",
+        "key": "ctrl+g",
         "when": "activeCustomEditorId == phrase.editor"
       }
     ],

@@ -12,7 +12,6 @@ Finished items are in `docs/BACKLOG_DONE.md`, one line each. Item numbers are ke
 
 Placed before Phases 3 and 4 by the product owner.
 
-114. [S] - Links from the chat open at the right place: a link to a `.phrase.md` file with a line opens the Phrase editor and scrolls to the block that holds that line. Investigate first what VS Code gives a custom editor when it is opened from a link with a selection; if it gives nothing, find another way. Added at the request of the product owner, if possible.
 95. [S] - The documents of this repository as a Phrase project: `docs/` and `README.md` become a project with its own stylesheet, adopted with item 94, so that the product describes itself. Added at the request of the product owner.
 38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.
 39. [M] - Show imported comments next to the content in the editor.
@@ -56,3 +55,4 @@ Placed before Phases 3 and 4 by the product owner.
 106. [S] - Line height like Word's: in the compiled CSS, `line-spacing: multiple` multiplies the natural line height of the font family (a small table of known families, Calibri about 1.22) and not the font size, so that a paragraph is as tall in the editor as in Word. Changes the look of the editor, not the file. Found by the spike of ADR 0058.
 107. [S] - Table row height: find why a table row is 2.5 to 4 pt taller in the editor than in Word (cell padding, borders, paragraph spacing in cells) and bring the CSS in line, checked against Word. ADR 0058.
 108. [M] - Page layout in the editor, undecided (ADR 0058): guides over the sheet, a read-only layout view with header and footer on every page (on request or after a pause), or spacer widgets. Decide first, with the product owner; then a pure page model in `core`. Items 106 and 107 come first.
+115. [S] - Links that open the editor at a line, if VS Code allows it later: check whether a custom editor can be given the selection of a link (see ADR 0063), or whether `vscode://` links with a URI handler are let through by the chat, and then scroll to the block without `Ctrl+G`. Added with item 114.

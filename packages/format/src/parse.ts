@@ -120,6 +120,29 @@ export function parseMarkdownBlocks(
   return parseBlocks(state, undefined, true);
 }
 
+/**
+ * The line on which each top-level block starts, counted from 1 in the whole file, in the order of
+ * the blocks that `parseDocument` gives. The annotation line before a block belongs to the block.
+ * It is for finding the block of a line, for example from a link that names one (ADR 0063).
+ */
+export function blockStartLines(source: string): number[] {
+  const text = source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  const { lineCount } = splitFrontMatter(text.split('\n'));
+  const starts: number[] = [];
+  let annotated: number | undefined;
+  for (const token of markdown.parse(text.split('\n').slice(lineCount).join('\n'), {})) {
+    if (token.level !== 0 || token.nesting === -1 || token.map === null) continue;
+    const line = token.map[0] + lineCount + 1;
+    if (token.type === 'html_block') {
+      if (parseAnnotation(token.content, line) !== undefined) annotated = line;
+    } else if (token.type !== 'hr' && token.type !== 'blockquote_open') {
+      starts.push(annotated ?? line);
+      annotated = undefined;
+    }
+  }
+  return starts;
+}
+
 function parseBlocks(state: State, closeType: string | undefined, allowHeading: boolean): Block[] {
   const blocks: Block[] = [];
   let pending: { annotation: Annotation; token: Token } | undefined;
