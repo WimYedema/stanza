@@ -139,6 +139,16 @@ describe('parseHostMessage', () => {
 });
 
 describe('the reveal message', () => {
+  it('takes the mark flag of an outside change, and refuses one that is not true or false', () => {
+    expect(parseHostMessage({ type: 'external-text', text: 'a', mark: false })).toEqual({
+      type: 'external-text',
+      text: 'a',
+      mark: false,
+    });
+    expect(parseHostMessage({ type: 'external-text', text: 'a', mark: 'no' })).toBeUndefined();
+    expect(parseHostMessage({ type: 'external-text', mark: false })).toBeUndefined();
+  });
+
   it('takes a block number, and nothing else', () => {
     expect(parseHostMessage({ type: 'reveal', block: 3 })).toEqual({ type: 'reveal', block: 3 });
     for (const block of [-1, 1.5, '2', undefined, Number.NaN]) {

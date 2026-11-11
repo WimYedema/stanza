@@ -44,6 +44,8 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #bar button.look-mono { font-family: monospace; }
   #bar button[aria-pressed="true"] { background: #0e639c; color: #ffffff; }
   #bar button.needs-variant { border-style: dashed; }
+  #changes { display: flex; gap: 8px; align-items: center; padding: 4px 12px; background: #264f78; border-top: 1px solid #4a4a4a; color: #ffffff; font: 12px sans-serif; }
+  #changes button { font: 12px sans-serif; padding: 2px 8px; }
   #notices { padding: 4px 12px; color: #ffcc66; font: 13px monospace; }
   #notices:empty { display: none; }
   #notices button { margin-left: 8px; font: 12px sans-serif; padding: 2px 8px; }
@@ -92,6 +94,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
       <div id="view"></div>
     </div>
     <div id="info" hidden></div>
+    <div id="changes" hidden></div>
   </div>
   <div id="notices" role="status"></div>
   <div id="desk" class="paper">

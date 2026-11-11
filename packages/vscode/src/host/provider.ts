@@ -95,6 +95,8 @@ class EditorSession {
   private shown: Shown = 'nothing';
   /** A block to scroll to once the editor is shown. */
   private revealing: number | undefined;
+  /** The last change of the document was an undo or a redo. */
+  private undoing = false;
   private root: vscode.Uri | undefined;
   private watched: string | undefined;
   private stylesheetText: string | undefined;
@@ -128,6 +130,9 @@ class EditorSession {
       }),
       vscode.workspace.onDidChangeTextDocument((event) => {
         if (event.document.uri.toString() === this.document.uri.toString()) {
+          this.undoing =
+            event.reason === vscode.TextDocumentChangeReason.Undo ||
+            event.reason === vscode.TextDocumentChangeReason.Redo;
           this.enqueue(() => this.onDocumentChanged());
         }
         if (isProjectFile(event.document.fileName)) this.scheduleRefresh();
@@ -224,8 +229,14 @@ class EditorSession {
       });
       return;
     }
-    if (this.shown === 'editor') await this.post({ type: 'external-text', text: review.text });
-    else await this.sendInit();
+    if (this.shown === 'editor') {
+      // What the person undoes or redoes is not news to them (ADR 0062).
+      await this.post({
+        type: 'external-text',
+        text: review.text,
+        ...(this.undoing ? { mark: false } : {}),
+      });
+    } else await this.sendInit();
   }
 
   private async refuse(title: string, reasons: readonly { message: string }[]): Promise<void> {

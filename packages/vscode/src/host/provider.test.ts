@@ -317,6 +317,31 @@ describe('writing to the file', () => {
 });
 
 describe('changes from outside', () => {
+  it('sends an undo and a redo with the flag that says they are not to be marked', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+    const undone = CANONICAL.replace('Some text.', 'Undone.');
+    changeDocument(undone, 1);
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    expect(posted()[1]).toEqual({ type: 'external-text', text: undone, mark: false });
+    const redone = CANONICAL.replace('Some text.', 'Redone.');
+    changeDocument(redone, 2);
+    await settled(() => {
+      expect(posted()).toHaveLength(3);
+    });
+    expect(posted()[2]).toEqual({ type: 'external-text', text: redone, mark: false });
+    const agent = CANONICAL.replace('Some text.', 'An agent.');
+    changeDocument(agent);
+    await settled(() => {
+      expect(posted()).toHaveLength(4);
+    });
+    expect(posted()[3]).toEqual({ type: 'external-text', text: agent });
+  });
+
   it('sends the new text when the document changes in another way', async () => {
     fromWebview({ type: 'ready' });
     await settled(() => {

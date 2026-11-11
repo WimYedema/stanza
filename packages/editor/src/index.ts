@@ -12,6 +12,7 @@ export {
   EDITOR_CHROME_CSS,
   createPhraseEditor,
   phraseExtensions,
+  type DocumentChange,
   type PhraseEditor,
   type PhraseEditorOptions,
 } from './editor.js';

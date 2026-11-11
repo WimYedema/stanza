@@ -56,8 +56,11 @@ export type HostMessage =
       readonly defaults: Defaults;
       readonly usedIds: readonly string[];
     }
-  /** The document changed in another way, for example by Git or in the text editor. */
-  | { readonly type: 'external-text'; readonly text: string }
+  /**
+   * The document changed in another way, for example by Git or in the text editor. The blocks that
+   * are new or different are marked unless `mark` is false, as for an undo or a redo (ADR 0062).
+   */
+  | { readonly type: 'external-text'; readonly text: string; readonly mark?: boolean }
   | { readonly type: 'stylesheet'; readonly text: string }
   | { readonly type: 'defaults'; readonly defaults: Defaults }
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
@@ -228,7 +231,13 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
       const defaults = parseDefaults(value['defaults']);
       return defaults === undefined ? undefined : { type: 'defaults', defaults };
     }
-    case 'external-text':
+    case 'external-text': {
+      const { text, mark } = value;
+      if (typeof text !== 'string' || (mark !== undefined && typeof mark !== 'boolean')) {
+        return undefined;
+      }
+      return { type: 'external-text', text, ...(mark !== undefined ? { mark } : {}) };
+    }
     case 'stylesheet': {
       const text = value['text'];
       return typeof text === 'string' ? { type: value['type'], text } : undefined;

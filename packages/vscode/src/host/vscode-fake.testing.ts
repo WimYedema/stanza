@@ -63,7 +63,7 @@ export const world = {
   /** What the extension wants called when a panel is closed. */
   disposers: [] as (() => void)[],
   diagnostics: new Map<string, unknown[]>(),
-  changeListeners: [] as Listener<{ document: FakeDocument }>[],
+  changeListeners: [] as Listener<{ document: FakeDocument; reason?: number | undefined }>[],
   messageListeners: [] as Listener<unknown>[],
   failEdits: false,
   /** What `phrase` settings say, by name. */
@@ -163,14 +163,14 @@ export function reset(
 }
 
 /** The document changes in a way that is not an edit of the extension, for example by a checkout. */
-export function changeDocument(text: string): void {
+export function changeDocument(text: string, reason?: number): void {
   world.text = text;
-  fire();
+  fire(world.document, reason);
 }
 
-function fire(document: FakeDocument | undefined = world.document): void {
+function fire(document: FakeDocument | undefined = world.document, reason?: number): void {
   if (document === undefined) return;
-  for (const listener of world.changeListeners) listener({ document });
+  for (const listener of world.changeListeners) listener({ document, reason });
 }
 
 /** The person saves the document, which VS Code tells the extension about. */
@@ -265,6 +265,7 @@ export function createFakeVscode(): Record<string, unknown> {
     ThemeIcon,
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     UIKind: { Desktop: 1, Web: 2 },
+    TextDocumentChangeReason: { Undo: 1, Redo: 2 },
     env: {
       get remoteName() {
         return world.remoteName;
@@ -362,8 +363,9 @@ export function createFakeVscode(): Record<string, unknown> {
       },
       onDidSaveTextDocument: (listener: Listener<FakeDocument>) =>
         listen(world.saveListeners, listener),
-      onDidChangeTextDocument: (listener: Listener<{ document: FakeDocument }>) =>
-        listen(world.changeListeners, listener),
+      onDidChangeTextDocument: (
+        listener: Listener<{ document: FakeDocument; reason?: number | undefined }>,
+      ) => listen(world.changeListeners, listener),
       onDidChangeWorkspaceFolders: () => disposable(() => undefined),
       createFileSystemWatcher: () => ({
         onDidChange: () => disposable(() => undefined),

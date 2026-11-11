@@ -12,7 +12,6 @@ Finished items are in `docs/BACKLOG_DONE.md`, one line each. Item numbers are ke
 
 Placed before Phases 3 and 4 by the product owner.
 
-113. [M] - Show what an agent changed: when the text of the open document changes from outside (an agent, Git, another editor), mark the blocks that changed in the editor until the person dismisses them, found by block ID. How far to go (marks only, the old text, accept and reject) is decided in an ADR first. Added at the request of the product owner, if possible.
 114. [S] - Links from the chat open at the right place: a link to a `.phrase.md` file with a line opens the Phrase editor and scrolls to the block that holds that line. Investigate first what VS Code gives a custom editor when it is opened from a link with a selection; if it gives nothing, find another way. Added at the request of the product owner, if possible.
 95. [S] - The documents of this repository as a Phrase project: `docs/` and `README.md` become a project with its own stylesheet, adopted with item 94, so that the product describes itself. Added at the request of the product owner.
 38. [L] - Import Word comments anchored by bookmark IDs. Report comments whose anchor no longer exists.

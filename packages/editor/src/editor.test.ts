@@ -278,6 +278,87 @@ describe('createPhraseEditor', () => {
     });
   });
 
+  describe('changes from outside', () => {
+    const THREE = 'First.\n\nSecond one.\n\nThird.\n';
+    const marked = (): string[] =>
+      [...element.querySelectorAll('.phrase-changed')].map((node) => node.textContent);
+
+    it('marks a block that is different, and counts it as changed and one as removed', () => {
+      const api = open(THREE, stylesheet);
+      const change = api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'), {
+        markChanges: true,
+      });
+      expect(change).toEqual({ changed: 1, removed: 1 });
+      expect(api.changedBlocks()).toEqual([1]);
+      expect(marked()).toEqual(['Second big one.']);
+    });
+
+    it('marks a block that is new, and counts a block that is gone', () => {
+      const api = open(THREE, stylesheet);
+      expect(api.setDocument(documentOf(`${THREE}\nFourth.\n`), { markChanges: true })).toEqual({
+        changed: 1,
+        removed: 0,
+      });
+      expect(marked()).toEqual(['Fourth.']);
+      expect(
+        api.setDocument(documentOf('First.\n\nThird.\n\nFourth.\n'), { markChanges: true }),
+      ).toEqual({
+        changed: 0,
+        removed: 1,
+      });
+    });
+
+    it('marks nothing when the content is the same, or when it is not asked for', () => {
+      const api = open(THREE, stylesheet);
+      expect(api.setDocument(documentOf(THREE), { markChanges: true })).toEqual({
+        changed: 0,
+        removed: 0,
+      });
+      expect(api.changedBlocks()).toEqual([]);
+      expect(api.setDocument(documentOf('First.\n\nChanged.\n\nThird.\n'))).toEqual({
+        changed: 0,
+        removed: 0,
+      });
+      expect(marked()).toEqual([]);
+    });
+
+    it('adds up over several changes, with the marks following their blocks', () => {
+      const api = open(THREE, stylesheet);
+      api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'), { markChanges: true });
+      api.setDocument(documentOf('New start.\n\nFirst.\n\nSecond big one.\n\nThird.\n'), {
+        markChanges: true,
+      });
+      expect(api.changedBlocks()).toEqual([0, 2]);
+      expect(marked()).toEqual(['New start.', 'Second big one.']);
+    });
+
+    it('keeps the marks that are there when a change is not marked, as after an undo', () => {
+      const api = open(THREE, stylesheet);
+      api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'), { markChanges: true });
+      api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird, undone.\n'));
+      expect(marked()).toEqual(['Second big one.']);
+    });
+
+    it('drops the mark of a block that is gone, and clears all on request', () => {
+      const api = open(THREE, stylesheet);
+      api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'), { markChanges: true });
+      api.setDocument(documentOf('First.\n\nThird.\n'));
+      expect(api.changedBlocks()).toEqual([]);
+      api.setDocument(documentOf('First.\n\nOther.\n'), { markChanges: true });
+      expect(api.changedBlocks()).toEqual([1]);
+      api.clearChanges();
+      expect(api.changedBlocks()).toEqual([]);
+      expect(marked()).toEqual([]);
+    });
+
+    it('does not put the marks in the content', () => {
+      const api = open(THREE, stylesheet);
+      api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'), { markChanges: true });
+      expect(api.getDocument().document?.blocks).toHaveLength(3);
+      expect(JSON.stringify(api.getDocument().document)).not.toContain('phrase-changed');
+    });
+  });
+
   describe('the state at the cursor', () => {
     const TEXT = `<!-- phrase: #k7m2q9x4zb -->
 # Title

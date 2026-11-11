@@ -7,6 +7,7 @@ import {
   type Reason,
   type WebviewMessage,
 } from '../shared/protocol.js';
+import { createChangesBar } from './changes.js';
 import { createNotices } from './notices.js';
 import { revealBlock } from './reveal.js';
 import { createSheet } from './sheet.js';
@@ -48,6 +49,8 @@ let inline: readonly Diagnostic[] = [];
 /** What the editor holds, as text. What was sent last is the same, unless a send is waiting. */
 let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
+/** How many blocks that were removed by changes from outside are not yet dismissed. */
+let removedFromOutside = 0;
 
 const { say, answered, declared } = createNotices(notices, send, (command) => editor?.run(command));
 const toolbar = buildToolbar(element('toolbar'), { editor: () => editor, answered });
@@ -56,6 +59,20 @@ const info = createStyleInfo({
   editor: () => editor,
   edit: (kind, name) => {
     send({ type: 'edit-styles', style: { kind, name } });
+  },
+});
+const changes = createChangesBar(element('changes'), {
+  next: () => {
+    if (editor === undefined) return;
+    const marked = editor.changedBlocks();
+    const here = editor.getPosition().block;
+    const target = marked.find((block) => block > here) ?? marked[0];
+    if (target !== undefined) revealBlock(editor, target, element('top'));
+  },
+  dismiss: () => {
+    editor?.clearChanges();
+    removedFromOutside = 0;
+    showChanges();
   },
 });
 const pages = createSheet({
@@ -73,6 +90,10 @@ const reasonOf = (diagnostic: Diagnostic): Reason => ({
   ...(diagnostic.line !== undefined ? { line: diagnostic.line } : {}),
 });
 
+function showChanges(): void {
+  changes.show(editor?.changedBlocks().length ?? 0, removedFromOutside);
+}
+
 function flush(): void {
   if (waiting === undefined) return;
   clearTimeout(waiting);
@@ -85,6 +106,8 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
   waiting = undefined;
   editor?.destroy();
   editor = undefined;
+  removedFromOutside = 0;
+  showChanges();
   info.refresh();
   editing.hidden = true;
   refused.hidden = false;
@@ -126,6 +149,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
   editor?.destroy();
   element('editor').replaceChildren();
   usedIds = new Set(message.usedIds);
+  removedFromOutside = 0;
   lastText = serializeDocument(parsed.document);
   say('');
   refused.hidden = true;
@@ -142,6 +166,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     onContextChange: () => {
       toolbar.schedule();
       info.schedule();
+      showChanges();
     },
     ...(nonce !== undefined ? { styleNonce: nonce } : {}),
   });
@@ -171,7 +196,12 @@ function handle(message: HostMessage): void {
       // The text that came in is newer than anything that was waiting to be sent.
       clearTimeout(waiting);
       waiting = undefined;
-      editor.setDocument(parsed.document, { cursor: 'at-change' });
+      const change = editor.setDocument(parsed.document, {
+        cursor: 'at-change',
+        markChanges: message.mark !== false,
+      });
+      removedFromOutside += change.removed;
+      showChanges();
       lastText = serializeDocument(parsed.document);
       pages.update({ document: parsed.document });
       return;

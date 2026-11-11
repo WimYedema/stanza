@@ -1,4 +1,5 @@
 import { Editor, type Extensions } from '@tiptap/core';
+import type { Node as EditorNode } from '@tiptap/pm/model';
 import {
   nodeIdFromRandomBytes,
   type Diagnostic,
@@ -14,6 +15,14 @@ import {
   annotationsKey,
 } from './annotations.js';
 import { BlockIds, type IdSource } from './block-ids.js';
+import {
+  CHANGED_CLASS,
+  ChangeMarks,
+  blockStarts,
+  diffBlocks,
+  markBlocks,
+  markedBlocks,
+} from './change-marks.js';
 import { checkCommand, runCommand, type CommandResult, type EditorCommand } from './commands.js';
 import { editorContext, type EditorContext } from './context.js';
 import { ContextClasses, REFRESH_CLASSES, contextClassesKey } from './context-classes.js';
@@ -85,6 +94,10 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
   box-shadow: -8px 0 0 #cca700;
 }
 
+.${SCOPE_CLASS} .${CHANGED_CLASS} {
+  background-color: #e8f1ff;
+}
+
 .${SCOPE_CLASS} .selectedCell {
   background-color: #C8DCFF;
 }
@@ -138,15 +151,31 @@ export interface PhraseEditorOptions {
   readonly editable?: boolean;
 }
 
+/** What a replacement of the content changed, as far as it was asked to find out (ADR 0062). */
+export interface DocumentChange {
+  /** Blocks of the new content that are new or different. */
+  readonly changed: number;
+  /** Blocks of the old content that are not in the new. */
+  readonly removed: number;
+}
+
 export interface PhraseEditor {
   /** The document the editor holds, with the metadata it was given. */
   getDocument(): FromEditorResult;
   /**
    * Replaces the content, for example after the file changed on disk. Does not call `onChange`. With
    * `cursor: 'at-change'` the cursor goes to where the content changed, as after an undo or a redo,
-   * and stays where it was when nothing changed.
+   * and stays where it was when nothing changed. With `markChanges` the blocks that are new or
+   * different are marked (ADR 0062); marks that are there already stay on the blocks that stay.
    */
-  setDocument(document: Document, options?: { readonly cursor?: 'at-change' }): void;
+  setDocument(
+    document: Document,
+    options?: { readonly cursor?: 'at-change'; readonly markChanges?: boolean },
+  ): DocumentChange;
+  /** The numbers of the top-level blocks that are marked as changed from outside, in order. */
+  changedBlocks(): readonly number[];
+  /** Takes all the marks of changes from outside off. */
+  clearChanges(): void;
   /** Applies a new stylesheet. With errors it changes nothing and returns them. */
   setStylesheet(stylesheet: Stylesheet): readonly Diagnostic[];
   /**
@@ -190,6 +219,7 @@ export function phraseExtensions(
     ...schemaExtensions(),
     GapCursor,
     Annotations.configure({ stylesheet }),
+    ChangeMarks,
     BlockIds.configure({ ...ids, notice }),
     ContextClasses.configure({ stylesheet }),
     PhraseBlockView.configure({ stylesheet }),
@@ -235,18 +265,43 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
     },
   });
 
+  /** Marks the blocks that differ from the content before, and keeps the marks of blocks that stayed. */
+  const markDifferences = (
+    before: EditorNode,
+    oldMarked: ReadonlySet<number>,
+    mark: boolean,
+  ): DocumentChange => {
+    if (!mark && oldMarked.size === 0) return { changed: 0, removed: 0 };
+    const { kept, removed } = diffBlocks(before, editor.state.doc);
+    const marked = blockStarts(editor.state.doc).filter((_, index) => {
+      const old = kept[index] ?? -1;
+      return old < 0 ? mark : oldMarked.has(old);
+    });
+    editor.view.dispatch(markBlocks(editor.state, marked));
+    return mark
+      ? { changed: kept.filter((old) => old < 0).length, removed }
+      : { changed: 0, removed: 0 };
+  };
+
   return {
     getDocument: () => fromEditorContent(editor.state.doc, meta),
     setDocument(document, options) {
       meta = document.meta;
       const before = editor.state.doc;
+      const oldMarked = new Set(markedBlocks(editor.state));
       const position = editorPosition(editor.state);
       editor.commands.setContent(toEditorContent(document), { emitUpdate: false });
-      if (options?.cursor !== 'at-change') return;
+      const change = markDifferences(before, oldMarked, options?.markChanges === true);
+      if (options?.cursor !== 'at-change') return change;
       const end = changeEnd(before, editor.state.doc);
       editor.view.dispatch(
         end === undefined ? moveTo(editor.state, position) : moveToPosition(editor.state, end),
       );
+      return change;
+    },
+    changedBlocks: () => markedBlocks(editor.state),
+    clearChanges() {
+      editor.view.dispatch(markBlocks(editor.state, []));
     },
     setStylesheet(next) {
       const compiled = compile(next);
