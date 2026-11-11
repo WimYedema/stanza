@@ -24,38 +24,61 @@ const document: Document = {
     heading('dddddddddd', 'T6 \u2014 Unauthorised pipeline changes after I5 leaks'),
     { type: 'paragraph', content: [{ type: 'text', text: 'I5 is a paragraph', marks: [] }] },
     heading('eeeeeeeeee', 'Observations from the code review'),
+    heading('ffffffffff', 'I50 \u2014 Another one'),
     heading(undefined, 'A heading without an ID'),
   ],
 };
 
 const ids = (query: string): string[] => suggestReferences(document, query).map((s) => s.id);
+const ORDER = ['title', 'prefix', 'contains', 'words'];
+const order = (a: string | undefined, b: string | undefined): number =>
+  ORDER.indexOf(a ?? '') - ORDER.indexOf(b ?? '');
 
 describe('suggestReferences', () => {
   it('gives the headings that have an ID, in order, when nothing is looked for', () => {
-    expect(ids('')).toEqual(['aaaaaaaaaa', 'bbbbbbbbbb', 'cccccccccc', 'dddddddddd', 'eeeeeeeeee']);
-    expect(ids('   ')).toHaveLength(5);
+    expect(ids('')).toEqual([
+      'aaaaaaaaaa',
+      'bbbbbbbbbb',
+      'cccccccccc',
+      'dddddddddd',
+      'eeeeeeeeee',
+      'ffffffffff',
+    ]);
+    expect(ids('   ')).toHaveLength(6);
   });
 
-  it('puts the heading with the code first, then the ones that only mention it', () => {
+  it('puts a heading that starts with the text first, then the ones that only mention it', () => {
     const found = suggestReferences(document, 'I5');
     expect(found.map((s) => [s.id, s.match])).toEqual([
-      ['cccccccccc', 'code'],
+      ['cccccccccc', 'prefix'],
       ['dddddddddd', 'contains'],
+      ['ffffffffff', 'contains'],
     ]);
   });
 
-  it('matches the code whatever the case and the punctuation around the selection', () => {
-    expect(ids('t6')[0]).toBe('dddddddddd');
-    expect(ids('(T6),')[0]).toBe('dddddddddd');
+  it('goes by the text of a heading alone, and knows no codes', () => {
+    const plain: Document = {
+      meta: { fields: {} },
+      blocks: [heading('gggggggggg', 'Chapter 7'), heading('hhhhhhhhhh', 'Chapter 70')],
+    };
+    expect(suggestReferences(plain, 'chapter 7').map((s) => [s.id, s.match])).toEqual([
+      ['gggggggggg', 'title'],
+      ['hhhhhhhhhh', 'contains'],
+    ]);
+    expect(suggestReferences(plain, '7').map((s) => s.id)).toEqual(['gggggggggg', 'hhhhhhhhhh']);
   });
 
-  it('matches a title as a whole, with or without the code, before one that starts with it', () => {
+  it('matches whatever the case and the punctuation around the selection', () => {
+    expect(ids('i5')[0]).toBe('cccccccccc');
+    expect(ids('(I5),')[0]).toBe('cccccccccc');
+  });
+
+  it('matches a whole title before one that only starts with it', () => {
     expect(suggestReferences(document, 'Observations from the code review')[0]?.match).toBe(
       'title',
     );
-    const bare = suggestReferences(document, 'unauthorised sign-in through a stolen password');
-    expect(bare.map((s) => [s.id, s.match])).toEqual([['bbbbbbbbbb', 'title']]);
-    expect(suggestReferences(document, 'Unauthorised')[0]?.match).toBe('prefix');
+    expect(suggestReferences(document, 'Unauthorised')[0]?.match).toBe('contains');
+    expect(suggestReferences(document, 'Observations')[0]?.match).toBe('prefix');
   });
 
   it('matches the words of a selection in any order, and the weakest last', () => {
@@ -70,26 +93,7 @@ describe('suggestReferences', () => {
 
   it('gives all the headings, without a match, when none matches', () => {
     const found = suggestReferences(document, 'nothing like this');
-    expect(found).toHaveLength(5);
+    expect(found).toHaveLength(6);
     expect(found.every((s) => s.match === undefined)).toBe(true);
   });
-
-  it('says what a reference to a heading reads when no text was selected', () => {
-    const labels = suggestReferences(document, '').map((s) => s.label);
-    expect(labels).toEqual(['Threat Model', 'S1', 'I5', 'T6', 'Observations from the code review']);
-  });
-
-  it('is not led astray by a first word that has no digit, or a heading that is only a code', () => {
-    const odd: Document = {
-      meta: { fields: {} },
-      blocks: [heading('ffffffffff', 'T6'), heading('gggggggggg', 'Version 2 notes')],
-    };
-    expect(suggestReferences(odd, '').map((s) => s.label)).toEqual(['T6', 'Version 2 notes']);
-    expect(suggestReferences(odd, 'T6')[0]?.match).toBe('title');
-  });
 });
-
-const KINDS = ['code', 'title', 'prefix', 'contains', 'words'];
-function order(a: string | undefined, b: string | undefined): number {
-  return KINDS.indexOf(a ?? '') - KINDS.indexOf(b ?? '');
-}

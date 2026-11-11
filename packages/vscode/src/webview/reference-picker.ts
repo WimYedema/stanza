@@ -60,7 +60,7 @@ export function createReferencePicker(
     const command: EditorCommand = {
       type: 'set-reference',
       id: suggestion.id,
-      text: suggestion.label,
+      text: suggestion.text,
     };
     host.answered(command, editor.run(command));
     editor.focus();

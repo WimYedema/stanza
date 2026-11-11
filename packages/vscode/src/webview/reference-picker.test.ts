@@ -147,17 +147,25 @@ describe('choosing', () => {
     selected = 'I5';
     picker.open();
     key('Enter');
-    const command = { type: 'set-reference', id: 'cccccccccc', text: 'I5' };
+    const command = {
+      type: 'set-reference',
+      id: 'cccccccccc',
+      text: 'I5 \u2014 Secrets exposed in documents',
+    };
     expect(run).toHaveBeenCalledWith(command);
     expect(answered).toHaveBeenCalledWith(command, { ok: true });
     expect(root.hidden).toBe(true);
     expect(focus).toHaveBeenCalled();
   });
 
-  it('inserts the code of a heading, or its text when it has none, when nothing is selected', () => {
+  it('inserts the text of the heading when nothing is selected', () => {
     picker.open();
     root.querySelectorAll('li')[3]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(run).toHaveBeenLastCalledWith({ type: 'set-reference', id: 'dddddddddd', text: 'T6' });
+    expect(run).toHaveBeenLastCalledWith({
+      type: 'set-reference',
+      id: 'dddddddddd',
+      text: 'T6 \u2014 Pipeline changes',
+    });
     picker.open();
     root.querySelectorAll('li')[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(run).toHaveBeenLastCalledWith({
@@ -165,6 +173,13 @@ describe('choosing', () => {
       id: 'aaaaaaaaaa',
       text: 'Threat Model',
     });
+  });
+
+  it('keeps the selected text, whatever the heading says', () => {
+    selected = 'I5';
+    picker.open();
+    key('Enter');
+    expect(run).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'cccccccccc' }));
   });
 
   it('hands over a refusal, so that its fix can be offered', () => {

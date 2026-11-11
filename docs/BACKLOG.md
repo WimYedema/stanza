@@ -16,7 +16,7 @@ Placed before the themes "Pipeline (CLI, no editor)" and "Collections and refere
 
 References inside one document come first (items 119 and 120); the project items follow. A reference is a link whose destination is `#<id>` of a heading or another block that has an ID (no new syntax in the file), with the text kept as written. Targets are headings for now.
 
-119. [M] - Editor, find possible references: a command that lists the places where the text equals the code or the title of a heading, with a preview, and turns one or all of them into references. Nothing is changed without the person choosing it. Needs item 118.
+119. [M] - Editor, find possible references: a command that lists the places where the text equals the title of a heading, or a name that the author gave it, with a preview, and turns one or all of them into references. Nothing is changed without the person choosing it. Phrase does not know how a document names its headings (codes such as T6; ADR 0070), so an ADR first settles how the author says it: an alias on a heading in its annotation, or a pattern in the project file that reads the name from the heading text, or the full text of the heading only. Needs item 118.
 120. [S] - Editor, typing shorthand: typing `@` opens the list of headings in the editor and picking one inserts a reference. Only an editor shorthand; the file holds the ordinary link. Needs item 118.
 
 30. [M] - Project model: multiple documents, shared stylesheet, document order.
