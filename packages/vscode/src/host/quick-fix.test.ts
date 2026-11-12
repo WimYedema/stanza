@@ -104,3 +104,43 @@ describe('the quick fix', () => {
     ).toEqual([]);
   });
 });
+
+describe('the quick fix for a color that is not a token (ADR 0074)', () => {
+  const RAW = STYLESHEET.replace('  body: {}\n', "  body:\n    color: '#112233'\n");
+
+  beforeEach(async () => {
+    reset(
+      {
+        '/w/p/phrase.yaml': "phrase-format: 1\ntitle: 'P'\nstylesheet: 'styles/default.yaml'\n",
+        [SHEET]: RAW,
+        [DOCUMENT]: MARKED,
+      },
+      DOCUMENT,
+      MARKED,
+    );
+    registerDeclareVariant(diagnostics, new StylesheetSaves(log));
+    await diagnostics.refresh(new FakeUri('/w/p') as never);
+  });
+
+  const sheetActions = () =>
+    world.codeActions?.provideCodeActions({ uri: new FakeUri(SHEET) }, undefined, {
+      diagnostics: world.diagnostics.get(SHEET) as vscode.Diagnostic[],
+    }) as { title: string; command: { command: string; arguments: unknown[] } }[];
+
+  it('is offered on the diagnostic in the stylesheet', () => {
+    const [action, ...rest] = sheetActions();
+    expect(rest).toEqual([]);
+    expect(action?.command.command).toBe('phrase.useTokens');
+  });
+
+  it('moves the value into a token in the open stylesheet, and clears the problem', async () => {
+    const [action] = sheetActions();
+    const handler = world.commandHandlers.get('phrase.useTokens');
+    await (handler as unknown as Handler)(...(action?.command.arguments ?? []));
+    expect(world.open.get(SHEET)?.text).toContain('color: color-112233');
+    expect(world.open.get(SHEET)?.text).toContain("color-112233: '#112233'");
+    expect(world.open.get(SHEET)?.isDirty).toBe(true);
+    expect(world.files.get(SHEET)).toBe(RAW);
+    expect(world.diagnostics.get(SHEET)).toBeUndefined();
+  });
+});

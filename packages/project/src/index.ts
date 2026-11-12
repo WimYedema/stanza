@@ -26,6 +26,11 @@ export {
 } from './format.js';
 export { hasErrors, type ProjectDiagnostic } from './diagnostics.js';
 export {
+  useTokensInStylesheet,
+  type FixStylesheetOptions,
+  type FixStylesheetResult,
+} from './fix-stylesheet.js';
+export {
   describeImport,
   importWordDocument,
   type ImportWordOptions,

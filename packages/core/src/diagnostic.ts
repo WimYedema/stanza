@@ -8,11 +8,16 @@ export type Severity = 'error' | 'warning';
  * A change to the project that would remove the cause of a diagnostic. It is only offered, never
  * made by itself: the stylesheet decides which marks a style allows (ADR 0006, ADR 0026).
  */
-export type Fix = {
+export type DeclareVariantFix = {
   readonly kind: 'declare-variant';
   readonly style: StyleName;
   readonly mark: VariantMark;
 };
+
+/** Moves the hex colors and font lists of the styles into tokens, all at once (ADR 0074). */
+export type UseTokensFix = { readonly kind: 'use-tokens' };
+
+export type Fix = DeclareVariantFix | UseTokensFix;
 
 export interface Diagnostic {
   readonly severity: Severity;

@@ -4,7 +4,7 @@ import {
   isStyleName,
   markAllowed,
   maxHeadingLevel,
-  type Fix,
+  type DeclareVariantFix,
   type HeadingLevel,
   type StyleName,
   type Stylesheet,
@@ -86,13 +86,13 @@ export type CommandResult =
       readonly reason: RefusalReason;
       readonly message: string;
       /** What the stylesheet needs for the command to be possible. The person editing decides. */
-      readonly fix?: Fix;
+      readonly fix?: DeclareVariantFix;
     };
 
 type Refusal = Extract<CommandResult, { ok: false }>;
 type Plan = { readonly transactions: readonly Transaction[] } | Refusal;
 
-const refuse = (reason: RefusalReason, message: string, fix?: Fix): Refusal => ({
+const refuse = (reason: RefusalReason, message: string, fix?: DeclareVariantFix): Refusal => ({
   ok: false,
   reason,
   message,
@@ -181,13 +181,19 @@ function planLink(state: EditorState, href: string): Plan {
       'A link goes to a web page (http or https), a mail address, or a block (#).',
     );
   }
-  if (state.selection.empty) return refuse('not-applicable', 'Select the text to link.');
+  // A cursor in a link changes where the whole link goes.
+  const inLink = state.selection.empty ? getMarkRange(state.selection.$from, type) : undefined;
+  if (state.selection.empty && inLink === undefined) {
+    return refuse('not-applicable', 'Select the text to link.');
+  }
   if (selectedBlocks(state).some(({ node }) => node.type.name === 'codeBlock')) {
     return refuse('mark-not-allowed', 'Code blocks take no marks.');
   }
   const tr = state.tr;
-  for (const range of state.selection.ranges) {
-    tr.addMark(range.$from.pos, range.$to.pos, type.create({ href: href.trim() }));
+  const mark = type.create({ href: href.trim() });
+  if (inLink !== undefined) tr.addMark(inLink.from, inLink.to, mark);
+  else {
+    for (const range of state.selection.ranges) tr.addMark(range.$from.pos, range.$to.pos, mark);
   }
   return done(tr);
 }
@@ -606,7 +612,7 @@ function evaluate(state: EditorState, command: EditorCommand, stylesheet: Styles
     VARIANT_MARKS.filter((mark: VariantMark) =>
       introduced.some((violation) => violation.style === style && violation.mark === mark),
     ).join(', ');
-  const fix: Fix = { kind: 'declare-variant', style: first.style, mark: first.mark };
+  const fix: DeclareVariantFix = { kind: 'declare-variant', style: first.style, mark: first.mark };
   return MARK_COMMANDS.has(command.type)
     ? refuse(
         'mark-not-allowed',

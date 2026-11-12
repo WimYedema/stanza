@@ -14,6 +14,7 @@ import {
   importWordDocument,
   describeImport,
   loadProject,
+  useTokensInStylesheet,
   type ProjectDiagnostic,
   type ProjectStorage,
 } from '@phrase/project';
@@ -60,6 +61,10 @@ Options for format:
   --assign-ids         Also give every heading and table without an ID a new one, unique in
                        the project. With --check, a missing ID counts as not canonical.
                        Needs a project, not a single file.
+  --fix-stylesheet     Also move the hex colors and font lists in the styles of the stylesheet
+                       into tokens (errors raw-color and raw-font), with a token named after
+                       each value that has none. Comments and layout stay. With --check, the
+                       stylesheet is listed and not changed. Needs a project.
 
 Other options:
   -h, --help           Show this help.
@@ -95,7 +100,10 @@ function formatDiagnostic(d: ProjectDiagnostic): string {
 function summary(documents: number, diagnostics: readonly ProjectDiagnostic[]): string {
   const errors = diagnostics.filter((d) => d.severity === 'error').length;
   const warnings = diagnostics.filter((d) => d.severity === 'warning').length;
-  return `Checked ${plural(documents, 'document')}: ${plural(errors, 'error')}, ${plural(warnings, 'warning')}.\n`;
+  const hint = diagnostics.some((d) => d.code === 'raw-color' || d.code === 'raw-font')
+    ? 'Run "phrase format --fix-stylesheet" to move those colors and fonts into tokens.\n'
+    : '';
+  return `${hint}Checked ${plural(documents, 'document')}: ${plural(errors, 'error')}, ${plural(warnings, 'warning')}.\n`;
 }
 
 function exitCode(diagnostics: readonly ProjectDiagnostic[]): number {
@@ -120,6 +128,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
         date: { type: 'string' },
         check: { type: 'boolean' },
         'assign-ids': { type: 'boolean' },
+        'fix-stylesheet': { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -152,7 +161,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       values.out !== undefined ||
       values.date !== undefined ||
       values.check === true ||
-      values['assign-ids'] === true
+      values['assign-ids'] === true ||
+      values['fix-stylesheet'] === true
     ) {
       return usage(`${command} takes no options.`);
     }
@@ -203,6 +213,13 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (assignIds && project.endsWith(DOCUMENT_SUFFIX)) {
     return usage('--assign-ids needs a project directory, to keep IDs unique across documents.');
   }
+  const fixStylesheet = values['fix-stylesheet'] === true;
+  if (command !== 'format' && fixStylesheet) {
+    return usage('--fix-stylesheet applies to format only.');
+  }
+  if (fixStylesheet && project.endsWith(DOCUMENT_SUFFIX)) {
+    return usage('--fix-stylesheet needs a project directory, as the stylesheet belongs to one.');
+  }
 
   const open = io.openStorage ?? nodeStorage;
 
@@ -214,12 +231,22 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
         ? { generateId: io.generateId ?? ((): string => nodeIdFromRandomBytes(randomBytes(10))) }
         : {}),
     };
+    const stylesheet = fixStylesheet
+      ? await useTokensInStylesheet(open(target), { check: options.check })
+      : undefined;
     const result = project.endsWith(DOCUMENT_SUFFIX)
       ? await formatDocuments(open(dirname(target)), [basename(target)], options)
       : await formatProject(open(target), options);
     const word = options.check ? 'not canonical' : 'reformatted';
     const count = (status: string): number =>
       result.files.filter((f) => f.status === status).length;
+    if (stylesheet?.status === 'changed') {
+      const moved = `${plural(stylesheet.moved, 'value')} to tokens, ${plural(stylesheet.added, 'token')} added`;
+      io.stdout(`${word} ${stylesheet.path ?? ''} (${moved})\n`);
+    }
+    io.stdout(
+      stylesheet === undefined ? '' : stylesheet.diagnostics.map(formatDiagnostic).join(''),
+    );
     for (const file of result.files) {
       if (file.status !== 'changed') continue;
       const ids =
@@ -236,10 +263,16 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     io.stdout(
       `Checked ${plural(result.files.length, 'document')}: ${String(count('changed'))} ${word}, ${String(count('refused'))} refused${ids}.\n`,
     );
-    if (result.diagnostics.some((d) => d.code === 'file-unreadable')) return 2;
+    if (
+      result.diagnostics.some((d) => d.code === 'file-unreadable') ||
+      stylesheet?.diagnostics.some((d) => d.code === 'file-unreadable') === true
+    ) {
+      return 2;
+    }
     return count('refused') > 0 ||
       hasErrors(result.diagnostics) ||
-      (options.check && count('changed') > 0)
+      stylesheet?.status === 'refused' ||
+      (options.check && (count('changed') > 0 || stylesheet?.status === 'changed'))
       ? 1
       : 0;
   }

@@ -1,4 +1,4 @@
-import type { Diagnostic } from './diagnostic.js';
+import type { Diagnostic, Fix } from './diagnostic.js';
 import { BODY_STYLE } from './default-styles.js';
 import { MIN_TEXT_AREA_PT, PAGE_SIZES, PAGE_SIZE_NAMES } from './page-template.js';
 import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
@@ -26,6 +26,7 @@ import {
 } from './stylesheet.js';
 
 const HEX_COLOR = /^#[0-9A-F]{6}$/;
+const USE_TOKENS: Fix = { kind: 'use-tokens' };
 
 export const MAX_LABEL_LENGTH = 80;
 
@@ -46,8 +47,14 @@ function labelIsWellFormed(label: string): boolean {
 /** Checks everything about a stylesheet that does not depend on how it was written down. */
 export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  const error = (code: string, message: string, path: string): void => {
-    diagnostics.push({ severity: 'error', code, message, path });
+  const error = (code: string, message: string, path: string, fix?: Fix): void => {
+    diagnostics.push({
+      severity: 'error',
+      code,
+      message,
+      path,
+      ...(fix === undefined ? {} : { fix }),
+    });
   };
 
   const checkHex = (hex: string, path: string): void => {
@@ -73,6 +80,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         ? `Colors come from the color tokens. Add ${value.hex} to tokens.colors under a name, and use that name here.`
         : `Colors come from the color tokens. Use the token "${same}" (${value.hex}) here.`,
       path,
+      USE_TOKENS,
     );
   };
   const checkFamilies = (families: readonly string[], path: string): void => {
@@ -101,6 +109,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         ? 'Fonts come from the font tokens. Add the families to tokens.fonts under a name, and use that name here.'
         : `Fonts come from the font tokens. Use the token "${same}" here.`,
       path,
+      USE_TOKENS,
     );
   };
   const checkPositive = (value: number | undefined, path: string): void => {

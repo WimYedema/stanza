@@ -9,6 +9,7 @@ import {
 } from '../shared/protocol.js';
 import { createChangesBar } from './changes.js';
 import { createNotices } from './notices.js';
+import { createLinkPrompt } from './link-prompt.js';
 import { createReferencePicker } from './reference-picker.js';
 import { revealBlock } from './reveal.js';
 import { createSheet } from './sheet.js';
@@ -58,11 +59,15 @@ const references = createReferencePicker(element('references'), {
   editor: () => editor,
   answered,
 });
+const links = createLinkPrompt(element('links'), { editor: () => editor, answered });
 const toolbar = buildToolbar(element('toolbar'), {
   editor: () => editor,
   answered,
   makeReference: () => {
     references.open();
+  },
+  editLink: () => {
+    links.open();
   },
 });
 const info = createStyleInfo({
@@ -118,6 +123,7 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
   editor?.destroy();
   editor = undefined;
   references.close();
+  links.close();
   removedFromOutside = 0;
   showChanges();
   info.refresh();

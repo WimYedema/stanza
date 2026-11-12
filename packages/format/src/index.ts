@@ -21,3 +21,4 @@ export { parseProject, type ProjectParseResult } from './project.js';
 export { serializeDocument } from './serialize.js';
 export { slotSource } from './slot-source.js';
 export { parseStylesheet, type StylesheetParseResult } from './stylesheet.js';
+export { moveValuesToTokens, type UseTokensResult } from './use-tokens.js';

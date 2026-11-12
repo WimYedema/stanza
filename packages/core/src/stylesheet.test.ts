@@ -412,6 +412,25 @@ describe('validateStylesheet', () => {
       ]);
     });
 
+    it('offers one fix, moving the values into tokens, on each raw color and font', () => {
+      const stylesheet = sheet({
+        paragraph: {
+          body: {
+            text: {
+              color: hex('#112233'),
+              font: { kind: 'families', families: ['Courier'] },
+            },
+            paragraph: {},
+            variants: {},
+          },
+        },
+      });
+      expect(validateStylesheet(stylesheet).map((d) => d.fix)).toEqual([
+        { kind: 'use-tokens' },
+        { kind: 'use-tokens' },
+      ]);
+    });
+
     it('finds a raw color wherever a style has one', () => {
       const raw = hex('#112233');
       const stylesheet = sheet({

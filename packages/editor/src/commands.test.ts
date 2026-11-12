@@ -269,6 +269,12 @@ describe('marks', () => {
       doc: good.next.doc,
       selection: TextSelection.create(good.next.doc, posOf(good.next.doc, 'linked', 2)),
     });
+    const moved = run(cursor, { type: 'set-link', href: 'https://example.com/other' });
+    expect(moved.result).toEqual({ ok: true });
+    expect(moved.next.doc.firstChild?.childCount).toBe(3);
+    expect(moved.next.doc.firstChild?.child(1).marks[0]?.attrs).toEqual({
+      href: 'https://example.com/other',
+    });
     const removed = run(cursor, { type: 'remove-link' });
     expect(removed.result).toEqual({ ok: true });
     expect(removed.next.doc.firstChild?.childCount).toBe(1);

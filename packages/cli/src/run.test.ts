@@ -470,3 +470,59 @@ describe('phrase format --assign-ids', () => {
     );
   });
 });
+
+describe('phrase format --fix-stylesheet', () => {
+  const sheet = (): string => join(work, 'project', 'styles', 'default.yaml');
+  // A stylesheet from before ADR 0065, with the colors written in the styles.
+  const withRawColors = (): string => {
+    const raw = readFileSync(sheet(), 'utf8')
+      .replace('background: surface', "background: '#F2F2F2'")
+      .replace('highlight: white', "highlight: '#123456'");
+    writeFileSync(sheet(), raw);
+    return raw;
+  };
+
+  it('is suggested by validate, and moves the colors into tokens', async () => {
+    withRawColors();
+    const invalid = await phrase('validate', 'project');
+    expect(invalid.code).toBe(1);
+    expect(invalid.out).toContain('error raw-color');
+    expect(invalid.out).toContain('phrase format --fix-stylesheet');
+
+    const fixed = await phrase('format', 'project', '--fix-stylesheet');
+    expect(fixed.code).toBe(0);
+    expect(fixed.out).toContain(
+      'reformatted styles/default.yaml (2 values to tokens, 1 token added)',
+    );
+    const text = readFileSync(sheet(), 'utf8');
+    expect(text).toContain('background: surface');
+    expect(text).toContain('highlight: color-123456');
+    expect(text).toContain("color-123456: '#123456'");
+    expect((await phrase('validate', 'project')).code).toBe(0);
+
+    const again = await phrase('format', 'project', '--fix-stylesheet');
+    expect(again.out).toBe('Checked 2 documents: 0 reformatted, 0 refused.\n');
+    expect(readFileSync(sheet(), 'utf8')).toBe(text);
+  });
+
+  it('only lists the stylesheet when checking', async () => {
+    const raw = withRawColors();
+    const result = await phrase('format', 'project', '--fix-stylesheet', '--check');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('not canonical styles/default.yaml (2 values to tokens');
+    expect(readFileSync(sheet(), 'utf8')).toBe(raw);
+  });
+
+  it('needs a project, and belongs to format', async () => {
+    const single = await phrase(
+      'format',
+      'project/documents/reference.phrase.md',
+      '--fix-stylesheet',
+    );
+    expect(single.code).toBe(2);
+    expect(single.err).toContain('--fix-stylesheet needs a project directory');
+    const other = await phrase('validate', 'project', '--fix-stylesheet');
+    expect(other.code).toBe(2);
+    expect(other.err).toContain('--fix-stylesheet applies to format only');
+  });
+});

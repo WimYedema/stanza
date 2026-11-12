@@ -13,7 +13,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 ## Stylesheet and pages (`core`, `format`, `css`)
 
-- 0006: typed stylesheet (read first). 0035: comment-preserving text edits. 0059: banded table rows. 0065: colors and fonts only from tokens.
+- 0006: typed stylesheet (read first). 0035: comment-preserving text edits. 0059: banded table rows. 0065: colors and fonts only from tokens. 0074: move raw colors and fonts into tokens (`format --fix-stylesheet`, quick fix).
 - 0016, 0017, 0019: page templates, header and footer slots, cover page.
 - 0021: browser CSS.
 
@@ -33,7 +33,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 ## Editor (`editor`)
 
-- 0022: schema and adapter (read first). 0023: commands and paste. 0026: style choice and variants. 0062: marks for changes from outside. 0063: opening at a line (Go to Line). 0069, 0070, 0071: making a reference (0070: by the text of headings only; 0071: typing @). 0073: references between documents.
+- 0022: schema and adapter (read first). 0023: commands and paste. 0026: style choice and variants. 0062: marks for changes from outside. 0063: opening at a line (Go to Line). 0069, 0070, 0071: making a reference (0070: by the text of headings only; 0071: typing @). 0073: references between documents. 0075: a link to a web address, the Link button.
 - 0031: phrase blocks. 0029: heading depth rule.
 
 ## VS Code extension (`vscode`)

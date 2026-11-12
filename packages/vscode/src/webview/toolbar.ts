@@ -21,7 +21,7 @@ interface ButtonSpec {
   readonly label: string;
   readonly command: EditorCommand;
   /** A button that opens something, in place of running its command, which is then only checked. */
-  readonly action?: 'make-reference';
+  readonly action?: 'make-reference' | 'edit-link';
   /** The key, written for the title. */
   readonly key?: string;
   /** How the short form is drawn, as in a word processor. */
@@ -111,6 +111,14 @@ const INSERT_GROUP: GroupSpec = {
       text: 'TOC',
       label: 'Insert table of contents',
       command: { type: 'insert-phrase-block', kind: 'toc', text: 'depth: 2' },
+    },
+    {
+      text: 'Link',
+      label: 'Link',
+      // Checked as a link on the selection; a cursor in a link can always change or remove it.
+      command: { type: 'set-link', href: 'https://a.b' },
+      action: 'edit-link',
+      pressed: (context) => context.marks.link.active,
     },
     {
       text: 'Ref',
@@ -214,6 +222,8 @@ export interface ToolbarHost {
   answered(command: EditorCommand, result: CommandResult): void;
   /** Opens the list of headings for a reference (ADR 0069). */
   makeReference(): void;
+  /** Opens the field for the address of a link (ADR 0075). */
+  editLink(): void;
 }
 
 export interface Toolbar {
@@ -371,7 +381,12 @@ function addStyleLists(container: HTMLElement, host: ToolbarHost): () => void {
 /** Shows a button as on, and as disabled with the reason when its command has no place here. */
 function showButton(button: HTMLButtonElement, spec: ButtonSpec, editor: PhraseEditor): void {
   const context = editor.getContext();
-  const result = editor.check(spec.command);
+  // A cursor in a link can change or remove it, with nothing selected.
+  const command: EditorCommand =
+    spec.action === 'edit-link' && context.marks.link.active
+      ? { type: 'remove-link' }
+      : spec.command;
+  const result = editor.check(command);
   const name = spec.key === undefined ? spec.label : `${spec.label} (${spec.key})`;
   if (spec.pressed !== undefined) {
     button.setAttribute('aria-pressed', String(spec.pressed(context)));
@@ -408,6 +423,10 @@ function buildGroup(container: HTMLElement, spec: GroupSpec, host: ToolbarHost):
     button.addEventListener('click', () => {
       if (item.action === 'make-reference') {
         host.makeReference();
+        return;
+      }
+      if (item.action === 'edit-link') {
+        host.editLink();
         return;
       }
       const editor = host.editor();

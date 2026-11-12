@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import {
   VARIANT_MARKS,
   isStyleName,
-  type Fix,
+  type DeclareVariantFix,
   type StyleName,
   type VariantMark,
 } from '@phrase/core';
@@ -13,7 +13,7 @@ import { storageOf, uriInProject } from './project-files.js';
 import { normalized } from './review.js';
 
 /** A style and a mark from a message, which is only data until it has been checked. */
-export function parseFix(style: unknown, mark: unknown): Fix | undefined {
+export function parseFix(style: unknown, mark: unknown): DeclareVariantFix | undefined {
   const markName = VARIANT_MARKS.find((candidate) => candidate === mark);
   if (typeof style !== 'string' || !isStyleName(style) || markName === undefined) return undefined;
   return { kind: 'declare-variant', style, mark: markName };
@@ -58,6 +58,23 @@ export class StylesheetSaves implements vscode.Disposable {
   }
 }
 
+/** Replaces the text of an open document by `after`, as one edit that is not saved. */
+export async function replaceText(
+  document: vscode.TextDocument,
+  before: string,
+  after: string,
+): Promise<boolean> {
+  const edit = lineEdit(before, after);
+  if (edit === undefined) return true;
+  const workspaceEdit = new vscode.WorkspaceEdit();
+  workspaceEdit.replace(
+    document.uri,
+    new vscode.Range(edit.start.line, edit.start.character, edit.end.line, edit.end.character),
+    edit.text,
+  );
+  return vscode.workspace.applyEdit(workspaceEdit);
+}
+
 /**
  * Declares a variant in the stylesheet of a project, as an edit of the open document of the file.
  * The edit is not saved: the stylesheet is saved with the document that needed it, and until then
@@ -78,17 +95,8 @@ export async function declareVariantInProject(
   const before = normalized(document.getText());
   const declared = declareVariant(before, style, mark);
   if (!declared.ok) return { ok: false, message: declared.message };
-  const edit = lineEdit(before, declared.text);
-  if (edit !== undefined) {
-    const workspaceEdit = new vscode.WorkspaceEdit();
-    workspaceEdit.replace(
-      document.uri,
-      new vscode.Range(edit.start.line, edit.start.character, edit.end.line, edit.end.character),
-      edit.text,
-    );
-    if (!(await vscode.workspace.applyEdit(workspaceEdit))) {
-      return { ok: false, message: 'The edit of the stylesheet was not applied.' };
-    }
+  if (!(await replaceText(document, before, declared.text))) {
+    return { ok: false, message: 'The edit of the stylesheet was not applied.' };
   }
   return { ok: true, document };
 }

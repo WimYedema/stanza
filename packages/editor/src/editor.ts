@@ -1,4 +1,4 @@
-import { Editor, type Extensions } from '@tiptap/core';
+import { Editor, getMarkAttributes, type Extensions } from '@tiptap/core';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import {
   nodeIdFromRandomBytes,
@@ -198,6 +198,8 @@ export interface PhraseEditor {
   setPosition(position: EditorPosition): void;
   /** What the selection covers, as plain text; empty when nothing is selected. */
   getSelectedText(): string;
+  /** Where the link at the cursor or in the selection goes, or nothing when there is none. */
+  getLinkHref(): string | undefined;
   /** Puts the focus back in the content, as after a list that was chosen from. */
   focus(): void;
   /** The element drawn for a top-level block, to scroll to it. */
@@ -336,6 +338,10 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
     getSelectedText() {
       const { from, to, empty } = editor.state.selection;
       return empty ? '' : editor.state.doc.textBetween(from, to, ' ');
+    },
+    getLinkHref() {
+      const href: unknown = getMarkAttributes(editor.state, 'link')['href'];
+      return typeof href === 'string' ? href : undefined;
     },
     focus() {
       editor.view.focus();

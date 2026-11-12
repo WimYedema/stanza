@@ -43,6 +43,7 @@ let shown: Toolbar;
 let editor: PhraseEditor;
 const answered = vi.fn<(command: unknown, result: CommandResult) => void>();
 const makeReference = vi.fn<() => void>();
+const editLink = vi.fn<() => void>();
 
 beforeEach(() => {
   const element = document.createElement('div');
@@ -50,8 +51,9 @@ beforeEach(() => {
   document.body.append(toolbar, element);
   const parsed = parseDocument(TEXT);
   editor = createPhraseEditor({ element, stylesheet, document: parsed.document });
-  shown = buildToolbar(toolbar, { editor: () => editor, answered, makeReference });
+  shown = buildToolbar(toolbar, { editor: () => editor, answered, makeReference, editLink });
   answered.mockClear();
+  editLink.mockClear();
 });
 afterEach(() => {
   editor.destroy();
@@ -103,6 +105,23 @@ describe('the buttons', () => {
     shown.refresh();
     expect(button('Make reference').disabled).toBe(true);
     expect(button('Make reference').title).toContain('Code blocks take no marks');
+  });
+
+  it('open the field for a link, which needs a selection unless the cursor is in a link', () => {
+    editor.setPosition({ block: 1, offset: 2 });
+    shown.refresh();
+    expect(button('Link').disabled).toBe(true);
+    expect(button('Link').title).toContain('Select the text to link');
+    editor.setDocument(
+      parseDocument(TEXT.replace('Some **strong**', 'Some [ticket](https://a.b)')).document,
+    );
+    editor.setPosition({ block: 1, offset: 7 });
+    shown.refresh();
+    expect(button('Link').disabled).toBe(false);
+    expect(button('Link').getAttribute('aria-pressed')).toBe('true');
+    button('Link').click();
+    expect(editLink).toHaveBeenCalledOnce();
+    expect(answered).not.toHaveBeenCalled();
   });
 
   it('are in groups, and the group of the table is shown only in a table', () => {
@@ -312,7 +331,7 @@ describe('the labels of styles', () => {
       document: parseDocument(TEXT).document,
     });
     try {
-      const view = buildToolbar(bar, { editor: () => other, answered, makeReference });
+      const view = buildToolbar(bar, { editor: () => other, answered, makeReference, editLink });
       const [styles, characters] = bar.querySelectorAll('select');
       if (styles === undefined || characters === undefined) throw new Error('No lists.');
       const shown = (select: HTMLSelectElement): (string | null)[][] =>

@@ -294,7 +294,12 @@ const errorsOf = (text: string): { key: string; message: string; path: string | 
   parseStylesheet(text)
     .diagnostics.filter((diagnostic) => diagnostic.severity === 'error')
     .map((diagnostic) => ({
-      key: [diagnostic.code, diagnostic.path ?? '', diagnostic.message].join('\u0000'),
+      // The message of a raw value advises a token, which changes when the tokens do (ADR 0074).
+      key: [
+        diagnostic.code,
+        diagnostic.path ?? '',
+        diagnostic.code === 'raw-color' || diagnostic.code === 'raw-font' ? '' : diagnostic.message,
+      ].join('\u0000'),
       message: diagnostic.message,
       path: diagnostic.path,
     }));

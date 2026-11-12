@@ -102,6 +102,14 @@ describe('createPhraseEditor', () => {
     expect(document.activeElement).toBe(element.querySelector('.ProseMirror'));
   });
 
+  it('says where the link at the cursor goes', () => {
+    const api = open('Some [text](https://example.org/a) here.\n');
+    api.setPosition({ block: 0, offset: 2 });
+    expect(api.getLinkHref()).toBeUndefined();
+    api.setPosition({ block: 0, offset: 7 });
+    expect(api.getLinkHref()).toBe('https://example.org/a');
+  });
+
   it('inserts a reference at the cursor, as a link to the block', () => {
     const api = open('Some text.\n');
     api.setPosition({ block: 0, offset: 5 });
