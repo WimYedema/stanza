@@ -55,7 +55,9 @@ export type HostMessage =
       readonly stylesheetText: string;
       readonly defaults: Defaults;
       readonly usedIds: readonly string[];
+      readonly projectReady: boolean;
     }
+  | { readonly type: 'project-ready'; readonly usedIds: readonly string[] }
   /**
    * The document changed in another way, for example by Git or in the text editor. The blocks that
    * are new or different are marked unless `mark` is false, as for an undo or a redo (ADR 0062).
@@ -68,6 +70,7 @@ export type HostMessage =
   | { readonly type: 'reveal'; readonly block: number }
   /** Open the list of headings for a reference, as the toolbar button does (ADR 0069). */
   | { readonly type: 'make-reference' }
+  | { readonly type: 'navigation-finished' }
   /** Where the styles are used, sent after `init` and again when it changes. */
   | { readonly type: 'usage'; readonly usage: UsageSummary }
   /** What the checks say about this document, sent after `init` and again when it changes. */
@@ -88,8 +91,11 @@ export type HostMessage =
 
 export type WebviewMessage =
   | { readonly type: 'ready' }
+  | { readonly type: 'startup-timing'; readonly visibleMs: number; readonly editableMs: number }
   /** The whole text of the document as the editor writes it. */
   | { readonly type: 'change'; readonly text: string }
+  /** Follow an in-project reference to its target. */
+  | { readonly type: 'follow-reference'; readonly target: string }
   | { readonly type: 'format' }
   /** The person editing allows a mark in a paragraph style (ADR 0026). The host checks both. */
   | { readonly type: 'declare-variant'; readonly style: string; readonly mark: string }
@@ -117,6 +123,14 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
     case 'format':
     case 'open-as-text':
       return { type: value['type'] };
+    case 'follow-reference': {
+      const target = value['target'];
+      return typeof target === 'string' &&
+        target.length > 0 &&
+        target.length <= MAX_NAME_LENGTH * 10
+        ? { type: 'follow-reference', target }
+        : undefined;
+    }
     case 'edit-styles': {
       const style = value['style'];
       if (style === undefined) return { type: 'edit-styles' };
@@ -132,6 +146,19 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
       const text = value['text'];
       if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) return undefined;
       return { type: 'change', text };
+    }
+    case 'startup-timing': {
+      const { visibleMs, editableMs } = value;
+      if (
+        typeof visibleMs !== 'number' ||
+        typeof editableMs !== 'number' ||
+        !Number.isFinite(visibleMs) ||
+        !Number.isFinite(editableMs) ||
+        visibleMs < 0 ||
+        editableMs < visibleMs
+      )
+        return undefined;
+      return { type: 'startup-timing', visibleMs, editableMs };
     }
     case 'declare-variant': {
       const { style, mark } = value;
@@ -222,12 +249,16 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
   if (!isRecord(value)) return undefined;
   switch (value['type']) {
     case 'init': {
-      const { documentText, stylesheetText, usedIds } = value;
+      const { documentText, stylesheetText, usedIds, projectReady } = value;
       if (typeof documentText !== 'string' || typeof stylesheetText !== 'string') return undefined;
-      if (!isStringList(usedIds)) return undefined;
+      if (!isStringList(usedIds) || typeof projectReady !== 'boolean') return undefined;
       const defaults = parseDefaults(value['defaults']);
       if (defaults === undefined) return undefined;
-      return { type: 'init', documentText, stylesheetText, defaults, usedIds };
+      return { type: 'init', documentText, stylesheetText, defaults, usedIds, projectReady };
+    }
+    case 'project-ready': {
+      const usedIds = value['usedIds'];
+      return isStringList(usedIds) ? { type: 'project-ready', usedIds } : undefined;
     }
     case 'defaults': {
       const defaults = parseDefaults(value['defaults']);
@@ -256,6 +287,8 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
     }
     case 'make-reference':
       return { type: 'make-reference' };
+    case 'navigation-finished':
+      return { type: 'navigation-finished' };
     case 'usage': {
       const usage = parseUsage(value['usage']);
       return usage === undefined ? undefined : { type: 'usage', usage };

@@ -1,6 +1,7 @@
 import {
   VARIANT_MARKS,
   isNodeId,
+  parseReferenceLink,
   isStyleName,
   markAllowed,
   maxHeadingLevel,
@@ -110,6 +111,7 @@ export function isAllowedHref(href: string): boolean {
   });
   if (text === '' || hasControl || /\s/.test(text)) return false;
   if (text.startsWith('#')) return text.length > 1;
+  if (parseReferenceLink(text) !== undefined) return true;
   return /^(https?|mailto):\S+/i.test(text);
 }
 
@@ -178,7 +180,7 @@ function planLink(state: EditorState, href: string): Plan {
   if (!isAllowedHref(href)) {
     return refuse(
       'invalid-argument',
-      'A link goes to a web page (http or https), a mail address, or a block (#).',
+      'A link goes to a web page (http or https), a mail address, a block (#id), or a relative .phrase.md document.',
     );
   }
   // A cursor in a link changes where the whole link goes.

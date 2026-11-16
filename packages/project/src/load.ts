@@ -1,5 +1,7 @@
 import {
   collectBlockIds,
+  checkReferencePaths,
+  indexProjectReferences,
   outlinePaths,
   projectIds,
   resolvePageTemplate,
@@ -9,7 +11,13 @@ import {
   type ProjectSettings,
   type Stylesheet,
 } from '@phrase/core';
-import { checkDocumentText, parseDocument, parseProject, parseStylesheet } from '@phrase/format';
+import {
+  checkParsedDocument,
+  parseDocument,
+  parseProject,
+  parseStylesheet,
+  type ParseResult,
+} from '@phrase/format';
 import { hasErrors, inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX, PROJECT_FILE, findDocuments, readText } from './files.js';
 import type { ProjectStorage } from './storage.js';
@@ -31,6 +39,13 @@ export interface LoadedProject {
   readonly documents: readonly LoadedDocument[];
   /** The outline as the project file gives it, or all documents by path when it gives none. */
   readonly outline: readonly OutlineEntry[];
+  readonly diagnostics: readonly ProjectDiagnostic[];
+}
+
+export interface ProjectConfiguration {
+  readonly settings: ProjectSettings | undefined;
+  readonly stylesheet: Stylesheet | undefined;
+  readonly stylesheetText: string | undefined;
   readonly diagnostics: readonly ProjectDiagnostic[];
 }
 
@@ -58,16 +73,16 @@ function duplicateIds(documents: readonly LoadedDocument[]): readonly ProjectDia
 }
 
 /**
- * Reads a project and checks everything in it. The stages build on each other, so a later stage
- * runs only when the earlier one has no errors: the project file, the stylesheet, the documents.
+ * Reads and checks project configuration before document discovery, for a safe local preview.
  */
-export async function loadProject(storage: ProjectStorage): Promise<LoadedProject> {
+export async function loadProjectConfiguration(
+  storage: ProjectStorage,
+): Promise<ProjectConfiguration> {
   const diagnostics: ProjectDiagnostic[] = [];
-  const stopped = (settings?: ProjectSettings, stylesheet?: Stylesheet): LoadedProject => ({
+  const stopped = (settings?: ProjectSettings): ProjectConfiguration => ({
     settings,
-    stylesheet,
-    documents: [],
-    outline: settings?.documents ?? [],
+    stylesheet: undefined,
+    stylesheetText: undefined,
     diagnostics,
   });
 
@@ -100,6 +115,20 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
     return stopped(settings);
   }
 
+  return { settings, stylesheet, stylesheetText, diagnostics };
+}
+
+/** Reads and checks every document against the configuration of this same project snapshot. */
+export async function loadProject(
+  storage: ProjectStorage,
+  configuration?: ProjectConfiguration,
+): Promise<LoadedProject> {
+  const config = configuration ?? (await loadProjectConfiguration(storage));
+  const { settings, stylesheet } = config;
+  const diagnostics = [...config.diagnostics];
+  if (settings === undefined || stylesheet === undefined) {
+    return { settings, stylesheet, documents: [], outline: settings?.documents ?? [], diagnostics };
+  }
   const paths = await findDocuments(storage);
   if (paths.length === 0) {
     diagnostics.push({
@@ -138,14 +167,14 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
     ...listedPaths.filter((path) => found.has(path)),
     ...paths.filter((path) => !listed.has(path)),
   ];
-  const texts: { readonly path: string; readonly text: string }[] = [];
+  const texts: { readonly path: string; readonly parsed: ParseResult }[] = [];
   for (const path of order) {
     const text = await readText(storage, path, diagnostics);
-    if (text !== undefined) texts.push({ path, text });
+    if (text !== undefined) texts.push({ path, parsed: parseDocument(text) });
   }
   // A reference may point at a block of any document, so every document is read before checking.
-  const ids = projectIds(texts.map(({ text }) => ({ document: parseDocument(text).document })));
-  for (const { path, text } of texts) {
+  const ids = projectIds(texts.map(({ parsed }) => ({ document: parsed.document })));
+  for (const { path, parsed } of texts) {
     if (!listed.has(path)) {
       diagnostics.push({
         file: path,
@@ -154,11 +183,20 @@ export async function loadProject(storage: ProjectStorage): Promise<LoadedProjec
         message: `The document is not in the list of documents of ${PROJECT_FILE}, so it is checked but not built.`,
       });
     }
-    const checked = checkDocumentText(text, stylesheet, settings, { projectIds: ids });
+    const checked = checkParsedDocument(parsed, stylesheet, settings, { projectIds: ids });
     diagnostics.push(...inFile(path, checked.diagnostics));
     documents.push({ path, document: checked.document, listed: listed.has(path) });
   }
   diagnostics.push(...duplicateIds(documents));
+  const references = indexProjectReferences(
+    documents.map(({ path, document }) => ({ file: path, document })),
+  );
+  const documentPaths = new Set(documents.map(({ path }) => path));
+  for (const { path, document } of documents) {
+    diagnostics.push(
+      ...inFile(path, checkReferencePaths(document, path, documentPaths, references)),
+    );
+  }
   const outline =
     settings.documents ?? paths.map((path): OutlineEntry => ({ kind: 'document', path }));
   return { settings, stylesheet, documents, outline, diagnostics };

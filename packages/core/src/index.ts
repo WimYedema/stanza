@@ -43,6 +43,8 @@ export {
   type ReferenceTarget,
 } from './references.js';
 export {
+  checkReferencePaths,
+  fixReferencePaths,
   findProjectBroken,
   findProjectIncoming,
   indexProjectReferences,
@@ -52,6 +54,13 @@ export {
   type ProjectReferenceIndex,
   type ProjectTarget,
 } from './project-references.js';
+export {
+  mapDocumentLinks,
+  parseReferenceLink,
+  referenceFile,
+  relativeReferenceFile,
+  type ReferenceLink,
+} from './reference-links.js';
 export {
   suggestReferences,
   type ReferenceSuggestion,

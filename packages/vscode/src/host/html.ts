@@ -48,6 +48,10 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #changes button { font: 12px sans-serif; padding: 2px 8px; }
   #notices { padding: 4px 12px; color: #ffcc66; font: 13px monospace; }
   #notices:empty { display: none; }
+  #navigation-status { padding: 4px 12px; font: 13px sans-serif; }
+  #navigation-status:empty { display: none; }
+  #startup-status { padding: 8px 12px; font: 13px sans-serif; }
+  #startup-status:empty { display: none; }
   #notices button { margin-left: 8px; font: 12px sans-serif; padding: 2px 8px; }
   #references, #links { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 5;
     width: min(560px, 90vw); background: #252526; color: #cccccc; font: 13px sans-serif;
@@ -75,6 +79,9 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #info .usage p { margin: 4px 0; }
   #info .usage ul { margin: 0; padding-left: 18px; }
   #desk { padding: 12px 0 48px; overflow-x: auto; }
+  #editor .reference-hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+  #editor.reference-mode .reference-hover { cursor: pointer; text-decoration: underline; }
+  #editor.reference-opening, #editor.reference-opening a { cursor: progress; }
   .sheet { box-sizing: border-box; position: relative; margin: 12px auto; background: #ffffff; }
   #desk.paper .sheet { box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
   #desk.plain #page { max-width: 560pt; padding: 36pt; }
@@ -97,6 +104,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
 </style>
 </head>
 <body>
+<div id="startup-status" role="status">Opening Phrase document...</div>
 <div id="editing" hidden>
   <div id="top">
     <div id="bar">
@@ -107,6 +115,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
     <div id="changes" hidden></div>
   </div>
   <div id="notices" role="status"></div>
+  <div id="navigation-status" role="status"></div>
   <div id="references" hidden></div>
   <div id="links" hidden></div>
   <div id="desk" class="paper" data-vscode-context='{"webviewSection": "editor"}'>

@@ -44,3 +44,7 @@ node packages/cli/dist/main.js build fixtures/example-project --date 2026-03-04
 ```
 
 `validate` checks the project file, the stylesheet, and every `.phrase.md` document. `build` checks first and then writes one DOCX per document into `build/` in the project. Add `build/` to the `.gitignore` of a project. The date written into the files comes from `--date` and never from the clock, so the same project and date always give the same files. `phrase --help` lists the options and the exit codes.
+
+The extension does not install a CLI on PATH. After building, optionally run `npm link --workspace @phrase/cli` in this checkout to make `phrase` available, or invoke Node with the absolute path to `packages/cli/dist/main.js` from any project folder. These local invocations need no network after setup; do not fetch a similarly named package from a registry.
+
+For surgical edits, repeat `--file` with project-relative document paths on `validate` or project-directory `format`. Use `format --check` to check layout without writing and `validate --max-diagnostics 50` to bound output without changing totals or failure status. See [the CLI workflow](packages/cli/README.md) for examples and the scope of each check.

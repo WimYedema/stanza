@@ -28,6 +28,7 @@ export interface ExportOptions {
    * The blocks of the other documents of the project, by ID, with the DOCX file of the document
    * that holds each. A reference to one of them is a link to that file (ADR 0073). Without it the
    * document stands alone, and a reference must point at a block of its own.
+   * File-only Phrase links are keyed by their complete source href instead of an ID.
    */
   readonly otherTargets?: ReadonlyMap<string, ReferenceFile>;
 }

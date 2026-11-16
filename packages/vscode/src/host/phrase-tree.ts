@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { loadProject } from '@phrase/project';
+import type { ProjectDiagnostics } from './project-diagnostics.js';
 import type { HeadingNode } from './headings.js';
 import { outlineOf, type OutlineDocument, type OutlineGroup, type OutlineItem } from './outline.js';
-import { storageOf, uriInProject } from './project-files.js';
+import { uriInProject } from './project-files.js';
 import type { PhraseEditorProvider } from './provider.js';
 
 export const OUTLINE_VIEW = 'phrase.outline';
@@ -46,6 +46,7 @@ function nodeOf(root: vscode.Uri, item: OutlineItem, alone: boolean, trail: stri
 
 /** The projects of the workspace, their documents and the headings of each (item 111). */
 export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposable {
+  constructor(private readonly diagnostics: ProjectDiagnostics) {}
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
 
@@ -151,7 +152,7 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
     if (roots.length === 0) return [{ kind: 'none' }];
     return Promise.all(
       roots.map(async (root): Promise<Node> => {
-        const loaded = await loadProject(storageOf(root));
+        const loaded = await this.diagnostics.load(root);
         return {
           kind: 'project',
           root,
@@ -168,8 +169,11 @@ const isProjectFile = (fileName: string): boolean =>
   fileName.endsWith('.phrase.md') || fileName.endsWith('.yaml');
 
 /** Shows the tree in the Explorer, keeps it up to date, and opens a document where it is clicked. */
-export function registerPhraseTree(editors: PhraseEditorProvider): vscode.Disposable {
-  const tree = new PhraseTree();
+export function registerPhraseTree(
+  editors: PhraseEditorProvider,
+  diagnostics: ProjectDiagnostics,
+): vscode.Disposable {
+  const tree = new PhraseTree(diagnostics);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const schedule = (): void => {
     clearTimeout(timer);

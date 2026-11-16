@@ -19,6 +19,19 @@ async function run(files: Record<string, string>, path = INTRODUCTION, outDir = 
 }
 
 describe('exportDocument', () => {
+  it('cannot export a local target or a reference whose ID is duplicated in another file', async () => {
+    const files = exampleProject();
+    const duplicate = files[INTRODUCTION] ?? '';
+    files['zz-duplicate.phrase.md'] = duplicate;
+    const local = await run(files);
+    expect(local.result.blocked).toBe(true);
+    expect(local.storage.written.size).toBe(0);
+    files['source.phrase.md'] =
+      '---\nphrase-format: 1\ndocument-number: "N"\n---\n\n[Target](documents/introduction.phrase.md#k7m2q9x4zb)\n';
+    const reference = await run(files, 'source.phrase.md');
+    expect(reference.result.diagnostics).toMatchObject([{ code: 'duplicate-id' }]);
+    expect(reference.storage.written.size).toBe(0);
+  });
   it('writes the DOCX of that document only', async () => {
     const { storage, result } = await run(exampleProject());
     expect(result).toEqual({

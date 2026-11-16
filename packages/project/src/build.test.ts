@@ -38,6 +38,19 @@ describe('buildProject', () => {
           new Uint8Array(),
       );
 
+    it('exports filename hints by definitive ID and file-only links as DOCX paths without modifying source', async () => {
+      const source =
+        NOTES.replace('#k7m2q9x4zb', 'stale.phrase.md#k7m2q9x4zb') +
+        '\nSee [reference](documents/reference.phrase.md).\n';
+      const storage = memoryStorage({ ...exampleProject(), 'notes.phrase.md': source });
+      const result = await buildProject(storage, options);
+      expect(result.diagnostics.map((d) => d.code)).toEqual(['stale-reference-path']);
+      expect(relsOf(storage, 'build/notes.docx')).toContain('Target="documents/introduction.docx"');
+      expect(relsOf(storage, 'build/notes.docx')).toContain('Target="documents/reference.docx"');
+      expect(relsOf(storage, 'build/notes.docx')).not.toContain('.phrase.md');
+      expect(storage.texts.size).toBe(0);
+    });
+
     it('becomes a link to the file of that document', async () => {
       const storage = memoryStorage({ ...exampleProject(), 'notes.phrase.md': NOTES });
       const result = await buildProject(storage, options);

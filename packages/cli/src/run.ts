@@ -65,6 +65,18 @@ Options for format:
                        into tokens (errors raw-color and raw-font), with a token named after
                        each value that has none. Comments and layout stay. With --check, the
                        stylesheet is listed and not changed. Needs a project.
+  --fix-references     Explicitly update stale reference filename hints by immutable ID.
+                       Needs a project; respects --file and --check.
+
+Options for validate and format:
+  --file <path>        Select a .phrase.md file relative to the project; repeat for more files.
+                       Needs a project directory. Validation keeps project-wide ID/reference
+                       context; formatting writes only selected files.
+
+Options for validate:
+  --max-diagnostics <N>
+                       Print at most N diagnostics (positive integer); still check everything
+                       in scope, report total counts and return the full exit status.
 
 Other options:
   -h, --help           Show this help.
@@ -94,7 +106,15 @@ const plural = (count: number, word: string): string =>
 function formatDiagnostic(d: ProjectDiagnostic): string {
   const where = d.line === undefined ? d.file : `${d.file}:${String(d.line)}`;
   const path = d.path === undefined ? '' : ` [${d.path}]`;
-  return `${where}: ${d.severity} ${d.code}: ${d.message}${path}\n`;
+  const fix =
+    d.fix?.kind === 'declare-variant'
+      ? ` Suggestion: declare the "${d.fix.mark}" variant on style "${d.fix.style}" if intended.`
+      : d.fix?.kind === 'reference-path'
+        ? ` Suggestion: replace "${d.fix.href}" with "${d.fix.replacement}", or run "phrase format --fix-references".`
+        : d.fix?.kind === 'use-tokens'
+          ? ' Suggestion: run "phrase format --fix-stylesheet".'
+          : '';
+  return `${where}: ${d.severity} ${d.code}: ${d.message}${path}${fix}\n`;
 }
 
 function summary(documents: number, diagnostics: readonly ProjectDiagnostic[]): string {
@@ -129,6 +149,9 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
         check: { type: 'boolean' },
         'assign-ids': { type: 'boolean' },
         'fix-stylesheet': { type: 'boolean' },
+        'fix-references': { type: 'boolean' },
+        file: { type: 'string', multiple: true },
+        'max-diagnostics': { type: 'string' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -161,8 +184,11 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       values.out !== undefined ||
       values.date !== undefined ||
       values.check === true ||
+      values.file !== undefined ||
+      values['max-diagnostics'] !== undefined ||
       values['assign-ids'] === true ||
-      values['fix-stylesheet'] === true
+      values['fix-stylesheet'] === true ||
+      values['fix-references'] === true
     ) {
       return usage(`${command} takes no options.`);
     }
@@ -202,6 +228,27 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     return hasErrors(brought.diagnostics) ? 1 : 0;
   }
   if (extra.length > 0) return usage(`unexpected argument "${extra.join(' ')}".`);
+  const files =
+    values.file === undefined
+      ? undefined
+      : [...new Set(values.file.map((file) => file.replace(/\\/g, '/')))].sort();
+  if (files !== undefined) {
+    if (command !== 'validate' && command !== 'format') {
+      return usage('--file applies to validate and format only.');
+    }
+    if (project.endsWith(DOCUMENT_SUFFIX)) return usage('--file needs a project directory.');
+    if (files.some((file) => !isSafeRelativePath(file) || !file.endsWith(DOCUMENT_SUFFIX))) {
+      return usage('--file must name a relative .phrase.md path inside the project, without "..".');
+    }
+  }
+  const maxText = values['max-diagnostics'];
+  const maxDiagnostics = maxText === undefined ? undefined : Number(maxText);
+  if (maxText !== undefined) {
+    if (command !== 'validate') return usage('--max-diagnostics applies to validate only.');
+    if (!/^[1-9]\d*$/.test(maxText) || !Number.isSafeInteger(maxDiagnostics)) {
+      return usage('--max-diagnostics must be a positive safe integer.');
+    }
+  }
   if (command !== 'build' && (values.out !== undefined || values.date !== undefined)) {
     return usage('--out and --date apply to build only.');
   }
@@ -214,8 +261,17 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     return usage('--assign-ids needs a project directory, to keep IDs unique across documents.');
   }
   const fixStylesheet = values['fix-stylesheet'] === true;
+  const fixReferences = values['fix-references'] === true;
+  if (fixReferences && (command !== 'format' || project.endsWith(DOCUMENT_SUFFIX))) {
+    return usage('--fix-references needs format with a project directory.');
+  }
   if (command !== 'format' && fixStylesheet) {
     return usage('--fix-stylesheet applies to format only.');
+  }
+  if (fixStylesheet && files !== undefined) {
+    return usage(
+      '--fix-stylesheet cannot be combined with --file; it changes the shared stylesheet.',
+    );
   }
   if (fixStylesheet && project.endsWith(DOCUMENT_SUFFIX)) {
     return usage('--fix-stylesheet needs a project directory, as the stylesheet belongs to one.');
@@ -227,6 +283,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const target = resolve(io.cwd, project);
     const options = {
       check: values.check === true,
+      ...(files === undefined ? {} : { files }),
+      ...(fixReferences ? { fixReferences: true } : {}),
       ...(assignIds
         ? { generateId: io.generateId ?? ((): string => nodeIdFromRandomBytes(randomBytes(10))) }
         : {}),
@@ -281,9 +339,51 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
 
   if (command === 'validate') {
     const loaded = await loadProject(storage);
-    io.stdout(loaded.diagnostics.map(formatDiagnostic).join(''));
-    io.stdout(summary(loaded.documents.length, loaded.diagnostics));
-    return exitCode(loaded.diagnostics);
+    const selected = files === undefined ? undefined : new Set(files);
+    const diagnostics = loaded.diagnostics.filter(
+      (d) =>
+        selected === undefined ||
+        selected.has(d.file) ||
+        !d.file.endsWith(DOCUMENT_SUFFIX) ||
+        d.code === 'duplicate-id' ||
+        d.code === 'file-unreadable',
+    );
+    if (
+      selected !== undefined &&
+      loaded.settings !== undefined &&
+      loaded.stylesheet !== undefined
+    ) {
+      for (const file of selected) {
+        if (
+          !loaded.documents.some((entry) => entry.path === file) &&
+          !diagnostics.some((d) => d.file === file && d.code === 'file-unreadable')
+        ) {
+          diagnostics.push({
+            file,
+            severity: 'error',
+            code: 'invalid-selection',
+            message: 'Select an existing .phrase.md document inside this project.',
+          });
+        }
+      }
+    }
+    io.stdout(diagnostics.slice(0, maxDiagnostics).map(formatDiagnostic).join(''));
+    if (maxDiagnostics !== undefined && diagnostics.length > maxDiagnostics) {
+      io.stdout(
+        `${String(diagnostics.length - maxDiagnostics)} diagnostics omitted; increase --max-diagnostics to see more.\n`,
+      );
+    }
+    const count =
+      selected === undefined
+        ? loaded.documents.length
+        : loaded.documents.filter((entry) => selected.has(entry.path)).length;
+    if (selected !== undefined) {
+      io.stdout(
+        'Selected-file validation with project-wide ID/reference context (not a full-project check).\n',
+      );
+    }
+    io.stdout(summary(count, diagnostics));
+    return exitCode(diagnostics);
   }
 
   const timestamp = values.date === undefined ? DEFAULT_BUILD_DATE : parseDate(values.date);

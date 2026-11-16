@@ -17,7 +17,13 @@ export type DeclareVariantFix = {
 /** Moves the hex colors and font lists of the styles into tokens, all at once (ADR 0074). */
 export type UseTokensFix = { readonly kind: 'use-tokens' };
 
-export type Fix = DeclareVariantFix | UseTokensFix;
+export type ReferencePathFix = {
+  readonly kind: 'reference-path';
+  readonly href: string;
+  readonly replacement: string;
+};
+
+export type Fix = DeclareVariantFix | UseTokensFix | ReferencePathFix;
 
 export interface Diagnostic {
   readonly severity: Severity;

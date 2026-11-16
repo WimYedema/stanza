@@ -1,5 +1,6 @@
 import type { Block, Document, Inline, LinkMark, ListItemBlock, TableCell } from './document.js';
 import { isNodeId, type NodeId } from './ids.js';
+import { parseReferenceLink } from './reference-links.js';
 
 /** A block that has an ID, so that a reference can point at it (ADR 0068). */
 export interface ReferenceTarget {
@@ -9,7 +10,7 @@ export interface ReferenceTarget {
   readonly path: string;
 }
 
-/** A link whose destination is `#` and what follows it, which should be the ID of a block. */
+/** A link with an immutable block ID fragment, optionally qualified by a Phrase filename. */
 export interface Reference {
   /** What follows the `#`. It is not checked here: a broken reference is one that does not resolve. */
   readonly target: string;
@@ -28,10 +29,8 @@ export interface ReferenceIndex {
   readonly references: readonly Reference[];
 }
 
-const fragmentOf = (inline: Inline | undefined): string | undefined => {
-  const link = inline?.marks.find((mark): mark is LinkMark => mark.type === 'link');
-  return link?.href.startsWith('#') === true ? link.href.slice(1) : undefined;
-};
+const linkOf = (inline: Inline | undefined): LinkMark | undefined =>
+  inline?.marks.find((mark): mark is LinkMark => mark.type === 'link');
 
 /** Reads the targets and the references of a document. It is derived each time, never stored. */
 export function indexReferences(document: Document): ReferenceIndex {
@@ -41,14 +40,15 @@ export function indexReferences(document: Document): ReferenceIndex {
   const collect = (content: readonly Inline[], path: string, blockId: NodeId | undefined): void => {
     let index = 0;
     while (index < content.length) {
-      const target = fragmentOf(content[index]);
+      const link = linkOf(content[index]);
+      const target = link === undefined ? undefined : parseReferenceLink(link.href)?.target;
       if (target === undefined) {
         index += 1;
         continue;
       }
       // Runs that share a destination are one reference, as they are one link in the export.
       let end = index + 1;
-      while (fragmentOf(content[end]) === target) end += 1;
+      while (linkOf(content[end])?.href === link?.href) end += 1;
       references.push({
         target,
         text: content

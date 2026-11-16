@@ -132,7 +132,15 @@ describe('round trips', () => {
   });
 
   it('keeps links with awkward destinations', () => {
-    for (const href of ['https://x.org/a(b)', 'https://x.org/a%20b', '#section', 'mailto:a@b.c']) {
+    for (const href of [
+      'https://x.org/a(b)',
+      'https://x.org/a%20b',
+      '#section',
+      'mailto:a@b.c',
+      '#aaaaaaaaaa',
+      '../other%20file.phrase.md#aaaaaaaaaa',
+      'other.phrase.md',
+    ]) {
       expectRoundTrip(documentOf(paragraph(run('see '), run('here', { type: 'link', href }))));
     }
   });

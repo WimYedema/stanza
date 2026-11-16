@@ -93,6 +93,109 @@ describe('formatProject', () => {
 });
 
 describe('formatDocuments', () => {
+  it.each(['unreadable', 'lossy', 'duplicate'])(
+    'refuses reference fixes when the project snapshot is %s',
+    async (kind) => {
+      const source = `${FRONT}[See](old.phrase.md#aaaaaaaaaa)\n`;
+      const target = `${FRONT}<!-- phrase: #aaaaaaaaaa -->\n# Target\n`;
+      const storage = memoryStorage(
+        {
+          'source.phrase.md': source,
+          'target.phrase.md': target,
+          'other.phrase.md':
+            kind === 'lossy'
+              ? `${FRONT}> unsupported\n`
+              : kind === 'duplicate'
+                ? target
+                : `${FRONT}Other\n`,
+        },
+        kind === 'unreadable' ? ['other.phrase.md'] : [],
+      );
+      const result = await formatProject(storage, {
+        check: false,
+        fixReferences: true,
+        files: ['source.phrase.md'],
+      });
+      expect(result.diagnostics.some((d) => d.severity === 'error')).toBe(true);
+      expect(result.files).toEqual([]);
+      expect(storage.texts.size).toBe(0);
+    },
+  );
+  it('fixes stale paths only on request, respects selection and is deterministic', async () => {
+    const original = `${FRONT}[See](old.phrase.md#aaaaaaaaaa)\n`;
+    const storage = memoryStorage({
+      'source.phrase.md': original,
+      'unselected.phrase.md': original,
+      'target.phrase.md': `${FRONT}<!-- phrase: #aaaaaaaaaa -->\n# Target\n`,
+    });
+    await formatProject(storage, { check: false, files: ['source.phrase.md'] });
+    expect(storage.texts.size).toBe(0);
+    const checked = await formatProject(storage, {
+      check: true,
+      files: ['source.phrase.md'],
+      fixReferences: true,
+    });
+    expect(checked.files).toMatchObject([{ path: 'source.phrase.md', status: 'changed' }]);
+    expect(storage.texts.size).toBe(0);
+    await formatProject(storage, {
+      check: false,
+      files: ['source.phrase.md'],
+      fixReferences: true,
+    });
+    expect([...storage.texts.keys()]).toEqual(['source.phrase.md']);
+    const fixed = storage.texts.get('source.phrase.md') ?? '';
+    expect(fixed).toBe(original.replace('old.phrase.md', 'target.phrase.md'));
+    const again = memoryStorage({
+      'source.phrase.md': fixed,
+      'target.phrase.md': `${FRONT}<!-- phrase: #aaaaaaaaaa -->\n# Target\n`,
+    });
+    expect(
+      (await formatProject(again, { check: true, fixReferences: true })).files.every(
+        (file) => file.status === 'unchanged',
+      ),
+    ).toBe(true);
+  });
+  it('reserves IDs in unselected documents but writes only the selected file', async () => {
+    const storage = memoryStorage({
+      'a.phrase.md': `${FRONT}# New\n`,
+      'b.phrase.md': `${FRONT}<!-- phrase: #aaaaaaaaaa -->\n# Existing\n`,
+    });
+    const candidates = ['aaaaaaaaaa', 'bbbbbbbbbb'];
+    const result = await formatProject(storage, {
+      check: false,
+      files: ['a.phrase.md'],
+      generateId: () => candidates.shift() ?? 'bbbbbbbbbb',
+    });
+    expect(result.files).toEqual([{ path: 'a.phrase.md', status: 'changed', assigned: 1 }]);
+    expect([...storage.texts.keys()]).toEqual(['a.phrase.md']);
+    expect(storage.texts.get('a.phrase.md')).toContain('#bbbbbbbbbb');
+  });
+
+  it('does not assign IDs when an unselected document cannot be read', async () => {
+    const storage = memoryStorage(
+      { 'a.phrase.md': `${FRONT}# New\n`, 'b.phrase.md': `${FRONT}# Other\n` },
+      ['b.phrase.md'],
+    );
+    const result = await formatProject(storage, {
+      check: false,
+      files: ['a.phrase.md'],
+      generateId: () => 'aaaaaaaaaa',
+    });
+    expect(result.diagnostics.map((d) => d.code)).toEqual(['file-unreadable', 'ids-not-assigned']);
+    expect(storage.texts.size).toBe(0);
+  });
+
+  it('refuses a missing selection before writing any file', async () => {
+    const storage = memoryStorage({ 'a.phrase.md': `${FRONT}* one\n` });
+    const result = await formatProject(storage, {
+      check: false,
+      files: ['a.phrase.md', 'missing.phrase.md'],
+    });
+    expect(result.files).toEqual([]);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(['invalid-selection']);
+    expect(storage.texts.size).toBe(0);
+  });
+
   it('formats only the given documents', async () => {
     const storage = memoryStorage({
       'a.phrase.md': `${FRONT}* one\n`,

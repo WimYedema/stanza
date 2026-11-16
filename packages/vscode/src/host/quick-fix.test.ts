@@ -3,7 +3,7 @@ import type * as vscode from 'vscode';
 import { StylesheetSaves } from './declare-variant.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import { registerDeclareVariant } from './quick-fix.js';
-import { FakeUri, reset, saveDocument, world } from './vscode-fake.testing.js';
+import { changeDocument, FakeUri, reset, saveDocument, world } from './vscode-fake.testing.js';
 
 vi.mock('vscode', async () => {
   const fake = await import('./vscode-fake.testing.js');
@@ -62,6 +62,44 @@ function actions() {
 }
 
 describe('the quick fix', () => {
+  it('updates stale destinations in the unsaved buffer without changing labels or saving', async () => {
+    const before = `${FRONT}[See **the heading**](old.phrase.md#bbbbbbbbbb)\n`;
+    const after = before.replace('old.phrase.md', 'two.phrase.md');
+    world.files.set(
+      '/w/p/documents/two.phrase.md',
+      `${FRONT}<!-- phrase: #bbbbbbbbbb -->\n# Target\n`,
+    );
+    changeDocument(before);
+    await diagnostics.refresh(new FakeUri('/w/p') as never);
+    const remaining = (world.diagnostics.get(DOCUMENT) as vscode.Diagnostic[]).filter(
+      (diagnostic) => diagnostic.code !== 'stale-reference-path',
+    );
+    const action = actions().find((action) => action.command.command === 'phrase.fixReferencePath');
+    expect(action?.title).toContain('two.phrase.md#bbbbbbbbbb');
+    const handler = world.commandHandlers.get('phrase.fixReferencePath') as unknown as Handler;
+    await handler(...(action?.command.arguments ?? []));
+    expect(world.text).toBe(after);
+    expect(world.files.get(DOCUMENT)).toBe(MARKED);
+    expect(world.diagnostics.get(DOCUMENT)).toEqual(remaining);
+    expect(world.saved).toEqual([]);
+    await handler(...(action?.command.arguments ?? []));
+    expect(world.errors.at(-1)).toContain('no longer applicable');
+    expect(world.text).toBe(after);
+  });
+
+  it('refuses to canonicalize unrelated source as part of a path quick fix', async () => {
+    world.files.set(
+      '/w/p/documents/two.phrase.md',
+      `${FRONT}<!-- phrase: #bbbbbbbbbb -->\n# Target\n`,
+    );
+    const before = `${FRONT}[See](old.phrase.md#bbbbbbbbbb)\n\n\n`;
+    changeDocument(before);
+    const handler = world.commandHandlers.get('phrase.fixReferencePath') as unknown as Handler;
+    await handler(world.document?.uri, 'old.phrase.md#bbbbbbbbbb');
+    expect(world.errors.at(-1)).toContain('format this document');
+    expect(world.text).toBe(before);
+  });
+
   it('is offered on the diagnostic of a mark that the style does not allow', () => {
     const [action, ...rest] = actions();
     expect(rest).toEqual([]);

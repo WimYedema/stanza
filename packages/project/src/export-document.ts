@@ -1,4 +1,4 @@
-import { applyDefaults } from '@phrase/core';
+import { applyDefaults, indexProjectReferences, indexReferences } from '@phrase/core';
 import { exportDocx } from '@phrase/export-docx';
 import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './diagnostics.js';
 import { PROJECT_FILE } from './files.js';
@@ -39,6 +39,26 @@ export async function exportDocument(
     found === undefined ||
     hasErrors(loaded.diagnostics.filter((d) => relevant.includes(d.file)));
   if (blocked) return { written: undefined, diagnostics: [], blocked: true };
+  const index = indexProjectReferences(
+    loaded.documents.map(({ path, document }) => ({ file: path, document })),
+  );
+  const own = indexReferences(found.document);
+  const ambiguous = [...index.duplicates].filter(
+    (id) => own.targets.has(id) || own.references.some((reference) => reference.target === id),
+  );
+  if (ambiguous.length > 0) {
+    return {
+      written: undefined,
+      blocked: true,
+      diagnostics: ambiguous.map((id) => ({
+        file: documentPath,
+        severity: 'error',
+        code: 'duplicate-id',
+        nodeId: id,
+        message: `The ID ${id} is duplicated in the project; this document cannot be exported with an ambiguous target.`,
+      })),
+    };
+  }
   const problem = outDirProblem(options.outDir);
   if (problem !== undefined) return { written: undefined, diagnostics: [problem], blocked: false };
 

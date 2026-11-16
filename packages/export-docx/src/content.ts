@@ -6,6 +6,7 @@ import {
   TOC_PHRASE_KIND,
   defaultHeadingStyle,
   isNodeId,
+  parseReferenceLink,
   resolveTableStyle,
   type Block,
   type CodeBlock,
@@ -88,7 +89,8 @@ function inlineChildren(
   let index = 0;
   while (index < content.length) {
     const link = linkOf(content[index]);
-    const target = link?.href.startsWith('#') === true ? link.href.slice(1) : undefined;
+    const reference = link === undefined ? undefined : parseReferenceLink(link.href);
+    const target = reference?.target;
     // Consecutive runs that share a link target belong to one hyperlink.
     let end = index + 1;
     while (link !== undefined && linkOf(content[end])?.href === link.href) end += 1;
@@ -120,6 +122,23 @@ function inlineChildren(
         children.push(
           new ExternalHyperlink({ link: `${other.href}#${bookmarkName(target)}`, children: runs }),
         );
+      }
+    } else if (reference !== undefined && reference.file !== '') {
+      const file = context.otherTargets.get(link.href);
+      if (file === undefined) {
+        context.diagnostics.push({
+          severity: 'error',
+          code: 'missing-linked-document',
+          message: `The link "${link.href}" has no resolved document output.`,
+        });
+      } else {
+        if (!file.built)
+          context.diagnostics.push({
+            severity: 'warning',
+            code: 'reference-to-unbuilt-document',
+            message: `The link "${link.href}" points at a document that is not built.`,
+          });
+        children.push(new ExternalHyperlink({ link: file.href, children: runs }));
       }
     } else children.push(new ExternalHyperlink({ link: link.href, children: runs }));
     index = end;

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscode from 'vscode';
 import { OPEN_AT_COMMAND, OUTLINE_VIEW, PhraseTree, registerPhraseTree } from './phrase-tree.js';
 import type { PhraseEditorProvider } from './provider.js';
+import { ProjectDiagnostics } from './project-diagnostics.js';
 import { reset, world } from './vscode-fake.testing.js';
 
 vi.mock('vscode', async () => {
@@ -46,10 +47,12 @@ type Node = Awaited<ReturnType<PhraseTree['getChildren']>>[number];
 
 const open = vi.fn<(uri: vscode.Uri, block?: number) => Promise<void>>(() => Promise.resolve());
 let registered: vscode.Disposable | undefined;
+let diagnostics: ProjectDiagnostics | undefined;
 
 function show(projectFiles = files()): PhraseTree {
   reset(projectFiles, '/w/p/documents/introduction.phrase.md', INTRO);
-  registered = registerPhraseTree({ open } as unknown as PhraseEditorProvider);
+  diagnostics = new ProjectDiagnostics();
+  registered = registerPhraseTree({ open } as unknown as PhraseEditorProvider, diagnostics);
   return world.treeProviders.get(OUTLINE_VIEW) as PhraseTree;
 }
 
@@ -73,6 +76,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   registered?.dispose();
+  diagnostics?.dispose();
   registered = undefined;
   vi.useRealTimers();
 });

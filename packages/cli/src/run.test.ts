@@ -45,6 +45,78 @@ async function phrase(...argv: string[]): Promise<{ code: number; out: string; e
 const bytesOf = (...path: string[]): Buffer => readFileSync(join(work, ...path));
 
 describe('phrase validate', () => {
+  it('validates selected files with cross-document reference context and writes nothing', async () => {
+    const first = join(work, 'project', 'documents', 'introduction.phrase.md');
+    const second = join(work, 'project', 'documents', 'reference.phrase.md');
+    const target = /<!-- phrase: #([0-9a-z]+)(?: | -->)/.exec(readFileSync(second, 'utf8'))?.[1];
+    expect(target).toBeDefined();
+    writeFileSync(second, `${readFileSync(second, 'utf8')}\n[Unrelated](#zzzzzzzzzz)\n`);
+    writeFileSync(
+      first,
+      `---\nphrase-format: 1\ndocument-number: "EX-001"\n---\n\n[Other](#${target ?? ''})\n`,
+    );
+    const before = readFileSync(first);
+    const result = await phrase(
+      'validate',
+      'project',
+      '--file',
+      'documents\\introduction.phrase.md',
+    );
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('Checked 1 document: 0 errors, 0 warnings.');
+    expect(result.out).toContain('not a full-project check');
+    expect(result.out).not.toContain('broken-reference');
+    expect(readFileSync(first).equals(before)).toBe(true);
+  });
+
+  it('bounds displayed diagnostics without hiding the failure or total counts', async () => {
+    writeFileSync(
+      join(work, 'project', 'documents', 'bad.phrase.md'),
+      '---\nphrase-format: 1\ndocument-number: "EX-003"\n---\n\n> unsupported quote\n\n[Missing](#aaaaaaaaaa) and [Missing too](#bbbbbbbbbb)\n',
+    );
+    const result = await phrase('validate', 'project', '--max-diagnostics', '1');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('warning blockquote-unsupported');
+    expect(result.out).not.toContain(': error broken-reference:');
+    expect(result.out).toContain('2 diagnostics omitted');
+    expect(result.out).toContain('2 errors, 1 warning');
+  });
+
+  it('suggests a declared mark variant without changing the document or stylesheet', async () => {
+    const file = join(work, 'project', 'documents', 'reference.phrase.md');
+    const text = readFileSync(file, 'utf8').replace('# Reference', '# **Reference**');
+    writeFileSync(file, text);
+    const sheet = bytesOf('project', 'styles', 'default.yaml');
+    const result = await phrase('validate', 'project');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain(
+      'Suggestion: declare the "strong" variant on style "heading-1" if intended.',
+    );
+    expect(readFileSync(file, 'utf8')).toBe(text);
+    expect(bytesOf('project', 'styles', 'default.yaml').equals(sheet)).toBe(true);
+  });
+  it('keeps global duplicate-ID errors even when the later duplicate is unselected', async () => {
+    const first = readFileSync(
+      join(work, 'project', 'documents', 'introduction.phrase.md'),
+      'utf8',
+    );
+    writeFileSync(join(work, 'project', 'documents', 'zz-duplicate.phrase.md'), first);
+    const result = await phrase(
+      'validate',
+      'project',
+      '--file',
+      'documents/introduction.phrase.md',
+    );
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('zz-duplicate.phrase.md: error duplicate-id:');
+  });
+
+  it('reports an unknown selected file instead of succeeding with an empty selection', async () => {
+    const result = await phrase('validate', 'project', '--file', 'missing.phrase.md');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('missing.phrase.md: error invalid-selection:');
+  });
+
   it('accepts the example project', async () => {
     const result = await phrase('validate', 'project');
     expect(result.code).toBe(0);
@@ -140,11 +212,54 @@ describe('phrase build', () => {
 });
 
 describe('phrase format', () => {
+  it('reports stale paths read-only, dry-runs and fixes only selected reference hints', async () => {
+    const source =
+      '---\nphrase-format: 1\ndocument-number: "N-3"\n---\n\n[Introduction](old.phrase.md#k7m2q9x4zb)\n';
+    const selected = join(work, 'project', 'notes.phrase.md');
+    const unselected = join(work, 'project', 'unselected.phrase.md');
+    writeFileSync(selected, source);
+    writeFileSync(unselected, source.replace('N-3', 'N-4'));
+    const before = readFileSync(unselected);
+    const validate = await phrase('validate', 'project', '--file', 'notes.phrase.md');
+    expect(validate.code).toBe(0);
+    expect(validate.out).toContain('stale-reference-path');
+    expect(validate.out).toContain('documents/introduction.phrase.md#k7m2q9x4zb');
+    expect(readFileSync(selected, 'utf8')).toBe(source);
+    const args = ['format', 'project', '--file', 'notes.phrase.md', '--fix-references'];
+    expect((await phrase(...args, '--check')).code).toBe(1);
+    expect(readFileSync(selected, 'utf8')).toBe(source);
+    expect((await phrase(...args)).code).toBe(0);
+    expect(readFileSync(selected, 'utf8')).toBe(
+      source.replace('old.phrase.md', 'documents/introduction.phrase.md'),
+    );
+    expect(readFileSync(unselected).equals(before)).toBe(true);
+    expect((await phrase(...args, '--check')).code).toBe(0);
+    expect((await phrase('validate', 'project', '--fix-references')).code).toBe(2);
+    expect((await phrase('format', selected, '--fix-references')).code).toBe(2);
+  });
   const crlf = (...path: string[]): void => {
     const file = join(work, ...path);
     writeFileSync(file, readFileSync(file, 'utf8').replace(/\n/g, '\r\n'));
   };
   const introduction = join('project', 'documents', 'introduction.phrase.md');
+
+  it('checks and formats repeated selected files without touching an unselected document', async () => {
+    const selected = ['documents/introduction.phrase.md', 'documents/reference.phrase.md'];
+    const unselected = join(work, 'project', 'documents', 'unselected.phrase.md');
+    const untouched = '---\nphrase-format: 1\n---\n\n* keep this\n';
+    writeFileSync(unselected, untouched);
+    crlf(introduction);
+    const before = bytesOf(introduction);
+    const selection = selected.flatMap((file) => ['--file', file]);
+    const checked = await phrase('format', 'project', ...selection, '--check');
+    expect(checked.code).toBe(1);
+    expect(checked.out).toContain('Checked 2 documents: 1 not canonical');
+    expect(bytesOf(introduction).equals(before)).toBe(true);
+
+    expect((await phrase('format', 'project', ...selection)).code).toBe(0);
+    expect(readFileSync(unselected, 'utf8')).toBe(untouched);
+    expect((await phrase('format', 'project', ...selection, '--check')).code).toBe(0);
+  });
 
   it('leaves the example project as it is', async () => {
     const before = bytesOf(introduction);
@@ -226,6 +341,17 @@ describe('phrase usage', () => {
     [['format', '--date', '2026-03-04'], '--out and --date apply to build only'],
     [['build', '--check'], '--check applies to format only'],
     [['validate', '--check'], '--check applies to format only'],
+    [['build', '--file', 'a.phrase.md'], '--file applies to validate and format only'],
+    [['validate', '--file', '../a.phrase.md'], '--file must name a relative'],
+    [['validate', '--file', 'styles/default.yaml'], '--file must name a relative'],
+    [['format', 'a.phrase.md', '--file', 'a.phrase.md'], '--file needs a project directory'],
+    [
+      ['format', '--file', 'a.phrase.md', '--fix-stylesheet'],
+      '--fix-stylesheet cannot be combined',
+    ],
+    [['format', '--max-diagnostics', '1'], '--max-diagnostics applies to validate only'],
+    [['validate', '--max-diagnostics', '0'], '--max-diagnostics must be a positive safe integer'],
+    [['validate', '--max-diagnostics', '1.5'], '--max-diagnostics must be a positive safe integer'],
     [['build', '--date', '2026-13-45'], '--date must be'],
     [['build', '--date', '2026-03-04T10:00'], '--date must be'],
     [['build', '--date', '1979-12-31'], '--date must be'],

@@ -7,7 +7,7 @@ import {
   type ProjectSettings,
   type Stylesheet,
 } from '@phrase/core';
-import { parseDocument } from './parse.js';
+import { parseDocument, type ParseResult } from './parse.js';
 
 export interface CheckResult {
   readonly document: Document;
@@ -28,7 +28,16 @@ export function checkDocumentText(
   settings?: ProjectSettings,
   options: { readonly projectIds?: ReadonlySet<string> } = {},
 ): CheckResult {
-  const parsed = parseDocument(source);
+  return checkParsedDocument(parseDocument(source), stylesheet, settings, options);
+}
+
+/** Checks a document already parsed for a project index, without reading its source again. */
+export function checkParsedDocument(
+  parsed: ParseResult,
+  stylesheet: Stylesheet,
+  settings?: ProjectSettings,
+  options: { readonly projectIds?: ReadonlySet<string> } = {},
+): CheckResult {
   const metadata =
     settings === undefined
       ? []

@@ -24,7 +24,7 @@ export function createLinkPrompt(root: HTMLElement, host: LinkPromptHost): LinkP
   const input = document.createElement('input');
   input.type = 'text';
   input.setAttribute('aria-label', 'Where the link goes');
-  input.placeholder = 'https://\u2026, mailto:\u2026 or #id';
+  input.placeholder = 'https://\u2026, mailto:\u2026, #id or document.phrase.md#id';
   const hint = document.createElement('p');
   hint.className = 'hint';
   root.replaceChildren(input, hint);

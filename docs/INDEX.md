@@ -30,6 +30,9 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 - 0002: host and dependencies. 0014: project package and CLI. 0015: format command. 0072: the list of documents (order, groups).
 - 0042, 0044: new project, new document. 0052: style usage index. 0061: AGENTS.md for coding agents. 0064: the documentation as a Phrase project.
+- 0076: agent editing workflow, selected-file checks and formatting, bounded validation diagnostics.
+- 0077: reference filename hints, stale-path diagnostics and explicit fixes, Ctrl/Cmd-click navigation.
+- 0078: shared project snapshots, staged document startup and local startup timings.
 
 ## Editor (`editor`)
 

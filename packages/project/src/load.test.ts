@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { loadProject } from './load.js';
+import { describe, expect, it, vi } from 'vitest';
+import * as format from '@phrase/format';
+import { loadProject, loadProjectConfiguration } from './load.js';
 import { exampleProject, memoryStorage } from './memory-storage.testing.js';
 
 const GOOD_DOCUMENT = (id: string, extra = ''): string =>
@@ -9,6 +10,47 @@ const summary = (diagnostics: readonly { file: string; code: string }[]): string
   diagnostics.map((d) => `${d.file}: ${d.code}`);
 
 describe('loadProject', () => {
+  it('parses each document once and reuses a separately loaded configuration without changing diagnostics', async () => {
+    const files = exampleProject();
+    files['bad.phrase.md'] = GOOD_DOCUMENT(
+      'aaaaaaaaaa',
+      '> unsupported\n\n[Missing](#bbbbbbbbbb)\n',
+    );
+    const expected = await loadProject(memoryStorage(files));
+    const storage = memoryStorage(files);
+    const configuration = await loadProjectConfiguration(storage);
+    const parse = vi.spyOn(format, 'parseDocument');
+    try {
+      const loaded = await loadProject(storage, configuration);
+      expect(loaded).toEqual(expected);
+      expect(parse).toHaveBeenCalledTimes(3);
+      expect(storage.reads.filter((file) => file === 'phrase.yaml')).toHaveLength(1);
+      expect(storage.reads.filter((file) => file === 'styles/default.yaml')).toHaveLength(1);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+  it('checks filename-qualified references by ID and diagnoses missing IDs and unsupported title fragments', async () => {
+    const storage = memoryStorage({
+      ...exampleProject(),
+      'source.phrase.md': GOOD_DOCUMENT(
+        'aaaaaaaaaa',
+        '[Stale](wrong.phrase.md#bbbbbbbbbb) [Missing](target.phrase.md#cccccccccc) [Title](target.phrase.md#the-heading)\n',
+      ),
+      'target.phrase.md': GOOD_DOCUMENT('bbbbbbbbbb'),
+    });
+    const loaded = await loadProject(storage);
+    expect(
+      loaded.diagnostics
+        .filter((d) => d.file === 'source.phrase.md')
+        .map((d) => [d.severity, d.code]),
+    ).toEqual([
+      ['error', 'broken-reference'],
+      ['error', 'broken-reference'],
+      ['warning', 'stale-reference-path'],
+    ]);
+    expect(storage.texts.size).toBe(0);
+  });
   it('loads the example project without diagnostics, documents in path order', async () => {
     const loaded = await loadProject(memoryStorage(exampleProject()));
     expect(loaded.diagnostics).toEqual([]);

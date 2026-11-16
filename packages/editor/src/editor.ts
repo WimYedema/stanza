@@ -1,4 +1,5 @@
-import { Editor, getMarkAttributes, type Extensions } from '@tiptap/core';
+import { Editor, Extension, getMarkAttributes, type Extensions } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import {
   nodeIdFromRandomBytes,
@@ -163,6 +164,8 @@ export interface DocumentChange {
 }
 
 export interface PhraseEditor {
+  /** Read-only previews cannot run editing commands or change the document through input. */
+  setEditable(editable: boolean): void;
   /** The document the editor holds, with the metadata it was given. */
   getDocument(): FromEditorResult;
   /**
@@ -243,6 +246,8 @@ export function phraseExtensions(
 export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
   let stylesheet = options.stylesheet;
   let meta = options.document.meta;
+  let editable = options.editable ?? true;
+  let replacing = false;
   const first = compile(stylesheet);
   if (first.css === '') {
     const reasons = first.diagnostics.map((d) => d.message).join(' ');
@@ -256,15 +261,25 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
 
   const editor = new Editor({
     element: options.element,
-    extensions: phraseExtensions(
-      () => stylesheet,
-      (notice) => options.onNotice?.(notice),
-      {
-        newId: options.newId ?? randomIds.newId,
-        usedIds: options.usedIds ?? randomIds.usedIds,
-      },
-      options.onReferenceTrigger,
-    ),
+    extensions: [
+      ...phraseExtensions(
+        () => stylesheet,
+        (notice) => options.onNotice?.(notice),
+        {
+          newId: options.newId ?? randomIds.newId,
+          usedIds: options.usedIds ?? randomIds.usedIds,
+        },
+        options.onReferenceTrigger,
+      ),
+      Extension.create({
+        name: 'phraseEditingGate',
+        addProseMirrorPlugins: () => [
+          new Plugin({
+            filterTransaction: (transaction) => !transaction.docChanged || editable || replacing,
+          }),
+        ],
+      }),
+    ],
     content: toEditorContent(options.document),
     editable: options.editable ?? true,
     editorProps: { attributes: { class: SCOPE_CLASS } },
@@ -296,13 +311,22 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
   };
 
   return {
+    setEditable(value) {
+      editable = value;
+      editor.setEditable(value, false);
+    },
     getDocument: () => fromEditorContent(editor.state.doc, meta),
     setDocument(document, options) {
       meta = document.meta;
       const before = editor.state.doc;
       const oldMarked = new Set(markedBlocks(editor.state));
       const position = editorPosition(editor.state);
-      editor.commands.setContent(toEditorContent(document), { emitUpdate: false });
+      replacing = true;
+      try {
+        editor.commands.setContent(toEditorContent(document), { emitUpdate: false });
+      } finally {
+        replacing = false;
+      }
       const change = markDifferences(before, oldMarked, options?.markChanges === true);
       if (options?.cursor !== 'at-change') return change;
       const end = changeEnd(before, editor.state.doc);
@@ -358,15 +382,20 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
       return dom instanceof HTMLElement ? dom : undefined;
     },
     run: (command) =>
-      runCommand(
-        editor.state,
-        (tr) => {
-          editor.view.dispatch(tr);
-        },
-        command,
-        stylesheet,
-      ),
-    check: (command) => checkCommand(editor.state, command, stylesheet),
+      !editable
+        ? { ok: false, reason: 'not-applicable', message: 'This document is read-only.' }
+        : runCommand(
+            editor.state,
+            (tr) => {
+              editor.view.dispatch(tr);
+            },
+            command,
+            stylesheet,
+          ),
+    check: (command) =>
+      !editable
+        ? { ok: false, reason: 'not-applicable', message: 'This document is read-only.' }
+        : checkCommand(editor.state, command, stylesheet),
     getContext: () => editorContext(editor.state, stylesheet),
   };
 }

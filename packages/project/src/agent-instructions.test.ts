@@ -22,6 +22,21 @@ describe('addAgentInstructions', () => {
 });
 
 describe('the text of the instructions', () => {
+  it('has a rich-table syntax example that parses without losing cell structure', () => {
+    const example = /````markdown\n([\s\S]*?)\n````/.exec(AGENT_INSTRUCTIONS)?.[1];
+    expect(example).toBeDefined();
+    const parsed = parseDocument(`---\nphrase-format: 1\n---\n\n${example ?? ''}\n`);
+    expect(parsed.diagnostics).toEqual([]);
+    const table = parsed.document.blocks[0];
+    expect(table?.type).toBe('table');
+    if (table?.type !== 'table') throw new Error('Expected the documented table.');
+    expect(table.rows[0]?.[0]?.blocks.map((block) => block.type)).toEqual([
+      'paragraph',
+      'paragraph',
+    ]);
+    expect(table.rows[0]?.[1]?.blocks[0]?.type).toBe('list');
+  });
+
   it('has an example annotation that the dialect reads', () => {
     const example = /<!-- phrase: ([^>]*?) -->/.exec(AGENT_INSTRUCTIONS)?.[1];
     expect(example).toBeDefined();
@@ -49,7 +64,11 @@ describe('the text of the instructions', () => {
   });
 
   it('names the commands and the option that the command line has', () => {
-    for (const command of ['phrase format .', 'phrase validate .', 'phrase format --assign-ids']) {
+    for (const command of [
+      'phrase format .',
+      'phrase validate .',
+      'phrase format . --assign-ids',
+    ]) {
       expect(AGENT_INSTRUCTIONS).toContain(command);
     }
   });

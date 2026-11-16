@@ -49,7 +49,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerMakeReference((uri) => {
       editors.makeReference(uri);
     }),
-    registerPhraseTree(editors),
+    registerPhraseTree(editors, diagnostics),
     registerEditStyles(),
     registerNewProject(),
     registerNewDocument(),

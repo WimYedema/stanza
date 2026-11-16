@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type * as vscode from 'vscode';
+import * as vscode from 'vscode';
 import type { HostMessage } from '../shared/protocol.js';
 import { StylesheetSaves } from './declare-variant.js';
 import { PhraseEditorProvider } from './provider.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import {
   changeDocument,
+  FakeUri,
   fakePanel,
   fromWebview,
   reset,
@@ -40,6 +41,7 @@ table-styles:
 const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
 const CANONICAL = `${FRONT}<!-- phrase: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
 const OTHER = `${FRONT}<!-- phrase: #a1b2c3d4e5 -->\n# Other\n`;
+const OTHER_WITH_TARGET_AFTER_FIRST = `${FRONT}<!-- phrase: #a1b2c3d4e5 -->\n# First\n\n<!-- phrase: #f1e2d3c4b5 -->\n# Target\n`;
 
 const files = (extra: Record<string, string> = {}): Record<string, string> => ({
   '/w/p/phrase.yaml': PROJECT,
@@ -52,10 +54,10 @@ const DOCUMENT = '/w/p/documents/one.phrase.md';
 
 const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
 
-function newProvider(): PhraseEditorProvider {
+function newProvider(diagnostics = new ProjectDiagnostics()): PhraseEditorProvider {
   return new PhraseEditorProvider(
     { extensionUri: { path: '/ext' } } as unknown as vscode.ExtensionContext,
-    new ProjectDiagnostics(),
+    diagnostics,
     log,
     new StylesheetSaves(log),
   );
@@ -72,7 +74,10 @@ function open(text = CANONICAL, eol = '\n', projectFiles = files()): void {
 /** What the host posted, without the usage of the styles, which has its own tests. */
 const posted = (): HostMessage[] =>
   (world.posted as HostMessage[]).filter(
-    (message) => message.type !== 'usage' && message.type !== 'diagnostics',
+    (message) =>
+      message.type !== 'usage' &&
+      message.type !== 'diagnostics' &&
+      message.type !== 'project-ready',
   );
 const diagnosticsPosted = (): Extract<HostMessage, { type: 'diagnostics' }>[] =>
   (world.posted as HostMessage[]).filter(
@@ -106,7 +111,131 @@ describe('the page of the editor', () => {
 });
 
 describe('starting', () => {
-  it('sends the document, the stylesheet and the IDs of the other documents when the webview is ready', async () => {
+  it('shows locally checked content before another document finishes loading, then enables editing with project IDs', async () => {
+    const read = vscode.workspace.fs.readFile.bind(vscode.workspace.fs);
+    let release = (): void => {
+      throw new Error('The project load has not started.');
+    };
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const spy = vi.spyOn(vscode.workspace.fs, 'readFile').mockImplementation(async (uri) => {
+      const bytes = await read(uri);
+      if (uri.path.endsWith('/other.phrase.md')) await gate;
+      return bytes;
+    });
+    try {
+      fromWebview({ type: 'ready' });
+      await settled(() => {
+        expect(world.posted).toContainEqual(
+          expect.objectContaining({ type: 'init', projectReady: false }),
+        );
+      });
+      expect(
+        world.posted.some((message) => (message as HostMessage).type === 'project-ready'),
+      ).toBe(false);
+      expect(world.edits).toEqual([]);
+      release();
+      await settled(() => {
+        expect(world.posted).toContainEqual({ type: 'project-ready', usedIds: ['a1b2c3d4e5'] });
+      });
+    } finally {
+      release();
+      spy.mockRestore();
+    }
+  });
+
+  it('uses the tree/diagnostics snapshot for a warm open without rereading other documents', async () => {
+    reset({ ...files(), [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
+    const diagnostics = new ProjectDiagnostics();
+    const root = new FakeUri('/w/p') as unknown as vscode.Uri;
+    await diagnostics.load(root);
+    const read = vi.spyOn(vscode.workspace.fs, 'readFile');
+    try {
+      newProvider(diagnostics).resolveCustomTextEditor(
+        world.document as unknown as vscode.TextDocument,
+        fakePanel() as unknown as vscode.WebviewPanel,
+      );
+      fromWebview({ type: 'ready' });
+      await settled(() => {
+        expect(world.posted).toContainEqual(
+          expect.objectContaining({
+            type: 'init',
+            projectReady: true,
+            usedIds: ['a1b2c3d4e5'],
+          }),
+        );
+      });
+      expect(read).not.toHaveBeenCalled();
+    } finally {
+      read.mockRestore();
+      diagnostics.dispose();
+    }
+  });
+
+  it('does not enable preview editing when project discovery fails', async () => {
+    const spy = vi
+      .spyOn(vscode.workspace.fs, 'readDirectory')
+      .mockRejectedValue(new Error('Cannot scan project'));
+    try {
+      fromWebview({ type: 'ready' });
+      await settled(() => {
+        expect(world.posted).toContainEqual(
+          expect.objectContaining({ type: 'refused', title: 'The project could not be loaded' }),
+        );
+      });
+      expect(world.posted).toContainEqual(
+        expect.objectContaining({ type: 'init', projectReady: false }),
+      );
+      expect(
+        world.posted.some((message) => (message as HostMessage).type === 'project-ready'),
+      ).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.each([false, true])(
+    'keeps editing gated with unreadable project IDs, including cached snapshots (cached=%s)',
+    async (cached) => {
+      reset({ ...files(), [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
+      const diagnostics = new ProjectDiagnostics();
+      const read = vscode.workspace.fs.readFile.bind(vscode.workspace.fs);
+      const spy = vi
+        .spyOn(vscode.workspace.fs, 'readFile')
+        .mockImplementation((uri) =>
+          uri.path.endsWith('/other.phrase.md')
+            ? Promise.reject(new Error('Access denied'))
+            : read(uri),
+        );
+      try {
+        if (cached) await diagnostics.load(new FakeUri('/w/p') as unknown as vscode.Uri);
+        newProvider(diagnostics).resolveCustomTextEditor(
+          world.document as unknown as vscode.TextDocument,
+          fakePanel() as unknown as vscode.WebviewPanel,
+        );
+        fromWebview({ type: 'ready' });
+        await settled(() => {
+          expect(world.posted).toContainEqual(
+            expect.objectContaining({
+              type: 'refused',
+              title: 'The project ID index is incomplete',
+            }),
+          );
+        });
+        expect(
+          world.posted.some((message) => (message as HostMessage).type === 'project-ready'),
+        ).toBe(false);
+        expect(world.posted).toContainEqual(
+          expect.objectContaining({ type: 'init', projectReady: false }),
+        );
+      } finally {
+        spy.mockRestore();
+        diagnostics.dispose();
+      }
+    },
+  );
+  it('sends a preview, then the project IDs before enabling editing', async () => {
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
@@ -116,7 +245,11 @@ describe('starting', () => {
       documentText: CANONICAL,
       stylesheetText: STYLESHEET,
       defaults: {},
-      usedIds: ['a1b2c3d4e5'],
+      usedIds: [],
+      projectReady: false,
+    });
+    await settled(() => {
+      expect(world.posted).toContainEqual({ type: 'project-ready', usedIds: ['a1b2c3d4e5'] });
     });
   });
 
@@ -741,5 +874,155 @@ describe('opening a document at a block', () => {
       expect(posted().map((message) => message.type)).toContain('init');
     });
     expect(posted().map((message) => message.type)).not.toContain('reveal');
+  });
+});
+
+describe('following a reference', () => {
+  const source = new FakeUri(DOCUMENT) as unknown as vscode.Uri;
+  function start(projectFiles = files()): PhraseEditorProvider {
+    reset({ ...projectFiles, [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
+    const provider = newProvider();
+    provider.resolveCustomTextEditor(
+      world.document as unknown as vscode.TextDocument,
+      fakePanel() as unknown as vscode.WebviewPanel,
+    );
+    return provider;
+  }
+
+  it.each(['other.phrase.md#f1e2d3c4b5', 'old-name.phrase.md#f1e2d3c4b5'])(
+    'follows %s by ID without rewriting the source',
+    async (href) => {
+      const targetPath = '/w/p/documents/other.phrase.md';
+      const provider = start({ ...files(), [targetPath]: OTHER_WITH_TARGET_AFTER_FIRST });
+      fromWebview({ type: 'ready' });
+      await settled(() => {
+        expect(posted()[0]?.type).toBe('init');
+      });
+      await provider.followReference(source, href);
+      expect(world.commandArgs[0]?.[0]).toMatchObject({ path: targetPath });
+      expect(world.text).toBe(CANONICAL);
+      expect(world.edits).toEqual([]);
+      expect(world.errors).toEqual([]);
+    },
+  );
+
+  it('opens a file-only destination without inventing a block target', async () => {
+    const provider = start();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()[0]?.type).toBe('init');
+    });
+    await provider.followReference(source, 'other.phrase.md');
+    expect(world.commandArgs[0]?.[0]).toMatchObject({ path: '/w/p/documents/other.phrase.md' });
+    expect(posted().some((message) => message.type === 'reveal')).toBe(false);
+  });
+
+  it.each([
+    ['other.phrase.md#zzzzzzzzzz', 'not found'],
+    ['other.phrase.md#heading-title', 'immutable block ID'],
+    ['../../outside.phrase.md', 'inside this project'],
+    ['missing.phrase.md', 'not found'],
+  ])('reports %s without falling back to a file or title', async (href, reason) => {
+    const provider = start();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()[0]?.type).toBe('init');
+    });
+    await provider.followReference(source, href);
+    expect(world.errors).toHaveLength(1);
+    expect(world.errors[0]).toContain(reason);
+    expect(world.commands).toEqual([]);
+  });
+
+  it('refuses ambiguous IDs, even with a correct-looking filename', async () => {
+    const provider = start(files({ '/w/p/documents/duplicate.phrase.md': CANONICAL }));
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()[0]?.type).toBe('init');
+    });
+    await provider.followReference(source, 'one.phrase.md#k7m2q9x4zb');
+    expect(world.errors[0]).toContain('ambiguous');
+    expect(world.commands).toEqual([]);
+  });
+
+  it('reuses the validated snapshot until an unsaved project edit invalidates it', async () => {
+    const configuration = vi.spyOn(ProjectDiagnostics.prototype, 'configuration');
+    try {
+      const provider = start();
+      fromWebview({ type: 'ready' });
+      await settled(() => {
+        expect(posted()[0]?.type).toBe('init');
+      });
+      const initial = configuration.mock.calls.length;
+      await provider.followReference(source, '#k7m2q9x4zb');
+      await provider.followReference(source, '#k7m2q9x4zb');
+      expect(configuration).toHaveBeenCalledTimes(initial);
+      changeDocument(CANONICAL.replace('k7m2q9x4zb', 'bbbbbbbbbb'));
+      await provider.followReference(source, '#bbbbbbbbbb');
+      expect(configuration.mock.calls.length).toBeGreaterThan(initial);
+      expect(world.errors).toEqual([]);
+    } finally {
+      configuration.mockRestore();
+    }
+  });
+
+  it('reveals a target in the current document', async () => {
+    start();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+
+    fromWebview({ type: 'follow-reference', target: '#k7m2q9x4zb' });
+    await settled(() => {
+      expect(posted()).toContainEqual({ type: 'reveal', block: 0 });
+      expect(posted()).toContainEqual({ type: 'navigation-finished' });
+    });
+    expect(world.commands).toEqual(['vscode.openWith']);
+  });
+
+  it('opens the target document at the referenced block', async () => {
+    const targetPath = '/w/p/documents/other.phrase.md';
+    const provider = start({ ...files(), [targetPath]: OTHER_WITH_TARGET_AFTER_FIRST });
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+
+    fromWebview({ type: 'follow-reference', target: '#f1e2d3c4b5' });
+    await settled(() => {
+      expect(world.commands).toEqual(['vscode.openWith']);
+    });
+    expect(world.commandArgs[0]?.[0]).toMatchObject({ path: targetPath });
+    expect(world.commandArgs[0]?.[1]).toBe(PhraseEditorProvider.viewType);
+
+    world.posted = [];
+    const targetUri = new FakeUri(targetPath);
+    const targetDocument = {
+      uri: targetUri,
+      fileName: targetPath,
+      getText: () => OTHER_WITH_TARGET_AFTER_FIRST,
+    } as unknown as vscode.TextDocument;
+    provider.resolveCustomTextEditor(targetDocument, fakePanel() as unknown as vscode.WebviewPanel);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toContainEqual({ type: 'reveal', block: 1 });
+    });
+  });
+
+  it('reports a reference target that is missing from the project', async () => {
+    start();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()).toHaveLength(1);
+    });
+
+    fromWebview({ type: 'follow-reference', target: '#zzzzzzzzzz' });
+    await settled(() => {
+      expect(world.errors).toEqual([
+        'Phrase: reference target #zzzzzzzzzz was not found in this project.',
+      ]);
+    });
+    expect(world.commands).toEqual([]);
   });
 });

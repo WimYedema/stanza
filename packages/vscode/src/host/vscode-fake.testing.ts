@@ -64,6 +64,14 @@ export const world = {
   disposers: [] as (() => void)[],
   diagnostics: new Map<string, unknown[]>(),
   changeListeners: [] as Listener<{ document: FakeDocument; reason?: number | undefined }>[],
+  openListeners: [] as Listener<FakeDocument>[],
+  closeListeners: [] as Listener<FakeDocument>[],
+  fileWatchers: [] as {
+    pattern: unknown;
+    change: Listener<FakeUri>[];
+    create: Listener<FakeUri>[];
+    delete: Listener<FakeUri>[];
+  }[],
   messageListeners: [] as Listener<unknown>[],
   failEdits: false,
   /** What `phrase` settings say, by name. */
@@ -130,6 +138,9 @@ export function reset(
   world.saveListeners = [];
   world.diagnostics = new Map();
   world.changeListeners = [];
+  world.openListeners = [];
+  world.closeListeners = [];
+  world.fileWatchers = [];
   world.messageListeners = [];
   world.failEdits = false;
   world.settings = {};
@@ -366,13 +377,26 @@ export function createFakeVscode(): Record<string, unknown> {
       onDidChangeTextDocument: (
         listener: Listener<{ document: FakeDocument; reason?: number | undefined }>,
       ) => listen(world.changeListeners, listener),
+      onDidOpenTextDocument: (listener: Listener<FakeDocument>) =>
+        listen(world.openListeners, listener),
+      onDidCloseTextDocument: (listener: Listener<FakeDocument>) =>
+        listen(world.closeListeners, listener),
       onDidChangeWorkspaceFolders: () => disposable(() => undefined),
-      createFileSystemWatcher: () => ({
-        onDidChange: () => disposable(() => undefined),
-        onDidCreate: () => disposable(() => undefined),
-        onDidDelete: () => disposable(() => undefined),
-        dispose: () => undefined,
-      }),
+      createFileSystemWatcher: (pattern: unknown) => {
+        const watcher: (typeof world.fileWatchers)[number] = {
+          pattern,
+          change: [],
+          create: [],
+          delete: [],
+        };
+        world.fileWatchers.push(watcher);
+        return {
+          onDidChange: (listener: Listener<FakeUri>) => listen(watcher.change, listener),
+          onDidCreate: (listener: Listener<FakeUri>) => listen(watcher.create, listener),
+          onDidDelete: (listener: Listener<FakeUri>) => listen(watcher.delete, listener),
+          dispose: () => undefined,
+        };
+      },
       applyEdit: (edit: WorkspaceEdit) => {
         if (world.failEdits) return Promise.resolve(false);
         for (const { uri, range, text } of edit.replaced) {

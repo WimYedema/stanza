@@ -1,7 +1,18 @@
 import { randomBytes } from 'node:crypto';
 import { posix } from 'node:path';
 import * as vscode from 'vscode';
-import { collectBlockIds } from '@phrase/core';
+import {
+  collectBlockIds,
+  indexProjectReferences,
+  isNodeId,
+  parseReferenceLink,
+  referenceFile,
+  resolveProjectReference,
+  type Block,
+  type Document,
+  type ListItemBlock,
+  type NodeId,
+} from '@phrase/core';
 import { styleUsage, type LoadedProject } from '@phrase/project';
 import {
   parseWebviewMessage,
@@ -13,7 +24,7 @@ import { buildHtml } from './html.js';
 import { declareVariantInProject, parseFix, type StylesheetSaves } from './declare-variant.js';
 import { EDIT_STYLES_COMMAND } from './edit-styles-command.js';
 import { lineEdit } from './line-diff.js';
-import { findRoot, storageOf } from './project-files.js';
+import { findRoot, storageOf, uriInProject } from './project-files.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { normalized, reviewText } from './review.js';
 import { summarizeUsage } from './usage-summary.js';
@@ -61,6 +72,65 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
     await vscode.commands.executeCommand('vscode.openWith', uri, PhraseEditorProvider.viewType);
   }
 
+  async followReference(source: vscode.Uri, target: string): Promise<void> {
+    const link = parseReferenceLink(target);
+    if (link === undefined || (link.target !== undefined && !isNodeId(link.target))) {
+      await vscode.window.showErrorMessage(
+        'Phrase: use an immutable block ID, not a heading title fragment, for a reference.',
+      );
+      return;
+    }
+    const root = await findRoot(source);
+    if (root === undefined) {
+      await vscode.window.showErrorMessage(
+        'Phrase: could not find the project for this reference.',
+      );
+      return;
+    }
+    const loaded = await this.diagnostics.load(root);
+    if (loaded.settings === undefined || loaded.stylesheet === undefined) {
+      await vscode.window.showErrorMessage(
+        'Phrase: the project has errors and its references cannot be followed.',
+      );
+      return;
+    }
+    const index = indexProjectReferences(
+      loaded.documents.map(({ path, document }) => ({ file: path, document })),
+    );
+    const own = posix.relative(root.path, source.path);
+    const hinted = link.file === '' ? own : referenceFile(own, link.file);
+    if (hinted === undefined) {
+      await vscode.window.showErrorMessage(
+        'Phrase: the document link must stay inside this project.',
+      );
+      return;
+    }
+    if (link.target !== undefined && isNodeId(link.target) && index.duplicates.has(link.target)) {
+      await vscode.window.showErrorMessage(
+        `Phrase: reference #${link.target} is ambiguous because its ID is duplicated.`,
+      );
+      return;
+    }
+    const resolved =
+      link.target === undefined ? undefined : resolveProjectReference(index, link.target);
+    const destination = loaded.documents.find(
+      ({ path }) => path === (link.target === undefined ? hinted : resolved?.file),
+    );
+    const block =
+      destination === undefined || link.target === undefined || !isNodeId(link.target)
+        ? undefined
+        : topLevelBlock(destination.document, link.target);
+    if (destination === undefined || (link.target !== undefined && block === undefined)) {
+      await vscode.window.showErrorMessage(
+        link.target === undefined
+          ? `Phrase: document "${hinted}" was not found in this project.`
+          : `Phrase: reference target #${link.target} was not found in this project.`,
+      );
+      return;
+    }
+    await this.open(uriInProject(root, destination.path), block);
+  }
+
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     const session = new EditorSession(
       this.context,
@@ -69,6 +139,7 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
       this.saves,
       document,
       panel,
+      (target) => this.followReference(document.uri, target),
     );
     const key = document.uri.toString();
     this.sessions.set(key, session);
@@ -89,7 +160,25 @@ type Shown = 'nothing' | 'editor' | 'refused';
 
 /** The files that the project is made of, which can change without being saved. */
 const isProjectFile = (fileName: string): boolean =>
-  fileName.endsWith('.phrase.md') || fileName.endsWith('.yaml');
+  fileName.endsWith('.phrase.md') || fileName.endsWith('.yaml') || fileName.endsWith('.yml');
+
+function containsId(block: Block | ListItemBlock, id: NodeId): boolean {
+  if (block.id === id) return true;
+  if (block.type === 'list') {
+    return block.items.some((item) => item.blocks.some((child) => containsId(child, id)));
+  }
+  if (block.type === 'table') {
+    return [...block.header, ...block.rows.flat()].some((cell) =>
+      cell.blocks.some((child) => containsId(child, id)),
+    );
+  }
+  return false;
+}
+
+function topLevelBlock(document: Document, id: NodeId): number | undefined {
+  const index = document.blocks.findIndex((block) => containsId(block, id));
+  return index < 0 ? undefined : index;
+}
 
 /** One editor on one document. Everything that happens to it goes through one queue, in order. */
 class EditorSession {
@@ -110,6 +199,7 @@ class EditorSession {
   private usageKey: string | undefined;
   private diagnosticsKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  private disposed = false;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -118,6 +208,7 @@ class EditorSession {
     private readonly saves: StylesheetSaves,
     private readonly document: vscode.TextDocument,
     private readonly panel: vscode.WebviewPanel,
+    private readonly followReference: (target: string) => Promise<void>,
   ) {}
 
   start(): void {
@@ -146,8 +237,13 @@ class EditorSession {
   }
 
   dispose(): void {
+    this.disposed = true;
     clearTimeout(this.refreshTimer);
     for (const disposable of this.disposables) disposable.dispose();
+  }
+
+  private isDisposed(): boolean {
+    return this.disposed;
   }
 
   /** Asks the webview to scroll to a block, or does so as soon as the editor is shown. */
@@ -185,6 +281,11 @@ class EditorSession {
       case 'ready':
         await this.sendInit();
         return;
+      case 'startup-timing':
+        this.log.appendLine(
+          `Phrase startup: visible ${String(message.visibleMs)} ms, editable ${String(message.editableMs)} ms (${this.document.fileName}).`,
+        );
+        return;
       case 'change':
         await this.apply(message.text);
         return;
@@ -198,6 +299,13 @@ class EditorSession {
         return;
       case 'edit-styles':
         await vscode.commands.executeCommand(EDIT_STYLES_COMMAND, message.style);
+        return;
+      case 'follow-reference':
+        try {
+          await this.followReference(message.target);
+        } finally {
+          await this.post({ type: 'navigation-finished' });
+        }
         return;
       case 'declare-variant':
         await this.declareVariant(message.style, message.mark);
@@ -295,9 +403,15 @@ class EditorSession {
       return;
     }
     this.watch(root);
-    const loaded = await this.diagnostics.refresh(root);
-    if (loaded.settings === undefined || loaded.stylesheet === undefined) {
-      const reasons = loaded.diagnostics
+    const configuration = await this.diagnostics.configuration(root);
+    if (this.isDisposed()) return;
+    if (
+      configuration.settings === undefined ||
+      configuration.stylesheet === undefined ||
+      configuration.stylesheetText === undefined
+    ) {
+      await this.diagnostics.load(root);
+      const reasons = configuration.diagnostics
         .filter((diagnostic) => diagnostic.severity === 'error')
         .slice(0, 10)
         .map((diagnostic) => ({ message: `${diagnostic.file}: ${diagnostic.message}` }));
@@ -313,21 +427,63 @@ class EditorSession {
         reasons: review.reasons,
         canFormat: review.formatted !== undefined,
       });
+      await this.diagnostics.load(root);
       return;
     }
-    const stylesheetText = await storageOf(root).readText(loaded.settings.stylesheet);
-    const usedIds = this.usedIds(loaded, root);
+    const { stylesheetText, settings } = configuration;
+    const snapshot = this.diagnostics.current(root);
+    const cached =
+      snapshot?.diagnostics.some((diagnostic) => diagnostic.code === 'file-unreadable') === true
+        ? undefined
+        : snapshot;
+    const usedIds = cached === undefined ? [] : this.usedIds(cached, root);
     this.stylesheetText = stylesheetText;
     this.usedKey = usedIds.join(',');
-    this.defaultsKey = JSON.stringify(loaded.settings.defaults);
+    this.defaultsKey = JSON.stringify(settings.defaults);
     this.shown = 'editor';
     await this.post({
       type: 'init',
       documentText: review.text,
       stylesheetText,
-      defaults: loaded.settings.defaults,
+      defaults: settings.defaults,
       usedIds,
+      projectReady: cached !== undefined,
     });
+    let loaded: LoadedProject;
+    try {
+      loaded = cached ?? (await this.diagnostics.load(root));
+    } catch (error) {
+      if (this.isDisposed()) return;
+      const reason = error instanceof Error ? error.message : String(error);
+      this.log.appendLine(`The project could not be loaded: ${reason}`);
+      await this.refuse('The project could not be loaded', [{ message: reason }]);
+      return;
+    }
+    if (this.isDisposed()) return;
+    if (
+      this.text() !== review.text ||
+      (await this.diagnostics.configuration(root)) !== configuration
+    ) {
+      await this.sendInit();
+      return;
+    }
+    const unreadable = loaded.diagnostics.filter(
+      (diagnostic) => diagnostic.code === 'file-unreadable',
+    );
+    if (unreadable.length > 0) {
+      await this.refuse(
+        'The project ID index is incomplete',
+        unreadable.map((diagnostic) => ({
+          message: `${diagnostic.file}: ${diagnostic.message}`,
+        })),
+      );
+      return;
+    }
+    if (cached === undefined) {
+      const ids = this.usedIds(loaded, root);
+      this.usedKey = ids.join(',');
+      await this.post({ type: 'project-ready', usedIds: ids });
+    }
     await this.postUsage(loaded, root, true);
     await this.postDiagnostics(loaded, root, true);
     if (this.revealing !== undefined) {
@@ -374,7 +530,7 @@ class EditorSession {
     if (this.watched === root.toString()) return;
     this.watched = root.toString();
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(root, '**/*.{yaml,phrase.md}'),
+      new vscode.RelativePattern(root, '**/*.{yaml,yml,phrase.md}'),
     );
     this.disposables.push(
       watcher,
@@ -401,7 +557,7 @@ class EditorSession {
   private async refresh(): Promise<void> {
     const root = this.root;
     if (root === undefined) return;
-    const loaded = await this.diagnostics.refresh(root);
+    const loaded = await this.diagnostics.load(root);
     if (
       this.shown !== 'editor' ||
       loaded.settings === undefined ||

@@ -81,6 +81,38 @@ const classOf = (selector: string): string | null =>
   element.querySelector(selector)?.getAttribute('class') ?? null;
 
 describe('createPhraseEditor', () => {
+  it('gates commands and keyboard transactions in a preview, then enables editing without losing the selection', () => {
+    const changed = vi.fn();
+    const ids = vi.fn(() => 'bbbbbbbbbb');
+    editor = createPhraseEditor({
+      element,
+      stylesheet,
+      document: documentOf('<!-- phrase: #aaaaaaaaaa -->\n# Heading\n'),
+      editable: false,
+      newId: ids,
+      onChange: changed,
+    });
+    const before = editor.getDocument();
+    editor.setPosition({ block: 0, offset: 3 });
+    const position = editor.getPosition();
+    expect(editor.run({ type: 'set-paragraph' })).toMatchObject({
+      ok: false,
+      reason: 'not-applicable',
+    });
+    element
+      .querySelector('.ProseMirror')
+      ?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      );
+    expect(editor.getDocument()).toEqual(before);
+    expect(changed).not.toHaveBeenCalled();
+    expect(ids).not.toHaveBeenCalled();
+    editor.setEditable(true);
+    expect(editor.getPosition()).toEqual(position);
+    expect(editor.run({ type: 'set-paragraph' })).toEqual({ ok: true });
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect(editor.getDocument().document?.blocks[0]?.type).toBe('paragraph');
+  });
   it('can be made a view that only shows the content', () => {
     editor = createPhraseEditor({
       element,

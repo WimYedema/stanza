@@ -2,10 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { MAX_TEXT_LENGTH, parseHostMessage, parseWebviewMessage } from './protocol.js';
 
 describe('parseWebviewMessage', () => {
+  it('checks painted startup durations before accepting local timing reports', () => {
+    expect(
+      parseWebviewMessage({ type: 'startup-timing', visibleMs: 120, editableMs: 450 }),
+    ).toEqual({
+      type: 'startup-timing',
+      visibleMs: 120,
+      editableMs: 450,
+    });
+    for (const [visibleMs, editableMs] of [
+      [-1, 50],
+      [100, 50],
+      [0, Infinity],
+      [NaN, 50],
+      ['fast', 50],
+    ]) {
+      expect(
+        parseWebviewMessage({ type: 'startup-timing', visibleMs, editableMs }),
+      ).toBeUndefined();
+    }
+  });
   it('takes the messages of the protocol', () => {
     expect(parseWebviewMessage({ type: 'ready' })).toEqual({ type: 'ready' });
     expect(parseWebviewMessage({ type: 'format', extra: 1 })).toEqual({ type: 'format' });
     expect(parseWebviewMessage({ type: 'open-as-text' })).toEqual({ type: 'open-as-text' });
+    expect(parseWebviewMessage({ type: 'follow-reference', target: 'a1b2c3d4e5' })).toEqual({
+      type: 'follow-reference',
+      target: 'a1b2c3d4e5',
+    });
     expect(parseWebviewMessage({ type: 'edit-styles' })).toEqual({ type: 'edit-styles' });
     expect(parseWebviewMessage({ type: 'change', text: 'a\n' })).toEqual({
       type: 'change',
@@ -31,6 +55,8 @@ describe('parseWebviewMessage', () => {
     { type: 'change' },
     { type: 'change', text: 5 },
     { type: 'change', text: 'x'.repeat(MAX_TEXT_LENGTH + 1) },
+    { type: 'follow-reference', target: '' },
+    { type: 'follow-reference', target: 5 },
     { type: 'declare-variant', style: 'body' },
     { type: 'declare-variant', style: 5, mark: 'strong' },
     { type: 'declare-variant', style: 'x'.repeat(201), mark: 'strong' },
@@ -40,6 +66,19 @@ describe('parseWebviewMessage', () => {
 });
 
 describe('parseHostMessage', () => {
+  it('requires explicit preview readiness and a checked list of IDs before enabling editing', () => {
+    const init = { type: 'init', documentText: '', stylesheetText: '', defaults: {}, usedIds: [] };
+    expect(parseHostMessage(init)).toBeUndefined();
+    expect(parseHostMessage({ ...init, projectReady: false })).toEqual({
+      ...init,
+      projectReady: false,
+    });
+    expect(parseHostMessage({ type: 'project-ready', usedIds: [4] })).toBeUndefined();
+    expect(parseHostMessage({ type: 'project-ready', usedIds: ['aaaaaaaaaa'] })).toEqual({
+      type: 'project-ready',
+      usedIds: ['aaaaaaaaaa'],
+    });
+  });
   it('takes the usage of the styles', () => {
     const usage = {
       type: 'usage',
@@ -89,6 +128,7 @@ describe('parseHostMessage', () => {
       stylesheetText: 'b',
       defaults: { classification: 'Internal', authors: ['A'], pageTemplate: 'page-letter' },
       usedIds: ['x'],
+      projectReady: true,
     };
     expect(parseHostMessage(init)).toEqual(init);
     expect(parseHostMessage({ type: 'defaults', defaults: {} })).toEqual({

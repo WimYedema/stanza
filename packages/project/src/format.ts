@@ -1,12 +1,22 @@
-import { assignMissingIds, collectBlockIds, type Document } from '@phrase/core';
+import {
+  assignMissingIds,
+  collectBlockIds,
+  fixReferencePaths,
+  indexProjectReferences,
+  isSafeRelativePath,
+  type Document,
+} from '@phrase/core';
 import { parseDocument, serializeDocument, type ParseResult } from '@phrase/format';
 import { inFile, type ProjectDiagnostic } from './diagnostics.js';
-import { findDocuments, readText } from './files.js';
+import { DOCUMENT_SUFFIX, findDocuments, readText } from './files.js';
 import type { ProjectStorage } from './storage.js';
 
 export interface FormatOptions {
   /** Report what would change and write nothing. */
   readonly check: boolean;
+  /** Only rewrite these project-relative documents, while reserving all given documents' IDs. */
+  readonly files?: readonly string[];
+  readonly fixReferences?: boolean;
   /**
    * With it, headings and tables without an ID get one (ADR 0020). It is the host's random source,
    * since this package has none, and a candidate that is already taken is not used.
@@ -54,9 +64,30 @@ export async function formatDocuments(
   options: FormatOptions,
 ): Promise<FormatResult> {
   const diagnostics: ProjectDiagnostic[] = [];
+  const selected = options.files === undefined ? undefined : new Set(options.files);
+  if (selected !== undefined) {
+    for (const file of selected) {
+      if (!isSafeRelativePath(file) || !file.endsWith(DOCUMENT_SUFFIX) || !paths.includes(file)) {
+        diagnostics.push({
+          file,
+          severity: 'error',
+          code: 'invalid-selection',
+          message: 'Select an existing .phrase.md document inside this project.',
+        });
+      }
+    }
+    if (diagnostics.length > 0) return { files: [], diagnostics };
+  }
   const documents: Read[] = [];
   let unreadable: string | undefined;
   for (const path of paths) {
+    if (
+      selected !== undefined &&
+      !selected.has(path) &&
+      options.generateId === undefined &&
+      !options.fixReferences
+    )
+      continue;
     const text = await readText(storage, path, diagnostics);
     if (text === undefined) unreadable ??= path;
     else documents.push({ path, text, parsed: parseDocument(normalized(text)) });
@@ -80,13 +111,48 @@ export async function formatDocuments(
   );
 
   const files: { path: string; status: FormatStatus; assigned: number }[] = [];
+  const references = options.fixReferences
+    ? indexProjectReferences(
+        documents.map(({ path, parsed }) => ({ file: path, document: parsed.document })),
+      )
+    : undefined;
+  const unreliable =
+    unreadable ?? documents.find(({ parsed }) => parsed.diagnostics.length > 0)?.path;
+  if (options.fixReferences && unreliable !== undefined) {
+    for (const { path, parsed } of documents) diagnostics.push(...inFile(path, parsed.diagnostics));
+    diagnostics.push({
+      file: unreliable,
+      severity: 'error',
+      code: 'references-not-fixed',
+      message:
+        'No reference paths were fixed because a project document could not be read without losing content.',
+    });
+    return { files: [], diagnostics };
+  }
+  if (references !== undefined && references.duplicates.size > 0) {
+    for (const [id, target] of references.targets) {
+      if (references.duplicates.has(id))
+        diagnostics.push({
+          file: target.file,
+          severity: 'error',
+          code: 'duplicate-id',
+          nodeId: id,
+          message: `The ID ${id} is duplicated; resolve duplicate IDs before fixing reference paths.`,
+        });
+    }
+    return { files: [], diagnostics };
+  }
   for (const { path, text, parsed } of documents) {
+    if (selected !== undefined && !selected.has(path)) continue;
     if (parsed.diagnostics.length > 0) {
       diagnostics.push(...inFile(path, parsed.diagnostics));
       files.push({ path, status: 'refused', assigned: 0 });
       continue;
     }
-    let document: Document = parsed.document;
+    let document: Document =
+      references === undefined
+        ? parsed.document
+        : fixReferencePaths(parsed.document, path, references);
     let assigned = 0;
     if (generate !== undefined) {
       const result = assignMissingIds(document, { used, generate });
@@ -111,7 +177,7 @@ export async function formatDocuments(
   return { files, diagnostics };
 }
 
-/** Formats every document of the project. The project file need not be in order. */
+/** Formats project documents, or the selected ones. The project file need not be in order. */
 export async function formatProject(
   storage: ProjectStorage,
   options: FormatOptions,

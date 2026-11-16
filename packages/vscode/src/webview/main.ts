@@ -11,6 +11,7 @@ import { createChangesBar } from './changes.js';
 import { createNotices } from './notices.js';
 import { createLinkPrompt } from './link-prompt.js';
 import { createReferencePicker } from './reference-picker.js';
+import { installReferenceNavigation } from './reference-navigation.js';
 import { revealBlock } from './reveal.js';
 import { createSheet } from './sheet.js';
 import { createStyleInfo } from './style-info.js';
@@ -53,8 +54,46 @@ let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
 /** How many blocks that were removed by changes from outside are not yet dismissed. */
 let removedFromOutside = 0;
+let visibleMs: number | undefined;
+let editableMs: number | undefined;
+let timed = false;
+
+function measurePaint(kind: 'visible' | 'editable'): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (kind === 'visible') visibleMs ??= Math.round(performance.now());
+      else editableMs ??= Math.round(performance.now());
+      if (!timed && visibleMs !== undefined && editableMs !== undefined) {
+        timed = true;
+        send({ type: 'startup-timing', visibleMs, editableMs });
+      }
+    });
+  });
+}
+
+function projectReady(ready: boolean): void {
+  editor?.setEditable(ready);
+  element('toolbar').inert = !ready;
+  element('startup-status').textContent = ready
+    ? ''
+    : 'Checking project... This preview is read-only.';
+  if (ready) {
+    element('editor').removeAttribute('aria-busy');
+    measurePaint('editable');
+  } else element('editor').setAttribute('aria-busy', 'true');
+}
 
 const { say, answered, declared } = createNotices(notices, send, (command) => editor?.run(command));
+const navigation = installReferenceNavigation(
+  element('editor'),
+  (target) => {
+    flush();
+    send({ type: 'follow-reference', target });
+  },
+  (message) => {
+    element('navigation-status').textContent = message;
+  },
+);
 const references = createReferencePicker(element('references'), {
   editor: () => editor,
   answered,
@@ -118,6 +157,7 @@ function flush(): void {
 }
 
 function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): void {
+  element('startup-status').textContent = '';
   clearTimeout(waiting);
   waiting = undefined;
   editor?.destroy();
@@ -184,6 +224,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
       references.open({ replaces: '@' });
     },
     usedIds: () => usedIds,
+    editable: message.projectReady,
     onContextChange: () => {
       toolbar.schedule();
       info.schedule();
@@ -200,12 +241,19 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
   editor.setDiagnostics(inline);
   toolbar.refresh();
   info.refresh();
+  measurePaint('visible');
+  projectReady(message.projectReady);
 }
 
 function handle(message: HostMessage): void {
   switch (message.type) {
     case 'init':
       start(message);
+      return;
+    case 'project-ready':
+      usedIds = new Set(message.usedIds);
+      projectReady(true);
+      toolbar.refresh();
       return;
     case 'external-text': {
       if (editor === undefined) return;
@@ -255,6 +303,9 @@ function handle(message: HostMessage): void {
     case 'make-reference':
       references.open();
       return;
+    case 'navigation-finished':
+      navigation.finish();
+      return;
     case 'usage':
       info.setUsage(message.usage);
       return;
@@ -286,11 +337,6 @@ window.addEventListener('message', (event: MessageEvent<unknown>) => {
 window.addEventListener('pagehide', flush);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) flush();
-});
-
-// A link in a document is for the reader of the output. In the editor it must not take the page away.
-element('editor').addEventListener('click', (event) => {
-  if (event.target instanceof Element && event.target.closest('a') !== null) event.preventDefault();
 });
 
 // Undo and redo belong to the history of the document in VS Code, which gets the key. The browser's
