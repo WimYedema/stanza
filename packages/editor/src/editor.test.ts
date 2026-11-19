@@ -81,6 +81,25 @@ const classOf = (selector: string): string | null =>
   element.querySelector(selector)?.getAttribute('class') ?? null;
 
 describe('createPhraseEditor', () => {
+  it('receives metadata without replacing blocks or selection, and retains it on subsequent edits', () => {
+    const changed = vi.fn<(result: FromEditorResult) => void>();
+    const api = open(undefined, stylesheet, changed);
+    api.setPosition({ block: 1, offset: 4 });
+    const position = api.getPosition();
+    const block = api.blockElement(1);
+    const blocks = api.getDocument().document?.blocks;
+    const meta = { title: 'Updated', authors: [], fields: { code: '0012', tags: ['a', ''] } };
+    api.setMetadata(meta);
+    expect(api.blockElement(1)).toBe(block);
+    expect(api.getPosition()).toEqual(position);
+    expect(api.getDocument().document).toEqual({ meta, blocks });
+    expect(changed).not.toHaveBeenCalled();
+    api.setPosition({ block: 0, offset: 4 });
+    expect(api.run({ type: 'set-paragraph' })).toEqual({ ok: true });
+    expect(changed.mock.lastCall?.[0].document?.meta).toEqual(meta);
+    api.setDocument(documentOf(SAMPLE), { cursor: 'at-change' });
+    expect(api.getDocument().document?.meta.title).toBe('T');
+  });
   it('gates commands and keyboard transactions in a preview, then enables editing without losing the selection', () => {
     const changed = vi.fn();
     const ids = vi.fn(() => 'bbbbbbbbbb');

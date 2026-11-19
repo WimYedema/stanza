@@ -54,6 +54,11 @@ describe('applyDefaults', () => {
 });
 
 describe('validateMetadata', () => {
+  it('distinguishes an absent property named constructor from its explicit value', () => {
+    const project = settings({ constructor: string(true) });
+    expect(problems({ fields: {} }, project)).toEqual([['error', 'missing-field', 'constructor']]);
+    expect(problems({ fields: { constructor: '0012' } }, project)).toEqual([]);
+  });
   it('accepts any field when the project declares nothing', () => {
     expect(problems({ fields: { anything: 'x', other: ['y'] } }, settings())).toEqual([]);
   });

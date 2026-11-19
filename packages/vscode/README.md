@@ -16,6 +16,20 @@ File-only `.phrase.md` links open that document within the project. Missing or d
 
 GitHub block-ID anchors are not implemented yet (backlog item 189).
 
+## Document properties
+
+Expand **Document properties** above the page, or use **Metadata** in the toolbar to reveal and focus it. The panel is editor chrome, not printable document content.
+
+Edit title, authors, classification, page template and custom properties. It distinguishes explicit values, inherited `phrase.yaml` defaults (with **Override** / **Use project default**), and known built-in or project-declared fields not yet set. Displaying defaults or absent fields never writes them. Required, mismatched and undeclared custom properties show the existing metadata diagnostics; undeclared values remain editable.
+
+Properties use compact label/value rows. Small `+` and `-` buttons add or remove properties and list items; inherited values use `+` to override and `-` to return to the project default. Each icon has an action-specific tooltip and accessible name.
+
+Custom properties support plain text (including multiline text) or ordered lists of text. Numbers, booleans and dates are not inferred: `0012` and `true` stay text. Use a non-reserved kebab-case name. Empty text and empty lists differ from absence. **Open project metadata definition** opens `phrase.yaml` without silently changing declarations.
+
+**Apply** makes one undoable edit to the current buffer after flushing body typing; **Cancel** discards the draft. Save normally to persist. Body nodes, IDs and position stay intact. External document changes or changed metadata settings invalidate a dirty draft: explicitly reload or cancel rather than overwrite newer source. The host also checks the expected source and refuses edits that change body content. Startup previews and in-flight Apply operations are read-only.
+
+System `phrase-format` is read-only. Git/build version, date and revision are shown as unavailable until item 29 implements generation; they are not invented or written as overrides. See ADR 0080. The persisted format remains version 1.
+
 ## Maintaining the document list
 
 Run **Phrase: Initialize Document List** from the Command Palette or the project context menu in the Phrase view to create a missing `documents` entry in `phrase.yaml`. It includes discovered documents in their current path order and never replaces an existing outline.

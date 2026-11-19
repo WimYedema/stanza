@@ -63,6 +63,7 @@ describe('staged webview startup', () => {
     expect(content?.textContent).toContain('Heading');
     expect(content?.getAttribute('contenteditable')).toBe('false');
     expect(document.getElementById('startup-status')?.textContent).toContain('read-only');
+    expect(document.querySelector<HTMLFieldSetElement>('#metadata fieldset')?.disabled).toBe(true);
     paint();
     expect(sent.some((message) => message.type === 'startup-timing')).toBe(false);
     receive({ type: 'project-ready', usedIds: ['bbbbbbbbbb'] });
@@ -74,6 +75,44 @@ describe('staged webview startup', () => {
     expect(timing.visibleMs).toBeGreaterThanOrEqual(0);
     expect(timing.editableMs).toBeGreaterThanOrEqual(timing.visibleMs);
     expect(sent.some((message) => message.type === 'change')).toBe(false);
+    const properties = document.getElementById('metadata');
+    if (properties === null) throw new Error('No properties panel.');
+    const click = (text: string, root: ParentNode = properties): void => {
+      const button = [...root.querySelectorAll('button')].find(
+        (item) => (item.getAttribute('aria-label') ?? item.textContent) === text,
+      );
+      if (button === undefined) throw new Error(`Missing button: ${text}`);
+      button.click();
+    };
+    const missingTitle = properties.querySelector('[data-field="title"]');
+    if (missingTitle === null) throw new Error('Title was not offered.');
+    click('Add Title', missingTitle);
+    const title = properties.querySelector<HTMLTextAreaElement>('[aria-label="Title"]');
+    if (title === null) throw new Error('No title input.');
+    title.value = 'Document title';
+    title.dispatchEvent(new Event('input'));
+    const styles = document.querySelector<HTMLSelectElement>('[aria-label="Block style"]');
+    if (styles === null) throw new Error('No block-style control.');
+    styles.value = 'paragraph';
+    styles.dispatchEvent(new Event('change'));
+    const bodyEdit = SOURCE.replace('# Heading', 'Heading');
+    click('Apply');
+    const request = sent.find((message) => message.type === 'metadata-change');
+    if (request?.type !== 'metadata-change') throw new Error('No metadata request.');
+    expect(request.before).toBe(bodyEdit);
+    expect(sent.filter((message) => message.type === 'change')).toEqual([
+      { type: 'change', text: bodyEdit },
+    ]);
+    expect(content?.getAttribute('contenteditable')).toBe('false');
+    receive({ type: 'metadata-result', ok: true, message: '', text: request.text });
+    expect(document.querySelector('.ProseMirror')).toBe(content);
+    expect(content?.getAttribute('contenteditable')).toBe('true');
+    expect(content?.textContent).toContain('Heading');
+    expect(sent.filter((message) => message.type === 'metadata-change')).toHaveLength(1);
+    expect(sent.filter((message) => message.type === 'change')).toHaveLength(1);
+    receive({ type: 'external-text', text: bodyEdit, mark: false });
+    expect(properties.querySelector('[data-field="title"] textarea')).toBeNull();
+    expect(content?.textContent).toContain('Heading');
     receive({ type: 'refused', title: 'Closed', reasons: [], canFormat: false });
   });
 });

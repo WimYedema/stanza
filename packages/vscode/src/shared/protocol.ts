@@ -10,6 +10,13 @@ export interface Defaults {
   readonly pageTemplate?: string;
 }
 
+export interface MetadataField {
+  readonly name: string;
+  readonly type: 'string' | 'list';
+  readonly required: boolean;
+  readonly label?: string;
+}
+
 /** Why the editor will not take a file, with the line (starting at 1) when there is one. */
 export interface Reason {
   readonly message: string;
@@ -56,6 +63,14 @@ export type HostMessage =
       readonly defaults: Defaults;
       readonly usedIds: readonly string[];
       readonly projectReady: boolean;
+      readonly fields?: readonly MetadataField[];
+    }
+  | { readonly type: 'metadata-fields'; readonly fields?: readonly MetadataField[] }
+  | {
+      readonly type: 'metadata-result';
+      readonly ok: boolean;
+      readonly message: string;
+      readonly text: string;
     }
   | { readonly type: 'project-ready'; readonly usedIds: readonly string[] }
   /**
@@ -94,6 +109,8 @@ export type WebviewMessage =
   | { readonly type: 'startup-timing'; readonly visibleMs: number; readonly editableMs: number }
   /** The whole text of the document as the editor writes it. */
   | { readonly type: 'change'; readonly text: string }
+  | { readonly type: 'metadata-change'; readonly before: string; readonly text: string }
+  | { readonly type: 'open-project' }
   /** Follow an in-project reference to its target. */
   | { readonly type: 'follow-reference'; readonly target: string }
   | { readonly type: 'format' }
@@ -122,6 +139,7 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
     case 'ready':
     case 'format':
     case 'open-as-text':
+    case 'open-project':
       return { type: value['type'] };
     case 'follow-reference': {
       const target = value['target'];
@@ -146,6 +164,12 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
       const text = value['text'];
       if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) return undefined;
       return { type: 'change', text };
+    }
+    case 'metadata-change': {
+      const { before, text } = value;
+      if (typeof before !== 'string' || typeof text !== 'string') return undefined;
+      if (before.length > MAX_TEXT_LENGTH || text.length > MAX_TEXT_LENGTH) return undefined;
+      return { type: 'metadata-change', before, text };
     }
     case 'startup-timing': {
       const { visibleMs, editableMs } = value;
@@ -244,6 +268,23 @@ function parseDefaults(value: unknown): Defaults | undefined {
   };
 }
 
+function parseMetadataFields(value: unknown): readonly MetadataField[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: MetadataField[] = [];
+  const names = new Set<string>();
+  for (const field of value as unknown[]) {
+    if (!isRecord(field)) return undefined;
+    const { name, type, required, label } = field;
+    if (typeof name !== 'string' || !/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(name)) return undefined;
+    if (names.has(name) || (type !== 'string' && type !== 'list')) return undefined;
+    if (typeof required !== 'boolean' || (label !== undefined && typeof label !== 'string'))
+      return undefined;
+    names.add(name);
+    result.push({ name, type, required, ...(label !== undefined ? { label } : {}) });
+  }
+  return result;
+}
+
 /** The message from the host, or undefined for anything else, such as a message of a page. */
 export function parseHostMessage(value: unknown): HostMessage | undefined {
   if (!isRecord(value)) return undefined;
@@ -254,7 +295,31 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
       if (!isStringList(usedIds) || typeof projectReady !== 'boolean') return undefined;
       const defaults = parseDefaults(value['defaults']);
       if (defaults === undefined) return undefined;
-      return { type: 'init', documentText, stylesheetText, defaults, usedIds, projectReady };
+      const fields = parseMetadataFields(value['fields']);
+      if (value['fields'] !== undefined && fields === undefined) return undefined;
+      return {
+        type: 'init',
+        documentText,
+        stylesheetText,
+        defaults,
+        usedIds,
+        projectReady,
+        ...(fields !== undefined ? { fields } : {}),
+      };
+    }
+    case 'metadata-fields': {
+      const fields = parseMetadataFields(value['fields']);
+      if (value['fields'] !== undefined && fields === undefined) return undefined;
+      return { type: 'metadata-fields', ...(fields !== undefined ? { fields } : {}) };
+    }
+    case 'metadata-result': {
+      const { ok, message, text } = value;
+      return typeof ok === 'boolean' &&
+        typeof message === 'string' &&
+        typeof text === 'string' &&
+        text.length <= MAX_TEXT_LENGTH
+        ? { type: 'metadata-result', ok, message, text }
+        : undefined;
     }
     case 'project-ready': {
       const usedIds = value['usedIds'];

@@ -379,6 +379,178 @@ describe('files that are not taken', () => {
   });
 });
 
+describe('document properties', () => {
+  const replies = (): Extract<HostMessage, { type: 'metadata-result' }>[] =>
+    posted().filter(
+      (message): message is Extract<HostMessage, { type: 'metadata-result' }> =>
+        message.type === 'metadata-result',
+    );
+  async function started(): Promise<void> {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'project-ready' }));
+    });
+  }
+  it('applies one metadata edit after queued body typing, leaves the file unsaved, and supports host undo/redo', async () => {
+    open(CANONICAL, '\r\n');
+    await started();
+    const body = CANONICAL.replace('Some text.', 'Unsaved typing.');
+    const after = body.replace('title: "T"', 'title: "New title"');
+    fromWebview({ type: 'change', text: body });
+    fromWebview({ type: 'metadata-change', before: body, text: after });
+    await settled(() => {
+      expect(world.posted).toContainEqual({
+        type: 'metadata-result',
+        ok: true,
+        message: '',
+        text: after,
+      });
+    });
+    expect(world.text).toBe(after);
+    expect(world.document?.getText()).toBe(after.replace(/\n/g, '\r\n'));
+    expect(world.files.get(DOCUMENT)).toBe(CANONICAL);
+    expect(world.saved).toEqual([]);
+    expect(world.edits).toHaveLength(2);
+    expect(world.edits[1]).toEqual({ start: [2, 0], end: [3, 0], text: 'title: "New title"\n' });
+    changeDocument(body, 1);
+    await settled(() => {
+      expect(world.posted).toContainEqual({ type: 'external-text', text: body, mark: false });
+    });
+    changeDocument(after, 2);
+    await settled(() => {
+      expect(world.posted).toContainEqual({ type: 'external-text', text: after, mark: false });
+    });
+  });
+
+  it('refuses stale drafts, body changes and unsupported metadata without applying them', async () => {
+    await started();
+    const external = CANONICAL.replace('Some text.', 'External typing.');
+    changeDocument(external);
+    fromWebview({
+      type: 'metadata-change',
+      before: CANONICAL,
+      text: CANONICAL.replace('title: "T"', 'title: "Draft"'),
+    });
+    await settled(() => {
+      expect(replies().at(-1)?.message).toContain('changed');
+    });
+    expect(replies().at(-1)?.ok).toBe(false);
+    fromWebview({
+      type: 'metadata-change',
+      before: external,
+      text: external.replace('External typing.', 'Smuggled body edit.'),
+    });
+    await settled(() => {
+      expect(replies().at(-1)?.message).toContain('content');
+    });
+    expect(replies().at(-1)?.ok).toBe(false);
+    fromWebview({
+      type: 'metadata-change',
+      before: external,
+      text: external.replace('title: "T"', 'title: [bad]'),
+    });
+    await settled(() => {
+      expect(replies().at(-1)?.message).toContain('canonical');
+    });
+    expect(replies().at(-1)?.ok).toBe(false);
+    expect(world.text).toBe(external);
+    expect(world.edits).toEqual([]);
+  });
+
+  it('reports failed buffer application instead of accepting the draft', async () => {
+    await started();
+    world.failEdits = true;
+    fromWebview({
+      type: 'metadata-change',
+      before: CANONICAL,
+      text: CANONICAL.replace('title: "T"', 'title: "New"'),
+    });
+    await settled(() => {
+      expect(replies().at(-1)?.message).toContain('not applied');
+    });
+    expect(replies().at(-1)).toMatchObject({ ok: false, text: CANONICAL });
+    expect(world.text).toBe(CANONICAL);
+    expect(world.edits).toEqual([]);
+  });
+
+  it('resynchronizes an old draft even when the current source was its own last accepted edit', async () => {
+    await started();
+    const text = CANONICAL.replace('title: "T"', 'title: "Accepted"');
+    fromWebview({ type: 'metadata-change', before: CANONICAL, text });
+    await settled(() => {
+      expect(replies().at(-1)?.ok).toBe(true);
+    });
+    fromWebview({
+      type: 'metadata-change',
+      before: CANONICAL,
+      text: CANONICAL.replace('title: "T"', 'title: "Stale"'),
+    });
+    await settled(() => {
+      expect(replies().at(-1)?.ok).toBe(false);
+    });
+    expect(world.posted).toContainEqual({ type: 'external-text', text });
+    expect(world.edits).toHaveLength(1);
+    expect(world.text).toBe(text);
+  });
+
+  it('reports a concurrent change during application and resynchronizes without overwriting it', async () => {
+    await started();
+    const text = CANONICAL.replace('title: "T"', 'title: "Applied"');
+    const concurrent = text.replace('Some text.', 'Concurrent edit.');
+    const apply = vscode.workspace.applyEdit.bind(vscode.workspace);
+    const spy = vi.spyOn(vscode.workspace, 'applyEdit').mockImplementation(async (edit) => {
+      const applied = await apply(edit);
+      changeDocument(concurrent);
+      return applied;
+    });
+    try {
+      fromWebview({ type: 'metadata-change', before: CANONICAL, text });
+      await settled(() => {
+        expect(replies().at(-1)?.message).toContain('changed while applying');
+      });
+      expect(replies().at(-1)).toMatchObject({ ok: false, text: concurrent });
+      expect(world.text).toBe(concurrent);
+      expect(world.posted).toContainEqual({ type: 'external-text', text: concurrent });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('sends declared fields initially and refreshes empty/removed declarations; opening their definition does not edit it', async () => {
+    const declared = `${PROJECT}metadata-fields:\n  doc-no:\n    type: string\n    required: true\n    label: Document number\n`;
+    open(CANONICAL, '\n', files({ '/w/p/phrase.yaml': declared }));
+    await started();
+    expect(posted()[0]).toMatchObject({
+      type: 'init',
+      fields: [{ name: 'doc-no', type: 'string', required: true, label: 'Document number' }],
+    });
+    const changeProject = (text: string): void => {
+      world.files.set('/w/p/phrase.yaml', text);
+      const document = {
+        uri: new FakeUri('/w/p/phrase.yaml'),
+        fileName: '/w/p/phrase.yaml',
+        getText: () => text,
+      };
+      for (const listener of world.changeListeners) listener({ document });
+    };
+    changeProject(`${PROJECT}metadata-fields: {}\n`);
+    await settled(() => {
+      expect(world.posted).toContainEqual({ type: 'metadata-fields', fields: [] });
+    });
+    changeProject(PROJECT);
+    await settled(() => {
+      expect(world.posted).toContainEqual({ type: 'metadata-fields' });
+    });
+    fromWebview({ type: 'open-project' });
+    await settled(() => {
+      expect(world.commands).toContain('vscode.open');
+    });
+    expect(world.commandArgs.at(-1)).toEqual([new FakeUri('/w/p/phrase.yaml')]);
+    expect(world.edits).toEqual([]);
+    expect(world.files.get('/w/p/phrase.yaml')).toBe(PROJECT);
+  });
+});
+
 describe('writing to the file', () => {
   async function started(): Promise<void> {
     fromWebview({ type: 'ready' });

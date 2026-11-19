@@ -1,14 +1,23 @@
 import { createPhraseEditor, type PhraseEditor } from '@phrase/editor';
 import { parseDocument, parseStylesheet, serializeDocument } from '@phrase/format';
-import { isNodeId, type Diagnostic } from '@phrase/core';
+import {
+  DEFAULT_PAGE_TEMPLATE_NAME,
+  isNodeId,
+  type Diagnostic,
+  type FieldDeclaration,
+  type Stylesheet,
+} from '@phrase/core';
 import {
   parseHostMessage,
+  MAX_TEXT_LENGTH,
   type HostMessage,
+  type MetadataField,
   type Reason,
   type WebviewMessage,
 } from '../shared/protocol.js';
 import { createChangesBar } from './changes.js';
 import { createNotices } from './notices.js';
+import { createMetadataPanel } from './metadata.js';
 import { createLinkPrompt } from './link-prompt.js';
 import { createReferencePicker } from './reference-picker.js';
 import { installReferenceNavigation } from './reference-navigation.js';
@@ -57,6 +66,16 @@ let removedFromOutside = 0;
 let visibleMs: number | undefined;
 let editableMs: number | undefined;
 let timed = false;
+let ready = false;
+let metadataPending = false;
+
+const fieldMap = (
+  fields: readonly MetadataField[] | undefined,
+): ReadonlyMap<string, FieldDeclaration> | undefined =>
+  fields === undefined ? undefined : new Map(fields.map(({ name, ...field }) => [name, field]));
+const templateNames = (sheet: Stylesheet): readonly string[] => [
+  ...new Set([DEFAULT_PAGE_TEMPLATE_NAME, ...sheet.pageTemplates.keys()]),
+];
 
 function measurePaint(kind: 'visible' | 'editable'): void {
   requestAnimationFrame(() => {
@@ -72,8 +91,7 @@ function measurePaint(kind: 'visible' | 'editable'): void {
 }
 
 function projectReady(ready: boolean): void {
-  editor?.setEditable(ready);
-  element('toolbar').inert = !ready;
+  setReady(ready);
   element('startup-status').textContent = ready
     ? ''
     : 'Checking project... This preview is read-only.';
@@ -81,6 +99,13 @@ function projectReady(ready: boolean): void {
     element('editor').removeAttribute('aria-busy');
     measurePaint('editable');
   } else element('editor').setAttribute('aria-busy', 'true');
+}
+
+function setReady(value: boolean): void {
+  ready = value;
+  editor?.setEditable(ready && !metadataPending);
+  element('toolbar').inert = !ready || metadataPending;
+  metadata.update({ editable: ready });
 }
 
 const { say, answered, declared } = createNotices(notices, send, (command) => editor?.run(command));
@@ -109,6 +134,37 @@ const toolbar = buildToolbar(element('toolbar'), {
     links.open();
   },
 });
+const metadata = createMetadataPanel(element('metadata'), {
+  apply: (meta) => {
+    const result = editor?.getDocument();
+    if (!ready || result?.document === undefined) {
+      metadata.complete({ ok: false, message: 'The document is not ready for a properties edit.' });
+      return;
+    }
+    const text = serializeDocument({ ...result.document, meta });
+    if (lastText.length > MAX_TEXT_LENGTH || text.length > MAX_TEXT_LENGTH) {
+      metadata.complete({
+        ok: false,
+        message: `Properties cannot be applied: the document exceeds ${String(MAX_TEXT_LENGTH)} characters.`,
+      });
+      return;
+    }
+    flush();
+    metadataPending = true;
+    setReady(ready);
+    send({ type: 'metadata-change', before: lastText, text });
+  },
+  openProject: () => {
+    send({ type: 'open-project' });
+  },
+});
+const propertiesButton = document.createElement('button');
+propertiesButton.textContent = 'Metadata';
+propertiesButton.title = 'Show document properties';
+propertiesButton.addEventListener('click', () => {
+  metadata.open();
+});
+element('toolbar').append(propertiesButton);
 const info = createStyleInfo({
   root: element('info'),
   editor: () => editor,
@@ -160,6 +216,8 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
   element('startup-status').textContent = '';
   clearTimeout(waiting);
   waiting = undefined;
+  metadataPending = false;
+  ready = false;
   editor?.destroy();
   editor = undefined;
   references.close();
@@ -209,6 +267,13 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
   usedIds = new Set(message.usedIds);
   removedFromOutside = 0;
   lastText = serializeDocument(parsed.document);
+  metadataPending = false;
+  metadata.complete({ ok: true, meta: parsed.document.meta });
+  metadata.update({
+    defaults: message.defaults,
+    fields: fieldMap(message.fields),
+    templates: templateNames(sheet.stylesheet),
+  });
   say('');
   refused.hidden = true;
   editing.hidden = false;
@@ -273,6 +338,31 @@ function handle(message: HostMessage): void {
       showChanges();
       lastText = serializeDocument(parsed.document);
       pages.update({ document: parsed.document });
+      metadata.update({ meta: parsed.document.meta }, true);
+      return;
+    }
+    case 'metadata-fields':
+      metadata.update({ fields: fieldMap(message.fields) });
+      return;
+    case 'metadata-result': {
+      if (!metadataPending || editor === undefined) return;
+      metadataPending = false;
+      if (message.ok) {
+        const parsed = parseDocument(message.text);
+        if (parsed.diagnostics.length > 0) {
+          refuse(
+            'The properties result cannot be edited visually',
+            parsed.diagnostics.map(reasonOf),
+            false,
+          );
+          return;
+        }
+        editor.setMetadata(parsed.document.meta);
+        lastText = message.text;
+        pages.update({ document: parsed.document });
+        metadata.complete({ ok: true, meta: parsed.document.meta });
+      } else metadata.complete({ ok: false, message: message.message });
+      setReady(ready);
       return;
     }
     case 'stylesheet': {
@@ -288,11 +378,13 @@ function handle(message: HostMessage): void {
         pages.update({ stylesheet: sheet.stylesheet });
         info.setStylesheet(sheet.stylesheet);
         info.refresh();
+        metadata.update({ templates: templateNames(sheet.stylesheet) });
       }
       return;
     }
     case 'defaults':
       pages.update({ defaults: message.defaults });
+      metadata.update({ defaults: message.defaults });
       return;
     case 'used-ids':
       usedIds = new Set(message.ids);

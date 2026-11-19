@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { MAX_TEXT_LENGTH, parseHostMessage, parseWebviewMessage } from './protocol.js';
 
 describe('parseWebviewMessage', () => {
+  it('checks both source snapshots for guarded metadata edits', () => {
+    const change = { type: 'metadata-change', before: 'old', text: 'new' };
+    expect(parseWebviewMessage(change)).toEqual(change);
+    expect(parseWebviewMessage({ ...change, before: 4 })).toBeUndefined();
+    expect(parseWebviewMessage({ ...change, text: null })).toBeUndefined();
+    expect(
+      parseWebviewMessage({ ...change, before: 'x'.repeat(MAX_TEXT_LENGTH + 1) }),
+    ).toBeUndefined();
+    expect(parseWebviewMessage({ type: 'open-project' })).toEqual({ type: 'open-project' });
+  });
   it('checks painted startup durations before accepting local timing reports', () => {
     expect(
       parseWebviewMessage({ type: 'startup-timing', visibleMs: 120, editableMs: 450 }),
@@ -66,6 +76,42 @@ describe('parseWebviewMessage', () => {
 });
 
 describe('parseHostMessage', () => {
+  it('distinguishes no declarations from an empty declaration and validates metadata messages', () => {
+    const fields = [{ name: 'doc-no', type: 'string', required: true, label: 'Number' }];
+    expect(parseHostMessage({ type: 'metadata-fields' })).toEqual({ type: 'metadata-fields' });
+    expect(parseHostMessage({ type: 'metadata-fields', fields: [] })).toEqual({
+      type: 'metadata-fields',
+      fields: [],
+    });
+    expect(parseHostMessage({ type: 'metadata-fields', fields })).toEqual({
+      type: 'metadata-fields',
+      fields,
+    });
+    const init = {
+      type: 'init',
+      documentText: '',
+      stylesheetText: '',
+      defaults: {},
+      usedIds: [],
+      projectReady: true,
+    };
+    expect(parseHostMessage({ ...init, fields })).toEqual({ ...init, fields });
+    for (const bad of [
+      null,
+      {},
+      [{ name: 'Bad name', type: 'string', required: false }],
+      [{ name: 'x', type: 'number', required: false }],
+      [{ name: 'x', type: 'list', required: 'yes' }],
+      [...fields, ...fields],
+    ]) {
+      expect(parseHostMessage({ type: 'metadata-fields', fields: bad })).toBeUndefined();
+      expect(parseHostMessage({ ...init, fields: bad })).toBeUndefined();
+    }
+    const result = { type: 'metadata-result', ok: false, message: 'Stale', text: 'source' };
+    expect(parseHostMessage(result)).toEqual(result);
+    expect(parseHostMessage({ ...result, ok: 'yes' })).toBeUndefined();
+    expect(parseHostMessage({ ...result, text: undefined })).toBeUndefined();
+  });
   it('requires explicit preview readiness and a checked list of IDs before enabling editing', () => {
     const init = { type: 'init', documentText: '', stylesheetText: '', defaults: {}, usedIds: [] };
     expect(parseHostMessage(init)).toBeUndefined();

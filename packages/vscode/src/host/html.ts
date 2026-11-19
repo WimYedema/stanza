@@ -78,6 +78,45 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #info dd { margin: 0; }
   #info .usage p { margin: 4px 0; }
   #info .usage ul { margin: 0; padding-left: 18px; }
+  #metadata { box-sizing: border-box; width: min(850px, calc(100% - 24px)); margin: 12px auto 0;
+    scroll-margin-top: 120px; background: #252526; color: #cccccc; border: 1px solid #454545; font: 13px sans-serif; }
+  #metadata summary { padding: 6px 10px; cursor: pointer; }
+  #metadata .metadata-body { padding: 0 10px 8px; max-height: 65vh; overflow-y: auto; }
+  #metadata fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  #metadata section { border-top: 1px solid #454545; padding: 4px 0; }
+  #metadata h3 { margin: 3px 0 4px; font-size: 13px; }
+  #metadata h4 { margin: 0; font-size: 13px; }
+  #metadata .metadata-property { display: grid; grid-template-columns: minmax(100px, 160px) minmax(0, 1fr) 24px;
+    align-items: start; gap: 8px; padding: 3px 0; overflow-wrap: anywhere; }
+  #metadata .metadata-label { min-width: 0; padding-top: 4px; }
+  #metadata .metadata-value { grid-column: 2; min-width: 0; }
+  #metadata .metadata-property > .metadata-icon { grid-column: 3; grid-row: 1; }
+  #metadata .metadata-item { display: flex; align-items: flex-start; gap: 4px; }
+  #metadata .metadata-item textarea { flex: 1; min-width: 0; }
+  #metadata .metadata-value ol { margin: 0; padding-left: 22px; }
+  #metadata .metadata-value li { margin-bottom: 3px; }
+  #metadata textarea { display: block; box-sizing: border-box; width: 100%; resize: vertical;
+    font: 13px/18px monospace; }
+  #metadata input, #metadata textarea, #metadata select { background: #3c3c3c; color: #eeeeee;
+    border: 1px solid #777777; padding: 2px 4px; max-width: 100%; }
+  #metadata button { margin: 4px 6px 0 0; padding: 3px 8px; font: 12px sans-serif; }
+  #metadata .metadata-icon { box-sizing: border-box; width: 24px; min-width: 24px; height: 24px;
+    flex: none; margin: 0; padding: 0; font: 16px/20px sans-serif; }
+  #metadata .metadata-custom-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 24px; gap: 6px; margin-bottom: 4px; }
+  #metadata .metadata-custom-row input { min-width: 0; }
+  #metadata small { display: block; opacity: 0.8; }
+  #metadata .metadata-origin { margin-bottom: 4px; }
+  #metadata p { margin: 4px 0; }
+  #metadata pre, #metadata li { white-space: pre-wrap; overflow-wrap: anywhere; }
+  #metadata pre { margin: 0; }
+  #metadata .metadata-value > pre, #metadata .metadata-value > p { padding: 4px 0; }
+  #metadata .error { color: #ff9999; }
+  #metadata .warning, #metadata .metadata-status { color: #ffcc66; }
+  #metadata :focus-visible { outline: 2px solid #75beff; outline-offset: 2px; }
+  #metadata .metadata-actions { position: sticky; bottom: -8px; background: #252526; padding: 4px 0 8px; }
+  @media (max-width: 540px) {
+    #metadata .metadata-property { grid-template-columns: minmax(80px, 28%) minmax(0, 1fr) 24px; gap: 6px; }
+  }
   #desk { padding: 12px 0 48px; overflow-x: auto; }
   #editor .reference-hover { text-decoration: underline dotted; text-underline-offset: 3px; }
   #editor.reference-mode .reference-hover { cursor: pointer; text-decoration: underline; }
@@ -118,6 +157,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   <div id="navigation-status" role="status"></div>
   <div id="references" hidden></div>
   <div id="links" hidden></div>
+  <section id="metadata"></section>
   <div id="desk" class="paper" data-vscode-context='{"webviewSection": "editor"}'>
     <div id="cover" class="sheet" hidden></div>
     <div id="page" class="sheet">

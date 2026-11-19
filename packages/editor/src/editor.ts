@@ -5,6 +5,7 @@ import {
   nodeIdFromRandomBytes,
   type Diagnostic,
   type Document,
+  type DocumentMeta,
   type Stylesheet,
 } from '@phrase/core';
 import { SCOPE_CLASS, compileStylesheetToCss } from '@phrase/css';
@@ -168,6 +169,8 @@ export interface PhraseEditor {
   setEditable(editable: boolean): void;
   /** The document the editor holds, with the metadata it was given. */
   getDocument(): FromEditorResult;
+  /** Receives host-accepted metadata without changing content or selection, or calling onChange. */
+  setMetadata(meta: DocumentMeta): void;
   /**
    * Replaces the content, for example after the file changed on disk. Does not call `onChange`. With
    * `cursor: 'at-change'` the cursor goes to where the content changed, as after an undo or a redo,
@@ -316,6 +319,9 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
       editor.setEditable(value, false);
     },
     getDocument: () => fromEditorContent(editor.state.doc, meta),
+    setMetadata(value) {
+      meta = value;
+    },
     setDocument(document, options) {
       meta = document.meta;
       const before = editor.state.doc;

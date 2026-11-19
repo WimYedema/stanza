@@ -16,7 +16,6 @@ Not new items, a suggestion for the order: item 91 (header rows and columns) goe
 
 Placed before the themes "Pipeline (CLI, no editor)" and "Collections and references" by the product owner.
 
-187. [M] - Document metadata editor: edit front matter in the VS Code editor, show generated metadata, and list built-in and project-declared fields that are not yet present so they can be added. ADR first: decide which generated values can be overridden and how they are stored.
 191. [M] - Architectural performance goals and benchmarks: add a responsiveness section to the architecture and a new ADR refining ADR 0078 with a representative corpus, reference hardware and VS Code version, repeatable measurements and proposed p95 budgets: action feedback within 100 ms, warm document visible and editable within 300 ms, cold project content visible within 500 ms and editing enabled within 2 seconds. Validate and calibrate these goals rather than claim they are already met. Measure from the open request through painted content and editing readiness, reporting extension activation separately. Keep timing benchmarks separate from ordinary unit tests; preserve validation, diagnostics and ID safety. Added at the request of the product owner.
 
 ## Theme: Collections and references

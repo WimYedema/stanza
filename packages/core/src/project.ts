@@ -77,7 +77,7 @@ function isEmpty(value: MetaValue): boolean {
 /** Checks a document's custom metadata fields against the declarations of the project. */
 export function validateMetadata(
   meta: DocumentMeta,
-  settings: ProjectSettings,
+  settings: Pick<ProjectSettings, 'fields'>,
 ): readonly Diagnostic[] {
   const declared = settings.fields;
   if (declared === undefined) return [];
@@ -92,7 +92,7 @@ export function validateMetadata(
   };
 
   for (const [name, declaration] of declared) {
-    const value = meta.fields[name];
+    const value = Object.hasOwn(meta.fields, name) ? meta.fields[name] : undefined;
     if (value === undefined || isEmpty(value)) {
       if (declaration.required) {
         report('error', 'missing-field', `The field "${name}" is required.`, name);

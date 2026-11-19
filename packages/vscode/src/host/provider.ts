@@ -12,12 +12,15 @@ import {
   type Document,
   type ListItemBlock,
   type NodeId,
+  type ProjectSettings,
 } from '@phrase/core';
+import { parseDocument, serializeDocument } from '@phrase/format';
 import { styleUsage, type LoadedProject } from '@phrase/project';
 import {
   parseWebviewMessage,
   type HostMessage,
   type InlineDiagnostic,
+  type MetadataField,
   type WebviewMessage,
 } from '../shared/protocol.js';
 import { buildHtml } from './html.js';
@@ -162,6 +165,11 @@ type Shown = 'nothing' | 'editor' | 'refused';
 const isProjectFile = (fileName: string): boolean =>
   fileName.endsWith('.phrase.md') || fileName.endsWith('.yaml') || fileName.endsWith('.yml');
 
+const metadataFields = (settings: ProjectSettings): readonly MetadataField[] | undefined =>
+  settings.fields === undefined
+    ? undefined
+    : [...settings.fields].map(([name, field]) => ({ name, ...field }));
+
 function containsId(block: Block | ListItemBlock, id: NodeId): boolean {
   if (block.id === id) return true;
   if (block.type === 'list') {
@@ -196,6 +204,7 @@ class EditorSession {
   private stylesheetText: string | undefined;
   private usedKey: string | undefined;
   private defaultsKey: string | undefined;
+  private fieldsKey: string | undefined;
   private usageKey: string | undefined;
   private diagnosticsKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -289,6 +298,19 @@ class EditorSession {
       case 'change':
         await this.apply(message.text);
         return;
+      case 'metadata-change':
+        await this.applyMetadata(message.before, message.text);
+        return;
+      case 'open-project':
+        if (this.root === undefined) {
+          await vscode.window.showErrorMessage('Phrase: the metadata project was not found.');
+        } else {
+          await vscode.commands.executeCommand(
+            'vscode.open',
+            vscode.Uri.joinPath(this.root, 'phrase.yaml'),
+          );
+        }
+        return;
       case 'format': {
         const review = reviewText(this.text());
         if (!review.ok && review.formatted !== undefined) await this.apply(review.formatted, false);
@@ -316,9 +338,9 @@ class EditorSession {
   }
 
   /** Applies only the lines that differ, so the cursor, the history and Git stay sensible. */
-  private async apply(text: string, fromEditor = true): Promise<void> {
+  private async apply(text: string, fromEditor = true): Promise<boolean> {
     const edit = lineEdit(this.text(), text);
-    if (edit === undefined) return;
+    if (edit === undefined) return true;
     const workspaceEdit = new vscode.WorkspaceEdit();
     workspaceEdit.replace(
       this.document.uri,
@@ -331,7 +353,46 @@ class EditorSession {
       this.fromWebview = undefined;
       this.log.appendLine('The edit of the document was not applied.');
       await this.onDocumentChanged();
+      return false;
     }
+    return true;
+  }
+
+  private async applyMetadata(before: string, text: string): Promise<void> {
+    let message = '';
+    let ok = false;
+    try {
+      if (this.shown !== 'editor' || this.text() !== before) {
+        message = 'The document changed. Reload properties before applying this draft.';
+        this.fromWebview = undefined;
+        await this.onDocumentChanged();
+      } else if (!reviewText(text).ok || !reviewText(before).ok) {
+        message =
+          'Properties require valid canonical Phrase source. Open the document as text to inspect it.';
+      } else {
+        const previous = parseDocument(before).document;
+        const next = parseDocument(text).document;
+        if (serializeDocument({ ...next, meta: previous.meta }) !== before) {
+          message = 'The properties edit also changes document content and was refused.';
+        } else {
+          ok = await this.apply(text);
+          if (!ok)
+            message = 'The properties edit was not applied. Inspect the document and try again.';
+          else if (this.text() !== text) {
+            ok = false;
+            message =
+              'The document changed while applying properties. Reload properties before retrying.';
+            this.fromWebview = undefined;
+            await this.onDocumentChanged();
+          }
+        }
+      }
+    } catch (error) {
+      message = `The properties edit failed: ${error instanceof Error ? error.message : String(error)}`;
+      this.log.appendLine(message);
+      await this.onDocumentChanged();
+    }
+    await this.post({ type: 'metadata-result', ok, message, text: ok ? text : this.text() });
   }
 
   private async onDocumentChanged(): Promise<void> {
@@ -440,6 +501,8 @@ class EditorSession {
     this.stylesheetText = stylesheetText;
     this.usedKey = usedIds.join(',');
     this.defaultsKey = JSON.stringify(settings.defaults);
+    const fields = metadataFields(settings);
+    this.fieldsKey = JSON.stringify(fields);
     this.shown = 'editor';
     await this.post({
       type: 'init',
@@ -448,6 +511,7 @@ class EditorSession {
       defaults: settings.defaults,
       usedIds,
       projectReady: cached !== undefined,
+      ...(fields !== undefined ? { fields } : {}),
     });
     let loaded: LoadedProject;
     try {
@@ -579,6 +643,12 @@ class EditorSession {
     if (defaultsKey !== this.defaultsKey) {
       this.defaultsKey = defaultsKey;
       await this.post({ type: 'defaults', defaults: loaded.settings.defaults });
+    }
+    const fields = metadataFields(loaded.settings);
+    const fieldsKey = JSON.stringify(fields);
+    if (fieldsKey !== this.fieldsKey) {
+      this.fieldsKey = fieldsKey;
+      await this.post({ type: 'metadata-fields', ...(fields !== undefined ? { fields } : {}) });
     }
     await this.postUsage(loaded, root, false);
     await this.postDiagnostics(loaded, root, false);
