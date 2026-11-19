@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { adoptMarkdownDocument } from './adopt-markdown.js';
 import { describeImport } from './import-word.js';
+import { parseProject } from '@phrase/format';
 import { loadProject } from './load.js';
 import { memoryStorage } from './memory-storage.testing.js';
 import { bytes, counting, project, projectFiles } from './new-project.testing.js';
@@ -9,6 +10,22 @@ const SOURCE =
   '# Notes\n\nSome *text* and a [link][a].\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n[a]: https://example.com\n';
 
 describe('adoptMarkdownDocument', () => {
+  it('appends an adopted document to an explicit list', async () => {
+    const files = await projectFiles();
+    const storage = memoryStorage({
+      ...files,
+      'phrase.yaml': `${files['phrase.yaml'] ?? ''}documents: [documents/my-report.phrase.md]\n`,
+    });
+    const result = await adoptMarkdownDocument(storage, SOURCE, {
+      name: 'Notes',
+      randomBytes: counting(20),
+    });
+    expect(result.ok).toBe(true);
+    expect(parseProject(storage.texts.get('phrase.yaml') ?? '').settings.documents).toEqual([
+      { kind: 'document', path: 'documents/my-report.phrase.md' },
+      { kind: 'document', path: 'documents/notes.phrase.md' },
+    ]);
+  });
   it('writes the Markdown as a new document, with IDs, and reports', async () => {
     const storage = await project();
     const result = await adoptMarkdownDocument(storage, `${SOURCE}\n> quoted\n`, {

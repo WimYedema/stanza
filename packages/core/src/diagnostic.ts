@@ -23,7 +23,13 @@ export type ReferencePathFix = {
   readonly replacement: string;
 };
 
-export type Fix = DeclareVariantFix | UseTokensFix | ReferencePathFix;
+export type DocumentListFix = {
+  readonly kind: 'document-list';
+  readonly action: 'append' | 'remove';
+  readonly document: string;
+};
+
+export type Fix = DeclareVariantFix | UseTokensFix | ReferencePathFix | DocumentListFix;
 
 export interface Diagnostic {
   readonly severity: Severity;

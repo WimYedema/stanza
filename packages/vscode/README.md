@@ -16,6 +16,16 @@ File-only `.phrase.md` links open that document within the project. Missing or d
 
 GitHub block-ID anchors are not implemented yet (backlog item 189).
 
+## Maintaining the document list
+
+Run **Phrase: Initialize Document List** from the Command Palette or the project context menu in the Phrase view to create a missing `documents` entry in `phrase.yaml`. It includes discovered documents in their current path order and never replaces an existing outline.
+
+New Document, Import Word Document and Adopt Markdown File append to an existing list; without a list, discovery still applies. In the Phrase view, right-click a listed document for **Move Document Up**, **Move Document Down** (within its group), or **Move Document to Group** (project root or an existing nested group). These actions change the outline, not filenames, content or block IDs. Creating groups remains a text edit.
+
+Problems offers quick fixes to add an unlisted document or, after confirmation, remove a missing entry. Missing targets are not guessed or repaired automatically. Comments and unrelated project settings are preserved; the edited outline may be re-laid out. Invalid YAML and layouts with anchors/aliases are refused explicitly.
+
+Project-file edits are undoable and use the current buffer, including unsaved settings. A notification reminds you to save `phrase.yaml` and offers **Save project file**; it is not saved automatically. Diagnostics and the tree use the edited buffer immediately. See ADR 0079.
+
 ## Opening documents
 
 Editors, navigation, diagnostics and the project tree share versioned project snapshots and in-flight loads. Unsaved changes, dirty-buffer restoration, buffer closure and filesystem changes invalidate them. Explicit refreshes after commands force fresh validation; invalidated loads cannot publish stale results.

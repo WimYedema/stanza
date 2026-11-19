@@ -45,6 +45,20 @@ async function phrase(...argv: string[]): Promise<{ code: number; out: string; e
 const bytesOf = (...path: string[]): Buffer => readFileSync(join(work, ...path));
 
 describe('phrase validate', () => {
+  it('suggests explicit list repairs without changing the project', async () => {
+    const file = join(work, 'project', 'phrase.yaml');
+    const before = `${readFileSync(file, 'utf8')}documents: [documents/introduction.phrase.md, gone.phrase.md]\n`;
+    writeFileSync(file, before);
+    const result = await phrase('validate', 'project');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain(
+      'Suggestion: remove "gone.phrase.md" from the documents list in phrase.yaml.',
+    );
+    expect(result.out).toContain(
+      'Suggestion: add "documents/reference.phrase.md" to the documents list in phrase.yaml.',
+    );
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  });
   it('validates selected files with cross-document reference context and writes nothing', async () => {
     const first = join(work, 'project', 'documents', 'introduction.phrase.md');
     const second = join(work, 'project', 'documents', 'reference.phrase.md');

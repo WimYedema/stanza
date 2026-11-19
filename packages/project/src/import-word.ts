@@ -30,8 +30,8 @@ export type ImportWordResult =
 
 /**
  * Imports a Word document as one new document of a project (ADR 0047). The project must be in
- * order, since the new IDs have to be unique across it. Nothing existing is changed: a name that
- * is taken gets a number.
+ * order, since the new IDs have to be unique across it. A taken name gets a number; an explicit
+ * project document list gets the new path appended.
  */
 export async function importWordDocument(
   storage: ProjectStorage,

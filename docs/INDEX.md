@@ -33,6 +33,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 - 0076: agent editing workflow, selected-file checks and formatting, bounded validation diagnostics.
 - 0077: reference filename hints, stale-path diagnostics and explicit fixes, Ctrl/Cmd-click navigation.
 - 0078: shared project snapshots, staged document startup and local startup timings.
+- 0079: document-list initialization and maintenance, outline moves and quick fixes.
 
 ## Editor (`editor`)
 

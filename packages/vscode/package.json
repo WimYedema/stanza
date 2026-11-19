@@ -69,6 +69,22 @@
         "title": "Phrase: New Document"
       },
       {
+        "command": "phrase.initializeDocumentList",
+        "title": "Phrase: Initialize Document List"
+      },
+      {
+        "command": "phrase.moveDocumentUp",
+        "title": "Phrase: Move Document Up"
+      },
+      {
+        "command": "phrase.moveDocumentDown",
+        "title": "Phrase: Move Document Down"
+      },
+      {
+        "command": "phrase.regroupDocument",
+        "title": "Phrase: Move Document to Group"
+      },
+      {
         "command": "phrase.importWord",
         "title": "Phrase: Import Word Document"
       },
@@ -117,6 +133,42 @@
       }
     ],
     "menus": {
+      "view/item/context": [
+        {
+          "command": "phrase.initializeDocumentList",
+          "when": "view == phrase.outline && viewItem == phraseProject",
+          "group": "phrase@1"
+        },
+        {
+          "command": "phrase.moveDocumentUp",
+          "when": "view == phrase.outline && viewItem == phraseDocument",
+          "group": "phrase@2"
+        },
+        {
+          "command": "phrase.moveDocumentDown",
+          "when": "view == phrase.outline && viewItem == phraseDocument",
+          "group": "phrase@3"
+        },
+        {
+          "command": "phrase.regroupDocument",
+          "when": "view == phrase.outline && viewItem == phraseDocument",
+          "group": "phrase@4"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "phrase.moveDocumentUp",
+          "when": "false"
+        },
+        {
+          "command": "phrase.moveDocumentDown",
+          "when": "false"
+        },
+        {
+          "command": "phrase.regroupDocument",
+          "when": "false"
+        }
+      ],
       "webview/context": [
         {
           "command": "phrase.makeReference",

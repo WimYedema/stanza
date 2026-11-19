@@ -160,6 +160,7 @@ export async function loadProject(
         code: 'missing-document',
         message: `The document "${path}" in the list of documents does not exist.`,
         path: 'documents',
+        fix: { kind: 'document-list', action: 'remove', document: path },
       });
     }
   }
@@ -181,6 +182,7 @@ export async function loadProject(
         severity: 'warning',
         code: 'unlisted-document',
         message: `The document is not in the list of documents of ${PROJECT_FILE}, so it is checked but not built.`,
+        fix: { kind: 'document-list', action: 'append', document: path },
       });
     }
     const checked = checkParsedDocument(parsed, stylesheet, settings, { projectIds: ids });

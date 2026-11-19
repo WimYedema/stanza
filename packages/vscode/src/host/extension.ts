@@ -9,6 +9,7 @@ import { registerGoToLine } from './go-to-line-command.js';
 import { registerImportWord } from './import-word-command.js';
 import { registerMakeReference } from './make-reference-command.js';
 import { registerNewDocument } from './new-document-command.js';
+import { registerDocumentListCommands } from './document-list-commands.js';
 import { registerNewProject } from './new-project-command.js';
 import { registerOpenInWord } from './open-in-word-command.js';
 import { registerPhraseTree } from './phrase-tree.js';
@@ -53,6 +54,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerEditStyles(),
     registerNewProject(),
     registerNewDocument(),
+    ...registerDocumentListCommands(diagnostics),
     registerImportWord(log),
     registerAdoptMarkdown(log),
     registerAddAgentInstructions(),

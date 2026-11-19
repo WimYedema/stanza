@@ -45,6 +45,7 @@ export {
   type NewProjectResult,
 } from './new-project.js';
 export { DOCUMENT_SUFFIX, PROJECT_FILE } from './files.js';
+export { initializeDocumentList } from './document-list.js';
 export {
   loadProject,
   loadProjectConfiguration,

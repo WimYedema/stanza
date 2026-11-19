@@ -10,6 +10,7 @@ import {
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { findRoot } from './project-files.js';
 import { normalized } from './review.js';
+import { FIX_DOCUMENT_LIST_COMMAND } from './document-list-commands.js';
 
 export const DECLARE_VARIANT_COMMAND = 'phrase.declareVariant';
 export const USE_TOKENS_COMMAND = 'phrase.useTokens';
@@ -28,6 +29,21 @@ class FixActions implements vscode.CodeActionProvider {
     for (const diagnostic of context.diagnostics) {
       const fix = this.diagnostics.fixOf(document.uri, diagnostic);
       if (fix === undefined) continue;
+      if (fix.kind === 'document-list') {
+        const title =
+          fix.action === 'append'
+            ? `Add "${fix.document}" to the document list`
+            : `Remove missing document "${fix.document}" from the list`;
+        const action = new vscode.CodeAction(title, vscode.CodeActionKind.QuickFix);
+        action.diagnostics = [diagnostic];
+        action.command = {
+          command: FIX_DOCUMENT_LIST_COMMAND,
+          title,
+          arguments: [document.uri, fix.action, fix.document],
+        };
+        actions.push(action);
+        continue;
+      }
       const title =
         fix.kind === 'declare-variant'
           ? `Allow ${fix.mark} in the style "${fix.style}"`

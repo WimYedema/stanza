@@ -3,6 +3,7 @@ import { loadProject } from './load.js';
 import { memoryStorage } from './memory-storage.testing.js';
 import { addDocument } from './new-document.js';
 import { createProject } from './new-project.js';
+import { parseProject } from '@phrase/format';
 
 const bytes = (last: number) => (): Uint8Array =>
   Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, last]);
@@ -17,6 +18,55 @@ async function project() {
 }
 
 describe('addDocument', () => {
+  it('appends to an explicit outline while preserving its groups, comments and existing order', async () => {
+    const created = await project();
+    const before = `${created.texts.get('phrase.yaml') ?? ''}documents:\n  - group: First\n    items:\n      - documents/my-report.phrase.md # keep\n`;
+    const storage = memoryStorage({
+      ...Object.fromEntries(created.texts),
+      'phrase.yaml': before,
+    });
+    await addDocument(storage, { title: 'Meeting Notes', randomBytes: bytes(11) });
+    const after = storage.texts.get('phrase.yaml') ?? '';
+    expect(after).toContain('# keep');
+    expect(parseProject(after).settings.documents).toEqual([
+      {
+        kind: 'group',
+        title: 'First',
+        items: [{ kind: 'document', path: 'documents/my-report.phrase.md' }],
+      },
+      { kind: 'document', path: 'documents/meeting-notes.phrase.md' },
+    ]);
+    expect(
+      (
+        await loadProject(
+          memoryStorage({
+            ...Object.fromEntries(created.texts),
+            ...Object.fromEntries(storage.texts),
+          }),
+        )
+      ).diagnostics,
+    ).toEqual([]);
+  });
+
+  it('preflights invalid configuration before writing, and reports a failed list write explicitly', async () => {
+    const invalid = memoryStorage({ 'phrase.yaml': 'bad: [' });
+    await expect(addDocument(invalid, { title: 'Notes', randomBytes: bytes(11) })).rejects.toThrow(
+      'Fix the errors',
+    );
+    expect(invalid.texts.size).toBe(0);
+    const created = await project();
+    const storage = memoryStorage({
+      ...Object.fromEntries(created.texts),
+      'phrase.yaml': `${created.texts.get('phrase.yaml') ?? ''}documents: []\n`,
+    });
+    const write = storage.writeText.bind(storage);
+    storage.writeText = (path, text) =>
+      path === 'phrase.yaml' ? Promise.reject(new Error('Read-only project')) : write(path, text);
+    await expect(addDocument(storage, { title: 'Notes', randomBytes: bytes(11) })).rejects.toThrow(
+      'new file may exist',
+    );
+    expect(storage.texts.has('documents/notes.phrase.md')).toBe(true);
+  });
   it('writes a document next to the first one, with its title as a heading with an ID', async () => {
     const storage = await project();
     const result = await addDocument(storage, { title: 'Meeting Notes', randomBytes: bytes(11) });

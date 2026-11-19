@@ -13,6 +13,7 @@ import { DOCUMENT_SUFFIX } from './files.js';
 import { loadProject, type LoadedProject } from './load.js';
 import { names, slugOf } from './new-project.js';
 import type { ProjectStorage } from './storage.js';
+import { applyDocumentListPlan, planDocumentAppend } from './document-list.js';
 
 /** A project whose file and stylesheet load without errors. */
 export interface OrderedProject {
@@ -59,7 +60,7 @@ export type StoredDocument =
 /**
  * Writes the content of a file that was brought in from outside (ADR 0047, 0060) as a new document:
  * a free name made from `name`, new IDs that are unused in the project, the canonical text, and the
- * checks of the project afterwards. Nothing existing is changed.
+ * checks of the project afterwards. An explicit document list gets the new path appended.
  */
 export async function storeNewDocument(
   storage: ProjectStorage,
@@ -81,8 +82,10 @@ export async function storeNewDocument(
 
   const taken = new Set(await names(storage, DOCUMENTS_DIR));
   const path = `${DOCUMENTS_DIR}/${freeName(slugOf(name), taken)}${DOCUMENT_SUFFIX}`;
+  const plan = await planDocumentAppend(storage, path);
   const text = serializeDocument(withIds.document);
   await storage.writeText(path, text);
+  await applyDocumentListPlan(storage, plan);
   return {
     ok: true,
     document: path,

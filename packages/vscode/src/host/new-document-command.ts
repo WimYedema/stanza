@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 import { addDocument } from '@phrase/project';
-import { projectRoot, storageOf, uriInProject } from './project-files.js';
+import { projectRoot, uriInProject } from './project-files.js';
+import { documentListStorage } from './document-list-commands.js';
 
 export const NEW_DOCUMENT_COMMAND = 'phrase.newDocument';
 
@@ -27,7 +28,10 @@ export function registerNewDocument(): vscode.Disposable {
 
     let result;
     try {
-      result = await addDocument(storageOf(root), { title, randomBytes: () => randomBytes(10) });
+      result = await addDocument(await documentListStorage(root), {
+        title,
+        randomBytes: () => randomBytes(10),
+      });
     } catch (error) {
       void vscode.window.showErrorMessage(
         `Phrase: the document could not be written. ${reasonOf(error)}`,

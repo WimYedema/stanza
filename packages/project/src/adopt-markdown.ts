@@ -29,8 +29,8 @@ export type AdoptMarkdownResult =
 
 /**
  * Adopts an ordinary Markdown file as one new document of a project (ADR 0060). The project must
- * be in order. Nothing existing is changed, the original included: a name that is taken gets a
- * number.
+ * be in order. The original is unchanged, and a taken name gets a number. An explicit project
+ * document list gets the new path appended.
  */
 export async function adoptMarkdownDocument(
   storage: ProjectStorage,

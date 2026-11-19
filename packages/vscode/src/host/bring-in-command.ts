@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { describeImport, type ProjectStorage } from '@phrase/project';
-import { projectRoot, storageOf, uriInProject } from './project-files.js';
+import { projectRoot, uriInProject } from './project-files.js';
+import { documentListStorage } from './document-list-commands.js';
 
 const SHOW_REPORT = 'Show report';
 
@@ -67,7 +68,7 @@ export function registerBringIn(spec: BringIn, log: vscode.OutputChannel): vscod
     let result;
     try {
       const bytes = await vscode.workspace.fs.readFile(file);
-      result = await spec.bring(storageOf(root), bytes, nameOf(file));
+      result = await spec.bring(await documentListStorage(root), bytes, nameOf(file));
     } catch (error) {
       void vscode.window.showErrorMessage(`Phrase: the ${spec.noun} failed. ${reasonOf(error)}`);
       return;

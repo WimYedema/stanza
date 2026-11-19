@@ -5,6 +5,7 @@ import { loadProject } from './load.js';
 import { memoryStorage, type MemoryStorage } from './memory-storage.testing.js';
 import { describeImport, importWordDocument } from './import-word.js';
 import { bytes, counting, project, projectFiles } from './new-project.testing.js';
+import { parseProject } from '@phrase/format';
 
 const text = (value: string, marks: readonly { type: 'strong' }[] = []) =>
   ({ type: 'text', text: value, marks }) as const;
@@ -39,6 +40,22 @@ async function wordFile(storage: MemoryStorage): Promise<Uint8Array> {
 }
 
 describe('importWordDocument', () => {
+  it('appends an imported document to an explicit list', async () => {
+    const files = await projectFiles();
+    const storage = memoryStorage({
+      ...files,
+      'phrase.yaml': `${files['phrase.yaml'] ?? ''}documents: [documents/my-report.phrase.md]\n`,
+    });
+    const result = await importWordDocument(storage, await wordFile(storage), {
+      name: 'Notes',
+      randomBytes: counting(20),
+    });
+    expect(result.ok).toBe(true);
+    expect(parseProject(storage.texts.get('phrase.yaml') ?? '').settings.documents).toEqual([
+      { kind: 'document', path: 'documents/my-report.phrase.md' },
+      { kind: 'document', path: 'documents/notes.phrase.md' },
+    ]);
+  });
   it('writes the content as a new document, with IDs, and reports', async () => {
     const storage = await project();
     const result = await importWordDocument(storage, await wordFile(storage), {

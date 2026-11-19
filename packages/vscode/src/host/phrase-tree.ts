@@ -29,6 +29,7 @@ type Node =
     }
   | {
       readonly kind: 'document';
+      readonly root: vscode.Uri;
       readonly uri: vscode.Uri;
       readonly document: OutlineDocument;
       readonly alone: boolean;
@@ -41,7 +42,7 @@ const folderName = (root: vscode.Uri): string => root.path.slice(root.path.lastI
 /** The node of an entry of the outline: a document, or a group with its entries below it. */
 function nodeOf(root: vscode.Uri, item: OutlineItem, alone: boolean, trail: string): Node {
   if (item.kind === 'group') return { kind: 'group', root, group: item, trail };
-  return { kind: 'document', uri: uriInProject(root, item.path), document: item, alone };
+  return { kind: 'document', root, uri: uriInProject(root, item.path), document: item, alone };
 }
 
 /** The projects of the workspace, their documents and the headings of each (item 111). */
@@ -91,6 +92,7 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
       case 'project': {
         const item = new vscode.TreeItem(node.title, vscode.TreeItemCollapsibleState.Expanded);
         item.id = node.root.toString();
+        item.contextValue = 'phraseProject';
         item.iconPath = new vscode.ThemeIcon('root-folder');
         if (!node.inOrder) item.description = 'has errors';
         return item;
@@ -112,6 +114,7 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
             : vscode.TreeItemCollapsibleState.Collapsed,
         );
         item.id = node.uri.toString();
+        item.contextValue = node.document.listed ? 'phraseDocument' : 'phraseUnlistedDocument';
         const file = node.document.path.slice(node.document.path.lastIndexOf('/') + 1);
         item.description = node.document.listed ? file : `${file} (not listed)`;
         item.iconPath = new vscode.ThemeIcon('file');

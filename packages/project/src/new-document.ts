@@ -2,6 +2,7 @@ import { nodeIdFromRandomBytes } from '@phrase/core';
 import { DOCUMENT_SUFFIX } from './files.js';
 import { firstDocument, names, slugOf, type NewProjectOptions } from './new-project.js';
 import type { ProjectStorage } from './storage.js';
+import { applyDocumentListPlan, planDocumentAppend } from './document-list.js';
 
 export type NewDocumentOptions = NewProjectOptions;
 
@@ -28,9 +29,11 @@ export async function addDocument(
   if ((await names(storage, DOCUMENTS_DIR)).includes(name)) {
     return { ok: false, reason: 'exists', existing: document };
   }
+  const plan = await planDocumentAppend(storage, document);
   await storage.writeText(
     document,
     firstDocument(title, nodeIdFromRandomBytes(options.randomBytes())),
   );
+  await applyDocumentListPlan(storage, plan);
   return { ok: true, document };
 }

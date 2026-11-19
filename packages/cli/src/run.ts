@@ -113,7 +113,9 @@ function formatDiagnostic(d: ProjectDiagnostic): string {
         ? ` Suggestion: replace "${d.fix.href}" with "${d.fix.replacement}", or run "phrase format --fix-references".`
         : d.fix?.kind === 'use-tokens'
           ? ' Suggestion: run "phrase format --fix-stylesheet".'
-          : '';
+          : d.fix?.kind === 'document-list'
+            ? ` Suggestion: ${d.fix.action === 'append' ? 'add' : 'remove'} "${d.fix.document}" ${d.fix.action === 'append' ? 'to' : 'from'} the documents list in phrase.yaml.`
+            : '';
   return `${where}: ${d.severity} ${d.code}: ${d.message}${path}${fix}\n`;
 }
 

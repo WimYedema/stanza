@@ -8,6 +8,8 @@ Requires Node 22 or later. From the Phrase checkout, run `npm install` and `npm 
 
 From another folder, invoke Node with the absolute path to this checkout's `packages/cli/dist/main.js`, or use the linked `phrase` command. No registry download or network is needed for validation or formatting after setup.
 
+`import` and `adopt` append the new document to an existing `documents` outline in `phrase.yaml`, preserving comments and unrelated settings. They do not create an outline when it is absent. A failed outline write explicitly reports that the new file may already exist; inspect it before retrying. Validation suggests explicit list repairs for unlisted or missing documents (ADR 0079).
+
 ## Surgical edits
 
 From the project directory (replace `phrase` with the Node invocation if needed):
@@ -30,4 +32,4 @@ Diagnostics give file, line when known, code, message, structured path when avai
 
 Check after a coherent batch, not each keystroke. Fix introduced failures and report unrelated pre-existing failures without expanding scope or claiming success.
 
-ADRs 0014, 0015, 0020, 0047, 0076, 0077.
+ADRs 0014, 0015, 0020, 0047, 0076, 0077, 0079.

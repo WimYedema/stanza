@@ -18,6 +18,11 @@ export { checkDocumentText, checkParsedDocument, type CheckResult } from './chec
 export { FORMAT_VERSION } from './front-matter.js';
 export { blockStartLines, parseDocument, type ParseResult } from './parse.js';
 export { parseProject, type ProjectParseResult } from './project.js';
+export {
+  editDocumentList,
+  type DocumentListChange,
+  type DocumentListEdit,
+} from './edit-document-list.js';
 export { serializeDocument } from './serialize.js';
 export { slotSource } from './slot-source.js';
 export { parseStylesheet, type StylesheetParseResult } from './stylesheet.js';
