@@ -66,6 +66,7 @@ export async function exportDocument(
   const result = await exportDocx(effective, stylesheet, {
     timestamp: options.timestamp,
     otherTargets: referenceTargets(loaded.documents)(documentPath),
+    ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
   });
   // The exporter checks the document again, so its findings repeat those of loading.
   const known = new Set(loaded.diagnostics.map((d) => JSON.stringify([d.file, d.code, d.message])));

@@ -64,7 +64,9 @@ export type HostMessage =
       readonly usedIds: readonly string[];
       readonly projectReady: boolean;
       readonly fields?: readonly MetadataField[];
+      readonly linkSchemes?: Readonly<Record<string, string>>;
     }
+  | { readonly type: 'link-schemes'; readonly schemes: Readonly<Record<string, string>> }
   | { readonly type: 'metadata-fields'; readonly fields?: readonly MetadataField[] }
   | {
       readonly type: 'metadata-result';
@@ -285,6 +287,16 @@ function parseMetadataFields(value: unknown): readonly MetadataField[] | undefin
   return result;
 }
 
+function parseLinkSchemes(value: unknown): Readonly<Record<string, string>> | undefined {
+  if (!isRecord(value)) return undefined;
+  const entries: [string, string][] = [];
+  for (const [name, template] of Object.entries(value)) {
+    if (typeof template !== 'string') return undefined;
+    entries.push([name, template]);
+  }
+  return Object.fromEntries(entries);
+}
+
 /** The message from the host, or undefined for anything else, such as a message of a page. */
 export function parseHostMessage(value: unknown): HostMessage | undefined {
   if (!isRecord(value)) return undefined;
@@ -297,6 +309,8 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
       if (defaults === undefined) return undefined;
       const fields = parseMetadataFields(value['fields']);
       if (value['fields'] !== undefined && fields === undefined) return undefined;
+      const linkSchemes = parseLinkSchemes(value['linkSchemes']);
+      if (value['linkSchemes'] !== undefined && linkSchemes === undefined) return undefined;
       return {
         type: 'init',
         documentText,
@@ -305,7 +319,12 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
         usedIds,
         projectReady,
         ...(fields !== undefined ? { fields } : {}),
+        ...(linkSchemes !== undefined ? { linkSchemes } : {}),
       };
+    }
+    case 'link-schemes': {
+      const schemes = parseLinkSchemes(value['schemes']);
+      return schemes === undefined ? undefined : { type: 'link-schemes', schemes };
     }
     case 'metadata-fields': {
       const fields = parseMetadataFields(value['fields']);

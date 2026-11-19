@@ -9,6 +9,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 - 0048: tables with paragraphs and lists in cells (`phrase-table`).
 - 0018: `phrase-toc` block. 0011: heading numbering. 0068: references inside a document.
 - 0007: project file and metadata. 0020: assigning IDs.
+- 0082: project link-scheme templates, offline URL resolution, editor and DOCX destinations.
 - 0081: plain metadata values as semantic inline references, document format 2 and staged implementation.
 - 0033, 0034: style property list; style labels.
 

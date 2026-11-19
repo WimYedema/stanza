@@ -7,6 +7,7 @@ import {
   type Document,
   type DocumentMeta,
   type Stylesheet,
+  type LinkSchemes,
 } from '@phrase/core';
 import { SCOPE_CLASS, compileStylesheetToCss } from '@phrase/css';
 import {
@@ -133,6 +134,7 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
 `;
 
 export interface PhraseEditorOptions {
+  readonly linkSchemes?: LinkSchemes;
   /** The element that the editor is put in. */
   readonly element: HTMLElement;
   /** A stylesheet without errors. */
@@ -165,6 +167,8 @@ export interface DocumentChange {
 }
 
 export interface PhraseEditor {
+  /** Refreshes link destinations and command/paste policy without changing source or selection. */
+  setLinkSchemes(schemes: LinkSchemes): void;
   /** Read-only previews cannot run editing commands or change the document through input. */
   setEditable(editable: boolean): void;
   /** The document the editor holds, with the metadata it was given. */
@@ -230,9 +234,10 @@ export function phraseExtensions(
   notice: (notice: Notice) => void,
   ids: IdSource = randomIds,
   referenceTrigger?: () => void,
+  schemes: () => LinkSchemes = () => ({}),
 ): Extensions {
   return [
-    ...schemaExtensions(),
+    ...schemaExtensions(schemes),
     GapCursor,
     Annotations.configure({ stylesheet }),
     ChangeMarks,
@@ -240,7 +245,7 @@ export function phraseExtensions(
     ContextClasses.configure({ stylesheet }),
     PhraseBlockView.configure({ stylesheet }),
     PhraseKeys.configure({ stylesheet, notice }),
-    PhrasePaste.configure({ stylesheet, notice }),
+    PhrasePaste.configure({ stylesheet, notice, schemes }),
     ReferenceTrigger.configure({ trigger: referenceTrigger }),
   ];
 }
@@ -248,6 +253,7 @@ export function phraseExtensions(
 /** Starts an editor for a document and stylesheet (ADR 0022). */
 export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
   let stylesheet = options.stylesheet;
+  let linkSchemes = options.linkSchemes ?? {};
   let meta = options.document.meta;
   let editable = options.editable ?? true;
   let replacing = false;
@@ -273,6 +279,7 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
           usedIds: options.usedIds ?? randomIds.usedIds,
         },
         options.onReferenceTrigger,
+        () => linkSchemes,
       ),
       Extension.create({
         name: 'phraseEditingGate',
@@ -314,6 +321,10 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
   };
 
   return {
+    setLinkSchemes(value) {
+      linkSchemes = value;
+      editor.view.dispatch(editor.state.tr.setMeta('link-schemes', true));
+    },
     setEditable(value) {
       editable = value;
       editor.setEditable(value, false);
@@ -397,11 +408,12 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
             },
             command,
             stylesheet,
+            linkSchemes,
           ),
     check: (command) =>
       !editable
         ? { ok: false, reason: 'not-applicable', message: 'This document is read-only.' }
-        : checkCommand(editor.state, command, stylesheet),
+        : checkCommand(editor.state, command, stylesheet, linkSchemes),
     getContext: () => editorContext(editor.state, stylesheet),
   };
 }

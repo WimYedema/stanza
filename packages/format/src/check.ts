@@ -46,7 +46,10 @@ export function checkParsedDocument(
     document: parsed.document,
     diagnostics: [
       ...parsed.diagnostics,
-      ...validateDocument(parsed.document, stylesheet, options),
+      ...validateDocument(parsed.document, stylesheet, {
+        ...options,
+        ...(settings?.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
+      }),
       ...metadata,
     ],
   };

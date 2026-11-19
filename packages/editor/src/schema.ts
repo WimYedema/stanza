@@ -1,7 +1,8 @@
 import { Mark, Node, mergeAttributes, type Attributes, type Extensions } from '@tiptap/core';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
 import { LIST_CLASS, characterClass, markClass } from '@phrase/css';
-import { isStyleName } from '@phrase/core';
+import { isStyleName, resolveLink, type LinkSchemes } from '@phrase/core';
+import { Plugin } from '@tiptap/pm/state';
 
 /**
  * The schema of the editor (ADR 0022). Nodes and marks carry style names and structure, and no
@@ -188,18 +189,74 @@ const HeaderCell = TableHeader.extend({
 });
 
 // The marks are declared in canonical order (ADR 0005), which is also their order in a run.
-const Link = Mark.create({
+export const LINK_SOURCE_ATTRIBUTE = 'data-phrase-href';
+
+const linkAttributes = (href: string, schemes: LinkSchemes): Record<string, string> => {
+  const target = resolveLink(href, schemes);
+  return {
+    ...(!target.ok || target.href !== href ? { [LINK_SOURCE_ATTRIBUTE]: href } : {}),
+    class: markClass('link'),
+    ...(target.ok ? { href: target.href } : { title: target.message }),
+  };
+};
+
+const Link = Mark.create<{ schemes: () => LinkSchemes }, { views: Set<() => void> }>({
   name: 'link',
   inclusive: false,
+  addOptions: () => ({ schemes: () => ({}) }),
+  addStorage: () => ({ views: new Set() }),
   addAttributes: () => ({ href: plain('') }),
   parseHTML: () => [
-    { tag: 'a[href]', getAttrs: (element) => ({ href: element.getAttribute('href') }) },
+    {
+      tag: 'a[href]',
+      getAttrs: (element) => ({
+        href: element.getAttribute(LINK_SOURCE_ATTRIBUTE) ?? element.getAttribute('href'),
+      }),
+    },
   ],
-  renderHTML: ({ mark }) => [
-    'a',
-    { href: String(mark.attrs['href']), class: markClass('link') },
-    0,
-  ],
+  renderHTML({ mark }) {
+    return ['a', linkAttributes(String(mark.attrs['href']), this.options.schemes()), 0];
+  },
+  addMarkView() {
+    return ({ mark }) => {
+      const dom = document.createElement('a');
+      const refresh = (): void => {
+        dom.removeAttribute('href');
+        dom.removeAttribute('title');
+        for (const [name, value] of Object.entries(
+          linkAttributes(String(mark.attrs['href']), this.options.schemes()),
+        )) {
+          dom.setAttribute(name, value);
+        }
+      };
+      refresh();
+      this.storage.views.add(refresh);
+      return {
+        dom,
+        contentDOM: dom,
+        destroy: () => {
+          this.storage.views.delete(refresh);
+        },
+      };
+    };
+  },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        view: () => {
+          let previous = this.options.schemes();
+          return {
+            update: () => {
+              const next = this.options.schemes();
+              if (next === previous) return;
+              previous = next;
+              for (const refresh of this.storage.views) refresh();
+            },
+          };
+        },
+      }),
+    ];
+  },
 });
 
 const CharacterStyle = Mark.create({
@@ -239,8 +296,8 @@ const Code = Mark.create({
   renderHTML: () => ['code', { class: markClass('code') }, 0],
 });
 
-/** The nodes and marks of the document, without behaviour such as commands and plugins. */
-export function schemaExtensions(): Extensions {
+/** The document schema, with live destinations for project links but no editing commands. */
+export function schemaExtensions(schemes: () => LinkSchemes = () => ({})): Extensions {
   return [
     Doc,
     Text,
@@ -255,7 +312,7 @@ export function schemaExtensions(): Extensions {
     TableRow,
     Cell,
     HeaderCell,
-    Link,
+    Link.configure({ schemes }),
     CharacterStyle,
     Strong,
     Emphasis,

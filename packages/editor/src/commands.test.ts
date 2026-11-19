@@ -1,7 +1,7 @@
 import { getSchema } from '@tiptap/core';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import { EditorState, TextSelection, type Transaction } from '@tiptap/pm/state';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { StyleName } from '@phrase/core';
 import {
   checkCommand,
@@ -103,6 +103,47 @@ describe('the stylesheet of the tests', () => {
 });
 
 describe('isAllowedHref', () => {
+  it('accepts only configured, well-formed project links and keeps command style checks', () => {
+    const schemes = { jira: 'https://example.org/{id}' };
+    expect(isAllowedHref('jira://PROJ-123')).toBe(false);
+    expect(isAllowedHref('jira://PROJ-123', schemes)).toBe(true);
+    expect(isAllowedHref('jira://', schemes)).toBe(false);
+    const state = select(build(paragraph('Ticket')), 'Ticket', 6);
+    const dispatch = vi.fn();
+    expect(
+      checkCommand(state, { type: 'set-link', href: 'jira://PROJ-123' }, stylesheet, schemes),
+    ).toEqual({ ok: true });
+    expect(
+      runCommand(
+        state,
+        dispatch,
+        { type: 'set-link', href: 'jira://PROJ-123' },
+        stylesheet,
+        schemes,
+      ),
+    ).toEqual({ ok: true });
+    expect(dispatch).toHaveBeenCalledOnce();
+    const plain = select(build(paragraph('Ticket', { style: 'plain' })), 'Ticket', 6);
+    expect(
+      checkCommand(plain, { type: 'set-link', href: 'jira://PROJ-123' }, stylesheet, schemes),
+    ).toMatchObject({
+      ok: false,
+      reason: 'mark-not-allowed',
+    });
+    const unknown = checkCommand(
+      state,
+      { type: 'set-link', href: 'other://x' },
+      stylesheet,
+      schemes,
+    );
+    expect(unknown).toMatchObject({
+      ok: false,
+      reason: 'invalid-argument',
+    });
+    if (unknown.ok) throw new Error('An unknown link scheme was accepted.');
+    expect(unknown.message).toContain('Unknown link scheme');
+  });
+
   it.each(['https://example.org', 'http://a.b/c?d=e', 'mailto:a@b.c', '#k7m2q9x4zb'])(
     'allows %s',
     (href) => {

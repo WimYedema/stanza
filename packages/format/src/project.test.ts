@@ -11,6 +11,23 @@ const codes = (source: string): (string | undefined)[] =>
   parseProject(source).diagnostics.map((d) => `${d.code}@${d.path ?? ''}`);
 
 describe('parseProject', () => {
+  it('reads link templates without changing the existing format version', () => {
+    const result = parseProject(
+      'phrase-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: https://example.org/browse/{id}\n',
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(result.formatVersion).toBe(1);
+    expect(result.settings.linkSchemes).toEqual({ jira: 'https://example.org/browse/{id}' });
+    expect(codes('phrase-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: 42\n')).toEqual([
+      'invalid-type@link-schemes.jira',
+    ]);
+    expect(
+      codes(
+        'phrase-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  https: https://example.org/{id}\n',
+      ),
+    ).toEqual(['invalid-link-scheme@link-schemes.https']);
+  });
+
   it('reads the fixture without diagnostics', () => {
     const result = parseProject(fixture);
     expect(result.diagnostics).toEqual([]);

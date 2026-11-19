@@ -1,12 +1,19 @@
 import { Extension, getChangedRanges } from '@tiptap/core';
 import { Plugin, PluginKey, type Transaction } from '@tiptap/pm/state';
-import { VARIANT_MARKS, markAllowed, type StyleName, type Stylesheet } from '@phrase/core';
+import {
+  VARIANT_MARKS,
+  markAllowed,
+  type LinkSchemes,
+  type StyleName,
+  type Stylesheet,
+} from '@phrase/core';
 import { textStyle } from './block-styles.js';
 import type { Notice } from './notice.js';
 import { normalizePastedHtml } from './paste-html.js';
 import { cellPlace } from './selection.js';
 
 export interface PhrasePasteOptions {
+  readonly schemes: () => LinkSchemes;
   /** The stylesheet in force, read whenever something is pasted. */
   readonly stylesheet: () => Stylesheet;
   readonly notice: (notice: Notice) => void;
@@ -20,13 +27,14 @@ export interface PhrasePasteOptions {
 export const PhrasePaste = Extension.create<PhrasePasteOptions>({
   name: 'phrasePaste',
   addOptions: () => ({
+    schemes: () => ({}),
     stylesheet: () => {
       throw new Error('PhrasePaste needs a stylesheet.');
     },
     notice: () => undefined,
   }),
   addProseMirrorPlugins() {
-    const { stylesheet, notice } = this.options;
+    const { stylesheet, notice, schemes } = this.options;
     return [
       new Plugin({
         key: new PluginKey('phrase-paste'),
@@ -36,6 +44,8 @@ export const PhrasePaste = Extension.create<PhrasePasteOptions>({
               html,
               stylesheet(),
               cellPlace(view.state.selection.$from) !== undefined,
+              schemes(),
+              notice,
             ),
         },
         appendTransaction(transactions, _before, state) {

@@ -19,6 +19,23 @@ async function run(files: Record<string, string>, path = INTRODUCTION, outDir = 
 }
 
 describe('exportDocument', () => {
+  it('passes project link schemes through both project build and single-document export', async () => {
+    const files = exampleProject();
+    files['phrase.yaml'] =
+      `${files['phrase.yaml'] ?? ''}link-schemes:\n  jira: https://example.org/browse/{id}\n`;
+    files[INTRODUCTION] = `${files[INTRODUCTION] ?? ''}\n[Ticket](jira://PROJ-123)\n`;
+    const { storage, result } = await run(files);
+    expect(result.blocked).toBe(false);
+    expect(result.diagnostics).toEqual([]);
+    const bytes = storage.written.get('build/documents/introduction.docx') ?? new Uint8Array();
+    const rels = strFromU8(unzipSync(bytes)['word/_rels/document.xml.rels'] ?? new Uint8Array());
+    expect(rels).toContain('https://example.org/browse/PROJ-123');
+    const built = memoryStorage(files);
+    expect((await buildProject(built, options)).diagnostics).toEqual([]);
+    expect(built.written.get('build/documents/introduction.docx')).toEqual(bytes);
+    expect(storage.texts.size).toBe(0);
+  });
+
   it('cannot export a local target or a reference whose ID is duplicated in another file', async () => {
     const files = exampleProject();
     const duplicate = files[INTRODUCTION] ?? '';

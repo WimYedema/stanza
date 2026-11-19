@@ -8,6 +8,7 @@ import {
   parseReferenceLink,
   referenceFile,
   resolveProjectReference,
+  resolveLink,
   type Block,
   type Document,
   type ListItemBlock,
@@ -77,7 +78,11 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
 
   async followReference(source: vscode.Uri, target: string): Promise<void> {
     const link = parseReferenceLink(target);
-    if (link === undefined || (link.target !== undefined && !isNodeId(link.target))) {
+    const external = /^[a-z][a-z0-9+.-]*:/i.test(target);
+    if (
+      (!external && link === undefined) ||
+      (link?.target !== undefined && !isNodeId(link.target))
+    ) {
       await vscode.window.showErrorMessage(
         'Phrase: use an immutable block ID, not a heading title fragment, for a reference.',
       );
@@ -95,6 +100,21 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
       await vscode.window.showErrorMessage(
         'Phrase: the project has errors and its references cannot be followed.',
       );
+      return;
+    }
+    if (link === undefined) {
+      const resolved = resolveLink(target, loaded.settings.linkSchemes);
+      if (!resolved.ok) {
+        await vscode.window.showErrorMessage(`Phrase: ${resolved.message}`);
+      } else if (/^(https?|mailto):/i.test(resolved.href)) {
+        if (!(await vscode.env.openExternal(vscode.Uri.parse(resolved.href)))) {
+          await vscode.window.showErrorMessage(`Phrase: could not open "${resolved.href}".`);
+        }
+      } else {
+        await vscode.window.showErrorMessage(
+          'Phrase: the link does not resolve to a web or mail address.',
+        );
+      }
       return;
     }
     const index = indexProjectReferences(
@@ -205,6 +225,7 @@ class EditorSession {
   private usedKey: string | undefined;
   private defaultsKey: string | undefined;
   private fieldsKey: string | undefined;
+  private schemesKey: string | undefined;
   private usageKey: string | undefined;
   private diagnosticsKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -503,6 +524,7 @@ class EditorSession {
     this.defaultsKey = JSON.stringify(settings.defaults);
     const fields = metadataFields(settings);
     this.fieldsKey = JSON.stringify(fields);
+    this.schemesKey = JSON.stringify(settings.linkSchemes ?? {});
     this.shown = 'editor';
     await this.post({
       type: 'init',
@@ -512,6 +534,7 @@ class EditorSession {
       usedIds,
       projectReady: cached !== undefined,
       ...(fields !== undefined ? { fields } : {}),
+      ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
     });
     let loaded: LoadedProject;
     try {
@@ -643,6 +666,12 @@ class EditorSession {
     if (defaultsKey !== this.defaultsKey) {
       this.defaultsKey = defaultsKey;
       await this.post({ type: 'defaults', defaults: loaded.settings.defaults });
+    }
+    const schemes = loaded.settings.linkSchemes ?? {};
+    const schemesKey = JSON.stringify(schemes);
+    if (schemesKey !== this.schemesKey) {
+      this.schemesKey = schemesKey;
+      await this.post({ type: 'link-schemes', schemes });
     }
     const fields = metadataFields(loaded.settings);
     const fieldsKey = JSON.stringify(fields);

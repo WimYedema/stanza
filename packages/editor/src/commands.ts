@@ -4,6 +4,8 @@ import {
   parseReferenceLink,
   isStyleName,
   markAllowed,
+  resolveLink,
+  type LinkSchemes,
   maxHeadingLevel,
   type DeclareVariantFix,
   type HeadingLevel,
@@ -102,8 +104,8 @@ const refuse = (reason: RefusalReason, message: string, fix?: DeclareVariantFix)
 const done = (...transactions: Transaction[]): Plan => ({ transactions });
 const isRefusal = (plan: Plan): plan is Refusal => 'ok' in plan;
 
-/** The schemes that a link may have: web pages, mail, and a block of the same project. */
-export function isAllowedHref(href: string): boolean {
+/** Web pages, mail, project references and configured scheme links. */
+export function isAllowedHref(href: string, schemes: LinkSchemes = {}): boolean {
   const text = href.trim();
   const hasControl = Array.from(text).some((char) => {
     const code = char.charCodeAt(0);
@@ -112,7 +114,8 @@ export function isAllowedHref(href: string): boolean {
   if (text === '' || hasControl || /\s/.test(text)) return false;
   if (text.startsWith('#')) return text.length > 1;
   if (parseReferenceLink(text) !== undefined) return true;
-  return /^(https?|mailto):\S+/i.test(text);
+  if (/^(https?|mailto):\S+/i.test(text)) return true;
+  return /^[a-z][a-z0-9+.-]*:/i.test(text) && resolveLink(text, schemes).ok;
 }
 
 /** The ID of a block, which a change of kind keeps. */
@@ -174,13 +177,16 @@ function planToggleMark(
   return fromCommand(state, toggleMark(type), NO_BLOCK);
 }
 
-function planLink(state: EditorState, href: string): Plan {
+function planLink(state: EditorState, href: string, schemes: LinkSchemes = {}): Plan {
   const type = state.schema.marks['link'];
   if (type === undefined) return refuse('not-applicable', NO_BLOCK);
-  if (!isAllowedHref(href)) {
+  if (!isAllowedHref(href, schemes)) {
+    const target = resolveLink(href.trim(), schemes);
     return refuse(
       'invalid-argument',
-      'A link goes to a web page (http or https), a mail address, a block (#id), or a relative .phrase.md document.',
+      !target.ok
+        ? target.message
+        : 'A link goes to a web page (http or https), a mail address, a block (#id), a relative .phrase.md document, or a configured scheme://id.',
     );
   }
   // A cursor in a link changes where the whole link goes.
@@ -545,12 +551,17 @@ function planTable(state: EditorState, command: EditorCommand): Plan {
   }
 }
 
-function plan(state: EditorState, command: EditorCommand, stylesheet: Stylesheet): Plan {
+function plan(
+  state: EditorState,
+  command: EditorCommand,
+  stylesheet: Stylesheet,
+  schemes: LinkSchemes,
+): Plan {
   switch (command.type) {
     case 'toggle-mark':
       return planToggleMark(state, command.mark, stylesheet);
     case 'set-link':
-      return planLink(state, command.href);
+      return planLink(state, command.href, schemes);
     case 'set-reference':
       return planReference(state, command.id, command.text, command.replaces);
     case 'remove-link':
@@ -602,8 +613,13 @@ const MARK_COMMANDS: ReadonlySet<EditorCommand['type']> = new Set([
 ]);
 
 /** Plans a command and checks it against the stylesheet: what to do, or why not. */
-function evaluate(state: EditorState, command: EditorCommand, stylesheet: Stylesheet): Plan {
-  const planned = plan(state, command, stylesheet);
+function evaluate(
+  state: EditorState,
+  command: EditorCommand,
+  stylesheet: Stylesheet,
+  schemes: LinkSchemes,
+): Plan {
+  const planned = plan(state, command, stylesheet, schemes);
   if (isRefusal(planned)) return planned;
   let result = withoutPlugins(state);
   for (const tr of planned.transactions) result = result.apply(tr);
@@ -633,8 +649,9 @@ export function checkCommand(
   state: EditorState,
   command: EditorCommand,
   stylesheet: Stylesheet,
+  schemes: LinkSchemes = {},
 ): CommandResult {
-  const planned = evaluate(state, command, stylesheet);
+  const planned = evaluate(state, command, stylesheet, schemes);
   return isRefusal(planned) ? planned : { ok: true };
 }
 
@@ -650,8 +667,9 @@ export function runCommand(
   dispatch: (tr: Transaction) => void,
   command: EditorCommand,
   stylesheet: Stylesheet,
+  schemes: LinkSchemes = {},
 ): CommandResult {
-  const planned = evaluate(state, command, stylesheet);
+  const planned = evaluate(state, command, stylesheet, schemes);
   if (isRefusal(planned)) return planned;
   for (const tr of planned.transactions) dispatch(tr);
   return { ok: true };

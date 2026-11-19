@@ -18,6 +18,36 @@ const WORD = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><met
 const GOOGLE_DOCS = `<meta charset='utf-8'><meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1"><p dir="ltr" style="line-height:1.38;margin-top:0pt;"><span style="font-size:11pt;font-family:Arial,sans-serif;color:#000000;font-weight:700;font-style:normal;">Bold text</span><span style="font-size:11pt;font-weight:400;"> and plain</span></p></b>`;
 
 describe('normalizePastedHtml', () => {
+  it('reports an unknown project scheme instead of silently dropping a pasted destination', () => {
+    const notice = vi.fn<(notice: Notice) => void>();
+    expect(
+      normalizePastedHtml('<a href="jira://PROJ-123">Ticket</a>', stylesheet, false, {}, notice),
+    ).toBe('Ticket');
+    expect(notice).toHaveBeenCalledOnce();
+    expect(notice.mock.lastCall?.[0].code).toBe('paste-link-dropped');
+    expect(notice.mock.lastCall?.[0].message).toContain('Unknown link scheme "jira"');
+  });
+
+  it('keeps configured short links, including the authored destination of copied resolved links', () => {
+    const schemes = { jira: 'https://example.org/{id}' };
+    const html =
+      '<p><a href="https://example.org/PROJ-123" data-phrase-href="jira://PROJ-123"><strong>Ticket</strong></a></p>';
+    expect(normalizePastedHtml(html, stylesheet, false, schemes)).toBe(
+      '<p><a href="jira://PROJ-123"><strong>Ticket</strong></a></p>',
+    );
+    expect(
+      normalizePastedHtml('<a href="jira://PROJ-123">Ticket</a>', stylesheet, false, schemes),
+    ).toBe('<a href="jira://PROJ-123">Ticket</a>');
+    expect(
+      normalizePastedHtml(
+        '<a href="https://example.org/" data-phrase-href="javascript:alert(1)">Ticket</a>',
+        stylesheet,
+        false,
+        schemes,
+      ),
+    ).toBe('Ticket');
+  });
+
   it('keeps the text and the bold of a paste from Word, and nothing of its looks', () => {
     expect(clean(WORD).trim()).toBe('<p>Plain <strong>bold</strong></p>');
   });

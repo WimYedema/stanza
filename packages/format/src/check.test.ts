@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { checkDocumentText } from './check.js';
 import { parseProject } from './project.js';
 import { parseStylesheet } from './stylesheet.js';
+import { parseDocument } from './parse.js';
+import { serializeDocument } from './serialize.js';
 
 const { stylesheet } = parseStylesheet(
   readFileSync(
@@ -18,6 +20,22 @@ const { settings } = parseProject(
 const HEADER = '---\nphrase-format: 1\n---\n\n';
 
 describe('checkDocumentText', () => {
+  it('checks configured schemes in nested content while keeping short links deterministic', () => {
+    const source = `${HEADER}- [ticket](jira://PROJ-123)\n\n<!-- phrase: #aaaaaaaaaa -->\n| H |\n| --- |\n| [missing](jira://) |\n\n[unknown](other://x)\n`;
+    const project = {
+      ...settings,
+      fields: undefined,
+      linkSchemes: { jira: 'https://example.org/{id}' },
+    };
+    expect(checkDocumentText(source, stylesheet, project).diagnostics).toMatchObject([
+      { code: 'missing-link-id', path: 'blocks[1].rows[0][0].blocks[0].content' },
+      { code: 'unknown-link-scheme', path: 'blocks[2].content' },
+    ]);
+    const once = serializeDocument(parseDocument(source).document);
+    expect(once).toBe(source);
+    expect(serializeDocument(parseDocument(once).document)).toBe(once);
+  });
+
   it('finds nothing wrong with a clean document', () => {
     const text = `${HEADER}<!-- phrase: #k7m2q9x4zb -->\n# Title\n\nSome **strong** text.\n`;
     expect(checkDocumentText(text, stylesheet).diagnostics).toEqual([]);

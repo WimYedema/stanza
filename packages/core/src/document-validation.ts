@@ -1,5 +1,6 @@
 import type { Diagnostic, Fix } from './diagnostic.js';
 import { needsId } from './vocabulary.js';
+import { resolveLink, type LinkSchemes } from './link-schemes.js';
 import {
   BODY_STYLE as BODY,
   CODE_STYLE,
@@ -52,7 +53,7 @@ interface Context {
 export function validateDocument(
   document: Document,
   stylesheet: Stylesheet,
-  options: { readonly projectIds?: ReadonlySet<string> } = {},
+  options: { readonly projectIds?: ReadonlySet<string>; readonly linkSchemes?: LinkSchemes } = {},
 ): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const report = (
@@ -117,6 +118,10 @@ export function validateDocument(
     const reported = new Set<string>();
     for (const run of content) {
       for (const mark of run.marks) {
+        if (mark.type === 'link') {
+          const target = resolveLink(mark.href, options.linkSchemes);
+          if (!target.ok) report('error', target.code, target.message, path);
+        }
         if (mark.type === 'style') {
           if (!stylesheet.characterStyles.has(mark.name)) {
             report(

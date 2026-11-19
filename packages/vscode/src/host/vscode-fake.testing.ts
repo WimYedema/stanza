@@ -10,6 +10,9 @@ import { applyLineEdit, lineEdit } from './line-diff.js';
 
 export class FakeUri {
   constructor(readonly path: string) {}
+  static parse(value: string): FakeUri {
+    return new FakeUri(value);
+  }
   static file(path: string): FakeUri {
     return new FakeUri(path);
   }

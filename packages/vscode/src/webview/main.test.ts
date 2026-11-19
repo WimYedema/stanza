@@ -113,6 +113,20 @@ describe('staged webview startup', () => {
     receive({ type: 'external-text', text: bodyEdit, mark: false });
     expect(properties.querySelector('[data-field="title"] textarea')).toBeNull();
     expect(content?.textContent).toContain('Heading');
+    receive({
+      type: 'init',
+      documentText: `${SOURCE}\n[Ticket](jira://PROJ-123)\n`,
+      stylesheetText: STYLESHEET,
+      defaults: {},
+      usedIds: [],
+      projectReady: true,
+      linkSchemes: { jira: 'https://example.org/{id}' },
+    });
+    const ticket = document.querySelector<HTMLAnchorElement>('.ProseMirror a');
+    expect(ticket?.getAttribute('href')).toBe('https://example.org/PROJ-123');
+    receive({ type: 'link-schemes', schemes: { jira: 'https://other.example/{id}' } });
+    expect(ticket?.getAttribute('href')).toBe('https://other.example/PROJ-123');
+    expect(sent.filter((message) => message.type === 'change')).toHaveLength(1);
     receive({ type: 'refused', title: 'Closed', reasons: [], canFormat: false });
   });
 });

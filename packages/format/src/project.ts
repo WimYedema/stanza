@@ -6,6 +6,7 @@ import {
   type OutlineEntry,
   type ProjectDefaults,
   type ProjectSettings,
+  type LinkSchemes,
 } from '@phrase/core';
 import {
   KEBAB_CASE,
@@ -135,6 +136,18 @@ function readDocuments(data: Data, report: Report): readonly OutlineEntry[] | un
   return raw === undefined ? undefined : readOutline(raw, 'documents', report);
 }
 
+function readLinkSchemes(data: Data, report: Report): LinkSchemes | undefined {
+  if (data['link-schemes'] === undefined) return undefined;
+  const map = asMap(data['link-schemes'], 'link-schemes', report);
+  if (map === undefined) return undefined;
+  const entries: [string, string][] = [];
+  for (const name of Object.keys(map)) {
+    const value = readString(map, name, 'link-schemes', report);
+    if (value !== undefined) entries.push([name, value]);
+  }
+  return Object.fromEntries(entries);
+}
+
 /** Reads a project file. Problems in the file are reported and the rest is still read. */
 export function parseProject(source: string): ProjectParseResult {
   const diagnostics: Diagnostic[] = [];
@@ -147,7 +160,15 @@ export function parseProject(source: string): ProjectParseResult {
 
   checkKeys(
     data,
-    ['phrase-format', 'title', 'stylesheet', 'defaults', 'metadata-fields', 'documents'],
+    [
+      'phrase-format',
+      'title',
+      'stylesheet',
+      'defaults',
+      'metadata-fields',
+      'documents',
+      'link-schemes',
+    ],
     '',
     report,
   );
@@ -159,12 +180,14 @@ export function parseProject(source: string): ProjectParseResult {
     report('missing-property', 'The project file must name its "stylesheet".', 'stylesheet');
   }
   const documents = readDocuments(data, report);
+  const linkSchemes = readLinkSchemes(data, report);
   const settings: ProjectSettings = {
     ...(title !== undefined ? { title } : {}),
     stylesheet: stylesheet ?? '',
     defaults: readDefaults(data, report),
     fields: readFields(data, report),
     ...(documents !== undefined ? { documents } : {}),
+    ...(linkSchemes !== undefined ? { linkSchemes } : {}),
   };
 
   // The meaning of the settings is only checked once they have been read without errors.

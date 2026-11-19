@@ -76,6 +76,28 @@ describe('parseWebviewMessage', () => {
 });
 
 describe('parseHostMessage', () => {
+  it('validates scheme settings on startup and configuration refresh', () => {
+    const schemes = { jira: 'https://example.org/{id}' };
+    const init = {
+      type: 'init',
+      documentText: '',
+      stylesheetText: '',
+      defaults: {},
+      usedIds: [],
+      projectReady: true,
+      linkSchemes: schemes,
+    };
+    expect(parseHostMessage(init)).toEqual(init);
+    expect(parseHostMessage({ type: 'link-schemes', schemes })).toEqual({
+      type: 'link-schemes',
+      schemes,
+    });
+    for (const bad of [null, [], { jira: 42 }]) {
+      expect(parseHostMessage({ ...init, linkSchemes: bad })).toBeUndefined();
+      expect(parseHostMessage({ type: 'link-schemes', schemes: bad })).toBeUndefined();
+    }
+  });
+
   it('distinguishes no declarations from an empty declaration and validates metadata messages', () => {
     const fields = [{ name: 'doc-no', type: 'string', required: true, label: 'Number' }];
     expect(parseHostMessage({ type: 'metadata-fields' })).toEqual({ type: 'metadata-fields' });

@@ -9,6 +9,7 @@ import {
   type Diagnostic,
   type Document as PhraseDocument,
   type Stylesheet,
+  type LinkSchemes,
 } from '@phrase/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext, type ReferenceFile } from './content.js';
@@ -22,6 +23,7 @@ import { checkStyleIds, declaredStyles, pageBreakStyles } from './styles.js';
 import { tableStylesXml } from './table-styles.js';
 
 export interface ExportOptions {
+  readonly linkSchemes?: LinkSchemes;
   /** Written into the package, so the same inputs give the same bytes. */
   readonly timestamp: Date;
   /**
@@ -53,7 +55,12 @@ export async function exportDocx(
   if (!hasErrors(diagnostics)) {
     const checks =
       options.otherTargets === undefined ? {} : { projectIds: new Set(otherTargets.keys()) };
-    diagnostics.push(...validateDocument(document, stylesheet, checks));
+    diagnostics.push(
+      ...validateDocument(document, stylesheet, {
+        ...checks,
+        ...(options.linkSchemes !== undefined ? { linkSchemes: options.linkSchemes } : {}),
+      }),
+    );
   }
   if (!hasErrors(diagnostics)) diagnostics.push(...checkStyleIds(stylesheet));
   if (hasErrors(diagnostics)) return { bytes: undefined, diagnostics };
@@ -81,6 +88,7 @@ export async function exportDocx(
     headingLabels: numberHeadings(document, stylesheet).labels,
     diagnostics,
     otherTargets,
+    linkSchemes: options.linkSchemes ?? {},
   };
   const children = buildBlocks(document.blocks, context);
   const coverChildren =

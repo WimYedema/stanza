@@ -62,6 +62,31 @@ afterEach(() => {
 });
 
 describe('exportDocx', () => {
+  it('exports resolved scheme destinations deterministically, leaving source links unchanged', async () => {
+    const document = read(
+      '- [ticket](jira://PROJ-123)\n\n<!-- phrase: #aaaaaaaaaa -->\n| H |\n| --- |\n| [item](jira://PROJ-456) |\n',
+    );
+    const before = JSON.stringify(document);
+    const options = {
+      timestamp: TIMESTAMP,
+      linkSchemes: { jira: 'https://example.org/browse/{id}' },
+    };
+    const first = await exportDocx(document, stylesheet, options);
+    const second = await exportDocx(document, stylesheet, options);
+    expect(first.diagnostics).toEqual([]);
+    expect(first.bytes).toBeDefined();
+    expect(second.bytes).toEqual(first.bytes);
+    const parts = unzipSync(first.bytes ?? new Uint8Array());
+    const rels = strFromU8(parts['word/_rels/document.xml.rels'] ?? new Uint8Array());
+    expect(rels).toContain('Target="https://example.org/browse/PROJ-123"');
+    expect(rels).toContain('Target="https://example.org/browse/PROJ-456"');
+    expect(rels).not.toContain('jira://');
+    expect(JSON.stringify(document)).toBe(before);
+    const missing = await exportDocx(document, stylesheet, { timestamp: TIMESTAMP });
+    expect(missing.bytes).toBeUndefined();
+    expect(missing.diagnostics.map((d) => d.code)).toContain('unknown-link-scheme');
+  });
+
   it('writes headings and paragraphs with named styles', async () => {
     const { documentXml, stylesXml, result } = await build(`${heading('Title')}Some text.\n`);
     expect(result.diagnostics).toEqual([]);

@@ -35,6 +35,12 @@ export type {
   Text,
 } from './document.js';
 export { normalizeDocument, normalizeInlines } from './normalize.js';
+export {
+  resolveLink,
+  validateLinkSchemes,
+  type LinkSchemes,
+  type ResolvedLink,
+} from './link-schemes.js';
 export { plainCell, plainCellInlines } from './table-cell.js';
 export { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES, needsId } from './vocabulary.js';
 export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';

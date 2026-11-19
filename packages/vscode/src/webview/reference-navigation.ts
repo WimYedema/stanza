@@ -1,5 +1,12 @@
 import { parseReferenceLink } from '@phrase/core';
 
+function targetOf(link: Element): string | undefined {
+  const href = link.getAttribute('data-phrase-href') ?? link.getAttribute('href');
+  if (href === null) return undefined;
+  if (parseReferenceLink(href) !== undefined) return href;
+  return /^[a-z][a-z0-9+.-]*:/i.test(href) && !/^(https?|mailto):/i.test(href) ? href : undefined;
+}
+
 /** Keeps links in the editor in place, and follows a reference on Ctrl-click or Cmd-click. */
 export function installReferenceNavigation(
   root: HTMLElement,
@@ -20,17 +27,15 @@ export function installReferenceNavigation(
       const link = event.target instanceof Element ? event.target.closest('a') : null;
       hovered?.classList.remove('reference-hover');
       hovered = undefined;
-      const href = link?.getAttribute('href');
-      if (
-        link === null ||
-        href === null ||
-        href === undefined ||
-        parseReferenceLink(href) === undefined
-      )
-        return;
+      if (link === null) return;
+      const href = targetOf(link);
+      if (href === undefined) return;
       hovered = link;
       link.classList.add('reference-hover');
-      link.setAttribute('title', `Ctrl+click (Cmd+click on macOS) to follow ${href}`);
+      link.setAttribute(
+        'title',
+        `Ctrl+click (Cmd+click on macOS) to follow ${link.getAttribute('href') ?? href}`,
+      );
       root.classList.toggle('reference-mode', modifier(event));
     },
     options,
@@ -59,8 +64,8 @@ export function installReferenceNavigation(
       if (link === null) return;
       event.preventDefault();
       if (!modifier(event)) return;
-      const href = link.getAttribute('href');
-      if (href === null || parseReferenceLink(href) === undefined) return;
+      const href = targetOf(link);
+      if (href === undefined) return;
       if (root.getAttribute('aria-busy') === 'true') return;
       root.setAttribute('aria-busy', 'true');
       root.classList.add('reference-opening');

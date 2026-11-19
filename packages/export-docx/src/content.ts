@@ -7,6 +7,8 @@ import {
   defaultHeadingStyle,
   isNodeId,
   parseReferenceLink,
+  resolveLink,
+  type LinkSchemes,
   resolveTableStyle,
   type Block,
   type CodeBlock,
@@ -46,6 +48,7 @@ import { wordStyleId, wordStyleName } from './style-ids.js';
 import { buildToc } from './toc.js';
 
 export interface BuildContext {
+  readonly linkSchemes: LinkSchemes;
   readonly stylesheet: Stylesheet;
   readonly page: PageGeometry;
   readonly runs: RunStyles;
@@ -140,7 +143,12 @@ function inlineChildren(
           });
         children.push(new ExternalHyperlink({ link: file.href, children: runs }));
       }
-    } else children.push(new ExternalHyperlink({ link: link.href, children: runs }));
+    } else {
+      const target = resolveLink(link.href, context.linkSchemes);
+      if (!target.ok)
+        context.diagnostics.push({ severity: 'error', code: target.code, message: target.message });
+      else children.push(new ExternalHyperlink({ link: target.href, children: runs }));
+    }
     index = end;
   }
   return children;

@@ -281,6 +281,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     element: element('editor'),
     stylesheet: sheet.stylesheet,
     document: parsed.document,
+    ...(message.linkSchemes !== undefined ? { linkSchemes: message.linkSchemes } : {}),
     onChange,
     onNotice: (notice) => {
       say(`${notice.code}: ${notice.message}`);
@@ -312,6 +313,9 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
 
 function handle(message: HostMessage): void {
   switch (message.type) {
+    case 'link-schemes':
+      editor?.setLinkSchemes(message.schemes);
+      return;
     case 'init':
       start(message);
       return;

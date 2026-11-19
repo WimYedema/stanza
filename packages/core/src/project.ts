@@ -1,5 +1,6 @@
 import type { Diagnostic } from './diagnostic.js';
 import type { DocumentMeta, MetaValue } from './document.js';
+import { validateLinkSchemes, type LinkSchemes } from './link-schemes.js';
 
 export type FieldType = 'string' | 'list';
 
@@ -32,6 +33,7 @@ export function outlinePaths(entries: readonly OutlineEntry[]): readonly string[
 }
 
 export interface ProjectSettings {
+  readonly linkSchemes?: LinkSchemes;
   readonly title?: string;
   /** Path of the stylesheet, relative to the project root. */
   readonly stylesheet: string;
@@ -132,7 +134,7 @@ export function isSafeRelativePath(path: string): boolean {
 
 /** Checks everything about the project settings that does not depend on how they were written. */
 export function validateProjectSettings(settings: ProjectSettings): readonly Diagnostic[] {
-  const diagnostics: Diagnostic[] = [];
+  const diagnostics: Diagnostic[] = [...validateLinkSchemes(settings.linkSchemes ?? {})];
   if (!isSafeRelativePath(settings.stylesheet)) {
     diagnostics.push({
       severity: 'error',

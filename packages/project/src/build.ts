@@ -69,6 +69,7 @@ export async function buildProject(
     const result = await exportDocx(effective, stylesheet, {
       timestamp: options.timestamp,
       otherTargets: targetsFor(path),
+      ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
     });
     diagnostics.push(...inFile(path, result.diagnostics));
     if (result.bytes !== undefined) {

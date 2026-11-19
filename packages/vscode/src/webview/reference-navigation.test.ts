@@ -15,6 +15,23 @@ const install: typeof installReferenceNavigation = (...args) => {
 };
 
 describe('reference navigation', () => {
+  it('shows the resolved URL but sends the short link to the host for current-configuration resolution', () => {
+    const root = document.createElement('div');
+    root.innerHTML =
+      '<a href="https://example.org/PROJ-123" data-phrase-href="jira://PROJ-123">Ticket</a>';
+    const follow = vi.fn();
+    install(root, follow);
+    const link = root.querySelector('a');
+    link?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(link?.title).toContain('https://example.org/PROJ-123');
+    link?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(follow).not.toHaveBeenCalled();
+    link?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true }),
+    );
+    expect(follow).toHaveBeenCalledExactlyOnceWith('jira://PROJ-123');
+  });
+
   it('hints on hover, changes the modifier affordance, and acknowledges navigation immediately', () => {
     const root = document.createElement('div');
     root.innerHTML = '<a href="other.phrase.md#aaaaaaaaaa"><strong>Other</strong></a>';

@@ -111,6 +111,44 @@ describe('the page of the editor', () => {
 });
 
 describe('starting', () => {
+  it('sends project link schemes initially and refreshes changed or removed settings without source edits', async () => {
+    open(
+      CANONICAL,
+      '\n',
+      files({
+        '/w/p/phrase.yaml': `${PROJECT}link-schemes:\n  jira: https://example.org/{id}\n`,
+      }),
+    );
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(posted()[0]).toMatchObject({
+        type: 'init',
+        linkSchemes: { jira: 'https://example.org/{id}' },
+      });
+    });
+    for (const [definition, schemes] of [
+      [
+        'link-schemes:\n  jira: https://other.example/{id}\n',
+        { jira: 'https://other.example/{id}' },
+      ],
+      ['', {}],
+    ] as const) {
+      const text = PROJECT + definition;
+      world.files.set('/w/p/phrase.yaml', text);
+      const document = {
+        uri: new FakeUri('/w/p/phrase.yaml'),
+        fileName: '/w/p/phrase.yaml',
+        getText: () => text,
+      };
+      for (const listener of world.changeListeners) listener({ document });
+      await settled(() => {
+        expect(world.posted).toContainEqual({ type: 'link-schemes', schemes });
+      });
+    }
+    expect(world.edits).toEqual([]);
+    expect(world.text).toBe(CANONICAL);
+  });
+
   it('shows locally checked content before another document finishes loading, then enables editing with project IDs', async () => {
     const read = vscode.workspace.fs.readFile.bind(vscode.workspace.fs);
     let release = (): void => {
@@ -1060,6 +1098,26 @@ describe('following a reference', () => {
     );
     return provider;
   }
+
+  it('opens configured scheme URLs externally and reports invalid destinations and opening failures', async () => {
+    const provider = start(
+      files({
+        '/w/p/phrase.yaml': `${PROJECT}link-schemes:\n  jira: https://example.org/browse/{id}\n`,
+      }),
+    );
+    await provider.followReference(source, 'jira://PROJ-123');
+    expect(world.opened).toEqual(['https://example.org/browse/PROJ-123']);
+    expect(world.errors).toEqual([]);
+    await provider.followReference(source, 'unknown://x');
+    expect(world.errors.at(-1)).toContain('Unknown link scheme');
+    await provider.followReference(source, 'jira://');
+    expect(world.errors.at(-1)).toContain('non-empty ID');
+    expect(world.opened).toHaveLength(1);
+    world.failOpen = true;
+    await provider.followReference(source, 'jira://PROJ-456');
+    expect(world.errors.at(-1)).toContain('could not open');
+    expect(world.edits).toEqual([]);
+  });
 
   it.each(['other.phrase.md#f1e2d3c4b5', 'old-name.phrase.md#f1e2d3c4b5'])(
     'follows %s by ID without rewriting the source',

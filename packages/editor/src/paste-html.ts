@@ -1,6 +1,12 @@
-import { isStyleName, type Stylesheet } from '@phrase/core';
+import { isStyleName, resolveLink, type LinkSchemes, type Stylesheet } from '@phrase/core';
 import { isAllowedHref } from './commands.js';
-import { KIND_ATTRIBUTE, STYLE_ATTRIBUTE, TEXT_ATTRIBUTE } from './schema.js';
+import type { Notice } from './notice.js';
+import {
+  KIND_ATTRIBUTE,
+  LINK_SOURCE_ATTRIBUTE,
+  STYLE_ATTRIBUTE,
+  TEXT_ATTRIBUTE,
+} from './schema.js';
 
 /**
  * Cleans pasted HTML before the editor reads it (ADR 0023). Only structure that the document can
@@ -89,6 +95,8 @@ export function normalizePastedHtml(
   html: string,
   stylesheet: Stylesheet,
   intoCell = false,
+  schemes: LinkSchemes = {},
+  notice: (notice: Notice) => void = () => undefined,
 ): string {
   const source = new DOMParser().parseFromString(html, 'text/html');
   const out = source.implementation.createHTMLDocument('');
@@ -128,9 +136,18 @@ export function normalizePastedHtml(
       return;
     }
     if (tag === 'a') {
-      const href = from.getAttribute('href') ?? '';
-      if (isAllowedHref(href)) wrap(from, into, 'a', { href: href.trim() });
-      else copy(from, into);
+      const href = from.getAttribute(LINK_SOURCE_ATTRIBUTE) ?? from.getAttribute('href') ?? '';
+      if (isAllowedHref(href, schemes)) wrap(from, into, 'a', { href: href.trim() });
+      else {
+        if (href !== '') {
+          const target = resolveLink(href, schemes);
+          notice({
+            code: 'paste-link-dropped',
+            message: `The link "${href}" was removed from pasted text. ${target.ok ? 'This destination is not allowed.' : target.message}`,
+          });
+        }
+        copy(from, into);
+      }
       return;
     }
     if (tag === 'strong' || tag === 'b') {

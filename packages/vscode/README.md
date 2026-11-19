@@ -16,6 +16,21 @@ File-only `.phrase.md` links open that document within the project. Missing or d
 
 GitHub block-ID anchors are not implemented yet (backlog item 189).
 
+## Project link schemes
+
+Declare URL templates in the project's `phrase.yaml`:
+
+```yaml
+link-schemes:
+  jira: https://example.atlassian.net/browse/{id}
+```
+
+Use the **Link** button with `jira://PROJ-123`. The Markdown keeps `[ticket](jira://PROJ-123)`; the editor's link destination and DOCX export use `https://example.atlassian.net/browse/PROJ-123`. Ctrl/Cmd-click opens that address in the system browser. Hover shows the resolved address. Project-setting changes refresh destinations without rewriting documents or moving the cursor.
+
+Scheme names are lowercase URI scheme names, not built-in/reserved schemes. Templates must be HTTP(S), without credentials, with exactly one `{id}` after the authority. IDs are non-empty, decoded once and encoded as one URL component; whitespace, control characters and malformed escapes are errors. Unknown schemes and missing IDs appear in diagnostics and block export. Commands and paste follow the project's schemes and the active style's link variant. Unsupported pasted destinations are removed with a notice; their visible text is kept.
+
+Resolution, validation and export remain offline; checking whether a remote address exists is separate work (item 151). See ADR 0082.
+
 ## Document properties
 
 Expand **Document properties** above the page, or use **Metadata** in the toolbar to reveal and focus it. The panel is editor chrome, not printable document content.

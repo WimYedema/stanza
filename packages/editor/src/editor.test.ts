@@ -81,6 +81,39 @@ const classOf = (selector: string): string | null =>
   element.querySelector(selector)?.getAttribute('class') ?? null;
 
 describe('createPhraseEditor', () => {
+  it('updates rendered project links without changing authored content, marks or selection', () => {
+    const changed = vi.fn<(result: FromEditorResult) => void>();
+    const source = documentOf('See [**ticket**](jira://PROJ-123).\n');
+    editor = createPhraseEditor({
+      element,
+      stylesheet,
+      document: source,
+      onChange: changed,
+      linkSchemes: { jira: 'https://example.org/browse/{id}' },
+    });
+    editor.setPosition({ block: 0, offset: 6 });
+    const before = editor.getPosition();
+    const link = element.querySelector('a');
+    expect(link?.getAttribute('href')).toBe('https://example.org/browse/PROJ-123');
+    expect(link?.getAttribute('data-phrase-href')).toBe('jira://PROJ-123');
+    expect(link?.querySelector('strong')?.textContent).toBe('ticket');
+    expect(editor.getLinkHref()).toBe('jira://PROJ-123');
+    editor.setLinkSchemes({ jira: 'https://other.example/?id={id}' });
+    expect(element.querySelector('a')).toBe(link);
+    expect(link?.getAttribute('href')).toBe('https://other.example/?id=PROJ-123');
+    expect(editor.getPosition()).toEqual(before);
+    expect(editor.getDocument().document).toEqual(source);
+    expect(changed).not.toHaveBeenCalled();
+    editor.setLinkSchemes({});
+    expect(link?.hasAttribute('href')).toBe(false);
+    expect(link?.title).toContain('Unknown link scheme');
+    expect(editor.check({ type: 'set-link', href: 'jira://PROJ-456' })).toMatchObject({
+      ok: false,
+      reason: 'invalid-argument',
+    });
+    expect(editor.getDocument().document).toEqual(source);
+  });
+
   it('receives metadata without replacing blocks or selection, and retains it on subsequent edits', () => {
     const changed = vi.fn<(result: FromEditorResult) => void>();
     const api = open(undefined, stylesheet, changed);
