@@ -15,6 +15,8 @@ export interface DocxParts {
   readonly numbering: XmlElement | undefined;
   readonly footnotes: XmlElement | undefined;
   readonly endnotes: XmlElement | undefined;
+  /** The comments of reviewers (`word/comments.xml`), read by `review.ts`. */
+  readonly comments: XmlElement | undefined;
   /** The properties of the document (`docProps/core.xml`). */
   readonly properties: XmlElement | undefined;
   /** The relationships of the main document, by ID. */
@@ -128,6 +130,7 @@ export function readDocx(bytes: Uint8Array): ReadResult {
         numbering: partOf('numbering'),
         footnotes: partOf('footnotes'),
         endnotes: partOf('endnotes'),
+        comments: partOf('comments', 'word/comments.xml'),
         properties: propertiesData === undefined ? undefined : parseXml(strFromU8(propertiesData)),
         relationships: new Map(
           [...relations].map(([id, entry]) => [
