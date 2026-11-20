@@ -46,7 +46,7 @@ Reviewers do not need to leave Word. Exported DOCX files carry stable anchors, s
 
 The initial product targets its author first, and then people with the same working style: developers and other technical authors who are comfortable with Git and the command line, create related professional or technical documents, and value consistency, maintainability, and traceable change more than unrestricted page-design freedom.
 
-The audience for the published documents is different. Readers and reviewers are typically familiar with Word, not Git. They receive DOCX or PDF files and must never be required to use Git, GitHub, or Phrase.
+The audience for the published documents is different. Readers and reviewers are typically familiar with Word, not Git. They receive DOCX or PDF files and must never be required to use Git, GitHub, or Stanza.
 
 Representative uses include:
 

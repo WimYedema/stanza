@@ -63,7 +63,7 @@ Variant D is the design: entries are always visible, and page numbers are correc
 - **Autofit and relative widths:** `layout: AUTOFIT`, percentage table width, percentage cell widths, and an explicit grid in twips are all written as given.
 - **Repeated header rows:** `tableHeader` writes `w:tblHeader`.
 - **TOC with cached entries:** `cachedEntries` writes the field with visible entries, each linked to a bookmark by name.
-- **Bookmarks:** names are free text and IDs are unique. Word requires a bookmark name to start with a letter, and our IDs can start with a digit, so names are prefixed (`phrase_<id>`).
+- **Bookmarks:** names are free text and IDs are unique. Word requires a bookmark name to start with a letter, and our IDs can start with a digit, so names are prefixed (`stanza_<id>`).
 
 Not checked by the script: that Word opens the file without a repair prompt and shows the table style and TOC as intended. The output is in `spikes/out/docx-verify.docx` for a manual look.
 

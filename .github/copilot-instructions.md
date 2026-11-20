@@ -10,6 +10,7 @@ Rationale lives in `docs/documents/architecture.stanza.md`, `docs/documents/prod
 - One typed stylesheet is the source of truth; CSS and DOCX properties are generated from it.
 - Referenceable objects have immutable IDs. References target IDs, never titles, filenames or rendered numbers. A deleted target is a broken-reference diagnostic, never last rendered text.
 - Git is the versioning mechanism; remotes are optional.
+- The product is Stanza (ADR 0083). The old Phrase names are defined only in `format/src/legacy.ts` and `project/src/migrate.ts`; do not spell them out anywhere else in code.
 
 ## Architecture
 

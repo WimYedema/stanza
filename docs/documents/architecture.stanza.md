@@ -55,7 +55,7 @@ Technology choices beyond these should be postponed until required by a concrete
          | edit                     | read/write
          v                          v
 +--------+--------------------------+---------+
-| Phrase: CLI, VS Code extension, browser     |
+| Stanza: CLI, VS Code extension, browser     |
 |                                             |
 | editor | styles | references | history      |
 | validation | preview | DOCX/PDF exporters   |
@@ -103,7 +103,7 @@ packages/
   project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
   cli/           validate, build, format, import and adopt commands (Node)
   editor/        Tiptap schema, conversion to and from the domain model, the editor, its commands and paste (ADR 0022, 0023, 0024)
-  vscode/        VS Code extension, called phrase-vscode: custom text editor and diagnostics (ADR 0025)
+  vscode/        VS Code extension, called stanza-vscode: custom text editor and diagnostics (ADR 0025)
 ```
 
 `core`, `format`, `export-docx`, `import-docx`, `css`, and `project` use no Node built-ins and no DOM. A PDF adapter would be a further package. A lint rule enforces the boundaries.
@@ -142,19 +142,19 @@ Illustrative layout:
 
 ```text
 project-root/
-  phrase.yaml
+  stanza.yaml
   styles/
     default.yaml
   documents/
-    introduction.phrase.md
-    architecture.phrase.md
-    security.phrase.md
+    introduction.stanza.md
+    architecture.stanza.md
+    security.stanza.md
   assets/
     system-overview.svg
     logo.png
 ```
 
-Documents are `.phrase.md` files in the Markdown dialect of ADR 0001: GitHub Flavored Markdown with YAML front matter, annotation comments carrying IDs, styles and options, and spans for character styles. The project file and the stylesheet format are decided in the backlog items on the metadata model and the typed stylesheet.
+Documents are `.stanza.md` files in the Markdown dialect of ADR 0001: GitHub Flavored Markdown with YAML front matter, annotation comments carrying IDs, styles and options, and spans for character styles. The project file and the stylesheet format are decided in the backlog items on the metadata model and the typed stylesheet.
 
 Requirements:
 
@@ -172,7 +172,7 @@ Prefer several cohesive files over one very large file, but do not fragment indi
 <!-- stanza: #d3s2yk203z -->
 ## 7. Semantic editing model
 
-The editor supports a narrow schema (ADR 0022): headings, paragraphs, lists, tables, code and phrase blocks, with strong, emphasis, code, link and character-style marks. Figures and cross-references are not built yet.
+The editor supports a narrow schema (ADR 0022): headings, paragraphs, lists, tables, code and stanza blocks, with strong, emphasis, code, link and character-style marks. Figures and cross-references are not built yet.
 
 Do not include generic text-style attributes such as `fontFamily`, `fontSize`, `color`, or `fontWeight` in document nodes.
 
@@ -215,7 +215,7 @@ Arbitrary CSS is not canonical project data. CSS is generated output. This keeps
 Every referenceable structural object receives an immutable ID when created: ten random base32 characters, unique across the project (ADR 0001). The ID is written in an annotation comment on the line before the block:
 
 ```markdown
-<!-- phrase: #k7m2q9x4zb -->
+<!-- stanza: #k7m2q9x4zb -->
 ## Authentication
 ```
 
@@ -351,7 +351,7 @@ The delivery order is `docs/BACKLOG.md`. The earlier vertical-slice plan is supe
 <!-- stanza: #85y3csq0sx -->
 ## 16. Decisions to capture as ADRs
 
-Architecture decision records live in `docs/documents/`, as `NNNN-name.phrase.md`.
+Architecture decision records live in `docs/documents/`, as `NNNN-name.stanza.md`.
 
 The accepted ADRs are listed by topic and package in `docs/INDEX.md`.
 
