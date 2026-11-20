@@ -263,7 +263,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       );
     }
     if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
-    if (Object.values(values).some((value) => value !== undefined)) {
+    if (Object.keys(values).length > 0) {
       return usage('review inspect takes no options.');
     }
     let bytes: Uint8Array;
