@@ -13,12 +13,15 @@ import {
   adoptMarkdownDocument,
   applyMigration,
   importWordDocument,
+  inspectReviewFile,
   describeImport,
   loadProject,
   planMigration,
   useTokensInStylesheet,
   type ProjectDiagnostic,
   type ProjectStorage,
+  type ReviewComment,
+  type ReviewInspection,
 } from '@stanza/project';
 import { nodeRemove, nodeStorage } from './node-storage.js';
 import { cliVersion, docxVersion } from './versions.js';
@@ -52,6 +55,11 @@ Commands:
                        Add an ordinary Markdown file to the project as a new ${DOCUMENT_SUFFIX}
                        document, in the same way as import. The original is not changed. What
                        the dialect cannot hold is listed.
+  review inspect <file.docx> [project]
+                       Read the comments of a reviewed DOCX that the project exported, and
+                       list each one by document and heading, through the bookmarks of the
+                       block IDs. Comments that cannot be placed and blocks without a bookmark
+                       are reported. Nothing is changed.
   migrate [project]    Turn a project from before Phrase was renamed to Stanza into a Stanza
                        project: phrase.yaml becomes stanza.yaml, *.phrase.md becomes
                        *.stanza.md, and the markup in them uses the new names. IDs do not
@@ -142,6 +150,59 @@ function exitCode(diagnostics: readonly ProjectDiagnostic[]): number {
   return hasErrors(diagnostics) ? 1 : 0;
 }
 
+const commentLine = (c: ReviewComment): string => {
+  const when = c.date === undefined ? '' : `, ${c.date.slice(0, 10)}`;
+  const also = c.blocks.slice(1).map((id) => `#${id}`);
+  const covers = also.length === 0 ? '' : ` (also covers ${also.join(', ')})`;
+  return `    ${c.author || 'Unknown'}${when}: ${c.text.replace(/\n/g, ' / ')}${covers}\n`;
+};
+
+/** Prints the comments of a review by document and heading (ADR 0084). */
+function reportReview(io: Io, file: string, inspection: ReviewInspection): number {
+  const { placed, unplaced, missing, unknown, bookmarks } = inspection;
+  io.stdout(
+    `${file}: ${plural(bookmarks, 'bookmark')}, ${plural(placed.length + unplaced.length, 'comment')}` +
+      (inspection.document === undefined ? '.\n' : `, built from ${inspection.document}.\n`),
+  );
+  let section: string | undefined;
+  for (const comment of placed) {
+    const { document, heading, headingId } = comment.location;
+    const key = `${document}#${headingId ?? ''}`;
+    if (key !== section) {
+      section = key;
+      const title = heading === undefined ? '(before the first heading)' : heading;
+      io.stdout(`${document}: ${title}${headingId === undefined ? '' : ` (#${headingId})`}\n`);
+    }
+    io.stdout(commentLine(comment));
+  }
+  if (unplaced.length > 0) {
+    io.stdout(
+      `Not placed: ${plural(unplaced.length, 'comment')} without a block of the project.\n`,
+    );
+    for (const comment of unplaced) io.stdout(commentLine(comment));
+  }
+  if (bookmarks === 0) {
+    io.stdout(
+      'The file has no Stanza bookmarks: it was not exported by Stanza, or the review removed them.\n',
+    );
+  }
+  if (unknown.length > 0) {
+    io.stdout(
+      `${plural(unknown.length, 'bookmark')} of the file name blocks the project no longer has.\n`,
+    );
+  }
+  if (missing.length > 0) {
+    const shown = missing
+      .slice(0, 10)
+      .map((id) => `#${id}`)
+      .join(', ');
+    io.stdout(
+      `${plural(missing.length, 'block')} of ${inspection.document ?? ''} with an ID ${missing.length === 1 ? 'has' : 'have'} no bookmark in the file (added since the build, or lost in review): ${shown}${missing.length > 10 ? ', ...' : ''}\n`,
+    );
+  }
+  return unplaced.length > 0 || bookmarks === 0 ? 1 : 0;
+}
+
 /** Runs the command line and returns the exit code. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   const usage = (message: string): number => {
@@ -187,9 +248,42 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     command !== 'format' &&
     command !== 'import' &&
     command !== 'adopt' &&
-    command !== 'migrate'
+    command !== 'migrate' &&
+    command !== 'review'
   ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
+  }
+  if (command === 'review') {
+    const [action, file, folder = '.', ...more] = positionals.slice(1);
+    if (action !== 'inspect' || file === undefined || !isWordFile(file)) {
+      return usage(
+        'review needs inspect and a Word file, as in: stanza review inspect reviewed.docx [project].',
+      );
+    }
+    if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
+    if (Object.keys(values).length > 0) {
+      return usage('review inspect takes no options.');
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = await (io.readBytes ?? readFile)(resolve(io.cwd, file));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
+      return 2;
+    }
+    const loaded = await loadProject((io.openStorage ?? nodeStorage)(resolve(io.cwd, folder)));
+    if (loaded.settings === undefined || loaded.stylesheet === undefined) {
+      io.stdout(loaded.diagnostics.map(formatDiagnostic).join(''));
+      io.stdout('The project cannot be read, so the comments cannot be placed.\n');
+      return exitCode(loaded.diagnostics);
+    }
+    const inspected = inspectReviewFile(loaded, bytes);
+    if (!inspected.ok) {
+      io.stderr(`stanza: ${inspected.message}\n`);
+      return 2;
+    }
+    return reportReview(io, file, inspected.inspection);
   }
   if (command === 'import' || command === 'adopt') {
     if (

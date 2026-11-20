@@ -25,6 +25,8 @@ export interface DocxParts {
   /** The `<w:footnote>` elements. */
   readonly footnotes?: string;
   readonly endnotes?: string;
+  /** The `<w:comment>` elements. */
+  readonly comments?: string;
   /** Extra `<Relationship>` elements of the main document. */
   readonly relationships?: string;
   readonly title?: string;
@@ -47,6 +49,9 @@ export function buildDocx(parts: DocxParts): Uint8Array {
     parts.endnotes === undefined
       ? ''
       : `<Relationship Id="rIdEnd" Type="${REL}/endnotes" Target="endnotes.xml"/>`,
+    parts.comments === undefined
+      ? ''
+      : `<Relationship Id="rIdComments" Type="${REL}/comments" Target="comments.xml"/>`,
     parts.relationships ?? '',
   ].join('');
   const files: Record<string, Uint8Array> = {
@@ -76,6 +81,8 @@ export function buildDocx(parts: DocxParts): Uint8Array {
     files['word/footnotes.xml'] = strToU8(part('footnotes', parts.footnotes));
   if (parts.endnotes !== undefined)
     files['word/endnotes.xml'] = strToU8(part('endnotes', parts.endnotes));
+  if (parts.comments !== undefined)
+    files['word/comments.xml'] = strToU8(part('comments', parts.comments));
   return zipSync(files);
 }
 
