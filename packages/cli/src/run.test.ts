@@ -720,6 +720,7 @@ describe('stanza migrate', () => {
     );
     expect((await stanza('validate', 'project')).code).toBe(0);
     const again = await stanza('migrate', 'project');
-    expect(again).toMatchObject({ code: 0, out: expect.stringContaining('nothing to migrate') });
+    expect(again.code).toBe(0);
+    expect(again.out).toContain('nothing to migrate');
   });
 });

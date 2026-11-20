@@ -98,13 +98,10 @@ footer:
 describe('legacy files', () => {
   it('reports a Phrase document with one actionable error', () => {
     const parsed = parseDocument('---\nphrase-format: 1\ntitle: "Old"\n---\n\nText.\n');
-    expect(parsed.diagnostics).toMatchObject([
-      {
-        severity: 'error',
-        code: 'legacy-format',
-        message: expect.stringContaining('stanza migrate'),
-      },
+    expect(parsed.diagnostics.map((d) => `${d.severity} ${d.code}`)).toEqual([
+      'error legacy-format',
     ]);
+    expect(parsed.diagnostics[0]?.message).toContain('stanza migrate');
   });
 
   it('reports a Phrase project file and stylesheet without other diagnostics', () => {

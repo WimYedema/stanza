@@ -24,13 +24,13 @@ async function migrated(files: Record<string, string>): Promise<Record<string, s
   const storage = memoryStorage(files);
   const plan = await planMigration(storage);
   expect(plan.diagnostics).toEqual([]);
-  const result = { ...files };
+  const result = new Map(Object.entries(files));
   await applyMigration(storage, plan, (path) => {
-    delete result[path];
+    result.delete(path);
     return Promise.resolve();
   });
-  for (const [path, text] of storage.texts) result[path] = text;
-  return result;
+  for (const [path, text] of storage.texts) result.set(path, text);
+  return Object.fromEntries(result);
 }
 
 describe('planMigration', () => {
