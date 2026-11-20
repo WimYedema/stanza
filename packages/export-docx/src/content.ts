@@ -3,7 +3,7 @@ import {
   CODE_STYLE,
   LIST_STYLES,
   RESERVED_TABLE_STYLE,
-  TOC_PHRASE_KIND,
+  TOC_STANZA_KIND,
   defaultHeadingStyle,
   isNodeId,
   parseReferenceLink,
@@ -24,7 +24,7 @@ import {
   type Stylesheet,
   type Table as TableBlock,
   type TableCell as TableCellBlock,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   Bookmark,
   ExternalHyperlink,
@@ -302,7 +302,7 @@ function buildList(
             ...buildList(block, level + 1, { reference, instance }, blockPath, context),
           );
           break;
-        case 'phrase':
+        case 'stanza':
           unsupported(block, blockPath, context);
           break;
       }
@@ -465,8 +465,8 @@ export function buildBlocks(blocks: readonly Block[], context: BuildContext): Ch
       case 'table':
         paragraphs.push(buildTable(block, context, path));
         break;
-      case 'phrase':
-        if (block.kind === TOC_PHRASE_KIND) paragraphs.push(...buildToc(block, blocks, context));
+      case 'stanza':
+        if (block.kind === TOC_STANZA_KIND) paragraphs.push(...buildToc(block, blocks, context));
         else unsupported(block, path, context);
         break;
     }

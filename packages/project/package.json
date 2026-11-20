@@ -1,5 +1,5 @@
 {
-  "name": "@phrase/project",
+  "name": "@stanza/project",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,10 +13,10 @@
     "dist"
   ],
   "dependencies": {
-    "@phrase/core": "*",
-    "@phrase/export-docx": "*",
-    "@phrase/format": "*",
-    "@phrase/import-docx": "*"
+    "@stanza/core": "*",
+    "@stanza/export-docx": "*",
+    "@stanza/format": "*",
+    "@stanza/import-docx": "*"
   },
   "devDependencies": {
     "fflate": "^0.8.3"

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { nodeIdFromRandomBytes, plainCell, type Document } from '@phrase/core';
-import { exportDocx } from '@phrase/export-docx';
+import { nodeIdFromRandomBytes, plainCell, type Document } from '@stanza/core';
+import { exportDocx } from '@stanza/export-docx';
 import { loadProject } from './load.js';
 import { memoryStorage, type MemoryStorage } from './memory-storage.testing.js';
 import { describeImport, importWordDocument } from './import-word.js';
 import { bytes, counting, project, projectFiles } from './new-project.testing.js';
-import { parseProject } from '@phrase/format';
+import { parseProject } from '@stanza/format';
 
 const text = (value: string, marks: readonly { type: 'strong' }[] = []) =>
   ({ type: 'text', text: value, marks }) as const;
@@ -44,16 +44,16 @@ describe('importWordDocument', () => {
     const files = await projectFiles();
     const storage = memoryStorage({
       ...files,
-      'phrase.yaml': `${files['phrase.yaml'] ?? ''}documents: [documents/my-report.phrase.md]\n`,
+      'stanza.yaml': `${files['stanza.yaml'] ?? ''}documents: [documents/my-report.stanza.md]\n`,
     });
     const result = await importWordDocument(storage, await wordFile(storage), {
       name: 'Notes',
       randomBytes: counting(20),
     });
     expect(result.ok).toBe(true);
-    expect(parseProject(storage.texts.get('phrase.yaml') ?? '').settings.documents).toEqual([
-      { kind: 'document', path: 'documents/my-report.phrase.md' },
-      { kind: 'document', path: 'documents/notes.phrase.md' },
+    expect(parseProject(storage.texts.get('stanza.yaml') ?? '').settings.documents).toEqual([
+      { kind: 'document', path: 'documents/my-report.stanza.md' },
+      { kind: 'document', path: 'documents/notes.stanza.md' },
     ]);
   });
   it('writes the content as a new document, with IDs, and reports', async () => {
@@ -62,12 +62,12 @@ describe('importWordDocument', () => {
       name: 'Threat Model',
       randomBytes: counting(20),
     });
-    expect(result).toMatchObject({ ok: true, document: 'documents/threat-model.phrase.md' });
-    const written = storage.texts.get('documents/threat-model.phrase.md') ?? '';
+    expect(result).toMatchObject({ ok: true, document: 'documents/threat-model.stanza.md' });
+    const written = storage.texts.get('documents/threat-model.stanza.md') ?? '';
     expect(written).toContain('# 1 Scope');
     expect(written).toContain('Some **strong**');
     expect(written).toContain('| A |');
-    expect(written).toMatch(/<!-- phrase: #[0-9a-z]{10} -->\n# 1 Scope/);
+    expect(written).toMatch(/<!-- stanza: #[0-9a-z]{10} -->\n# 1 Scope/);
     if (!result.ok) throw new Error(result.message);
     // The number that the exporter wrote into the heading is text now, and the report says so.
     expect(result.report.diagnostics.map((d) => d.code)).toContain('heading-number');
@@ -93,7 +93,7 @@ describe('importWordDocument', () => {
     const storage = await project();
     const word = await wordFile(storage);
     await importWordDocument(storage, word, { name: 'whatever', randomBytes: counting(20) });
-    expect(storage.texts.get('documents/whatever.phrase.md')).toContain('title: "Threat Model"');
+    expect(storage.texts.get('documents/whatever.stanza.md')).toContain('title: "Threat Model"');
   });
 
   it('never writes over a document, and numbers the name instead', async () => {
@@ -101,8 +101,8 @@ describe('importWordDocument', () => {
     const word = await wordFile(storage);
     const options = { name: 'My Report', randomBytes: counting(20) };
     const first = await importWordDocument(storage, word, options);
-    expect(first).toMatchObject({ ok: true, document: 'documents/my-report-2.phrase.md' });
-    expect(storage.texts.has('documents/my-report.phrase.md')).toBe(false);
+    expect(first).toMatchObject({ ok: true, document: 'documents/my-report-2.stanza.md' });
+    expect(storage.texts.has('documents/my-report.stanza.md')).toBe(false);
   });
 
   it('does not use an ID that the project has', async () => {
@@ -114,7 +114,7 @@ describe('importWordDocument', () => {
       randomBytes: counting(10),
     });
     if (!result.ok) throw new Error(result.message);
-    const written = storage.texts.get('documents/a.phrase.md') ?? '';
+    const written = storage.texts.get('documents/a.stanza.md') ?? '';
     expect(written).not.toContain('#123456789a');
     expect(written).toContain('#123456789b');
   });

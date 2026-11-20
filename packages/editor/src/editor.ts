@@ -8,8 +8,8 @@ import {
   type DocumentMeta,
   type Stylesheet,
   type LinkSchemes,
-} from '@phrase/core';
-import { SCOPE_CLASS, compileStylesheetToCss } from '@phrase/css';
+} from '@stanza/core';
+import { SCOPE_CLASS, compileStylesheetToCss } from '@stanza/css';
 import {
   Annotations,
   DIAGNOSTIC_CLASS,
@@ -31,15 +31,15 @@ import { editorContext, type EditorContext } from './context.js';
 import { ContextClasses, REFRESH_CLASSES, contextClassesKey } from './context-classes.js';
 import { fromEditorContent, toEditorContent, type FromEditorResult } from './convert.js';
 import { GapCursor } from './gap-cursor.js';
-import { PhraseKeys } from './keys.js';
+import { StanzaKeys } from './keys.js';
 import type { Notice } from './notice.js';
-import { PhrasePaste } from './paste.js';
+import { StanzaPaste } from './paste.js';
 import { ReferenceTrigger } from './reference-trigger.js';
 import {
-  PhraseBlockView,
-  PHRASE_BLOCK_EMPTY_CLASS,
-  PHRASE_BLOCK_LABEL_CLASS,
-} from './phrase-block-view.js';
+  StanzaBlockView,
+  STANZA_BLOCK_EMPTY_CLASS,
+  STANZA_BLOCK_LABEL_CLASS,
+} from './stanza-block-view.js';
 import {
   changeEnd,
   editorPosition,
@@ -47,7 +47,7 @@ import {
   moveToPosition,
   type EditorPosition,
 } from './position.js';
-import { PHRASE_BLOCK_CLASS, schemaExtensions } from './schema.js';
+import { STANZA_BLOCK_CLASS, schemaExtensions } from './schema.js';
 
 /**
  * What the editor needs beyond the generated stylesheet: the look of its own parts, which are not
@@ -62,7 +62,7 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
   margin: 0;
 }
 
-.${SCOPE_CLASS} .${PHRASE_BLOCK_CLASS} {
+.${SCOPE_CLASS} .${STANZA_BLOCK_CLASS} {
   margin: 6pt 0;
   padding: 4pt 8pt;
   border: 1px dashed #999999;
@@ -71,7 +71,7 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
   user-select: none;
 }
 
-.${SCOPE_CLASS} .${PHRASE_BLOCK_LABEL_CLASS} {
+.${SCOPE_CLASS} .${STANZA_BLOCK_LABEL_CLASS} {
   margin-bottom: 4pt;
   color: #777777;
   font: 9pt sans-serif;
@@ -79,7 +79,7 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
   text-transform: uppercase;
 }
 
-.${SCOPE_CLASS} .${PHRASE_BLOCK_EMPTY_CLASS} {
+.${SCOPE_CLASS} .${STANZA_BLOCK_EMPTY_CLASS} {
   color: #888888;
   font: italic 10pt sans-serif;
 }
@@ -119,10 +119,10 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
   top: -2px;
   width: 20px;
   border-top: 1px solid currentColor;
-  animation: phrase-gapcursor-blink 1.1s steps(2, start) infinite;
+  animation: stanza-gapcursor-blink 1.1s steps(2, start) infinite;
 }
 
-@keyframes phrase-gapcursor-blink {
+@keyframes stanza-gapcursor-blink {
   to {
     visibility: hidden;
   }
@@ -133,7 +133,7 @@ export const EDITOR_CHROME_CSS = `.${SCOPE_CLASS} {
 }
 `;
 
-export interface PhraseEditorOptions {
+export interface StanzaEditorOptions {
   readonly linkSchemes?: LinkSchemes;
   /** The element that the editor is put in. */
   readonly element: HTMLElement;
@@ -166,7 +166,7 @@ export interface DocumentChange {
   readonly removed: number;
 }
 
-export interface PhraseEditor {
+export interface StanzaEditor {
   /** Refreshes link destinations and command/paste policy without changing source or selection. */
   setLinkSchemes(schemes: LinkSchemes): void;
   /** Read-only previews cannot run editing commands or change the document through input. */
@@ -229,7 +229,7 @@ const randomIds: IdSource = {
 };
 
 /** The extensions of the editor, for the stylesheet in force and the way to give notices. */
-export function phraseExtensions(
+export function stanzaExtensions(
   stylesheet: () => Stylesheet,
   notice: (notice: Notice) => void,
   ids: IdSource = randomIds,
@@ -243,15 +243,15 @@ export function phraseExtensions(
     ChangeMarks,
     BlockIds.configure({ ...ids, notice }),
     ContextClasses.configure({ stylesheet }),
-    PhraseBlockView.configure({ stylesheet }),
-    PhraseKeys.configure({ stylesheet, notice }),
-    PhrasePaste.configure({ stylesheet, notice, schemes }),
+    StanzaBlockView.configure({ stylesheet }),
+    StanzaKeys.configure({ stylesheet, notice }),
+    StanzaPaste.configure({ stylesheet, notice, schemes }),
     ReferenceTrigger.configure({ trigger: referenceTrigger }),
   ];
 }
 
 /** Starts an editor for a document and stylesheet (ADR 0022). */
-export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
+export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
   let stylesheet = options.stylesheet;
   let linkSchemes = options.linkSchemes ?? {};
   let meta = options.document.meta;
@@ -271,7 +271,7 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
   const editor = new Editor({
     element: options.element,
     extensions: [
-      ...phraseExtensions(
+      ...stanzaExtensions(
         () => stylesheet,
         (notice) => options.onNotice?.(notice),
         {
@@ -282,7 +282,7 @@ export function createPhraseEditor(options: PhraseEditorOptions): PhraseEditor {
         () => linkSchemes,
       ),
       Extension.create({
-        name: 'phraseEditingGate',
+        name: 'stanzaEditingGate',
         addProseMirrorPlugins: () => [
           new Plugin({
             filterTransaction: (transaction) => !transaction.docChanged || editable || replacing,

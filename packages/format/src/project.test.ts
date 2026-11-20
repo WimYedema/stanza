@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseProject } from './project.js';
 
 const fixture = readFileSync(
-  new URL('../../../fixtures/example-project/phrase.yaml', import.meta.url),
+  new URL('../../../fixtures/example-project/stanza.yaml', import.meta.url),
   'utf8',
 );
 
@@ -13,17 +13,17 @@ const codes = (source: string): (string | undefined)[] =>
 describe('parseProject', () => {
   it('reads link templates without changing the existing format version', () => {
     const result = parseProject(
-      'phrase-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: https://example.org/browse/{id}\n',
+      'stanza-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: https://example.org/browse/{id}\n',
     );
     expect(result.diagnostics).toEqual([]);
     expect(result.formatVersion).toBe(1);
     expect(result.settings.linkSchemes).toEqual({ jira: 'https://example.org/browse/{id}' });
-    expect(codes('phrase-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: 42\n')).toEqual([
+    expect(codes('stanza-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: 42\n')).toEqual([
       'invalid-type@link-schemes.jira',
     ]);
     expect(
       codes(
-        'phrase-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  https: https://example.org/{id}\n',
+        'stanza-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  https: https://example.org/{id}\n',
       ),
     ).toEqual(['invalid-link-scheme@link-schemes.https']);
   });
@@ -45,7 +45,7 @@ describe('parseProject', () => {
   });
 
   it('accepts a minimal project and leaves fields undeclared', () => {
-    const result = parseProject('phrase-format: 1\nstylesheet: s.yaml\n');
+    const result = parseProject('stanza-format: 1\nstylesheet: s.yaml\n');
     expect(result.diagnostics).toEqual([]);
     expect(result.settings.fields).toBeUndefined();
     expect(result.settings.defaults).toEqual({});
@@ -53,17 +53,17 @@ describe('parseProject', () => {
 
   it('reads the default page template', () => {
     const result = parseProject(
-      'phrase-format: 1\nstylesheet: s.yaml\ndefaults:\n  page-template: page-letter\n',
+      'stanza-format: 1\nstylesheet: s.yaml\ndefaults:\n  page-template: page-letter\n',
     );
     expect(result.diagnostics).toEqual([]);
     expect(result.settings.defaults).toEqual({ pageTemplate: 'page-letter' });
-    expect(codes('phrase-format: 1\nstylesheet: s.yaml\ndefaults:\n  page-template: 3\n')).toEqual([
+    expect(codes('stanza-format: 1\nstylesheet: s.yaml\ndefaults:\n  page-template: 3\n')).toEqual([
       'invalid-type@defaults.page-template',
     ]);
   });
 
   it('treats an empty metadata-fields mapping as declaring nothing allowed', () => {
-    const result = parseProject('phrase-format: 1\nstylesheet: s.yaml\nmetadata-fields: {}\n');
+    const result = parseProject('stanza-format: 1\nstylesheet: s.yaml\nmetadata-fields: {}\n');
     expect(result.settings.fields?.size).toBe(0);
   });
 
@@ -73,18 +73,18 @@ describe('parseProject', () => {
   });
 
   it('reports invalid YAML', () => {
-    expect(codes('phrase-format: [1\n')).toEqual(['invalid-yaml@']);
+    expect(codes('stanza-format: [1\n')).toEqual(['invalid-yaml@']);
   });
 
   it('reports a missing or unsupported format version', () => {
-    expect(codes('stylesheet: s.yaml\n')).toEqual(['format-version-missing@phrase-format']);
-    expect(codes('phrase-format: 2\nstylesheet: s.yaml\n')).toEqual([
-      'format-version-unsupported@phrase-format',
+    expect(codes('stylesheet: s.yaml\n')).toEqual(['format-version-missing@stanza-format']);
+    expect(codes('stanza-format: 2\nstylesheet: s.yaml\n')).toEqual([
+      'format-version-unsupported@stanza-format',
     ]);
   });
 
   it('reports a missing stylesheet and unknown properties', () => {
-    expect(codes('phrase-format: 1\nbogus: 1\n')).toEqual([
+    expect(codes('stanza-format: 1\nbogus: 1\n')).toEqual([
       'unknown-property@bogus',
       'missing-property@stylesheet',
     ]);
@@ -93,7 +93,7 @@ describe('parseProject', () => {
   it('reports wrongly typed values', () => {
     expect(
       codes(
-        'phrase-format: 1\ntitle: 3\nstylesheet: s.yaml\ndefaults:\n  authors: x\n  classification: 4\n',
+        'stanza-format: 1\ntitle: 3\nstylesheet: s.yaml\ndefaults:\n  authors: x\n  classification: 4\n',
       ),
     ).toEqual([
       'invalid-type@title',
@@ -104,7 +104,7 @@ describe('parseProject', () => {
 
   it('reports bad field declarations', () => {
     const source =
-      'phrase-format: 1\nstylesheet: s.yaml\nmetadata-fields:\n' +
+      'stanza-format: 1\nstylesheet: s.yaml\nmetadata-fields:\n' +
       '  Bad_Name:\n    type: string\n' +
       '  kind:\n    type: number\n' +
       '  flag:\n    type: string\n    required: yes please\n' +
@@ -118,15 +118,15 @@ describe('parseProject', () => {
   });
 
   it('checks the meaning of the settings once they are read cleanly', () => {
-    expect(codes('phrase-format: 1\nstylesheet: ../s.yaml\n')).toEqual(['invalid-path@stylesheet']);
+    expect(codes('stanza-format: 1\nstylesheet: ../s.yaml\n')).toEqual(['invalid-path@stylesheet']);
     expect(
-      codes('phrase-format: 1\nstylesheet: s.yaml\nmetadata-fields:\n  title:\n    type: string\n'),
+      codes('stanza-format: 1\nstylesheet: s.yaml\nmetadata-fields:\n  title:\n    type: string\n'),
     ).toEqual(['reserved-field-name@metadata-fields.title']);
   });
 });
 
 describe('the documents of a project', () => {
-  const head = 'phrase-format: 1\nstylesheet: s.yaml\n';
+  const head = 'stanza-format: 1\nstylesheet: s.yaml\n';
 
   it('leaves the outline absent when the file does not declare one', () => {
     expect(parseProject(head).settings.documents).toBeUndefined();
@@ -134,24 +134,24 @@ describe('the documents of a project', () => {
 
   it('reads paths and groups, down through the groups, in order', () => {
     const result = parseProject(
-      `${head}documents:\n  - intro.phrase.md\n  - group: Reference\n    items:\n      - a.phrase.md\n      - group: Deeper\n        items:\n          - b.phrase.md\n  - last.phrase.md\n`,
+      `${head}documents:\n  - intro.stanza.md\n  - group: Reference\n    items:\n      - a.stanza.md\n      - group: Deeper\n        items:\n          - b.stanza.md\n  - last.stanza.md\n`,
     );
     expect(result.diagnostics).toEqual([]);
     expect(result.settings.documents).toEqual([
-      { kind: 'document', path: 'intro.phrase.md' },
+      { kind: 'document', path: 'intro.stanza.md' },
       {
         kind: 'group',
         title: 'Reference',
         items: [
-          { kind: 'document', path: 'a.phrase.md' },
+          { kind: 'document', path: 'a.stanza.md' },
           {
             kind: 'group',
             title: 'Deeper',
-            items: [{ kind: 'document', path: 'b.phrase.md' }],
+            items: [{ kind: 'document', path: 'b.stanza.md' }],
           },
         ],
       },
-      { kind: 'document', path: 'last.phrase.md' },
+      { kind: 'document', path: 'last.stanza.md' },
     ]);
   });
 
@@ -163,7 +163,7 @@ describe('the documents of a project', () => {
   });
 
   it('reports what is not a list, a path or a group', () => {
-    expect(codes(`${head}documents: a.phrase.md\n`)).toEqual(['invalid-type@documents']);
+    expect(codes(`${head}documents: a.stanza.md\n`)).toEqual(['invalid-type@documents']);
     expect(codes(`${head}documents:\n  - 3\n  - [x]\n`)).toEqual([
       'invalid-type@documents[0]',
       'invalid-type@documents[1]',
@@ -179,8 +179,8 @@ describe('the documents of a project', () => {
   });
 
   it('checks the paths and the repeats once the file is read cleanly', () => {
-    expect(codes(`${head}documents:\n  - ../a.phrase.md\n`)).toEqual(['invalid-path@documents']);
-    expect(codes(`${head}documents:\n  - a.phrase.md\n  - a.phrase.md\n`)).toEqual([
+    expect(codes(`${head}documents:\n  - ../a.stanza.md\n`)).toEqual(['invalid-path@documents']);
+    expect(codes(`${head}documents:\n  - a.stanza.md\n  - a.stanza.md\n`)).toEqual([
       'duplicate-document@documents',
     ]);
   });

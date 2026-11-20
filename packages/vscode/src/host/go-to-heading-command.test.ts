@@ -8,11 +8,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1:
@@ -29,10 +29,10 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
 const TEXT = `${FRONT}# One\n\nSome text.\n\n## Two\n\n# Three\n`;
 
-const DOCUMENT = '/w/p/documents/one.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
 const documentUri = (): vscode.Uri => vscode.Uri.file(DOCUMENT);
 
 const reveal = vi.fn<(document: vscode.Uri, block: number) => void>();
@@ -40,13 +40,13 @@ const reveal = vi.fn<(document: vscode.Uri, block: number) => void>();
 function open(text = TEXT, project = true): void {
   reset(
     {
-      ...(project ? { '/w/p/phrase.yaml': PROJECT, '/w/p/styles/default.yaml': STYLESHEET } : {}),
+      ...(project ? { '/w/p/stanza.yaml': PROJECT, '/w/p/styles/default.yaml': STYLESHEET } : {}),
       [DOCUMENT]: text,
     },
     DOCUMENT,
     text,
   );
-  world.activeTab = { input: new vscode.TabInputCustom(documentUri(), 'phrase.editor') };
+  world.activeTab = { input: new vscode.TabInputCustom(documentUri(), 'stanza.editor') };
   registerGoToHeading(reveal);
 }
 
@@ -64,7 +64,7 @@ beforeEach(() => {
   open();
 });
 
-describe('Phrase: Go to Heading', () => {
+describe('Stanza: Go to Heading', () => {
   it('lists the headings with their numbers, indented by level', async () => {
     await run();
     expect(labels()).toEqual(['1 One', '\u20031.1 Two', '2 Three']);
@@ -98,10 +98,10 @@ describe('Phrase: Go to Heading', () => {
     expect(world.infos).toEqual([expect.stringContaining('no headings')]);
   });
 
-  it('says so when the editor in front is not a Phrase document', async () => {
+  it('says so when the editor in front is not a Stanza document', async () => {
     world.activeTab = { input: new vscode.TabInputText(vscode.Uri.file('/w/p/notes.md')) };
     await run();
-    expect(world.errors).toEqual([expect.stringContaining('open a Phrase document')]);
+    expect(world.errors).toEqual([expect.stringContaining('open a Stanza document')]);
     expect(world.quickPicks).toEqual([]);
   });
 });

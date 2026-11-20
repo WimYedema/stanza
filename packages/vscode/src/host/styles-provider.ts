@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
-import { isStyleName, type StyleFamily, type StyleName, type Stylesheet } from '@phrase/core';
-import { parseStylesheet, setProperty, unsetProperty, type StylesheetEdit } from '@phrase/format';
-import { loadProject, styleUsage, type StyleUse } from '@phrase/project';
+import { isStyleName, type StyleFamily, type StyleName, type Stylesheet } from '@stanza/core';
+import { parseStylesheet, setProperty, unsetProperty, type StylesheetEdit } from '@stanza/format';
+import { loadProject, styleUsage, type StyleUse } from '@stanza/project';
 import {
   parseStylesWebviewMessage,
   type StyleKind,
@@ -59,7 +59,7 @@ const stylesOf = (sheet: Stylesheet, kind: StyleKind) =>
  * It is opened on purpose, with "Open With" or a command, and never by default.
  */
 export class StylesEditorProvider implements vscode.CustomTextEditorProvider {
-  static readonly viewType = 'phrase.styles';
+  static readonly viewType = 'stanza.styles';
 
   constructor(
     private readonly context: vscode.ExtensionContext,

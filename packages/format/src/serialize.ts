@@ -9,7 +9,7 @@ import {
   type Mark,
   type Table,
   type TableCell,
-} from '@phrase/core';
+} from '@stanza/core';
 import { formatAnnotation } from './annotation.js';
 import { serializeFrontMatter } from './front-matter.js';
 import { parseInlineText } from './parse.js';
@@ -73,8 +73,8 @@ function serializeBlockContent(block: Block, alternateMarker: boolean): string[]
       return serializeTable(block);
     case 'code':
       return fence(block.text, block.language ?? '');
-    case 'phrase':
-      return fence(block.text, `phrase-${block.kind}`);
+    case 'stanza':
+      return fence(block.text, `stanza-${block.kind}`);
   }
 }
 
@@ -111,10 +111,10 @@ const isPlain = (table: Table): boolean =>
 
 /**
  * A pipe table when every cell is plain text, which GitHub shows as a table; otherwise a
- * `phrase-table` block (ADR 0048). The form follows from the content alone.
+ * `stanza-table` block (ADR 0048). The form follows from the content alone.
  */
 function serializeTable(table: Table): string[] {
-  return isPlain(table) ? serializePipeTable(table) : serializePhraseTable(table);
+  return isPlain(table) ? serializePipeTable(table) : serializeStanzaTable(table);
 }
 
 function serializePipeTable(table: Table): string[] {
@@ -128,7 +128,7 @@ function serializePipeTable(table: Table): string[] {
 }
 
 /** Rows are the items of the outer list and cells the items of the list in each row. */
-function serializePhraseTable(table: Table): string[] {
+function serializeStanzaTable(table: Table): string[] {
   const lines: string[] = [];
   for (const row of [table.header, ...table.rows]) {
     if (row.length === 0) lines.push('-');
@@ -142,7 +142,7 @@ function serializePhraseTable(table: Table): string[] {
       });
     });
   }
-  return fence(lines.join('\n'), 'phrase-table');
+  return fence(lines.join('\n'), 'stanza-table');
 }
 
 function fence(text: string, info: string): string[] {

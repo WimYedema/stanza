@@ -1,4 +1,4 @@
-import { PAGE_SIZES, type PageTemplate } from '@phrase/core';
+import { PAGE_SIZES, type PageTemplate } from '@stanza/core';
 
 /** The page of a document in twips, as the library wants it. */
 export interface PageGeometry {

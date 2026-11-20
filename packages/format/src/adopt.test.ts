@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Block, Inline } from '@phrase/core';
+import type { Block, Inline } from '@stanza/core';
 import { adoptMarkdown } from './adopt.js';
 import { parseDocument } from './parse.js';
 import { serializeDocument } from './serialize.js';
@@ -71,9 +71,9 @@ describe('adoptMarkdown', () => {
       expect(textOf(document.blocks[0])).toBe('Text');
     });
 
-    it('refuses a file that is a Phrase document already', () => {
-      const result = adoptMarkdown('---\nphrase-format: 1\ntitle: T\n---\n\nText\n');
-      expect(result).toMatchObject({ ok: false, reason: 'already-phrase' });
+    it('refuses a file that is a Stanza document already', () => {
+      const result = adoptMarkdown('---\nstanza-format: 1\ntitle: T\n---\n\nText\n');
+      expect(result).toMatchObject({ ok: false, reason: 'already-stanza' });
     });
   });
 
@@ -166,7 +166,7 @@ describe('adoptMarkdown', () => {
 
   it('does not change how the dialect reader treats reference links', () => {
     const parsed = parseDocument(
-      '---\nphrase-format: 1\n---\n\nSee [docs].\n\n[docs]: https://example.com\n',
+      '---\nstanza-format: 1\n---\n\nSee [docs].\n\n[docs]: https://example.com\n',
     );
     expect(textOf(parsed.document.blocks[0])).toBe('See [docs].');
   });

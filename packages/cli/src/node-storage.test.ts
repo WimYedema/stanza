@@ -6,7 +6,7 @@ import { nodeStorage } from './node-storage.js';
 
 let root: string;
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'phrase-storage-'));
+  root = mkdtempSync(join(tmpdir(), 'stanza-storage-'));
 });
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });

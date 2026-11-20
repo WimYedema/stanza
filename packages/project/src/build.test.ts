@@ -8,8 +8,8 @@ const options = { outDir: 'build', timestamp: TIMESTAMP };
 
 describe('outputPath', () => {
   it('mirrors the document path under the output directory', () => {
-    expect(outputPath('build', 'documents/a.phrase.md')).toBe('build/documents/a.docx');
-    expect(outputPath('out/x', 'b.phrase.md')).toBe('out/x/b.docx');
+    expect(outputPath('build', 'documents/a.stanza.md')).toBe('build/documents/a.docx');
+    expect(outputPath('out/x', 'b.stanza.md')).toBe('out/x/b.docx');
   });
 });
 
@@ -31,7 +31,7 @@ describe('buildProject', () => {
 
   describe('a reference to a block of another document', () => {
     const NOTES =
-      '---\nphrase-format: 1\ntitle: "Notes"\ndocument-number: "N-2"\n---\n\nSee [the introduction](#k7m2q9x4zb).\n';
+      '---\nstanza-format: 1\ntitle: "Notes"\ndocument-number: "N-2"\n---\n\nSee [the introduction](#k7m2q9x4zb).\n';
     const relsOf = (storage: ReturnType<typeof memoryStorage>, path: string): string =>
       strFromU8(
         unzipSync(storage.written.get(path) ?? new Uint8Array())['word/_rels/document.xml.rels'] ??
@@ -40,19 +40,19 @@ describe('buildProject', () => {
 
     it('exports filename hints by definitive ID and file-only links as DOCX paths without modifying source', async () => {
       const source =
-        NOTES.replace('#k7m2q9x4zb', 'stale.phrase.md#k7m2q9x4zb') +
-        '\nSee [reference](documents/reference.phrase.md).\n';
-      const storage = memoryStorage({ ...exampleProject(), 'notes.phrase.md': source });
+        NOTES.replace('#k7m2q9x4zb', 'stale.stanza.md#k7m2q9x4zb') +
+        '\nSee [reference](documents/reference.stanza.md).\n';
+      const storage = memoryStorage({ ...exampleProject(), 'notes.stanza.md': source });
       const result = await buildProject(storage, options);
       expect(result.diagnostics.map((d) => d.code)).toEqual(['stale-reference-path']);
       expect(relsOf(storage, 'build/notes.docx')).toContain('Target="documents/introduction.docx"');
       expect(relsOf(storage, 'build/notes.docx')).toContain('Target="documents/reference.docx"');
-      expect(relsOf(storage, 'build/notes.docx')).not.toContain('.phrase.md');
+      expect(relsOf(storage, 'build/notes.docx')).not.toContain('.stanza.md');
       expect(storage.texts.size).toBe(0);
     });
 
     it('becomes a link to the file of that document', async () => {
-      const storage = memoryStorage({ ...exampleProject(), 'notes.phrase.md': NOTES });
+      const storage = memoryStorage({ ...exampleProject(), 'notes.stanza.md': NOTES });
       const result = await buildProject(storage, options);
       expect(result.diagnostics).toEqual([]);
       expect(relsOf(storage, 'build/notes.docx')).toContain(
@@ -61,22 +61,22 @@ describe('buildProject', () => {
     });
 
     it('is written with a warning when that document is not built', async () => {
-      const files: Record<string, string> = { ...exampleProject(), 'notes.phrase.md': NOTES };
-      files['phrase.yaml'] = `${files['phrase.yaml'] ?? ''}documents:\n  - notes.phrase.md\n`;
+      const files: Record<string, string> = { ...exampleProject(), 'notes.stanza.md': NOTES };
+      files['stanza.yaml'] = `${files['stanza.yaml'] ?? ''}documents:\n  - notes.stanza.md\n`;
       const storage = memoryStorage(files);
       const result = await buildProject(storage, options);
       expect(result.written).toEqual(['build/notes.docx']);
       expect(result.diagnostics.map((d) => [d.file, d.code])).toEqual([
-        ['documents/introduction.phrase.md', 'unlisted-document'],
-        ['documents/reference.phrase.md', 'unlisted-document'],
-        ['notes.phrase.md', 'reference-to-unbuilt-document'],
+        ['documents/introduction.stanza.md', 'unlisted-document'],
+        ['documents/reference.stanza.md', 'unlisted-document'],
+        ['notes.stanza.md', 'reference-to-unbuilt-document'],
       ]);
     });
 
     it('stops the build when the block is gone', async () => {
       const files = {
         ...exampleProject(),
-        'notes.phrase.md': NOTES.replace('k7m2q9x4zb', 'zzzzzzzzzz'),
+        'notes.stanza.md': NOTES.replace('k7m2q9x4zb', 'zzzzzzzzzz'),
       };
       const result = await buildProject(memoryStorage(files), options);
       expect(result.written).toEqual([]);
@@ -86,15 +86,15 @@ describe('buildProject', () => {
 
   it('builds only the documents of the list, and says that the others are not built', async () => {
     const files = exampleProject();
-    files['phrase.yaml'] =
-      `${files['phrase.yaml'] ?? ''}documents:\n  - documents/reference.phrase.md\n`;
+    files['stanza.yaml'] =
+      `${files['stanza.yaml'] ?? ''}documents:\n  - documents/reference.stanza.md\n`;
     const storage = memoryStorage(files);
     const result = await buildProject(storage, options);
     expect(result.documents).toBe(1);
     expect(result.written).toEqual(['build/documents/reference.docx']);
     expect(result.diagnostics).toEqual([
       expect.objectContaining({
-        file: 'documents/introduction.phrase.md',
+        file: 'documents/introduction.stanza.md',
         severity: 'warning',
         code: 'unlisted-document',
       }),
@@ -132,11 +132,11 @@ describe('buildProject', () => {
 
   it('uses the default page template of the project, unless a document selects another', async () => {
     const files = exampleProject();
-    files['phrase.yaml'] = (files['phrase.yaml'] ?? '').replace(
+    files['stanza.yaml'] = (files['stanza.yaml'] ?? '').replace(
       "  classification: 'Internal'",
       "  classification: 'Internal'\n  page-template: 'page-letter'",
     );
-    files['documents/reference.phrase.md'] = (files['documents/reference.phrase.md'] ?? '').replace(
+    files['documents/reference.stanza.md'] = (files['documents/reference.stanza.md'] ?? '').replace(
       'document-number: "EX-002"',
       'document-number: "EX-002"\npage-template: "page"',
     );
@@ -158,20 +158,20 @@ describe('buildProject', () => {
   it('writes nothing when a document has an error', async () => {
     const files = {
       ...exampleProject(),
-      'documents/bad.phrase.md':
-        '---\nphrase-format: 1\ndocument-number: "N"\n---\n\n<!-- phrase: .missing -->\nText\n',
+      'documents/bad.stanza.md':
+        '---\nstanza-format: 1\ndocument-number: "N"\n---\n\n<!-- stanza: .missing -->\nText\n',
     };
     const storage = memoryStorage(files);
     const result = await buildProject(storage, options);
     expect(result.written).toEqual([]);
     expect(storage.written.size).toBe(0);
     expect(result.diagnostics).toEqual([
-      expect.objectContaining({ file: 'documents/bad.phrase.md', code: 'unknown-style' }),
+      expect.objectContaining({ file: 'documents/bad.stanza.md', code: 'unknown-style' }),
     ]);
   });
 
   it('writes nothing when the project file has an error', async () => {
-    const storage = memoryStorage({ ...exampleProject(), 'phrase.yaml': 'phrase-format: 1\n' });
+    const storage = memoryStorage({ ...exampleProject(), 'stanza.yaml': 'stanza-format: 1\n' });
     const result = await buildProject(storage, options);
     expect(result.written).toEqual([]);
     expect(result.documents).toBe(0);
@@ -181,14 +181,14 @@ describe('buildProject', () => {
   it('reports each problem once, although the exporter checks the document again', async () => {
     const files = {
       ...exampleProject(),
-      'documents/heading.phrase.md':
-        '---\nphrase-format: 1\ndocument-number: "N"\n---\n\n# No ID\n',
+      'documents/heading.stanza.md':
+        '---\nstanza-format: 1\ndocument-number: "N"\n---\n\n# No ID\n',
     };
     const result = await buildProject(memoryStorage(files), options);
     expect(result.written).toHaveLength(3);
     expect(
       result.diagnostics.filter(
-        (d) => d.code === 'missing-id' && d.file === 'documents/heading.phrase.md',
+        (d) => d.code === 'missing-id' && d.file === 'documents/heading.stanza.md',
       ),
     ).toHaveLength(1);
   });

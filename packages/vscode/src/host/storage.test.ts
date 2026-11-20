@@ -18,7 +18,7 @@ function io(
         ? Promise.reject(new Error(`No ${path}`))
         : Promise.resolve(bytes(text));
     },
-    list: () => Promise.resolve([{ name: 'a.phrase.md', directory: false }]),
+    list: () => Promise.resolve([{ name: 'a.stanza.md', directory: false }]),
     write: (path, content) => {
       written.set(path, new TextDecoder().decode(content));
       return Promise.resolve();
@@ -45,7 +45,7 @@ describe('projectStorage', () => {
   it('lists and writes through the file system', async () => {
     const files = io({});
     const storage = projectStorage(files);
-    expect(await storage.list('')).toEqual([{ name: 'a.phrase.md', directory: false }]);
+    expect(await storage.list('')).toEqual([{ name: 'a.stanza.md', directory: false }]);
     await storage.writeText('out/a.txt', 'text');
     await storage.writeFile('out/b.txt', bytes('bytes'));
     expect([...files.written]).toEqual([

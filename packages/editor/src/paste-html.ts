@@ -1,4 +1,4 @@
-import { isStyleName, resolveLink, type LinkSchemes, type Stylesheet } from '@phrase/core';
+import { isStyleName, resolveLink, type LinkSchemes, type Stylesheet } from '@stanza/core';
 import { isAllowedHref } from './commands.js';
 import type { Notice } from './notice.js';
 import {
@@ -11,7 +11,7 @@ import {
 /**
  * Cleans pasted HTML before the editor reads it (ADR 0023). Only structure that the document can
  * hold is kept, and no attribute: not `style`, `class` or `id`, and nothing of fonts, sizes or colors.
- * What the editor writes itself, the names of styles and the body of phrase blocks, travels in
+ * What the editor writes itself, the names of styles and the body of stanza blocks, travels in
  * data attributes and is kept when the stylesheet knows the name.
  */
 
@@ -164,7 +164,7 @@ export function normalizePastedHtml(
       return;
     }
     if (tag === 'div' && from.hasAttribute(KIND_ATTRIBUTE)) {
-      // A phrase block does not fit in a cell.
+      // A stanza block does not fit in a cell.
       if (intoCell || from.parentElement?.closest('td, th') != null) return;
       const kind = from.getAttribute(KIND_ATTRIBUTE) ?? '';
       if (!KIND.test(kind)) return;

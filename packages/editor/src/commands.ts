@@ -12,7 +12,7 @@ import {
   type StyleName,
   type Stylesheet,
   type VariantMark,
-} from '@phrase/core';
+} from '@stanza/core';
 import { getMarkRange } from '@tiptap/core';
 import { toggleMark } from '@tiptap/pm/commands';
 import type { Node as EditorNode, NodeType } from '@tiptap/pm/model';
@@ -61,7 +61,7 @@ export type EditorCommand =
   | { readonly type: 'sink-list-item' }
   | { readonly type: 'lift-list-item' }
   | { readonly type: 'toggle-code-block'; readonly language?: string }
-  | { readonly type: 'insert-phrase-block'; readonly kind: string; readonly text: string }
+  | { readonly type: 'insert-stanza-block'; readonly kind: string; readonly text: string }
   | { readonly type: 'insert-table'; readonly columns: number; readonly rows: number }
   | { readonly type: 'add-row'; readonly where: 'before' | 'after' }
   | { readonly type: 'add-column'; readonly where: 'before' | 'after' }
@@ -186,7 +186,7 @@ function planLink(state: EditorState, href: string, schemes: LinkSchemes = {}): 
       'invalid-argument',
       !target.ok
         ? target.message
-        : 'A link goes to a web page (http or https), a mail address, a block (#id), a relative .phrase.md document, or a configured scheme://id.',
+        : 'A link goes to a web page (http or https), a mail address, a block (#id), a relative .stanza.md document, or a configured scheme://id.',
     );
   }
   // A cursor in a link changes where the whole link goes.
@@ -470,13 +470,13 @@ function insertBlock(state: EditorState, block: EditorNode): Plan {
 
 const KIND = /^[a-z][a-z0-9-]*$/;
 
-function planPhraseBlock(state: EditorState, kind: string, text: string): Plan {
-  const type = state.schema.nodes['phraseBlock'];
+function planStanzaBlock(state: EditorState, kind: string, text: string): Plan {
+  const type = state.schema.nodes['stanzaBlock'];
   if (type === undefined) return refuse('not-applicable', NO_BLOCK);
   if (!KIND.test(kind)) {
     return refuse(
       'invalid-argument',
-      'The kind of a phrase block is lowercase letters, digits and hyphens.',
+      'The kind of a stanza block is lowercase letters, digits and hyphens.',
     );
   }
   return insertBlock(state, type.create({ kind, text }));
@@ -596,8 +596,8 @@ function plan(
     }
     case 'toggle-code-block':
       return planCodeBlock(state, command.language);
-    case 'insert-phrase-block':
-      return planPhraseBlock(state, command.kind, command.text);
+    case 'insert-stanza-block':
+      return planStanzaBlock(state, command.kind, command.text);
     case 'insert-table':
       return planInsertTable(state, command.columns, command.rows);
     default:

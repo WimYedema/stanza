@@ -1,5 +1,5 @@
-import { SLOT_TOKENS, type PageSize, type PageTemplate, type Stylesheet } from '@phrase/core';
-import { slotSource } from '@phrase/format';
+import { SLOT_TOKENS, type PageSize, type PageTemplate, type Stylesheet } from '@stanza/core';
+import { slotSource } from '@stanza/format';
 import type { StylesWebviewMessage, Value } from '../shared/styles-protocol.js';
 import { el, option, simpleRow as row, simpleSection as section } from './styles-dom.js';
 import type { Entry } from './styles-families.js';
@@ -104,7 +104,7 @@ export function createPagePanel({ root, send }: PagePanelOptions): PagePanel {
         const token = SLOT_TOKENS.find((candidate) => candidate === insert.value);
         insert.value = '';
         if (token === undefined) return;
-        const link = `[${PLACEHOLDER_LABEL[token] ?? ''}](phrase:${token})`;
+        const link = `[${PLACEHOLDER_LABEL[token] ?? ''}](stanza:${token})`;
         const start = input.selectionStart ?? input.value.length;
         const end = input.selectionEnd ?? start;
         input.value = input.value.slice(0, start) + link + input.value.slice(end);
@@ -123,7 +123,7 @@ export function createPagePanel({ root, send }: PagePanelOptions): PagePanel {
       el(
         'p',
         'hint',
-        'Values the program fills in are written as links, such as [](phrase:title). Empty all three slots to leave the line blank.',
+        'Values the program fills in are written as links, such as [](stanza:title). Empty all three slots to leave the line blank.',
       ),
       row('Style', style),
       ...slotRows,

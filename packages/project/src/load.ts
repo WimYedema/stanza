@@ -10,16 +10,19 @@ import {
   type OutlineEntry,
   type ProjectSettings,
   type Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
+  LEGACY_FORMAT_CODE,
+  LEGACY_FORMAT_MESSAGE,
   checkParsedDocument,
   parseDocument,
   parseProject,
   parseStylesheet,
   type ParseResult,
-} from '@phrase/format';
+} from '@stanza/format';
 import { hasErrors, inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX, PROJECT_FILE, findDocuments, readText } from './files.js';
+import { LEGACY_PROJECT_FILE } from './migrate.js';
 import type { ProjectStorage } from './storage.js';
 
 export interface LoadedDocument {
@@ -87,7 +90,10 @@ export async function loadProjectConfiguration(
   });
 
   const projectText = await readText(storage, PROJECT_FILE, diagnostics);
-  if (projectText === undefined) return stopped();
+  if (projectText === undefined) {
+    await explainLegacyProject(storage, diagnostics);
+    return stopped();
+  }
   const project = parseProject(projectText);
   diagnostics.push(...inFile(PROJECT_FILE, project.diagnostics));
   if (hasErrors(project.diagnostics)) return stopped();
@@ -202,4 +208,29 @@ export async function loadProject(
   const outline =
     settings.documents ?? paths.map((path): OutlineEntry => ({ kind: 'document', path }));
   return { settings, stylesheet, documents, outline, diagnostics };
+}
+
+/**
+ * A folder with `phrase.yaml` and no `stanza.yaml` is a project from before the rename (ADR
+ * 0083): the unreadable project file becomes the `legacy-format` error, which names the fix.
+ */
+async function explainLegacyProject(
+  storage: ProjectStorage,
+  diagnostics: ProjectDiagnostic[],
+): Promise<void> {
+  try {
+    await storage.readText(LEGACY_PROJECT_FILE);
+  } catch {
+    return;
+  }
+  const index = diagnostics.findIndex(
+    (d) => d.file === PROJECT_FILE && d.code === 'file-unreadable',
+  );
+  if (index === -1) return;
+  diagnostics[index] = {
+    file: LEGACY_PROJECT_FILE,
+    severity: 'error',
+    code: LEGACY_FORMAT_CODE,
+    message: LEGACY_FORMAT_MESSAGE,
+  };
 }

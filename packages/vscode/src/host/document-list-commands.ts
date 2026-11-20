@@ -1,28 +1,28 @@
 import * as vscode from 'vscode';
-import type { OutlineEntry } from '@phrase/core';
-import { editDocumentList, parseProject, type DocumentListChange } from '@phrase/format';
-import { initializeDocumentList, PROJECT_FILE, type ProjectStorage } from '@phrase/project';
+import type { OutlineEntry } from '@stanza/core';
+import { editDocumentList, parseProject, type DocumentListChange } from '@stanza/format';
+import { initializeDocumentList, PROJECT_FILE, type ProjectStorage } from '@stanza/project';
 import { replaceText } from './declare-variant.js';
 import { findRoot, projectRoot, storageOf, uriInProject } from './project-files.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { normalized } from './review.js';
 
-export const INITIALIZE_DOCUMENT_LIST_COMMAND = 'phrase.initializeDocumentList';
-export const MOVE_DOCUMENT_UP_COMMAND = 'phrase.moveDocumentUp';
-export const MOVE_DOCUMENT_DOWN_COMMAND = 'phrase.moveDocumentDown';
-export const REGROUP_DOCUMENT_COMMAND = 'phrase.regroupDocument';
-export const FIX_DOCUMENT_LIST_COMMAND = 'phrase.fixDocumentList';
+export const INITIALIZE_DOCUMENT_LIST_COMMAND = 'stanza.initializeDocumentList';
+export const MOVE_DOCUMENT_UP_COMMAND = 'stanza.moveDocumentUp';
+export const MOVE_DOCUMENT_DOWN_COMMAND = 'stanza.moveDocumentDown';
+export const REGROUP_DOCUMENT_COMMAND = 'stanza.regroupDocument';
+export const FIX_DOCUMENT_LIST_COMMAND = 'stanza.fixDocumentList';
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 async function offerSave(document: vscode.TextDocument): Promise<void> {
   const choice = await vscode.window.showInformationMessage(
-    'Phrase: document list updated in phrase.yaml. Save the project file to keep this change.',
+    'Stanza: document list updated in stanza.yaml. Save the project file to keep this change.',
     'Save project file',
   );
   if (choice === 'Save project file' && !(await document.save())) {
-    throw new Error('phrase.yaml was edited but could not be saved.');
+    throw new Error('stanza.yaml was edited but could not be saved.');
   }
 }
 
@@ -44,13 +44,13 @@ export async function documentListStorage(root: vscode.Uri): Promise<ProjectStor
     writeText: async (path, text) => {
       if (path !== PROJECT_FILE) return storage.writeText(path, text);
       const before = normalized(document.getText());
-      if (before !== seen) throw new Error('phrase.yaml changed. Request the edit again.');
+      if (before !== seen) throw new Error('stanza.yaml changed. Request the edit again.');
       if (!(await replaceText(document, before, text))) {
         throw new Error('The document-list edit was not applied.');
       }
       void offerSave(document).catch((error: unknown) => {
         void vscode.window.showErrorMessage(
-          `Phrase: the project file is unsaved. ${reasonOf(error)}`,
+          `Stanza: the project file is unsaved. ${reasonOf(error)}`,
         );
       });
     },
@@ -105,12 +105,12 @@ async function changeList(
   const storage = await documentListStorage(root);
   const before = await storage.readText(PROJECT_FILE);
   if (expected !== undefined && before !== expected) {
-    throw new Error('phrase.yaml changed. Choose the destination group again.');
+    throw new Error('stanza.yaml changed. Choose the destination group again.');
   }
   const edit = editDocumentList(before, change);
   if (!edit.ok) throw new Error(edit.message);
   if ((await storage.readText(PROJECT_FILE)) !== before) {
-    throw new Error('phrase.yaml changed. Request the edit again.');
+    throw new Error('stanza.yaml changed. Request the edit again.');
   }
   await storage.writeText(PROJECT_FILE, edit.text);
   await diagnostics.refresh(root);
@@ -120,10 +120,10 @@ export function registerDocumentListCommands(diagnostics: ProjectDiagnostics): v
   const move = (direction: 'up' | 'down') => async (value: unknown) => {
     try {
       const target = documentTarget(value);
-      if (target === undefined) throw new Error('Choose a document in the Phrase view.');
+      if (target === undefined) throw new Error('Choose a document in the Stanza view.');
       await changeList(target.root, { kind: 'move', path: target.path, direction }, diagnostics);
     } catch (error) {
-      await vscode.window.showErrorMessage(`Phrase: ${reasonOf(error)}`);
+      await vscode.window.showErrorMessage(`Stanza: ${reasonOf(error)}`);
     }
   };
   return [
@@ -140,14 +140,14 @@ export function registerDocumentListCommands(diagnostics: ProjectDiagnostics): v
         ) {
           root = value.root;
         } else {
-          throw new Error('Choose a project in the Phrase view.');
+          throw new Error('Choose a project in the Stanza view.');
         }
-        if (root === undefined) throw new Error('Open a folder with a phrase.yaml project file.');
+        if (root === undefined) throw new Error('Open a folder with a stanza.yaml project file.');
         const result = await initializeDocumentList(await documentListStorage(root));
         if (!result.ok) throw new Error(result.message);
         await diagnostics.refresh(root);
       } catch (error) {
-        await vscode.window.showErrorMessage(`Phrase: ${reasonOf(error)}`);
+        await vscode.window.showErrorMessage(`Stanza: ${reasonOf(error)}`);
       }
     }),
     vscode.commands.registerCommand(MOVE_DOCUMENT_UP_COMMAND, move('up')),
@@ -155,11 +155,11 @@ export function registerDocumentListCommands(diagnostics: ProjectDiagnostics): v
     vscode.commands.registerCommand(REGROUP_DOCUMENT_COMMAND, async (value: unknown) => {
       try {
         const target = documentTarget(value);
-        if (target === undefined) throw new Error('Choose a document in the Phrase view.');
+        if (target === undefined) throw new Error('Choose a document in the Stanza view.');
         const storage = storageOf(target.root);
         const before = await storage.readText(PROJECT_FILE);
         const project = parseProject(before);
-        if (project.diagnostics.length > 0) throw new Error('Fix the errors in phrase.yaml first.');
+        if (project.diagnostics.length > 0) throw new Error('Fix the errors in stanza.yaml first.');
         if (project.settings.documents === undefined) {
           throw new Error('Initialize the document list before editing it.');
         }
@@ -168,7 +168,7 @@ export function registerDocumentListCommands(diagnostics: ProjectDiagnostics): v
         });
         if (picked === undefined) return;
         if ((await storage.readText(PROJECT_FILE)) !== before) {
-          throw new Error('phrase.yaml changed. Choose the destination group again.');
+          throw new Error('stanza.yaml changed. Choose the destination group again.');
         }
         await changeList(
           target.root,
@@ -177,7 +177,7 @@ export function registerDocumentListCommands(diagnostics: ProjectDiagnostics): v
           before,
         );
       } catch (error) {
-        await vscode.window.showErrorMessage(`Phrase: ${reasonOf(error)}`);
+        await vscode.window.showErrorMessage(`Stanza: ${reasonOf(error)}`);
       }
     }),
     vscode.commands.registerCommand(
@@ -192,7 +192,7 @@ export function registerDocumentListCommands(diagnostics: ProjectDiagnostics): v
             throw new Error('Invalid document-list fix.');
           }
           const root = await findRoot(uri);
-          if (root === undefined) throw new Error('No Phrase project found for this fix.');
+          if (root === undefined) throw new Error('No Stanza project found for this fix.');
           const loaded = await diagnostics.refresh(root);
           const applicable = loaded.diagnostics.some(
             ({ fix }) =>
@@ -218,7 +218,7 @@ export function registerDocumentListCommands(diagnostics: ProjectDiagnostics): v
           }
           await changeList(root, { kind: action, path }, diagnostics);
         } catch (error) {
-          await vscode.window.showErrorMessage(`Phrase: ${reasonOf(error)}`);
+          await vscode.window.showErrorMessage(`Stanza: ${reasonOf(error)}`);
         }
       },
     ),

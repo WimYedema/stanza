@@ -10,7 +10,7 @@ export interface ReferenceTarget {
   readonly path: string;
 }
 
-/** A link with an immutable block ID fragment, optionally qualified by a Phrase filename. */
+/** A link with an immutable block ID fragment, optionally qualified by a Stanza filename. */
 export interface Reference {
   /** What follows the `#`. It is not checked here: a broken reference is one that does not resolve. */
   readonly target: string;
@@ -95,7 +95,7 @@ export function indexReferences(document: Document): ReferenceIndex {
         break;
       }
       case 'code':
-      case 'phrase':
+      case 'stanza':
         break;
     }
   };

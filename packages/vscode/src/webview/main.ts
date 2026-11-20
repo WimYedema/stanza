@@ -1,12 +1,12 @@
-import { createPhraseEditor, type PhraseEditor } from '@phrase/editor';
-import { parseDocument, parseStylesheet, serializeDocument } from '@phrase/format';
+import { createStanzaEditor, type StanzaEditor } from '@stanza/editor';
+import { parseDocument, parseStylesheet, serializeDocument } from '@stanza/format';
 import {
   DEFAULT_PAGE_TEMPLATE_NAME,
   isNodeId,
   type Diagnostic,
   type FieldDeclaration,
   type Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   parseHostMessage,
   MAX_TEXT_LENGTH,
@@ -49,12 +49,12 @@ const editing = element('editing');
 const refused = element('refused');
 const notices = element('notices');
 const nonce =
-  document.querySelector('meta[name="phrase-nonce"]')?.getAttribute('content') ?? undefined;
+  document.querySelector('meta[name="stanza-nonce"]')?.getAttribute('content') ?? undefined;
 
 /** Typing is sent after a pause, so that it is one step of the history and not one for a letter. */
 const CHANGE_DELAY_MS = 300;
 
-let editor: PhraseEditor | undefined;
+let editor: StanzaEditor | undefined;
 let usedIds = new Set<string>();
 /** What the checks of the project say about this document, shown on the blocks. */
 let inline: readonly Diagnostic[] = [];
@@ -237,7 +237,7 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
   });
 }
 
-function onChange(result: ReturnType<PhraseEditor['getDocument']>): void {
+function onChange(result: ReturnType<StanzaEditor['getDocument']>): void {
   if (result.document === undefined) {
     say(`The content cannot be saved: ${result.diagnostics.map((d) => d.message).join(' ')}`);
     return;
@@ -277,7 +277,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
   say('');
   refused.hidden = true;
   editing.hidden = false;
-  editor = createPhraseEditor({
+  editor = createStanzaEditor({
     element: element('editor'),
     stylesheet: sheet.stylesheet,
     document: parsed.document,

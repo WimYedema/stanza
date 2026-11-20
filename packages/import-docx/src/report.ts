@@ -69,7 +69,7 @@ const CODES = {
   'toc-field': {
     severity: 'info',
     message:
-      'A table of contents field became a phrase-toc block. The entries that it showed were dropped.',
+      'A table of contents field became a stanza-toc block. The entries that it showed were dropped.',
   },
   'text-box': {
     severity: 'warning',

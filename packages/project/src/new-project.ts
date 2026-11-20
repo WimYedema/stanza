@@ -1,5 +1,5 @@
-import { nodeIdFromRandomBytes, type Document, type NodeId } from '@phrase/core';
-import { serializeDocument } from '@phrase/format';
+import { nodeIdFromRandomBytes, type Document, type NodeId } from '@stanza/core';
+import { serializeDocument } from '@stanza/format';
 import { addAgentInstructions } from './agent-instructions.js';
 import { DEFAULT_STYLESHEET } from './default-stylesheet.js';
 import { DOCUMENT_SUFFIX, PROJECT_FILE } from './files.js';
@@ -81,7 +81,7 @@ export async function createProject(
   const files: readonly [string, string][] = [
     [
       PROJECT_FILE,
-      `phrase-format: 1\ntitle: ${yamlSingleQuoted(title)}\nstylesheet: ${yamlSingleQuoted(STYLESHEET_PATH)}\n`,
+      `stanza-format: 1\ntitle: ${yamlSingleQuoted(title)}\nstylesheet: ${yamlSingleQuoted(STYLESHEET_PATH)}\n`,
     ],
     [STYLESHEET_PATH, DEFAULT_STYLESHEET],
     [document, firstDocument(title, nodeIdFromRandomBytes(options.randomBytes()))],

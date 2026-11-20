@@ -27,7 +27,7 @@ export type {
   Mark,
   MetaValue,
   Paragraph,
-  PhraseBlock,
+  StanzaBlock,
   StrongMark,
   StyleMark,
   Table,
@@ -43,7 +43,7 @@ export {
 } from './link-schemes.js';
 export { plainCell, plainCellInlines } from './table-cell.js';
 export { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES, needsId } from './vocabulary.js';
-export { KNOWN_PHRASE_KINDS, validateDocument } from './document-validation.js';
+export { KNOWN_STANZA_KINDS, validateDocument } from './document-validation.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
 export { collectBlockIds, type BlockId } from './document-ids.js';
 export {
@@ -82,7 +82,7 @@ export {
 export {
   DEFAULT_TOC_DEPTH,
   MAX_TOC_DEPTH,
-  TOC_PHRASE_KIND,
+  TOC_STANZA_KIND,
   collectTocEntries,
   readTocOptions,
   tocStyleName,

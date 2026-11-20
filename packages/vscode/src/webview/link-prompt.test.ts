@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CommandResult, EditorCommand, PhraseEditor } from '@phrase/editor';
+import type { CommandResult, EditorCommand, StanzaEditor } from '@stanza/editor';
 import { createLinkPrompt, type LinkPrompt } from './link-prompt.js';
 
 let root: HTMLElement;
@@ -11,7 +11,7 @@ const run = vi.fn<(command: EditorCommand) => CommandResult>(() => answer);
 const focus = vi.fn<() => void>();
 const answered = vi.fn<(command: EditorCommand, result: CommandResult) => void>();
 
-const editor = { getLinkHref: () => href, run, focus } as unknown as PhraseEditor;
+const editor = { getLinkHref: () => href, run, focus } as unknown as StanzaEditor;
 
 beforeEach(() => {
   root = document.createElement('div');

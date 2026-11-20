@@ -6,7 +6,7 @@ const RESERVED = new Set([
   'http',
   'https',
   'mailto',
-  'phrase',
+  'stanza',
   'file',
   'data',
   'javascript',
@@ -75,7 +75,7 @@ export function resolveLink(href: string, schemes: LinkSchemes = {}): ResolvedLi
       code: 'unknown-link-scheme',
       message: RESERVED.has(name)
         ? `The link scheme "${name}" is reserved and cannot be configured. Use an HTTP(S) or project link.`
-        : `Unknown link scheme "${name}". Declare it in phrase.yaml under link-schemes.`,
+        : `Unknown link scheme "${name}". Declare it in stanza.yaml under link-schemes.`,
     };
   }
   const problem = templateProblem(template);

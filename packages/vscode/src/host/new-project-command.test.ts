@@ -17,25 +17,25 @@ async function run(): Promise<void> {
 }
 
 beforeEach(() => {
-  reset({}, `${FOLDER}/none.phrase.md`, '');
+  reset({}, `${FOLDER}/none.stanza.md`, '');
   world.dialogFolder = FOLDER;
   world.inputValue = 'My Report';
 });
 
-describe('Phrase: New Project', () => {
-  it('writes the project into the folder and opens the first document in the Phrase editor', async () => {
+describe('Stanza: New Project', () => {
+  it('writes the project into the folder and opens the first document in the Stanza editor', async () => {
     await run();
     expect([...world.files.keys()].sort()).toEqual([
       `${FOLDER}/AGENTS.md`,
-      `${FOLDER}/documents/my-report.phrase.md`,
-      `${FOLDER}/phrase.yaml`,
+      `${FOLDER}/documents/my-report.stanza.md`,
+      `${FOLDER}/stanza.yaml`,
       `${FOLDER}/styles/default.yaml`,
     ]);
-    expect(world.files.get(`${FOLDER}/phrase.yaml`)).toContain("title: 'My Report'");
+    expect(world.files.get(`${FOLDER}/stanza.yaml`)).toContain("title: 'My Report'");
     expect(world.commands).toEqual(['vscode.openWith']);
     const [uri, viewType] = world.commandArgs[0] ?? [];
-    expect((uri as { path: string }).path).toBe(`${FOLDER}/documents/my-report.phrase.md`);
-    expect(viewType).toBe('phrase.editor');
+    expect((uri as { path: string }).path).toBe(`${FOLDER}/documents/my-report.stanza.md`);
+    expect(viewType).toBe('stanza.editor');
     expect(world.errors).toEqual([]);
   });
 
@@ -61,17 +61,17 @@ describe('Phrase: New Project', () => {
     world.files.set(`${FOLDER}/AGENTS.md`, 'My own rules.\n');
     await run();
     expect(world.files.get(`${FOLDER}/AGENTS.md`)).toBe('My own rules.\n');
-    expect(world.files.has(`${FOLDER}/phrase.yaml`)).toBe(true);
+    expect(world.files.has(`${FOLDER}/stanza.yaml`)).toBe(true);
     expect(world.infos).toEqual([expect.stringContaining('AGENTS.md already')]);
     expect(world.errors).toEqual([]);
   });
 
   it('writes nothing and says why when the folder has a project already', async () => {
-    world.files.set(`${FOLDER}/phrase.yaml`, 'phrase-format: 1\n');
+    world.files.set(`${FOLDER}/stanza.yaml`, 'stanza-format: 1\n');
     await run();
     expect(world.files.size).toBe(1);
     expect(world.errors).toHaveLength(1);
-    expect(world.errors[0]).toContain('phrase.yaml');
+    expect(world.errors[0]).toContain('stanza.yaml');
     expect(world.commands).toEqual([]);
   });
 
@@ -86,7 +86,7 @@ describe('Phrase: New Project', () => {
     world.outsideWorkspace = true;
     world.infoChoice = 'Open folder';
     await run();
-    expect(world.infos[0]).toContain('documents/my-report.phrase.md');
+    expect(world.infos[0]).toContain('documents/my-report.stanza.md');
     expect(world.commands).toEqual(['vscode.openFolder']);
   });
 

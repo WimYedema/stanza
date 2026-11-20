@@ -5,7 +5,7 @@ import {
   DOCUMENT_SUFFIX,
   exportDocument,
   type ExportDocumentResult,
-} from '@phrase/project';
+} from '@stanza/project';
 import { groupByFile } from './diagnostics.js';
 import { toDiagnostic, type ProjectDiagnostics } from './project-diagnostics.js';
 import { findRoot, storageOf, uriInProject } from './project-files.js';
@@ -22,7 +22,7 @@ const STATUS_MS = 5000;
  * exported and the file of an earlier export is left as it was.
  */
 export class ExportOnSave implements vscode.Disposable {
-  private readonly problems = vscode.languages.createDiagnosticCollection('phrase-export');
+  private readonly problems = vscode.languages.createDiagnosticCollection('stanza-export');
   /** The files that each document has export problems for, to clear after a good export. */
   private readonly owned = new Map<string, vscode.Uri[]>();
   private readonly subscription: vscode.Disposable;
@@ -36,7 +36,7 @@ export class ExportOnSave implements vscode.Disposable {
     this.subscription = vscode.workspace.onDidSaveTextDocument((saved) => {
       if (!saved.fileName.endsWith(DOCUMENT_SUFFIX)) return;
       const enabled = vscode.workspace
-        .getConfiguration('phrase', saved.uri)
+        .getConfiguration('stanza', saved.uri)
         .get<boolean>('exportOnSave', true);
       if (!enabled) return;
       void this.exportNow(saved.uri);
@@ -82,10 +82,10 @@ export class ExportOnSave implements vscode.Disposable {
     this.show(document, root, result);
     const message =
       result.written !== undefined
-        ? `Phrase: exported ${result.written}`
+        ? `Stanza: exported ${result.written}`
         : result.blocked
-          ? 'Phrase: not exported, the project or this document has errors (see Problems)'
-          : 'Phrase: not exported, the export found errors (see Problems)';
+          ? 'Stanza: not exported, the project or this document has errors (see Problems)'
+          : 'Stanza: not exported, the export found errors (see Problems)';
     vscode.window.setStatusBarMessage(message, STATUS_MS);
     return result.written === undefined ? undefined : uriInProject(root, result.written);
   }

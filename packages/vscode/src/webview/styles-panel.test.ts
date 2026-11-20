@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_VARIANTS, parseStylesheet } from '@phrase/format';
+import { DEFAULT_VARIANTS, parseStylesheet } from '@stanza/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
 import { entriesOf, type Entry } from './styles-families.js';
 import { createPanel, type Panel } from './styles-panel.js';
 
-const stylesheet = parseStylesheet(`phrase-format: 1
+const stylesheet = parseStylesheet(`stanza-format: 1
 tokens:
   colors:
     brand: '#2E75B6'
@@ -545,7 +545,7 @@ describe('changes from the page', () => {
 
   it('shows a value that is not a token as Custom, with a warning, until a token is picked', () => {
     const custom = parseStylesheet(
-      `phrase-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\nparagraph-styles:\n  body:\n    color: '#123456'\n`,
+      `stanza-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\nparagraph-styles:\n  body:\n    color: '#123456'\n`,
     ).stylesheet;
     panel.show(
       entriesOf(custom).find((candidate) => candidate.name === 'body'),
@@ -586,7 +586,7 @@ describe('changes from the page', () => {
   it('has no link when nothing is set or the value is not a token', () => {
     expect(rowOf('Color').querySelector<HTMLButtonElement>('.token-link')?.hidden).toBe(true);
     const custom = parseStylesheet(
-      `phrase-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\nparagraph-styles:\n  body:\n    color: '#123456'\n`,
+      `stanza-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\nparagraph-styles:\n  body:\n    color: '#123456'\n`,
     ).stylesheet;
     panel.show(
       entriesOf(custom).find((candidate) => candidate.name === 'body'),

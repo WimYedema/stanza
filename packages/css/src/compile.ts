@@ -11,7 +11,7 @@ import {
   type StyleName,
   type Stylesheet,
   type TextProps,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   LIST_CLASS,
   SCOPE_CLASS,
@@ -23,7 +23,7 @@ import {
 } from './class-names.js';
 
 export interface CssOptions {
-  /** The class of the editor root that every rule is scoped to. Defaults to `phrase-document`. */
+  /** The class of the editor root that every rule is scoped to. Defaults to `stanza-document`. */
   readonly scopeClass?: string;
 }
 

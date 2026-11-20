@@ -10,7 +10,7 @@ function read(name: string): string {
   return readFileSync(new URL(name, directory), 'utf8').replace(/\r\n/g, '\n');
 }
 
-const fixtures = readdirSync(directory).filter((name) => name.endsWith('.phrase.md'));
+const fixtures = readdirSync(directory).filter((name) => name.endsWith('.stanza.md'));
 
 describe('fixtures', () => {
   it('has fixtures', () => {

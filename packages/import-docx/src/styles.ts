@@ -1,4 +1,4 @@
-import type { HeadingLevel } from '@phrase/core';
+import type { HeadingLevel } from '@stanza/core';
 import { childOf, elementsOf, type XmlElement } from './xml.js';
 
 /** What the import reads of a Word style. The look of a style is never read (ADR 0043). */

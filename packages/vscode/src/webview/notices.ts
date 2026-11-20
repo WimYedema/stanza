@@ -1,4 +1,4 @@
-import type { CommandResult, EditorCommand } from '@phrase/editor';
+import type { CommandResult, EditorCommand } from '@stanza/editor';
 import type { WebviewMessage } from '../shared/protocol.js';
 import { keepSelection } from './toolbar.js';
 

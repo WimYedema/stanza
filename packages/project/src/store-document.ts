@@ -6,8 +6,8 @@ import {
   type Document,
   type ProjectSettings,
   type Stylesheet,
-} from '@phrase/core';
-import { checkDocumentText, serializeDocument } from '@phrase/format';
+} from '@stanza/core';
+import { checkDocumentText, serializeDocument } from '@stanza/format';
 import { inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX } from './files.js';
 import { loadProject, type LoadedProject } from './load.js';
@@ -23,7 +23,7 @@ export interface OrderedProject {
 }
 
 export const NO_PROJECT_MESSAGE =
-  'The folder has no project in order. Fix the project file and the stylesheet first (see "phrase validate").';
+  'The folder has no project in order. Fix the project file and the stylesheet first (see "stanza validate").';
 
 /** The project, or undefined when its file or stylesheet is not in order. */
 export async function loadOrderedProject(

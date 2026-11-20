@@ -1,7 +1,7 @@
-import { parseStylesheet } from '@phrase/format';
+import { parseStylesheet } from '@stanza/format';
 
 /** A stylesheet for tests of the commands: styles that offer marks, and some that offer none. */
-const TEXT = `phrase-format: 1
+const TEXT = `stanza-format: 1
 paragraph-styles:
   body:
     variants:

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { PROJECT_FILE } from '@phrase/project';
-import { parseProject } from '@phrase/format';
+import { PROJECT_FILE } from '@stanza/project';
+import { parseProject } from '@stanza/format';
 import type { Reason } from '../shared/protocol.js';
 import { findRoot, storageOf, uriInProject } from './project-files.js';
 
@@ -19,8 +19,8 @@ export async function locateStylesheet(file: vscode.Uri): Promise<StylesheetLoca
   const root = await findRoot(file);
   if (root === undefined) {
     return no(
-      'This file is not in a Phrase project',
-      'No phrase.yaml was found in the folder of this file or in a folder above it, inside the workspace folder.',
+      'This file is not in a Stanza project',
+      'No stanza.yaml was found in the folder of this file or in a folder above it, inside the workspace folder.',
     );
   }
   let text: string;

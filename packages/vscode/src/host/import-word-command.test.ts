@@ -9,11 +9,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: {}
@@ -28,10 +28,10 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const DOCUMENT = '/w/p/documents/one.phrase.md';
-const FIRST = `---\nphrase-format: 1\ntitle: "T"\n---\n\n<!-- phrase: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
+const DOCUMENT = '/w/p/documents/one.stanza.md';
+const FIRST = `---\nstanza-format: 1\ntitle: "T"\n---\n\n<!-- stanza: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
 const WORD_FILE = '/w/docs/Meeting notes.docx';
-const NEW_DOCUMENT = '/w/p/documents/meeting-notes.phrase.md';
+const NEW_DOCUMENT = '/w/p/documents/meeting-notes.stanza.md';
 const WORD =
   '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
   '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Scope</w:t></w:r></w:p>' +
@@ -57,7 +57,7 @@ beforeEach(() => {
   shown = 0;
   reset(
     {
-      '/w/p/phrase.yaml': PROJECT,
+      '/w/p/stanza.yaml': PROJECT,
       '/w/p/styles/default.yaml': STYLESHEET,
       [DOCUMENT]: FIRST,
     },
@@ -68,23 +68,23 @@ beforeEach(() => {
   world.dialogFolder = WORD_FILE;
 });
 
-describe('Phrase: Import Word Document', () => {
-  it('adds the content as a new document and opens it in the Phrase editor', async () => {
+describe('Stanza: Import Word Document', () => {
+  it('adds the content as a new document and opens it in the Stanza editor', async () => {
     await run();
     expect(world.files.get(NEW_DOCUMENT)).toContain('# Scope');
     expect(world.commands).toEqual(['vscode.openWith']);
     const [uri, viewType] = world.commandArgs[0] ?? [];
     expect((uri as { path: string }).path).toBe(NEW_DOCUMENT);
-    expect(viewType).toBe('phrase.editor');
+    expect(viewType).toBe('stanza.editor');
     expect(world.errors).toEqual([]);
   });
 
-  it('writes the report to the Phrase output, and shows it on request', async () => {
+  it('writes the report to the Stanza output, and shows it on request', async () => {
     world.infoChoice = 'Show report';
     await run();
-    expect(lines[0]).toBe('Imported Meeting notes.docx as documents/meeting-notes.phrase.md.');
+    expect(lines[0]).toBe('Imported Meeting notes.docx as documents/meeting-notes.stanza.md.');
     expect(lines.some((line) => line.includes('Direct formatting'))).toBe(true);
-    expect(world.infos[0]).toContain('documents/meeting-notes.phrase.md');
+    expect(world.infos[0]).toContain('documents/meeting-notes.stanza.md');
     expect(shown).toBe(1);
   });
 

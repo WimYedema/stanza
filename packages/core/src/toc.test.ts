@@ -17,7 +17,7 @@ const heading = (level: HeadingLevel, text: string, id?: NodeId): Heading => ({
   content: [{ type: 'text', text, marks: [] }],
   ...(id !== undefined ? { id } : {}),
 });
-const toc = (text = ''): Block => ({ type: 'phrase', kind: 'toc', text });
+const toc = (text = ''): Block => ({ type: 'stanza', kind: 'toc', text });
 const documentOf = (...blocks: Block[]): Document => ({ meta: { fields: {} }, blocks });
 
 const withTocStyles = sheet({
@@ -111,7 +111,7 @@ describe('table of contents validation', () => {
     const list: List = {
       type: 'list',
       kind: 'bulleted',
-      items: [{ blocks: [{ type: 'phrase', kind: 'toc', text: '' }] }],
+      items: [{ blocks: [{ type: 'stanza', kind: 'toc', text: '' }] }],
     };
     expect(codesOf(documentOf(heading(1, 'One', A), list))).toContain('toc-not-top-level');
   });

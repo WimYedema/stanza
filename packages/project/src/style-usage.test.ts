@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { Block, Document, Text } from '@phrase/core';
-import { parseStylesheet } from '@phrase/format';
+import type { Block, Document, Text } from '@stanza/core';
+import { parseStylesheet } from '@stanza/format';
 import type { LoadedDocument } from './load.js';
 import { styleUsage } from './style-usage.js';
 
-const stylesheet = parseStylesheet(`phrase-format: 1
+const stylesheet = parseStylesheet(`stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: { based-on: body }
@@ -67,32 +67,32 @@ describe('styleUsage', () => {
 
   it('counts a block without a style as a default use of the style of its kind', () => {
     const documents = [
-      doc('a.phrase.md', { type: 'heading', level: 2, content: [text('H')] }, paragraph('P'), {
+      doc('a.stanza.md', { type: 'heading', level: 2, content: [text('H')] }, paragraph('P'), {
         type: 'code',
         text: 'x',
       }),
     ];
     expect(usesOf('paragraphStyles', documents, 'heading-2')).toEqual([
-      'default a.phrase.md:blocks[0]',
+      'default a.stanza.md:blocks[0]',
     ]);
-    expect(usesOf('paragraphStyles', documents, 'code')).toEqual(['default a.phrase.md:blocks[2]']);
+    expect(usesOf('paragraphStyles', documents, 'code')).toEqual(['default a.stanza.md:blocks[2]']);
     expect(usesOf('paragraphStyles', documents, 'body')).toEqual([
-      'inherited a.phrase.md:blocks[0] via heading-2',
-      'default a.phrase.md:blocks[1]',
-      'inherited a.phrase.md:blocks[2] via code',
+      'inherited a.stanza.md:blocks[0] via heading-2',
+      'default a.stanza.md:blocks[1]',
+      'inherited a.stanza.md:blocks[2] via code',
     ]);
   });
 
   it('counts a style that a block names as direct, and its bases as inherited', () => {
-    const documents = [doc('a.phrase.md', paragraph('P', { style: 'warning-note' }))];
+    const documents = [doc('a.stanza.md', paragraph('P', { style: 'warning-note' }))];
     expect(usesOf('paragraphStyles', documents, 'warning-note')).toEqual([
-      'direct a.phrase.md:blocks[0]',
+      'direct a.stanza.md:blocks[0]',
     ]);
     expect(usesOf('paragraphStyles', documents, 'note')).toEqual([
-      'inherited a.phrase.md:blocks[0] via warning-note',
+      'inherited a.stanza.md:blocks[0] via warning-note',
     ]);
     expect(usesOf('paragraphStyles', documents, 'body')).toEqual([
-      'inherited a.phrase.md:blocks[0] via warning-note',
+      'inherited a.stanza.md:blocks[0] via warning-note',
     ]);
   });
 
@@ -105,12 +105,12 @@ describe('styleUsage', () => {
         { blocks: [paragraph('three', { style: 'note' })] },
       ],
     } as Block;
-    const documents = [doc('a.phrase.md', list)];
+    const documents = [doc('a.stanza.md', list)];
     expect(usesOf('paragraphStyles', documents, 'list-bulleted')).toEqual([
-      'default a.phrase.md:blocks[0]',
+      'default a.stanza.md:blocks[0]',
     ]);
     expect(usesOf('paragraphStyles', documents, 'note')).toEqual([
-      'direct a.phrase.md:blocks[0].items[1].blocks[0]',
+      'direct a.stanza.md:blocks[0].items[1].blocks[0]',
     ]);
   });
 
@@ -119,12 +119,12 @@ describe('styleUsage', () => {
       type: 'paragraph',
       content: [text('High', [{ type: 'style', name: 'status-high' as never }])],
     };
-    const documents = [doc('a.phrase.md', marked)];
+    const documents = [doc('a.stanza.md', marked)];
     expect(usesOf('characterStyles', documents, 'status-high')).toEqual([
-      'direct a.phrase.md:blocks[0]',
+      'direct a.stanza.md:blocks[0]',
     ]);
     expect(usesOf('characterStyles', documents, 'status')).toEqual([
-      'inherited a.phrase.md:blocks[0] via status-high',
+      'inherited a.stanza.md:blocks[0] via status-high',
     ]);
   });
 
@@ -136,40 +136,40 @@ describe('styleUsage', () => {
       rows: [[cell]],
       ...extra,
     });
-    const documents = [doc('a.phrase.md', table(), table({ style: 'table-grid' }))];
+    const documents = [doc('a.stanza.md', table(), table({ style: 'table-grid' }))];
     expect(usesOf('tableStyles', documents, 'table')).toEqual([
-      'default a.phrase.md:blocks[0]',
-      'inherited a.phrase.md:blocks[1] via table-grid',
+      'default a.stanza.md:blocks[0]',
+      'inherited a.stanza.md:blocks[1] via table-grid',
     ]);
     expect(usesOf('tableStyles', documents, 'table-grid')).toEqual([
-      'direct a.phrase.md:blocks[1]',
+      'direct a.stanza.md:blocks[1]',
     ]);
     expect(usesOf('paragraphStyles', documents, 'table-text')).toEqual([
-      'default a.phrase.md:blocks[1]',
+      'default a.stanza.md:blocks[1]',
     ]);
   });
 
   it('counts a table of contents as a default use of the styles of its levels', () => {
-    const toc: Block = { type: 'phrase', kind: 'toc', text: 'depth: 2' };
-    const documents = [doc('a.phrase.md', toc)];
+    const toc: Block = { type: 'stanza', kind: 'toc', text: 'depth: 2' };
+    const documents = [doc('a.stanza.md', toc)];
     expect(usesOf('paragraphStyles', documents, 'toc-1')).toEqual([
-      'default a.phrase.md:blocks[0]',
+      'default a.stanza.md:blocks[0]',
     ]);
     expect(usesOf('paragraphStyles', documents, 'toc-2')).toEqual([
-      'default a.phrase.md:blocks[0]',
+      'default a.stanza.md:blocks[0]',
     ]);
   });
 
   it('reads the documents in the order given, and does not count a use twice', () => {
-    const documents = [doc('b.phrase.md', paragraph('x')), doc('a.phrase.md', paragraph('y'))];
+    const documents = [doc('b.stanza.md', paragraph('x')), doc('a.stanza.md', paragraph('y'))];
     expect(usesOf('paragraphStyles', documents, 'body')).toEqual([
-      'default b.phrase.md:blocks[0]',
-      'default a.phrase.md:blocks[0]',
+      'default b.stanza.md:blocks[0]',
+      'default a.stanza.md:blocks[0]',
     ]);
   });
 
   it('leaves out a style that the stylesheet does not have', () => {
-    const documents = [doc('a.phrase.md', paragraph('P', { style: 'missing' }))];
+    const documents = [doc('a.stanza.md', paragraph('P', { style: 'missing' }))];
     expect(usesOf('paragraphStyles', documents, 'missing')).toEqual([]);
   });
 });

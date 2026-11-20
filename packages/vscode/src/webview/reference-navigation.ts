@@ -1,7 +1,7 @@
-import { parseReferenceLink } from '@phrase/core';
+import { parseReferenceLink } from '@stanza/core';
 
 function targetOf(link: Element): string | undefined {
-  const href = link.getAttribute('data-phrase-href') ?? link.getAttribute('href');
+  const href = link.getAttribute('data-stanza-href') ?? link.getAttribute('href');
   if (href === null) return undefined;
   if (parseReferenceLink(href) !== undefined) return href;
   return /^[a-z][a-z0-9+.-]*:/i.test(href) && !/^(https?|mailto):/i.test(href) ? href : undefined;

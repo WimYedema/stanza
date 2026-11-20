@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseProject } from '@phrase/format';
+import { parseProject } from '@stanza/format';
 import { initializeDocumentList } from './document-list.js';
 import { exampleProject, memoryStorage } from './memory-storage.testing.js';
 
@@ -7,21 +7,21 @@ describe('initializing the document list', () => {
   it('uses discovery order, skips excluded directories and leaves document content untouched', async () => {
     const files = {
       ...exampleProject(),
-      'z.phrase.md': 'not read',
-      '.hidden/hidden.phrase.md': 'not listed',
-      'node_modules/other.phrase.md': 'not listed',
+      'z.stanza.md': 'not read',
+      '.hidden/hidden.stanza.md': 'not listed',
+      'node_modules/other.stanza.md': 'not listed',
     };
     const storage = memoryStorage(files);
     expect(await initializeDocumentList(storage)).toMatchObject({ ok: true });
-    expect([...storage.texts.keys()]).toEqual(['phrase.yaml']);
-    const text = storage.texts.get('phrase.yaml') ?? '';
+    expect([...storage.texts.keys()]).toEqual(['stanza.yaml']);
+    const text = storage.texts.get('stanza.yaml') ?? '';
     expect(parseProject(text).settings.documents).toEqual([
-      { kind: 'document', path: 'documents/introduction.phrase.md' },
-      { kind: 'document', path: 'documents/reference.phrase.md' },
-      { kind: 'document', path: 'z.phrase.md' },
+      { kind: 'document', path: 'documents/introduction.stanza.md' },
+      { kind: 'document', path: 'documents/reference.stanza.md' },
+      { kind: 'document', path: 'z.stanza.md' },
     ]);
-    expect(storage.reads.every((path) => path === 'phrase.yaml')).toBe(true);
-    const again = memoryStorage({ ...files, 'phrase.yaml': text });
+    expect(storage.reads.every((path) => path === 'stanza.yaml')).toBe(true);
+    const again = memoryStorage({ ...files, 'stanza.yaml': text });
     expect(await initializeDocumentList(again)).toMatchObject({ ok: false });
     expect(again.texts.size).toBe(0);
   });
@@ -36,7 +36,7 @@ describe('initializing the document list', () => {
     const read = changed.readText.bind(changed);
     let reads = 0;
     changed.readText = (path) =>
-      path === 'phrase.yaml' && reads++ > 0
+      path === 'stanza.yaml' && reads++ > 0
         ? Promise.resolve(`${files[path] ?? ''}# newer\n`)
         : read(path);
     await expect(initializeDocumentList(changed)).rejects.toThrow('changed');

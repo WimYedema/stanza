@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { getSchema } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
-import type { Document } from '@phrase/core';
-import { parseDocument, serializeDocument } from '@phrase/format';
+import type { Document } from '@stanza/core';
+import { parseDocument, serializeDocument } from '@stanza/format';
 import { fromEditorContent, toEditorContent } from './convert.js';
 import { schemaExtensions } from './schema.js';
 
@@ -23,10 +23,10 @@ const formats = new URL('../../../fixtures/format/', import.meta.url);
 const project = new URL('../../../fixtures/example-project/documents/', import.meta.url);
 const fixtures = [
   ...readdirSync(formats)
-    .filter((name) => name.endsWith('.phrase.md'))
+    .filter((name) => name.endsWith('.stanza.md'))
     .map((name) => [`format/${name}`, new URL(name, formats)] as const),
   ...readdirSync(project)
-    .filter((name) => name.endsWith('.phrase.md'))
+    .filter((name) => name.endsWith('.stanza.md'))
     .map((name) => [`example-project/${name}`, new URL(name, project)] as const),
 ];
 
@@ -46,7 +46,7 @@ describe('conversion of the fixtures', () => {
 });
 
 function parse(body: string): Document {
-  const parsed = parseDocument(`---\nphrase-format: 1\n---\n\n${body}`);
+  const parsed = parseDocument(`---\nstanza-format: 1\n---\n\n${body}`);
   expect(parsed.diagnostics).toEqual([]);
   return parsed.document;
 }
@@ -54,7 +54,7 @@ function parse(body: string): Document {
 describe('toEditorContent', () => {
   it('writes a heading, a table and a code block with their attributes', () => {
     const document = parse(
-      '<!-- phrase: #k7m2q9x4zb .note -->\n## Title\n\n<!-- phrase: widths="30 70" -->\n| A | B |\n| - | - |\n| 1 | 2 |\n\n```ts\nlet x;\n```\n',
+      '<!-- stanza: #k7m2q9x4zb .note -->\n## Title\n\n<!-- stanza: widths="30 70" -->\n| A | B |\n| - | - |\n| 1 | 2 |\n\n```ts\nlet x;\n```\n',
     );
     const content = toEditorContent(document);
     expect(content.content?.[0]).toEqual({
@@ -134,16 +134,16 @@ describe('fromEditorContent', () => {
     ]);
   });
 
-  it('keeps an empty list item, an empty code block and a phrase block as they are', () => {
+  it('keeps an empty list item, an empty code block and a stanza block as they are', () => {
     const node = docOf([
       { type: 'bulletList', content: [{ type: 'listItem', content: [] }] },
       { type: 'codeBlock' },
-      { type: 'phraseBlock', attrs: { kind: 'toc', text: 'depth: 2' } },
+      { type: 'stanzaBlock', attrs: { kind: 'toc', text: 'depth: 2' } },
     ]);
     expect(fromEditorContent(node, meta).document?.blocks).toEqual([
       { type: 'list', kind: 'bulleted', items: [{ blocks: [] }] },
       { type: 'code', text: '' },
-      { type: 'phrase', kind: 'toc', text: 'depth: 2' },
+      { type: 'stanza', kind: 'toc', text: 'depth: 2' },
     ]);
   });
 

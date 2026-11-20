@@ -8,16 +8,16 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const DOCUMENT = '/w/p/documents/one.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
 
 const files = (extra: Record<string, string> = {}): Record<string, string> => ({
-  '/w/p/phrase.yaml': PROJECT,
-  '/w/p/styles/default.yaml': 'phrase-format: 1\n',
-  [DOCUMENT]: '---\nphrase-format: 1\n---\n',
+  '/w/p/stanza.yaml': PROJECT,
+  '/w/p/styles/default.yaml': 'stanza-format: 1\n',
+  [DOCUMENT]: '---\nstanza-format: 1\n---\n',
   ...extra,
 });
 
@@ -32,16 +32,16 @@ beforeEach(() => {
   reset(files(), DOCUMENT, '');
 });
 
-describe('Phrase: Edit Styles', () => {
+describe('Stanza: Edit Styles', () => {
   it('opens the stylesheet of the project of the editor in front, in the style editor', async () => {
     world.activeTab = {
-      input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'phrase.editor'),
+      input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'stanza.editor'),
     };
     await run();
     expect(world.commands).toEqual(['vscode.openWith']);
     const [uri, viewType] = world.commandArgs[0] ?? [];
     expect((uri as { path: string }).path).toBe('/w/p/styles/default.yaml');
-    expect(viewType).toBe('phrase.styles');
+    expect(viewType).toBe('stanza.styles');
   });
 
   it('works from a text editor too', async () => {
@@ -61,8 +61,8 @@ describe('Phrase: Edit Styles', () => {
   it('asks which project when there are several', async () => {
     reset(
       files({
-        '/w/q/phrase.yaml': PROJECT,
-        '/w/q/styles/default.yaml': 'phrase-format: 1\n',
+        '/w/q/stanza.yaml': PROJECT,
+        '/w/q/styles/default.yaml': 'stanza-format: 1\n',
       }),
       DOCUMENT,
       '',
@@ -86,7 +86,7 @@ describe('Phrase: Edit Styles', () => {
   });
 
   it('says what is wrong with a project that has an error', async () => {
-    reset(files({ '/w/p/phrase.yaml': 'phrase-format: 1\n' }), DOCUMENT, '');
+    reset(files({ '/w/p/stanza.yaml': 'stanza-format: 1\n' }), DOCUMENT, '');
     world.activeTab = {
       input: new vscode.TabInputText(vscode.Uri.file(DOCUMENT)),
     };

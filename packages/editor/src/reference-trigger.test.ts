@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Editor } from '@tiptap/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { phraseExtensions } from './editor.js';
+import { stanzaExtensions } from './editor.js';
 import { COMMANDS_STYLESHEET } from './styles.testing.js';
 
 const stylesheet = COMMANDS_STYLESHEET.stylesheet;
@@ -14,7 +14,7 @@ const text = (value: string) => ({ type: 'text', text: value });
 const open = (...blocks: object[]): void => {
   editor = new Editor({
     element,
-    extensions: phraseExtensions(() => stylesheet, vi.fn(), undefined, trigger),
+    extensions: stanzaExtensions(() => stylesheet, vi.fn(), undefined, trigger),
     content: { type: 'doc', content: blocks },
   });
 };
@@ -81,7 +81,7 @@ describe('typing @', () => {
     editor.destroy();
     editor = new Editor({
       element,
-      extensions: phraseExtensions(() => stylesheet, vi.fn()),
+      extensions: stanzaExtensions(() => stylesheet, vi.fn()),
       content: { type: 'doc', content: [{ type: 'paragraph', content: [text('a ')] }] },
     });
     type('@', at(2));

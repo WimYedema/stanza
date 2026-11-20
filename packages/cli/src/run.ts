@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, extname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { isSafeRelativePath, nodeIdFromRandomBytes } from '@phrase/core';
+import { isSafeRelativePath, nodeIdFromRandomBytes } from '@stanza/core';
 import {
   DEFAULT_BUILD_DATE,
   DOCUMENT_SUFFIX,
@@ -11,14 +11,16 @@ import {
   formatProject,
   hasErrors,
   adoptMarkdownDocument,
+  applyMigration,
   importWordDocument,
   describeImport,
   loadProject,
+  planMigration,
   useTokensInStylesheet,
   type ProjectDiagnostic,
   type ProjectStorage,
-} from '@phrase/project';
-import { nodeStorage } from './node-storage.js';
+} from '@stanza/project';
+import { nodeRemove, nodeStorage } from './node-storage.js';
 import { cliVersion, docxVersion } from './versions.js';
 
 export interface Io {
@@ -33,7 +35,7 @@ export interface Io {
   readonly readBytes?: (path: string) => Promise<Uint8Array>;
 }
 
-const USAGE = `Usage: phrase <command> [project] [options]
+const USAGE = `Usage: stanza <command> [project] [options]
 
 Commands:
   validate [project]   Check the project and report problems.
@@ -50,14 +52,21 @@ Commands:
                        Add an ordinary Markdown file to the project as a new ${DOCUMENT_SUFFIX}
                        document, in the same way as import. The original is not changed. What
                        the dialect cannot hold is listed.
+  migrate [project]    Turn a project from before Phrase was renamed to Stanza into a Stanza
+                       project: phrase.yaml becomes stanza.yaml, *.phrase.md becomes
+                       *.stanza.md, and the markup in them uses the new names. IDs do not
+                       change. Nothing is written when a new name is taken.
 
 Options for build:
   --out <dir>          Output directory, relative to the project (default: build).
   --date <date>        The date written into the files, as YYYY-MM-DD or with a time and
                        zone. The default is 1980-01-01, so that output is always the same.
 
+Options for format and migrate:
+  --check              Write nothing; list the documents that are not canonical, or the files
+                       that migrate would change.
+
 Options for format:
-  --check              Write nothing; list the documents that are not canonical.
   --assign-ids         Also give every heading and table without an ID a new one, unique in
                        the project. With --check, a missing ID counts as not canonical.
                        Needs a project, not a single file.
@@ -69,7 +78,7 @@ Options for format:
                        Needs a project; respects --file and --check.
 
 Options for validate and format:
-  --file <path>        Select a .phrase.md file relative to the project; repeat for more files.
+  --file <path>        Select a .stanza.md file relative to the project; repeat for more files.
                        Needs a project directory. Validation keeps project-wide ID/reference
                        context; formatting writes only selected files.
 
@@ -80,11 +89,11 @@ Options for validate:
 
 Other options:
   -h, --help           Show this help.
-  -v, --version        Show the versions of phrase and of the DOCX library.
+  -v, --version        Show the versions of stanza and of the DOCX library.
 
-The project is a directory with a phrase.yaml file; the default is the current directory.
+The project is a directory with a stanza.yaml file; the default is the current directory.
 Exit codes: 0 no errors, 1 errors in the project (or, with --check, documents that are not
-canonical), 2 wrong usage or a file that cannot be read.
+canonical or a project to migrate), 2 wrong usage or a file that cannot be read.
 `;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2}))?$/;
@@ -110,11 +119,11 @@ function formatDiagnostic(d: ProjectDiagnostic): string {
     d.fix?.kind === 'declare-variant'
       ? ` Suggestion: declare the "${d.fix.mark}" variant on style "${d.fix.style}" if intended.`
       : d.fix?.kind === 'reference-path'
-        ? ` Suggestion: replace "${d.fix.href}" with "${d.fix.replacement}", or run "phrase format --fix-references".`
+        ? ` Suggestion: replace "${d.fix.href}" with "${d.fix.replacement}", or run "stanza format --fix-references".`
         : d.fix?.kind === 'use-tokens'
-          ? ' Suggestion: run "phrase format --fix-stylesheet".'
+          ? ' Suggestion: run "stanza format --fix-stylesheet".'
           : d.fix?.kind === 'document-list'
-            ? ` Suggestion: ${d.fix.action === 'append' ? 'add' : 'remove'} "${d.fix.document}" ${d.fix.action === 'append' ? 'to' : 'from'} the documents list in phrase.yaml.`
+            ? ` Suggestion: ${d.fix.action === 'append' ? 'add' : 'remove'} "${d.fix.document}" ${d.fix.action === 'append' ? 'to' : 'from'} the documents list in stanza.yaml.`
             : '';
   return `${where}: ${d.severity} ${d.code}: ${d.message}${path}${fix}\n`;
 }
@@ -123,7 +132,7 @@ function summary(documents: number, diagnostics: readonly ProjectDiagnostic[]): 
   const errors = diagnostics.filter((d) => d.severity === 'error').length;
   const warnings = diagnostics.filter((d) => d.severity === 'warning').length;
   const hint = diagnostics.some((d) => d.code === 'raw-color' || d.code === 'raw-font')
-    ? 'Run "phrase format --fix-stylesheet" to move those colors and fonts into tokens.\n'
+    ? 'Run "stanza format --fix-stylesheet" to move those colors and fonts into tokens.\n'
     : '';
   return `${hint}Checked ${plural(documents, 'document')}: ${plural(errors, 'error')}, ${plural(warnings, 'warning')}.\n`;
 }
@@ -136,7 +145,7 @@ function exitCode(diagnostics: readonly ProjectDiagnostic[]): number {
 /** Runs the command line and returns the exit code. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   const usage = (message: string): number => {
-    io.stderr(`phrase: ${message}\n\n${USAGE}`);
+    io.stderr(`stanza: ${message}\n\n${USAGE}`);
     return 2;
   };
 
@@ -167,7 +176,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     return 0;
   }
   if (values.version === true) {
-    io.stdout(`phrase ${cliVersion()} (docx ${docxVersion()})\n`);
+    io.stdout(`stanza ${cliVersion()} (docx ${docxVersion()})\n`);
     return 0;
   }
 
@@ -177,7 +186,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     command !== 'build' &&
     command !== 'format' &&
     command !== 'import' &&
-    command !== 'adopt'
+    command !== 'adopt' &&
+    command !== 'migrate'
   ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
   }
@@ -199,8 +209,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     if (file === undefined || !(word ? isWordFile : isMarkdownFile)(file)) {
       return usage(
         word
-          ? 'import needs a Word file, as in: phrase import report.docx [project].'
-          : 'adopt needs a Markdown file, as in: phrase adopt notes.md [project].',
+          ? 'import needs a Word file, as in: stanza import report.docx [project].'
+          : 'adopt needs a Markdown file, as in: stanza adopt notes.md [project].',
       );
     }
     if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
@@ -209,7 +219,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       bytes = await (io.readBytes ?? readFile)(resolve(io.cwd, file));
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      io.stderr(`phrase: cannot read ${file}: ${reason}\n`);
+      io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
       return 2;
     }
     const storage = (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder));
@@ -218,7 +228,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       ? await importWordDocument(storage, bytes, options)
       : await adoptMarkdownDocument(storage, new TextDecoder().decode(bytes), options);
     if (!brought.ok) {
-      io.stderr(`phrase: ${brought.message}\n`);
+      io.stderr(`stanza: ${brought.message}\n`);
       return 2;
     }
     const ids = plural(brought.assigned, 'ID');
@@ -240,7 +250,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     }
     if (project.endsWith(DOCUMENT_SUFFIX)) return usage('--file needs a project directory.');
     if (files.some((file) => !isSafeRelativePath(file) || !file.endsWith(DOCUMENT_SUFFIX))) {
-      return usage('--file must name a relative .phrase.md path inside the project, without "..".');
+      return usage('--file must name a relative .stanza.md path inside the project, without "..".');
     }
   }
   const maxText = values['max-diagnostics'];
@@ -254,8 +264,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (command !== 'build' && (values.out !== undefined || values.date !== undefined)) {
     return usage('--out and --date apply to build only.');
   }
-  if (command !== 'format' && values.check === true) {
-    return usage('--check applies to format only.');
+  if (command !== 'format' && command !== 'migrate' && values.check === true) {
+    return usage('--check applies to format and migrate only.');
   }
   const assignIds = values['assign-ids'] === true;
   if (command !== 'format' && assignIds) return usage('--assign-ids applies to format only.');
@@ -337,7 +347,37 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       : 0;
   }
 
-  const storage = open(resolve(io.cwd, project));
+  const root = resolve(io.cwd, project);
+  const storage = open(root);
+
+  if (command === 'migrate') {
+    const plan = await planMigration(storage);
+    io.stdout(plan.diagnostics.map(formatDiagnostic).join(''));
+    if (plan.alreadyMigrated) {
+      io.stdout('This is a Stanza project already; there is nothing to migrate.\n');
+      return 0;
+    }
+    if (plan.steps.length === 0) {
+      io.stdout('Nothing was written.\n');
+      return exitCode(plan.diagnostics);
+    }
+    const check = values.check === true;
+    for (const step of plan.steps) {
+      const what = step.from === step.to ? step.to : `${step.from} -> ${step.to}`;
+      io.stdout(
+        `${check ? 'to migrate' : 'migrated'} ${what} (${plural(step.changes, 'change')})\n`,
+      );
+    }
+    if (!check) await applyMigration(storage, plan, nodeRemove(root));
+    for (const note of plan.notes) io.stdout(`Note: ${note}\n`);
+    const total = plural(plan.steps.length, 'file');
+    io.stdout(
+      check
+        ? `${total} to migrate; run without --check to write them.\n`
+        : `Migrated ${total}; IDs are unchanged. Run "stanza validate" and commit: Git shows the renames.\n`,
+    );
+    return check ? 1 : 0;
+  }
 
   if (command === 'validate') {
     const loaded = await loadProject(storage);
@@ -364,7 +404,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
             file,
             severity: 'error',
             code: 'invalid-selection',
-            message: 'Select an existing .phrase.md document inside this project.',
+            message: 'Select an existing .stanza.md document inside this project.',
           });
         }
       }
@@ -402,7 +442,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   const code = exitCode(result.diagnostics);
   if (code === 0) {
     io.stdout(`Wrote ${plural(result.written.length, 'file')} to ${outDir}/.\n`);
-    io.stdout(`phrase ${cliVersion()}, docx ${docxVersion()}, date ${timestamp.toISOString()}.\n`);
+    io.stdout(`stanza ${cliVersion()}, docx ${docxVersion()}, date ${timestamp.toISOString()}.\n`);
   } else {
     io.stdout('Nothing was written.\n');
   }

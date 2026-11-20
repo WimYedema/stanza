@@ -5,7 +5,7 @@ import {
   type FieldDeclaration,
   type MetaValue,
   type ProjectDefaults,
-} from '@phrase/core';
+} from '@stanza/core';
 import { el, option } from './styles-dom.js';
 
 interface MetadataInput {
@@ -313,12 +313,12 @@ export function createMetadataPanel(
     if (Object.keys(draft).length === 0)
       own.append(el('p', undefined, 'No explicit document values.'));
     const inheritedValues = section('Inherited values');
-    inheritedValues.append(el('small', 'metadata-origin', 'From phrase.yaml defaults'));
+    inheritedValues.append(el('small', 'metadata-origin', 'From stanza.yaml defaults'));
     for (const [name, value] of Object.entries(defaults)) {
       if (Object.hasOwn(draft, name)) continue;
       const property = row(name);
       const shown = el('div', 'metadata-value');
-      shown.title = 'From phrase.yaml defaults';
+      shown.title = 'From stanza.yaml defaults';
       shown.append(showValue(value));
       property.append(
         shown,
@@ -392,7 +392,7 @@ export function createMetadataPanel(
     const system = el('section');
     system.append(
       el('h3', undefined, 'System and generated values (read-only)'),
-      el('p', undefined, 'phrase-format: 1 - required by Phrase'),
+      el('p', undefined, 'stanza-format: 1 - required by Stanza'),
       el(
         'p',
         undefined,

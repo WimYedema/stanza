@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPhraseEditor, type PhraseEditor } from '@phrase/editor';
-import { parseDocument, parseStylesheet } from '@phrase/format';
+import { createStanzaEditor, type StanzaEditor } from '@stanza/editor';
+import { parseDocument, parseStylesheet } from '@stanza/format';
 import type { UsageSummary } from '../shared/protocol.js';
 import { createStyleInfo, type StyleInfo } from './style-info.js';
 
@@ -18,11 +18,11 @@ const STYLES_TEXT = readFileSync(
 const stylesheet = parseStylesheet(STYLES_TEXT).stylesheet;
 
 const TEXT = `---
-phrase-format: 1
+stanza-format: 1
 title: "T"
 ---
 
-<!-- phrase: #k7m2q9x4zb -->
+<!-- stanza: #k7m2q9x4zb -->
 # Title
 
 Some text.
@@ -33,20 +33,20 @@ Some text.
 `;
 
 const usage: UsageSummary = {
-  current: 'documents/one.phrase.md',
+  current: 'documents/one.stanza.md',
   paragraph: {
     body: [
-      { file: 'documents/one.phrase.md', direct: 0, default: 3, inherited: 5 },
-      { file: 'documents/two.phrase.md', direct: 1, default: 1, inherited: 0 },
+      { file: 'documents/one.stanza.md', direct: 0, default: 3, inherited: 5 },
+      { file: 'documents/two.stanza.md', direct: 1, default: 1, inherited: 0 },
     ],
-    'heading-1': [{ file: 'documents/two.phrase.md', direct: 0, default: 2, inherited: 0 }],
+    'heading-1': [{ file: 'documents/two.stanza.md', direct: 0, default: 2, inherited: 0 }],
   },
   character: {},
   table: {},
 };
 
 let root: HTMLElement;
-let editor: PhraseEditor;
+let editor: StanzaEditor;
 let info: StyleInfo;
 let present = true;
 const edit = vi.fn<(kind: 'paragraph-style' | 'table-style', name: string) => void>();
@@ -55,7 +55,7 @@ beforeEach(() => {
   root = document.createElement('div');
   const element = document.createElement('div');
   document.body.append(root, element);
-  editor = createPhraseEditor({
+  editor = createStanzaEditor({
     element,
     stylesheet,
     document: parseDocument(TEXT).document,
@@ -161,8 +161,8 @@ describe('where the style is used', () => {
     expect(text()).toContain('Used by 5 blocks in 2 documents.');
     const lines = [...root.querySelectorAll('li')].map((li) => li.textContent);
     expect(lines).toEqual([
-      'documents/one.phrase.md (this document): 3 by default, 5 through styles based on it',
-      'documents/two.phrase.md: 1 named, 1 by default',
+      'documents/one.stanza.md (this document): 3 by default, 5 through styles based on it',
+      'documents/two.stanza.md: 1 named, 1 by default',
     ]);
   });
 

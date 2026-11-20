@@ -17,15 +17,15 @@ const OTHERS = [
 
 /** A stylesheet with the given text for the style `body`, and the other reserved styles empty. */
 const sheet = (body: string): string =>
-  `phrase-format: 1\n\nparagraph-styles:\n${body}\n${OTHERS}\ntable-styles:\n  table: {}\n`;
+  `stanza-format: 1\n\nparagraph-styles:\n${body}\n${OTHERS}\ntable-styles:\n  table: {}\n`;
 
 /** A stylesheet with tokens, and the given text for the style `body`. */
 const withTokens = (body: string): string =>
-  `phrase-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\n  fonts:\n    body: ['Calibri']\nparagraph-styles:\n${body}${OTHERS}table-styles:\n  table: {}\n`;
+  `stanza-format: 1\ntokens:\n  colors:\n    brand: '#2E75B6'\n  fonts:\n    body: ['Calibri']\nparagraph-styles:\n${body}${OTHERS}table-styles:\n  table: {}\n`;
 
 /** A stylesheet with the given text for the table style `table`. */
 const withTable = (table: string): string =>
-  `phrase-format: 1\ntokens:\n  colors:\n    rule: '#BFBFBF'\n    surface: '#F2F2F2'\n    white: '#FFFFFF'\nparagraph-styles:\n  body: {}\n${OTHERS}table-styles:\n${table}`;
+  `stanza-format: 1\ntokens:\n  colors:\n    rule: '#BFBFBF'\n    surface: '#F2F2F2'\n    white: '#FFFFFF'\nparagraph-styles:\n  body: {}\n${OTHERS}table-styles:\n${table}`;
 
 const BODY = ['paragraph-styles', 'body'];
 
@@ -169,7 +169,7 @@ describe('setProperty', () => {
   });
 
   it('works on the last line of a file with no final newline', () => {
-    const source = `phrase-format: 1\ntable-styles:\n  table: {}\nparagraph-styles:\n${OTHERS}  body:\n    size: 11`;
+    const source = `stanza-format: 1\ntable-styles:\n  table: {}\nparagraph-styles:\n${OTHERS}  body:\n    size: 11`;
     expect(set(source, [...BODY, 'bold'], true)).toBe(`${source}\n    bold: true`);
   });
 
@@ -288,7 +288,7 @@ describe('unsetProperty', () => {
   });
 
   it('works on the last line of a file with no final newline', () => {
-    const head = `phrase-format: 1\ntable-styles:\n  table: {}\nparagraph-styles:\n${OTHERS}  body:\n    size: 11`;
+    const head = `stanza-format: 1\ntable-styles:\n  table: {}\nparagraph-styles:\n${OTHERS}  body:\n    size: 11`;
     expect(unset(`${head}\n    bold: true`, [...BODY, 'bold'])).toBe(head);
   });
 

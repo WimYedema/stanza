@@ -37,53 +37,53 @@ const two = documentOf(
   paragraph(run('back ', to(A)), run('gone', to(C)), run('and itself', to(B))),
 );
 const index = indexProjectReferences([
-  { file: 'one.phrase.md', document: one },
-  { file: 'two.phrase.md', document: two },
+  { file: 'one.stanza.md', document: one },
+  { file: 'two.stanza.md', document: two },
 ]);
 
 describe('the references of a project', () => {
   it('has the blocks of all documents as targets, with the document that holds each', () => {
     expect([...index.targets.values()].map((t) => [t.id, t.file, t.kind])).toEqual([
-      [A, 'one.phrase.md', 'heading'],
-      [B, 'two.phrase.md', 'heading'],
+      [A, 'one.stanza.md', 'heading'],
+      [B, 'two.stanza.md', 'heading'],
     ]);
   });
 
   it('keeps the references of each document, in the order of the documents', () => {
     expect(index.references.map((r) => [r.file, r.target])).toEqual([
-      ['one.phrase.md', B],
-      ['two.phrase.md', A],
-      ['two.phrase.md', C],
-      ['two.phrase.md', B],
+      ['one.stanza.md', B],
+      ['two.stanza.md', A],
+      ['two.stanza.md', C],
+      ['two.stanza.md', B],
     ]);
   });
 
   it('resolves a reference to a block of another document', () => {
-    expect(resolveProjectReference(index, B)?.file).toBe('two.phrase.md');
+    expect(resolveProjectReference(index, B)?.file).toBe('two.stanza.md');
     expect(resolveProjectReference(index, C)).toBeUndefined();
     expect(resolveProjectReference(index, 'my-title')).toBeUndefined();
   });
 
   it('finds the references that point at a block, in any document', () => {
     expect(findProjectIncoming(index, B).map((r) => [r.file, r.text])).toEqual([
-      ['one.phrase.md', 'Two'],
-      ['two.phrase.md', 'and itself'],
+      ['one.stanza.md', 'Two'],
+      ['two.stanza.md', 'and itself'],
     ]);
     expect(findProjectIncoming(index, C)).toHaveLength(1);
   });
 
   it('finds the broken ones with their document, and not one that is in another document', () => {
     expect(findProjectBroken(index).map((r) => [r.file, r.text])).toEqual([
-      ['two.phrase.md', 'gone'],
+      ['two.stanza.md', 'gone'],
     ]);
   });
 
   it('keeps the first of two blocks with the same ID', () => {
     const twice = indexProjectReferences([
-      { file: 'x.phrase.md', document: documentOf(heading(A, run('x'))) },
-      { file: 'y.phrase.md', document: documentOf(heading(A, run('y'))) },
+      { file: 'x.stanza.md', document: documentOf(heading(A, run('x'))) },
+      { file: 'y.stanza.md', document: documentOf(heading(A, run('y'))) },
     ]);
-    expect(twice.targets.get(A)?.file).toBe('x.phrase.md');
+    expect(twice.targets.get(A)?.file).toBe('x.stanza.md');
   });
 
   it('has the IDs of all blocks, for checking one document among several', () => {

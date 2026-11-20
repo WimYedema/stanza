@@ -9,8 +9,8 @@ import {
   type Paragraph,
   type TableCell,
   type Text,
-} from '@phrase/core';
-import { parseDocument, parseStylesheet } from '@phrase/format';
+} from '@stanza/core';
+import { parseDocument, parseStylesheet } from '@stanza/format';
 import { exportDocx, type ExportResult } from './export.js';
 
 const STYLESHEET_TEXT = readFileSync(
@@ -20,10 +20,10 @@ const STYLESHEET_TEXT = readFileSync(
 const stylesheet = parseStylesheet(STYLESHEET_TEXT).stylesheet;
 
 const TIMESTAMP = new Date('2026-03-04T05:06:07Z');
-const HEADER = '---\nphrase-format: 1\n---\n\n';
+const HEADER = '---\nstanza-format: 1\n---\n\n';
 
 function read(body: string, front = '') {
-  const source = front === '' ? HEADER + body : `---\nphrase-format: 1\n${front}---\n\n${body}`;
+  const source = front === '' ? HEADER + body : `---\nstanza-format: 1\n${front}---\n\n${body}`;
   const parsed = parseDocument(source);
   expect(parsed.diagnostics).toEqual([]);
   return parsed.document;
@@ -50,7 +50,7 @@ async function build(body: string, sheet = stylesheet, front = '') {
   };
 }
 
-const heading = (text: string): string => `<!-- phrase: #k7m2q9x4zb -->\n# ${text}\n\n`;
+const heading = (text: string): string => `<!-- stanza: #k7m2q9x4zb -->\n# ${text}\n\n`;
 const partOf = (result: Awaited<ReturnType<typeof build>>, kind: 'header' | 'footer'): string => {
   const name = result.names.find((n) => new RegExp(`^word/${kind}\\d*\\.xml$`).test(n));
   return name === undefined ? '' : result.part(name);
@@ -64,7 +64,7 @@ afterEach(() => {
 describe('exportDocx', () => {
   it('exports resolved scheme destinations deterministically, leaving source links unchanged', async () => {
     const document = read(
-      '- [ticket](jira://PROJ-123)\n\n<!-- phrase: #aaaaaaaaaa -->\n| H |\n| --- |\n| [item](jira://PROJ-456) |\n',
+      '- [ticket](jira://PROJ-123)\n\n<!-- stanza: #aaaaaaaaaa -->\n| H |\n| --- |\n| [item](jira://PROJ-456) |\n',
     );
     const before = JSON.stringify(document);
     const options = {
@@ -129,14 +129,14 @@ describe('exportDocx', () => {
   it('writes no character style when a mark changes nothing', async () => {
     // heading-4 is italic already, so emphasis adds nothing.
     const { documentXml } = await build(
-      '<!-- phrase: #k7m2q9x4zb -->\n#### Four with *emphasis*\n',
+      '<!-- stanza: #k7m2q9x4zb -->\n#### Four with *emphasis*\n',
     );
     expect(documentXml).not.toContain('<w:rStyle');
   });
 
   it('applies character styles without the toggle problem in a bold heading', async () => {
     const { documentXml, stylesXml } = await build(
-      '<!-- phrase: #k7m2q9x4zb -->\n# Heading with <span class="marker">marked</span> text\n',
+      '<!-- stanza: #k7m2q9x4zb -->\n# Heading with <span class="marker">marked</span> text\n',
     );
     expect(documentXml).toContain('<w:rStyle w:val="Heading1Marker"/>');
     const style = /<w:style [^>]*w:styleId="Heading1Marker".*?<\/w:style>/s.exec(stylesXml)?.[0];
@@ -157,12 +157,12 @@ describe('exportDocx', () => {
 
   it('writes a link to a block as an internal hyperlink to its bookmark', async () => {
     const { documentXml, relsXml } = await build(
-      '<!-- phrase: #k7m2q9x4zb -->\n# Target\n\nSee [the **big** part](#k7m2q9x4zb) and [a cell](#k7m2q9x4zb).\n\n| H |\n| --- |\n| [in a cell](#k7m2q9x4zb) |\n',
+      '<!-- stanza: #k7m2q9x4zb -->\n# Target\n\nSee [the **big** part](#k7m2q9x4zb) and [a cell](#k7m2q9x4zb).\n\n| H |\n| --- |\n| [in a cell](#k7m2q9x4zb) |\n',
     );
-    expect(documentXml.match(/<w:hyperlink [^>]*w:anchor="phrase_k7m2q9x4zb"/g)).toHaveLength(3);
+    expect(documentXml.match(/<w:hyperlink [^>]*w:anchor="stanza_k7m2q9x4zb"/g)).toHaveLength(3);
     expect(documentXml).not.toMatch(/<w:hyperlink [^>]*r:id=/);
     expect(relsXml).not.toContain('Target="#');
-    expect(documentXml).toContain('<w:bookmarkStart w:name="phrase_k7m2q9x4zb"');
+    expect(documentXml).toContain('<w:bookmarkStart w:name="stanza_k7m2q9x4zb"');
     expect(documentXml).toContain('<w:rStyle w:val="NormalLink"/>');
   });
 
@@ -176,7 +176,7 @@ describe('exportDocx', () => {
 
   describe('a link to a block of another document of the project', () => {
     const body = 'See [the other](#a1b2c3d4e5) and [this](#k7m2q9x4zb).\n';
-    const own = '<!-- phrase: #k7m2q9x4zb -->\n# Own\n\n';
+    const own = '<!-- stanza: #k7m2q9x4zb -->\n# Own\n\n';
     const exportWith = (otherTargets?: ReadonlyMap<string, { href: string; built: boolean }>) =>
       exportDocx(read(own + body), stylesheet, {
         timestamp: TIMESTAMP,
@@ -197,8 +197,8 @@ describe('exportDocx', () => {
       const xml = strFromU8(
         unzipSync(result.bytes ?? new Uint8Array())['word/document.xml'] ?? new Uint8Array(),
       );
-      expect(xml).toContain('w:anchor="phrase_k7m2q9x4zb">');
-      expect(xml).toMatch(/w:anchor="phrase_a1b2c3d4e5" r:id="rId\d+"/);
+      expect(xml).toContain('w:anchor="stanza_k7m2q9x4zb">');
+      expect(xml).toMatch(/w:anchor="stanza_a1b2c3d4e5" r:id="rId\d+"/);
       expect(xml.match(/<w:hyperlink /g)).toHaveLength(2);
     });
 
@@ -245,7 +245,7 @@ describe('exportDocx', () => {
         'keep-with-next: true\n    page-break-before: true',
       ),
     ).stylesheet;
-    const { documentXml, stylesXml } = await build('<!-- phrase: .cover-title -->\nCover\n', sheet);
+    const { documentXml, stylesXml } = await build('<!-- stanza: .cover-title -->\nCover\n', sheet);
     expect(documentXml).not.toContain('pageBreakBefore');
     expect(styleXml(stylesXml, 'CoverTitle')).toMatch(/<w:pPr><w:pageBreakBefore\/>/);
     expect(styleXml(stylesXml, 'Heading1')).toMatch(
@@ -258,19 +258,19 @@ describe('exportDocx', () => {
   it('wraps the content of a block that has an ID in a bookmark named after it', async () => {
     const { documentXml } = await build(`${heading('Title')}Text.\n`);
     expect(documentXml).toMatch(
-      /<w:p><w:pPr><w:pStyle w:val="Heading1"\/><\/w:pPr><w:bookmarkStart [^>]*w:name="phrase_k7m2q9x4zb"[^>]*w:id="1"[^>]*\/><w:r>.*<\/w:r><w:bookmarkEnd w:id="1"\/><\/w:p>/,
+      /<w:p><w:pPr><w:pStyle w:val="Heading1"\/><\/w:pPr><w:bookmarkStart [^>]*w:name="stanza_k7m2q9x4zb"[^>]*w:id="1"[^>]*\/><w:r>.*<\/w:r><w:bookmarkEnd w:id="1"\/><\/w:p>/,
     );
     expect(documentXml.match(/<w:bookmarkStart /g)).toHaveLength(1);
   });
 
   it('names bookmarks so that they start with a letter, and numbers them in document order', async () => {
     const { documentXml } = await build(
-      '<!-- phrase: #0123456789 -->\n# First\n\n<!-- phrase: #a1b2c3d4e5 -->\nA paragraph.\n\n<!-- phrase: #zzzzzzzzzz -->\n## Third\n',
+      '<!-- stanza: #0123456789 -->\n# First\n\n<!-- stanza: #a1b2c3d4e5 -->\nA paragraph.\n\n<!-- stanza: #zzzzzzzzzz -->\n## Third\n',
     );
     const starts = [...documentXml.matchAll(/<w:bookmarkStart [^>]*>/g)].map((m) => m[0]);
     expect(starts).toHaveLength(3);
-    expect(starts[0]).toContain('w:name="phrase_0123456789"');
-    expect(starts[1]).toContain('w:name="phrase_a1b2c3d4e5"');
+    expect(starts[0]).toContain('w:name="stanza_0123456789"');
+    expect(starts[1]).toContain('w:name="stanza_a1b2c3d4e5"');
     expect(starts.map((tag) => /w:id="(\d+)"/.exec(tag)?.[1])).toEqual(['1', '2', '3']);
     expect(documentXml.match(/<w:bookmarkEnd w:id="[123]"\/>/g)).toHaveLength(3);
   });
@@ -356,7 +356,7 @@ describe('exportDocx heading numbers', () => {
   it('puts the number inside the bookmark of the heading', async () => {
     const { documentXml } = await build(heading('Title'));
     expect(documentXml).toMatch(
-      /<w:bookmarkStart [^>]*phrase_k7m2q9x4zb[^>]*\/><w:r><w:t xml:space="preserve">1 <\/w:t><\/w:r>/,
+      /<w:bookmarkStart [^>]*stanza_k7m2q9x4zb[^>]*\/><w:r><w:t xml:space="preserve">1 <\/w:t><\/w:r>/,
     );
   });
 
@@ -448,7 +448,7 @@ describe('exportDocx tables', () => {
 
     it('come to a derived table style through its base', async () => {
       const { stylesXml } = await build(
-        '<!-- phrase: .table-grid -->\n| A |\n| --- |\n| b |\n',
+        '<!-- stanza: .table-grid -->\n| A |\n| --- |\n| b |\n',
         banded,
       );
       expect(styleXml(stylesXml, 'TableGrid')).toContain('w:type="band1Horz"');
@@ -458,7 +458,7 @@ describe('exportDocx tables', () => {
 
   it('writes inherited properties into the derived table style and keeps it independent', async () => {
     const { stylesXml, documentXml } = await build(
-      '<!-- phrase: .table-grid -->\n| A |\n| --- |\n| b |\n',
+      '<!-- stanza: .table-grid -->\n| A |\n| --- |\n| b |\n',
     );
     const grid = styleXml(stylesXml, 'TableGrid');
     expect(grid).toContain('insideV');
@@ -472,7 +472,7 @@ describe('exportDocx tables', () => {
 
   it('writes relative widths as percentages, and none for an autofit table', async () => {
     const weighted = await build(
-      '<!-- phrase: widths="30 70" -->\n| A | B |\n| - | - |\n| 1 | 2 |\n',
+      '<!-- stanza: widths="30 70" -->\n| A | B |\n| - | - |\n| 1 | 2 |\n',
     );
     expect(weighted.documentXml.match(/<w:tcW [^>]*w:w="30%"/g)).toHaveLength(2);
     expect(weighted.documentXml.match(/<w:tcW [^>]*w:w="70%"/g)).toHaveLength(2);
@@ -497,10 +497,10 @@ describe('exportDocx tables', () => {
   });
 
   it('puts the ID of a table in a bookmark around the first header cell', async () => {
-    const { documentXml } = await build(`<!-- phrase: #k7m2q9x4zb -->\n${TABLE}`);
+    const { documentXml } = await build(`<!-- stanza: #k7m2q9x4zb -->\n${TABLE}`);
     expect(documentXml.match(/<w:bookmarkStart /g)).toHaveLength(1);
     expect(documentXml).toMatch(
-      /<w:bookmarkStart [^>]*phrase_k7m2q9x4zb[^>]*\/><w:r><w:t[^>]*>Name<\/w:t><\/w:r><w:bookmarkEnd/,
+      /<w:bookmarkStart [^>]*stanza_k7m2q9x4zb[^>]*\/><w:r><w:t[^>]*>Name<\/w:t><\/w:r><w:bookmarkEnd/,
     );
   });
 
@@ -630,9 +630,9 @@ describe('exportDocx headers and footers', () => {
 
   it('leaves out a slot line that has no tabs when only the left slot is used', async () => {
     const sheetText = STYLESHEET_TEXT.replace(
-      "      right: '[](phrase:classification)'\r\n",
+      "      right: '[](stanza:classification)'\r\n",
       '',
-    ).replace("      right: '[](phrase:classification)'\n", '');
+    ).replace("      right: '[](stanza:classification)'\n", '');
     const result = await build('Text.\n', parseStylesheet(sheetText).stylesheet, 'title: "T"\n');
     const header = partOf(result, 'header');
     expect(header).toContain('>T<');
@@ -651,7 +651,7 @@ describe('exportDocx headers and footers', () => {
 
 describe('exportDocx diagnostics', () => {
   it('refuses a document that does not validate', async () => {
-    const result = await exportDocx(read('<!-- phrase: .missing -->\nText.\n'), stylesheet, {
+    const result = await exportDocx(read('<!-- stanza: .missing -->\nText.\n'), stylesheet, {
       timestamp: TIMESTAMP,
     });
     expect(result.bytes).toBeUndefined();
@@ -812,9 +812,9 @@ describe('exportDocx lists', () => {
   });
 
   it('puts the ID of a list in a bookmark on its first paragraph only', async () => {
-    const { documentXml } = await build('<!-- phrase: #k7m2q9x4zb -->\n- one\n- two\n');
+    const { documentXml } = await build('<!-- stanza: #k7m2q9x4zb -->\n- one\n- two\n');
     expect(documentXml.match(/<w:bookmarkStart /g)).toHaveLength(1);
-    expect(documentXml).toMatch(/<w:numPr>.*?<\/w:pPr><w:bookmarkStart [^>]*phrase_k7m2q9x4zb/);
+    expect(documentXml).toMatch(/<w:numPr>.*?<\/w:pPr><w:bookmarkStart [^>]*stanza_k7m2q9x4zb/);
   });
 
   it('indents a code block in a list item under the text, in the style of the block', async () => {
@@ -839,7 +839,7 @@ describe('exportDocx lists', () => {
   });
 
   it('indents a further paragraph with its own style under the text of the item', async () => {
-    const { documentXml } = await build('- one\n\n  <!-- phrase: .cover-title -->\n  Title\n');
+    const { documentXml } = await build('- one\n\n  <!-- stanza: .cover-title -->\n  Title\n');
     expect(documentXml).toContain('<w:pStyle w:val="CoverTitleInListBulleted1"/>');
   });
 
@@ -879,8 +879,8 @@ describe('exportDocx lists', () => {
 
 describe('exportDocx table of contents', () => {
   const body = (toc: string): string =>
-    `${toc}\n\n<!-- phrase: #k7m2q9x4zb -->\n# One\n\n<!-- phrase: #a1b2c3d4e5 -->\n## Two\n\n### Three\n\n`;
-  const TOC = '```phrase-toc\ndepth: 2\n```';
+    `${toc}\n\n<!-- stanza: #k7m2q9x4zb -->\n# One\n\n<!-- stanza: #a1b2c3d4e5 -->\n## Two\n\n### Three\n\n`;
+  const TOC = '```stanza-toc\ndepth: 2\n```';
   const noPageNumbers = { ...stylesheet, tableOfContents: { pageNumbers: false } };
 
   it('writes a Word field that Word fills in on opening, with the entries as its cache', async () => {
@@ -900,9 +900,9 @@ describe('exportDocx table of contents', () => {
 
   it('links each entry to the bookmark of its heading', async () => {
     const { documentXml } = await build(body(TOC));
-    expect(documentXml).toContain('w:anchor="phrase_k7m2q9x4zb"');
-    expect(documentXml).toContain('w:anchor="phrase_a1b2c3d4e5"');
-    expect(documentXml).toContain('<w:bookmarkStart w:name="phrase_k7m2q9x4zb" w:id="1"/>');
+    expect(documentXml).toContain('w:anchor="stanza_k7m2q9x4zb"');
+    expect(documentXml).toContain('w:anchor="stanza_a1b2c3d4e5"');
+    expect(documentXml).toContain('<w:bookmarkStart w:name="stanza_k7m2q9x4zb" w:id="1"/>');
   });
 
   it('lets Word find the headings by the outline level of their styles', async () => {
@@ -918,7 +918,7 @@ describe('exportDocx table of contents', () => {
   });
 
   it('reads the depth from the block, and defaults to 3', async () => {
-    const { documentXml } = await build(body('```phrase-toc\n```'));
+    const { documentXml } = await build(body('```stanza-toc\n```'));
     expect(documentXml).toContain('\\o &quot;1-3&quot;');
     expect(documentXml.match(/<w:pStyle w:val="TOC\d"\/>/g)).toHaveLength(3);
   });
@@ -937,7 +937,7 @@ describe('exportDocx table of contents', () => {
     expect(documentXml).not.toContain('TOC \\h');
     expect(documentXml).not.toContain('<w:tab ');
     expect(documentXml).toContain('<w:pStyle w:val="TOC2"/>');
-    expect(documentXml).toContain('w:anchor="phrase_a1b2c3d4e5"');
+    expect(documentXml).toContain('w:anchor="stanza_a1b2c3d4e5"');
     expect(documentXml).toContain('1.1 Two');
   });
 
@@ -965,7 +965,7 @@ describe('exportDocx cover page', () => {
   const FRONT =
     'page-template: "page-letter"\ntitle: "My Doc"\nauthors:\n  - "Ann"\n  - "Bob"\nclassification: "Internal"\ndocument-number: "D-1"\nreviewers:\n  - "Cy"\n  - "Di"\n';
   const sections = (xml: string): string[] => xml.match(/<w:sectPr>.*?<\/w:sectPr>/gs) ?? [];
-  const body = '<!-- phrase: #k7m2q9x4zb -->\n# One\n\nText.\n';
+  const body = '<!-- stanza: #k7m2q9x4zb -->\n# One\n\nText.\n';
 
   it('writes the cover with the metadata filled in, before the body', async () => {
     const { documentXml, result } = await build(body, stylesheet, FRONT);
@@ -1023,14 +1023,14 @@ describe('exportDocx cover page', () => {
 
   it('shows the label of a missing value, and writes no cover when nothing is left', async () => {
     const withLabels = parseStylesheet(
-      STYLESHEET_TEXT.replace("'[](phrase:authors)'", "'by [anyone](phrase:authors)'"),
+      STYLESHEET_TEXT.replace("'[](stanza:authors)'", "'by [anyone](stanza:authors)'"),
     ).stylesheet;
     const labelled = await build(body, withLabels, 'page-template: "page-letter"\n');
     expect(labelled.documentXml).toContain('>by anyone<');
     expect(labelled.documentXml).toContain('>Untitled<');
     const emptied = parseStylesheet(
-      STYLESHEET_TEXT.replace("'[Untitled](phrase:title)'", "''").replace(
-        "'[](phrase:authors)'",
+      STYLESHEET_TEXT.replace("'[Untitled](stanza:title)'", "''").replace(
+        "'[](stanza:authors)'",
         "''",
       ),
     ).stylesheet;
@@ -1055,7 +1055,7 @@ describe('exportDocx cover page', () => {
   });
 
   it('puts a table of contents after the cover', async () => {
-    const { documentXml } = await build(`\`\`\`phrase-toc\n\`\`\`\n\n${body}`, stylesheet, FRONT);
+    const { documentXml } = await build(`\`\`\`stanza-toc\n\`\`\`\n\n${body}`, stylesheet, FRONT);
     expect(documentXml.indexOf('Table of Contents')).toBeGreaterThan(
       documentXml.indexOf('</w:sectPr>'),
     );

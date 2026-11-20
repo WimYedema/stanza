@@ -3,9 +3,9 @@ import {
   readTocOptions,
   tocStyleName,
   type Block,
-  type PhraseBlock,
+  type StanzaBlock,
   type TocEntry,
-} from '@phrase/core';
+} from '@stanza/core';
 import { InternalHyperlink, Paragraph, TableOfContents, TextRun, type ParagraphChild } from 'docx';
 import { bookmarkName } from './bookmark-name.js';
 import type { BuildContext } from './content.js';
@@ -29,7 +29,7 @@ function plainEntries(entries: readonly TocEntry[]): Paragraph[] {
  * linked before that, with an empty page number. Without page numbers it is plain text.
  */
 export function buildToc(
-  block: PhraseBlock,
+  block: StanzaBlock,
   blocks: readonly Block[],
   context: BuildContext,
 ): (Paragraph | TableOfContents)[] {

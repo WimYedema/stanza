@@ -27,7 +27,7 @@ export default tseslint.config(
     files: ['packages/core/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
-      ['@phrase/*', 'node:*'],
+      ['@stanza/*', 'node:*'],
       'core must not import other packages or Node built-ins.',
     ),
   },
@@ -35,39 +35,39 @@ export default tseslint.config(
     files: ['packages/format/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', 'node:*'],
-      'format may import only @phrase/core and no Node built-ins.',
+      ['@stanza/*', '!@stanza/core', 'node:*'],
+      'format may import only @stanza/core and no Node built-ins.',
     ),
   },
   {
     files: ['packages/export-docx/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', 'node:*'],
-      'export-docx may import only @phrase/core and no Node built-ins.',
+      ['@stanza/*', '!@stanza/core', 'node:*'],
+      'export-docx may import only @stanza/core and no Node built-ins.',
     ),
   },
   {
     files: ['packages/import-docx/src/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.testing.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', 'node:*'],
-      'import-docx may import only @phrase/core and no Node built-ins.',
+      ['@stanza/*', '!@stanza/core', 'node:*'],
+      'import-docx may import only @stanza/core and no Node built-ins.',
     ),
   },
   {
     files: ['packages/css/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', 'node:*'],
-      'css may import only @phrase/core and no Node built-ins.',
+      ['@stanza/*', '!@stanza/core', 'node:*'],
+      'css may import only @stanza/core and no Node built-ins.',
     ),
   },
   {
     files: ['packages/editor/src/**/*.ts'],
     ignores: ['**/*.test.ts', '**/*.testing.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', '!@phrase/css', 'node:*'],
+      ['@stanza/*', '!@stanza/core', '!@stanza/css', 'node:*'],
       'editor may import only core and css, and no Node built-ins.',
     ),
   },
@@ -76,11 +76,11 @@ export default tseslint.config(
     ignores: ['**/*.test.ts', '**/*.testing.ts'],
     rules: restrictImports(
       [
-        '@phrase/*',
-        '!@phrase/core',
-        '!@phrase/format',
-        '!@phrase/export-docx',
-        '!@phrase/import-docx',
+        '@stanza/*',
+        '!@stanza/core',
+        '!@stanza/format',
+        '!@stanza/export-docx',
+        '!@stanza/import-docx',
         'node:*',
       ],
       'project may import core, format, export-docx and import-docx, and no Node built-ins.',
@@ -90,7 +90,7 @@ export default tseslint.config(
     files: ['packages/vscode/src/host/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', '!@phrase/format', '!@phrase/project'],
+      ['@stanza/*', '!@stanza/core', '!@stanza/format', '!@stanza/project'],
       'The host side of the extension may import core, format and project, and not the editor.',
     ),
   },
@@ -99,11 +99,11 @@ export default tseslint.config(
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
       [
-        '@phrase/*',
-        '!@phrase/core',
-        '!@phrase/css',
-        '!@phrase/format',
-        '!@phrase/editor',
+        '@stanza/*',
+        '!@stanza/core',
+        '!@stanza/css',
+        '!@stanza/format',
+        '!@stanza/editor',
         'vscode',
         'node:*',
       ],
@@ -114,7 +114,7 @@ export default tseslint.config(
     files: ['packages/vscode/src/shared/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
-      ['@phrase/*', 'vscode', 'node:*'],
+      ['@stanza/*', 'vscode', 'node:*'],
       'The messages are plain data and import nothing.',
     ),
   },
@@ -122,7 +122,7 @@ export default tseslint.config(
     files: ['packages/cli/src/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: restrictImports(
-      ['@phrase/*', '!@phrase/core', '!@phrase/project'],
+      ['@stanza/*', '!@stanza/core', '!@stanza/project'],
       'cli may import only core and project.',
     ),
   },

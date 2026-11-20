@@ -1,6 +1,6 @@
-import { createPhraseEditor, type PhraseEditor } from '@phrase/editor';
-import { parseStylesheet } from '@phrase/format';
-import type { Diagnostic, Stylesheet } from '@phrase/core';
+import { createStanzaEditor, type StanzaEditor } from '@stanza/editor';
+import { parseStylesheet } from '@stanza/format';
+import type { Diagnostic, Stylesheet } from '@stanza/core';
 import type { Reason } from '../shared/protocol.js';
 import {
   parseStylesHostMessage,
@@ -37,9 +37,9 @@ const refused = element('refused');
 const problems = element('problems');
 const sample = element('sample');
 const nonce =
-  document.querySelector('meta[name="phrase-nonce"]')?.getAttribute('content') ?? undefined;
+  document.querySelector('meta[name="stanza-nonce"]')?.getAttribute('content') ?? undefined;
 
-let editor: PhraseEditor | undefined;
+let editor: StanzaEditor | undefined;
 let latest: Stylesheet | undefined;
 
 const detail = element('detail');
@@ -116,7 +116,7 @@ function show(text: string): void {
   const sampleDoc = sampleDocument(parsed.stylesheet);
   latest = parsed.stylesheet;
   if (editor === undefined) {
-    editor = createPhraseEditor({
+    editor = createStanzaEditor({
       element: sample,
       stylesheet: parsed.stylesheet,
       document: sampleDoc,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { normalized, reviewText } from './review.js';
 
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
 
 describe('reviewText', () => {
   it('takes a canonical text', () => {
@@ -34,16 +34,16 @@ describe('reviewText', () => {
   });
 
   it('takes a table with paragraphs and lists in its cells, which the editor shows', () => {
-    const rich = '```phrase-table\n- - H\n- - one\n\n    two\n```\n';
-    const list = `- item\n\n  \`\`\`phrase-table\n  - - H\n  - - one\n\n      two\n  \`\`\`\n`;
+    const rich = '```stanza-table\n- - H\n- - one\n\n    two\n```\n';
+    const list = `- item\n\n  \`\`\`stanza-table\n  - - H\n  - - one\n\n      two\n  \`\`\`\n`;
     for (const body of [rich, list]) {
       expect(reviewText(`${FRONT}${body}`)).toEqual({ ok: true, text: `${FRONT}${body}` });
     }
   });
 
-  it('takes a table of plain cells, also when it was written as a phrase-table', () => {
+  it('takes a table of plain cells, also when it was written as a stanza-table', () => {
     expect(reviewText(`${FRONT}| H |\n| --- |\n| a |\n`).ok).toBe(true);
-    const written = reviewText(`${FRONT}\`\`\`phrase-table\n- - H\n- - a\n\`\`\`\n`);
+    const written = reviewText(`${FRONT}\`\`\`stanza-table\n- - H\n- - a\n\`\`\`\n`);
     expect(written.ok).toBe(false);
     if (written.ok) return;
     expect(written.formatted).toBe(`${FRONT}| H |\n| --- |\n| a |\n`);

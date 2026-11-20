@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseStylesheet } from '@phrase/format';
+import { parseStylesheet } from '@stanza/format';
 import {
   describeEntry,
   displayName,

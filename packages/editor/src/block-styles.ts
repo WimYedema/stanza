@@ -10,7 +10,7 @@ import {
   type StyleName,
   type Stylesheet,
   type VariantMark,
-} from '@phrase/core';
+} from '@stanza/core';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import { cellPlace, tableDepth } from './selection.js';
 

@@ -10,7 +10,7 @@ import {
   type PageSize,
   type PageTemplate,
   type SlotPart,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   asMap,
   checkKeys,
@@ -26,8 +26,8 @@ import {
 
 const MARGIN_SIDES = ['top', 'right', 'bottom', 'left'] as const;
 
-/** A token is written as a link whose target is `phrase:` and the token name (ADR 0017). */
-const SLOT_LINK = /\[([^\]]*)\]\(phrase:([^)\s]*)\)/g;
+/** A token is written as a link whose target is `stanza:` and the token name (ADR 0017). */
+const SLOT_LINK = /\[([^\]]*)\]\(stanza:([^)\s]*)\)/g;
 
 /** A custom metadata field is written `field:<name>`, with a kebab-case name. */
 const FIELD_TOKEN = /^field:([a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/;

@@ -1,4 +1,4 @@
-import { isNodeId, needsId } from '@phrase/core';
+import { isNodeId, needsId } from '@stanza/core';
 import { Extension, getChangedRanges } from '@tiptap/core';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, type Transaction } from '@tiptap/pm/state';
@@ -59,7 +59,7 @@ export const BlockIds = Extension.create<BlockIdsOptions>({
     const { newId, usedIds, notice } = this.options;
     return [
       new Plugin({
-        key: new PluginKey('phrase-block-ids'),
+        key: new PluginKey('stanza-block-ids'),
         appendTransaction(transactions, _before, state) {
           if (!transactions.some((transaction) => transaction.docChanged)) return null;
           if (transactions.some((transaction) => transaction.getMeta('preventUpdate') === true)) {

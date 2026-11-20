@@ -7,8 +7,8 @@ describe('lineOf', () => {
     ['  7 ', 7],
     ['L42', 42],
     ['#L120', 120],
-    ['documents/threat-model.phrase.md#L88', 88],
-    ['documents/a.phrase.md:5', 5],
+    ['documents/threat-model.stanza.md#L88', 88],
+    ['documents/a.stanza.md:5', 5],
   ])('takes the line from %j', (input, line) => {
     expect(lineOf(input)).toBe(line);
   });

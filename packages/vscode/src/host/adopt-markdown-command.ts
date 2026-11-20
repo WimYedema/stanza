@@ -1,13 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import type * as vscode from 'vscode';
-import { adoptMarkdownDocument } from '@phrase/project';
+import { adoptMarkdownDocument } from '@stanza/project';
 import { registerBringIn } from './bring-in-command.js';
 
-export const ADOPT_MARKDOWN_COMMAND = 'phrase.adoptMarkdown';
+export const ADOPT_MARKDOWN_COMMAND = 'stanza.adoptMarkdown';
 
 /**
- * "Phrase: Adopt Markdown File" adds an ordinary Markdown file to a project as a new document and
- * opens it. What the dialect cannot hold is written to the Phrase output (ADR 0060).
+ * "Stanza: Adopt Markdown File" adds an ordinary Markdown file to a project as a new document and
+ * opens it. What the dialect cannot hold is written to the Stanza output (ADR 0060).
  */
 export function registerAdoptMarkdown(log: vscode.OutputChannel): vscode.Disposable {
   return registerBringIn(

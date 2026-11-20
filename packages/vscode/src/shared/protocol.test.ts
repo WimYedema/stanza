@@ -151,9 +151,9 @@ describe('parseHostMessage', () => {
     const usage = {
       type: 'usage',
       usage: {
-        current: 'documents/a.phrase.md',
+        current: 'documents/a.stanza.md',
         paragraph: {
-          body: [{ file: 'documents/a.phrase.md', direct: 0, default: 4, inherited: 1 }],
+          body: [{ file: 'documents/a.stanza.md', direct: 0, default: 4, inherited: 1 }],
         },
         character: {},
         table: {},

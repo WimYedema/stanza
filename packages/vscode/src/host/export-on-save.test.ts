@@ -9,11 +9,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: {}
@@ -28,18 +28,18 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
-const GOOD = `${FRONT}<!-- phrase: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
-const BAD = `${FRONT}<!-- phrase: .missing -->\nText\n`;
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
+const GOOD = `${FRONT}<!-- stanza: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
+const BAD = `${FRONT}<!-- stanza: .missing -->\nText\n`;
 
-const DOCUMENT = '/w/p/documents/one.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
 const OUTPUT = '/w/p/build/documents/one.docx';
 const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
 
 function open(text = GOOD, extra: Record<string, string> = {}, project = true): void {
   reset(
     {
-      ...(project ? { '/w/p/phrase.yaml': PROJECT, '/w/p/styles/default.yaml': STYLESHEET } : {}),
+      ...(project ? { '/w/p/stanza.yaml': PROJECT, '/w/p/styles/default.yaml': STYLESHEET } : {}),
       [DOCUMENT]: text,
       ...extra,
     },
@@ -64,7 +64,7 @@ describe('saving a document', () => {
       expect(world.files.has(OUTPUT)).toBe(true);
     });
     expect(world.directories).toContain('/w/p/build/documents');
-    expect(world.status).toEqual(['Phrase: exported build/documents/one.docx']);
+    expect(world.status).toEqual(['Stanza: exported build/documents/one.docx']);
     expect(world.errors).toEqual([]);
   });
 

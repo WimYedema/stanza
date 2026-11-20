@@ -5,7 +5,7 @@ import {
   type StyleName,
   type Stylesheet,
   type TextProps,
-} from '@phrase/core';
+} from '@stanza/core';
 import { colorHex, fontFamily } from './docx-props.js';
 import { wordStyleId, wordStyleName } from './style-ids.js';
 

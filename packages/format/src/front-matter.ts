@@ -1,10 +1,11 @@
-import type { Diagnostic, DocumentMeta, MetaValue } from '@phrase/core';
+import type { Diagnostic, DocumentMeta, MetaValue } from '@stanza/core';
 import { parseDocument } from 'yaml';
+import { LEGACY_FORMAT_CODE, LEGACY_FORMAT_KEY, LEGACY_FORMAT_MESSAGE } from './legacy.js';
 
 export const FORMAT_VERSION = 1;
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
-const HARDCODED_KEYS = new Set(['phrase-format', 'title', 'authors', 'classification']);
+const HARDCODED_KEYS = new Set(['stanza-format', 'title', 'authors', 'classification']);
 
 export interface FrontMatter {
   readonly formatVersion: number | undefined;
@@ -58,9 +59,12 @@ export function parseFrontMatter(
   for (const [key, raw] of Object.entries(data)) {
     const value: unknown = raw ?? '';
     switch (key) {
-      case 'phrase-format':
+      case 'stanza-format':
         if (typeof value === 'string' && /^\d+$/.test(value)) formatVersion = Number(value);
-        else report('front-matter-invalid', '"phrase-format" must be a whole number.');
+        else report('front-matter-invalid', '"stanza-format" must be a whole number.');
+        break;
+      case LEGACY_FORMAT_KEY:
+        report(LEGACY_FORMAT_CODE, LEGACY_FORMAT_MESSAGE);
         break;
       case 'title':
         if (typeof value === 'string') title = value;
@@ -108,7 +112,7 @@ function entry(key: string, value: MetaValue): string[] {
 
 /** Front matter in canonical order, ending with the closing `---` line. */
 export function serializeFrontMatter(meta: DocumentMeta): string[] {
-  const lines = ['---', `phrase-format: ${String(FORMAT_VERSION)}`];
+  const lines = ['---', `stanza-format: ${String(FORMAT_VERSION)}`];
   if (meta.title !== undefined) lines.push(...entry('title', meta.title));
   if (meta.authors !== undefined) lines.push(...entry('authors', meta.authors));
   if (meta.classification !== undefined) {

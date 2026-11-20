@@ -7,10 +7,10 @@ import {
   validateDocument,
   validateStylesheet,
   type Diagnostic,
-  type Document as PhraseDocument,
+  type Document as StanzaDocument,
   type Stylesheet,
   type LinkSchemes,
-} from '@phrase/core';
+} from '@stanza/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext, type ReferenceFile } from './content.js';
 import { footerOf, headerOf } from './header-footer.js';
@@ -30,7 +30,7 @@ export interface ExportOptions {
    * The blocks of the other documents of the project, by ID, with the DOCX file of the document
    * that holds each. A reference to one of them is a link to that file (ADR 0073). Without it the
    * document stands alone, and a reference must point at a block of its own.
-   * File-only Phrase links are keyed by their complete source href instead of an ID.
+   * File-only Stanza links are keyed by their complete source href instead of an ID.
    */
   readonly otherTargets?: ReadonlyMap<string, ReferenceFile>;
 }
@@ -46,7 +46,7 @@ const hasErrors = (diagnostics: readonly Diagnostic[]): boolean =>
 
 /** Writes a validated document as a DOCX package with named styles. */
 export async function exportDocx(
-  document: PhraseDocument,
+  document: StanzaDocument,
   stylesheet: Stylesheet,
   options: ExportOptions,
 ): Promise<ExportResult> {

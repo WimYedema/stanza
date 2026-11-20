@@ -1,8 +1,8 @@
 import type { ProjectDiagnostic } from './diagnostics.js';
 import type { ProjectStorage } from './storage.js';
 
-export const PROJECT_FILE = 'phrase.yaml';
-export const DOCUMENT_SUFFIX = '.phrase.md';
+export const PROJECT_FILE = 'stanza.yaml';
+export const DOCUMENT_SUFFIX = '.stanza.md';
 
 /** The text of a file, or a `file-unreadable` diagnostic in its place. */
 export async function readText(
@@ -27,18 +27,26 @@ export async function readText(
 /** Hidden directories and `node_modules` hold no documents. */
 const skipped = (name: string): boolean => name.startsWith('.') || name === 'node_modules';
 
-async function walk(storage: ProjectStorage, directory: string, found: string[]): Promise<void> {
+async function walk(
+  storage: ProjectStorage,
+  directory: string,
+  suffix: string,
+  found: string[],
+): Promise<void> {
   for (const entry of await storage.list(directory)) {
     if (skipped(entry.name)) continue;
     const path = directory === '' ? entry.name : `${directory}/${entry.name}`;
-    if (entry.directory) await walk(storage, path, found);
-    else if (entry.name.endsWith(DOCUMENT_SUFFIX)) found.push(path);
+    if (entry.directory) await walk(storage, path, suffix, found);
+    else if (entry.name.endsWith(suffix)) found.push(path);
   }
 }
 
-/** The paths of all documents below the project root, sorted. */
-export async function findDocuments(storage: ProjectStorage): Promise<readonly string[]> {
+/** The paths of all documents below the project root, sorted; `suffix` is for `migrate.ts`. */
+export async function findDocuments(
+  storage: ProjectStorage,
+  suffix: string = DOCUMENT_SUFFIX,
+): Promise<readonly string[]> {
   const found: string[] = [];
-  await walk(storage, '', found);
+  await walk(storage, '', suffix, found);
   return found.sort();
 }

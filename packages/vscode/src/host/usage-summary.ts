@@ -1,4 +1,4 @@
-import type { StyleUsage, StyleUse } from '@phrase/project';
+import type { StyleUsage, StyleUse } from '@stanza/project';
 import type { UsageCount, UsageSummary } from '../shared/protocol.js';
 
 /** The blocks of each document that use a style, counted once for each way of using it. */

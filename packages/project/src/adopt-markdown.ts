@@ -1,4 +1,4 @@
-import { adoptMarkdown, type AdoptReport } from '@phrase/format';
+import { adoptMarkdown, type AdoptReport } from '@stanza/format';
 import type { ProjectDiagnostic } from './diagnostics.js';
 import type { ProjectStorage } from './storage.js';
 import { NO_PROJECT_MESSAGE, loadOrderedProject, storeNewDocument } from './store-document.js';
@@ -23,7 +23,7 @@ export type AdoptMarkdownResult =
     }
   | {
       readonly ok: false;
-      readonly reason: 'no-project' | 'already-phrase' | 'no-ids';
+      readonly reason: 'no-project' | 'already-stanza' | 'no-ids';
       readonly message: string;
     };
 

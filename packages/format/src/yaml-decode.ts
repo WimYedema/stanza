@@ -1,6 +1,7 @@
-import { isStyleName, type Diagnostic, type StyleName } from '@phrase/core';
+import { isStyleName, type Diagnostic, type StyleName } from '@stanza/core';
 import { parseDocument } from 'yaml';
 import { FORMAT_VERSION } from './front-matter.js';
+import { LEGACY_FORMAT_CODE, LEGACY_FORMAT_KEY, LEGACY_FORMAT_MESSAGE } from './legacy.js';
 
 /** Shared helpers for reading the YAML files of a project (stylesheet, project file). */
 
@@ -122,22 +123,32 @@ export function readYamlRoot(source: string, diagnostics: Diagnostic[]): Data | 
   return asMap(document.toJS(), '', report);
 }
 
-/** Reads and checks the `phrase-format` property. */
+/**
+ * Reports a file from before the rename to Stanza (ADR 0083), which has `phrase-format` and no
+ * `stanza-format`. Such a file is not read further, so its other keys give no diagnostics.
+ */
+export function reportLegacyFormat(data: Data, report: Report): boolean {
+  if (data['stanza-format'] !== undefined || data[LEGACY_FORMAT_KEY] === undefined) return false;
+  report(LEGACY_FORMAT_CODE, LEGACY_FORMAT_MESSAGE, LEGACY_FORMAT_KEY);
+  return true;
+}
+
+/** Reads and checks the `stanza-format` property. */
 export function readFormatVersion(data: Data, report: Report): number | undefined {
-  const version = data['phrase-format'];
+  const version = data['stanza-format'];
   const formatVersion =
     typeof version === 'number' && Number.isInteger(version) ? version : undefined;
   if (formatVersion === undefined) {
     report(
       'format-version-missing',
-      'The file must contain a whole number "phrase-format".',
-      'phrase-format',
+      'The file must contain a whole number "stanza-format".',
+      'stanza-format',
     );
   } else if (formatVersion !== FORMAT_VERSION) {
     report(
       'format-version-unsupported',
       `Format version ${String(formatVersion)} is not supported (expected ${String(FORMAT_VERSION)}).`,
-      'phrase-format',
+      'stanza-format',
     );
   }
   return formatVersion;

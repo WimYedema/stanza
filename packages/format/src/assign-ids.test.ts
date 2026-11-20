@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assignMissingIdsInText } from './assign-ids.js';
 
-const HEADER = '---\nphrase-format: 1\n---\n\n';
+const HEADER = '---\nstanza-format: 1\n---\n\n';
 
 function sequence(...values: string[]): () => string {
   let index = 0;
@@ -25,20 +25,20 @@ describe('assignMissingIdsInText', () => {
         ok: true,
         assigned: ['aaaaaaaaaa', 'bbbbbbbbbb'],
         text:
-          `${HEADER}<!-- phrase: #aaaaaaaaaa -->\n## Heading\n\nSome *text*.\n\n` +
-          `<!-- phrase: #bbbbbbbbbb -->\n| A | B |\n| --- | --- |\n| 1 | 2 |\n`,
+          `${HEADER}<!-- stanza: #aaaaaaaaaa -->\n## Heading\n\nSome *text*.\n\n` +
+          `<!-- stanza: #bbbbbbbbbb -->\n| A | B |\n| --- | --- |\n| 1 | 2 |\n`,
       }),
     );
   });
 
   it('keeps an existing style and ID, and only adds what is missing', () => {
-    const text = `${HEADER}<!-- phrase: .chapter -->\n## One\n\n<!-- phrase: #cccccccccc -->\n## Two\n`;
+    const text = `${HEADER}<!-- stanza: .chapter -->\n## One\n\n<!-- stanza: #cccccccccc -->\n## Two\n`;
     const result = assignMissingIdsInText(text, options());
     expect(result).toEqual(
       expect.objectContaining({
         ok: true,
         assigned: ['aaaaaaaaaa'],
-        text: `${HEADER}<!-- phrase: #aaaaaaaaaa .chapter -->\n## One\n\n<!-- phrase: #cccccccccc -->\n## Two\n`,
+        text: `${HEADER}<!-- stanza: #aaaaaaaaaa .chapter -->\n## One\n\n<!-- stanza: #cccccccccc -->\n## Two\n`,
       }),
     );
   });
@@ -74,7 +74,7 @@ describe('assignMissingIdsInText', () => {
   });
 
   it('reports duplicate IDs and still assigns the missing ones', () => {
-    const text = `${HEADER}<!-- phrase: #cccccccccc -->\n## One\n\n<!-- phrase: #cccccccccc -->\n## Two\n\n## Three\n`;
+    const text = `${HEADER}<!-- stanza: #cccccccccc -->\n## One\n\n<!-- stanza: #cccccccccc -->\n## Two\n\n## Three\n`;
     const result = assignMissingIdsInText(text, options());
     expect(result.ok).toBe(true);
     expect(result.diagnostics.map((d) => d.code)).toEqual(['duplicate-id']);

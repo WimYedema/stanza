@@ -1,4 +1,4 @@
-import { normalizeDocument, type Block, type Document, type DocumentMeta } from '@phrase/core';
+import { normalizeDocument, type Block, type Document, type DocumentMeta } from '@stanza/core';
 import { convertBody } from './blocks.js';
 import { ImportContext } from './context.js';
 import { readDocx, type ReadFailure } from './docx-package.js';

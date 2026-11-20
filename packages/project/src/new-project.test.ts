@@ -1,6 +1,6 @@
 import { strFromU8 } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { checkDocumentText } from '@phrase/format';
+import { checkDocumentText } from '@stanza/format';
 import { buildProject } from './build.js';
 import { loadProject } from './load.js';
 import { memoryStorage } from './memory-storage.testing.js';
@@ -33,15 +33,15 @@ describe('createProject', () => {
     const { result, files } = await created('My Report');
     expect(result).toEqual({
       ok: true,
-      files: ['phrase.yaml', 'styles/default.yaml', 'documents/my-report.phrase.md'],
-      document: 'documents/my-report.phrase.md',
+      files: ['stanza.yaml', 'styles/default.yaml', 'documents/my-report.stanza.md'],
+      document: 'documents/my-report.stanza.md',
       agentInstructions: 'written',
     });
     expect(files['AGENTS.md']).toBe(AGENT_INSTRUCTIONS);
-    expect(files['phrase.yaml']).toBe(
-      "phrase-format: 1\ntitle: 'My Report'\nstylesheet: 'styles/default.yaml'\n",
+    expect(files['stanza.yaml']).toBe(
+      "stanza-format: 1\ntitle: 'My Report'\nstylesheet: 'styles/default.yaml'\n",
     );
-    expect(files['documents/my-report.phrase.md']).toContain('# My Report');
+    expect(files['documents/my-report.stanza.md']).toContain('# My Report');
   });
 
   it('gives a project that loads without diagnostics', async () => {
@@ -49,7 +49,7 @@ describe('createProject', () => {
     const loaded = await loadProject(memoryStorage(files));
     expect(loaded.diagnostics).toEqual([]);
     expect(loaded.settings?.title).toBe('My Report');
-    expect(loaded.documents.map((d) => d.path)).toEqual(['documents/my-report.phrase.md']);
+    expect(loaded.documents.map((d) => d.path)).toEqual(['documents/my-report.stanza.md']);
   });
 
   it('gives a first document in canonical form, with an ID on its heading', async () => {
@@ -57,10 +57,10 @@ describe('createProject', () => {
     const loaded = await loadProject(memoryStorage(files));
     const stylesheet = loaded.stylesheet;
     if (stylesheet === undefined) throw new Error('No stylesheet.');
-    const text = files['documents/my-report.phrase.md'] ?? '';
+    const text = files['documents/my-report.stanza.md'] ?? '';
     const checked = checkDocumentText(text, stylesheet, loaded.settings);
     expect(checked.diagnostics).toEqual([]);
-    expect(text).toContain('<!-- phrase: #123456789a -->');
+    expect(text).toContain('<!-- stanza: #123456789a -->');
   });
 
   it('gives a project that builds a DOCX', async () => {
@@ -82,7 +82,7 @@ describe('createProject', () => {
 
   it('keeps a title with quotes and colons intact', async () => {
     const { files } = await created("Dan's plan: v2");
-    expect(files['phrase.yaml']).toContain("title: 'Dan''s plan: v2'");
+    expect(files['stanza.yaml']).toContain("title: 'Dan''s plan: v2'");
     const loaded = await loadProject(memoryStorage(files));
     expect(loaded.diagnostics).toEqual([]);
     expect(loaded.settings?.title).toBe("Dan's plan: v2");
@@ -96,14 +96,14 @@ describe('createProject', () => {
 
   it('refuses a folder that has any of the files, and writes nothing', async () => {
     const { storage, result } = await created('My Report', {
-      'phrase.yaml': 'phrase-format: 1\n',
-      'documents/my-report.phrase.md': '',
+      'stanza.yaml': 'stanza-format: 1\n',
+      'documents/my-report.stanza.md': '',
       'notes.txt': 'kept',
     });
     expect(result).toEqual({
       ok: false,
       reason: 'exists',
-      existing: ['phrase.yaml', 'documents/my-report.phrase.md'],
+      existing: ['stanza.yaml', 'documents/my-report.stanza.md'],
     });
     expect(storage.texts.size).toBe(0);
   });
@@ -119,6 +119,6 @@ describe('createProject', () => {
     });
     expect(result).toMatchObject({ ok: true, agentInstructions: 'exists' });
     expect(storage.texts.has('AGENTS.md')).toBe(false);
-    expect(files['phrase.yaml']).toBeDefined();
+    expect(files['stanza.yaml']).toBeDefined();
   });
 });

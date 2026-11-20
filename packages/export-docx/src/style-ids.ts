@@ -1,4 +1,4 @@
-import { fixedWordStyleName, type StyleName } from '@phrase/core';
+import { fixedWordStyleName, type StyleName } from '@stanza/core';
 
 const words = (name: StyleName): string[] => name.split('-');
 const capitalized = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);

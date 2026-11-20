@@ -2,9 +2,9 @@
 import { Editor } from '@tiptap/core';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StyleName } from '@phrase/core';
+import type { StyleName } from '@stanza/core';
 import { runCommand, type EditorCommand } from './commands.js';
-import { phraseExtensions } from './editor.js';
+import { stanzaExtensions } from './editor.js';
 import type { Notice } from './notice.js';
 import { COMMANDS_STYLESHEET } from './styles.testing.js';
 
@@ -46,7 +46,7 @@ function open(
 ): Editor {
   editor = new Editor({
     element,
-    extensions: phraseExtensions(
+    extensions: stanzaExtensions(
       () => stylesheet,
       (notice) => notices.push(notice),
       { newId, usedIds: () => usedIds },

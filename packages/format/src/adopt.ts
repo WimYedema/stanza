@@ -1,4 +1,4 @@
-import type { Diagnostic, Document, DocumentMeta } from '@phrase/core';
+import type { Diagnostic, Document, DocumentMeta } from '@stanza/core';
 import MarkdownIt from 'markdown-it';
 import { parseDocument as parseYaml } from 'yaml';
 import { splitFrontMatter } from './front-matter.js';
@@ -20,7 +20,7 @@ export interface AdoptReport {
 
 export type AdoptResult =
   | { readonly ok: true; readonly document: Document; readonly report: AdoptReport }
-  | { readonly ok: false; readonly reason: 'already-phrase'; readonly message: string };
+  | { readonly ok: false; readonly reason: 'already-stanza'; readonly message: string };
 
 // Unlike the dialect reader, reference links are on: they become ordinary links.
 const markdown = new MarkdownIt('commonmark', { html: true }).enable('table');
@@ -125,17 +125,17 @@ class Collector {
   }
 }
 
-/** The title and the keys of front matter that is not a Phrase file's. */
+/** The title and the keys of front matter that is not a Stanza file's. */
 function readFrontMatter(
   yaml: string,
-): { ok: true; title: string | undefined; keys: string[] } | { ok: false; phrase: boolean } {
+): { ok: true; title: string | undefined; keys: string[] } | { ok: false; stanza: boolean } {
   const document = parseYaml(yaml, { schema: 'failsafe' });
-  if (document.errors.length > 0) return { ok: false, phrase: false };
+  if (document.errors.length > 0) return { ok: false, stanza: false };
   const data: unknown = document.toJS();
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-    return { ok: false, phrase: false };
+    return { ok: false, stanza: false };
   }
-  if ('phrase-format' in data) return { ok: false, phrase: true };
+  if ('stanza-format' in data) return { ok: false, stanza: true };
   const title = (data as Record<string, unknown>)['title'];
   return {
     ok: true,
@@ -145,9 +145,9 @@ function readFrontMatter(
 }
 
 /**
- * Reads an ordinary Markdown file as a Phrase document (ADR 0060): the dialect reader with
+ * Reads an ordinary Markdown file as a Stanza document (ADR 0060): the dialect reader with
  * reference links switched on, and a report of what the dialect cannot hold. A file that is
- * already a Phrase document is refused.
+ * already a Stanza document is refused.
  */
 export function adoptMarkdown(source: string): AdoptResult {
   const text = source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
@@ -158,11 +158,11 @@ export function adoptMarkdown(source: string): AdoptResult {
   let meta: DocumentMeta = { fields: {} };
   if (yaml !== undefined) {
     const front = readFrontMatter(yaml);
-    if (!front.ok && front.phrase) {
+    if (!front.ok && front.stanza) {
       return {
         ok: false,
-        reason: 'already-phrase',
-        message: 'The file has "phrase-format" in its front matter, so it is a Phrase document.',
+        reason: 'already-stanza',
+        message: 'The file has "stanza-format" in its front matter, so it is a Stanza document.',
       };
     }
     if (!front.ok) collect.add('front-matter-unreadable', 1, ['line 1']);

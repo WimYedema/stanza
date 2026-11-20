@@ -1,4 +1,4 @@
-import { parseDocument, serializeDocument } from '@phrase/format';
+import { parseDocument, serializeDocument } from '@stanza/format';
 import type { Reason } from '../shared/protocol.js';
 
 /** The text of a document as the editor sees it: with `\n`, whatever line ending the file has. */

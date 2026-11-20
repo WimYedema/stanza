@@ -9,7 +9,7 @@ import type {
   Stylesheet,
   TextProps,
   VariantMark,
-} from '@phrase/core';
+} from '@stanza/core';
 
 /**
  * What the paragraph panel needs to know about a property of a style (ADR 0037): whether the style

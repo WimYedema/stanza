@@ -1,5 +1,5 @@
 {
-  "name": "phrase",
+  "name": "stanza",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b && npm run build --workspace phrase-vscode",
+    "build": "tsc -b && npm run build --workspace stanza-vscode",
     "typecheck:tests": "npm run typecheck:tests --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint .",

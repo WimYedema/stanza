@@ -1,25 +1,25 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Document } from '@phrase/core';
-import type { CommandResult, EditorCommand, PhraseEditor } from '@phrase/editor';
-import { parseDocument } from '@phrase/format';
+import type { Document } from '@stanza/core';
+import type { CommandResult, EditorCommand, StanzaEditor } from '@stanza/editor';
+import { parseDocument } from '@stanza/format';
 import { createReferencePicker, type ReferencePicker } from './reference-picker.js';
 
 const TEXT = `---
-phrase-format: 1
+stanza-format: 1
 title: "T"
 ---
 
-<!-- phrase: #aaaaaaaaaa -->
+<!-- stanza: #aaaaaaaaaa -->
 # Threat Model
 
-<!-- phrase: #bbbbbbbbbb -->
+<!-- stanza: #bbbbbbbbbb -->
 ## S1 \u2014 Unauthorised sign-in
 
-<!-- phrase: #cccccccccc -->
+<!-- stanza: #cccccccccc -->
 ## I5 \u2014 Secrets exposed in documents
 
-<!-- phrase: #dddddddddd -->
+<!-- stanza: #dddddddddd -->
 ## T6 \u2014 Pipeline changes
 
 See I5.
@@ -43,7 +43,7 @@ const editor = {
   getSelectedText: () => selected,
   run,
   focus,
-} as unknown as PhraseEditor;
+} as unknown as StanzaEditor;
 
 beforeEach(() => {
   root = document.createElement('div');
@@ -106,7 +106,7 @@ describe('opening', () => {
     document_ = undefined;
     picker.open();
     expect(hint()).toContain('cannot be read');
-    document_ = parseDocument('---\nphrase-format: 1\n---\n\nJust text.\n').document;
+    document_ = parseDocument('---\nstanza-format: 1\n---\n\nJust text.\n').document;
     picker.open();
     expect(hint()).toContain('no headings');
   });
@@ -158,7 +158,7 @@ describe('opened by typing @', () => {
   });
 
   it('does not open when there is no heading to offer, so the @ is only text', () => {
-    document_ = parseDocument('---\nphrase-format: 1\n---\n\nJust text.\n').document;
+    document_ = parseDocument('---\nstanza-format: 1\n---\n\nJust text.\n').document;
     picker.open({ replaces: '@' });
     expect(root.hidden).toBe(true);
     document_ = undefined;

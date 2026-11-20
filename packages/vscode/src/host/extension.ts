@@ -12,18 +12,18 @@ import { registerNewDocument } from './new-document-command.js';
 import { registerDocumentListCommands } from './document-list-commands.js';
 import { registerNewProject } from './new-project-command.js';
 import { registerOpenInWord } from './open-in-word-command.js';
-import { registerPhraseTree } from './phrase-tree.js';
+import { registerStanzaTree } from './stanza-tree.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
-import { PhraseEditorProvider } from './provider.js';
+import { StanzaEditorProvider } from './provider.js';
 import { registerDeclareVariant } from './quick-fix.js';
 import { StylesEditorProvider } from './styles-provider.js';
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = new ProjectDiagnostics();
-  const log = vscode.window.createOutputChannel('Phrase');
+  const log = vscode.window.createOutputChannel('Stanza');
   const saves = new StylesheetSaves(log);
   const exporter = new ExportOnSave(diagnostics, log);
-  const editors = new PhraseEditorProvider(context, diagnostics, log, saves);
+  const editors = new StanzaEditorProvider(context, diagnostics, log, saves);
   context.subscriptions.push(
     diagnostics,
     log,
@@ -32,7 +32,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerOpenInWord(exporter),
     ...registerDeclareVariant(diagnostics, saves),
     vscode.window.registerCustomEditorProvider(
-      PhraseEditorProvider.viewType,
+      StanzaEditorProvider.viewType,
       editors,
       // The editor keeps its state when its tab is hidden, and one editor serves a document. The
       // find widget of VS Code searches the page, so the text of the document can be found.
@@ -50,7 +50,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerMakeReference((uri) => {
       editors.makeReference(uri);
     }),
-    registerPhraseTree(editors, diagnostics),
+    registerStanzaTree(editors, diagnostics),
     registerEditStyles(),
     registerNewProject(),
     registerNewDocument(),

@@ -1,4 +1,4 @@
-import type { StyleName, VariantMark } from '@phrase/core';
+import type { StyleName, VariantMark } from '@stanza/core';
 
 /**
  * The class names that tie the generated CSS to the DOM of the editor (ADR 0021). The compiler
@@ -7,22 +7,22 @@ import type { StyleName, VariantMark } from '@phrase/core';
  */
 
 /** The root of the editor, which the CSS is scoped to. */
-export const SCOPE_CLASS = 'phrase-document';
+export const SCOPE_CLASS = 'stanza-document';
 
 /** A bulleted or numbered list element. */
-export const LIST_CLASS = 'phrase-list';
+export const LIST_CLASS = 'stanza-list';
 
 /** A block in a paragraph style. */
-export const paragraphClass = (name: StyleName): string => `phrase-p-${name}`;
+export const paragraphClass = (name: StyleName): string => `stanza-p-${name}`;
 
 /** A list item, whose text takes its look from the list or paragraph style of the item. */
-export const listItemClass = (name: StyleName): string => `phrase-li-${name}`;
+export const listItemClass = (name: StyleName): string => `stanza-li-${name}`;
 
 /** A run in a character style. */
-export const characterClass = (name: StyleName): string => `phrase-c-${name}`;
+export const characterClass = (name: StyleName): string => `stanza-c-${name}`;
 
 /** A table in a table style. */
-export const tableClass = (name: StyleName): string => `phrase-t-${name}`;
+export const tableClass = (name: StyleName): string => `stanza-t-${name}`;
 
 /** A run with a mark. Marks are nested in the canonical mark order. */
-export const markClass = (mark: VariantMark): string => `phrase-m-${mark}`;
+export const markClass = (mark: VariantMark): string => `stanza-m-${mark}`;

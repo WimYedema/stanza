@@ -9,7 +9,7 @@ import type { Node as EditorNode } from '@tiptap/pm/model';
  * of the person.
  */
 
-export const CHANGED_CLASS = 'phrase-changed';
+export const CHANGED_CLASS = 'stanza-changed';
 
 /** The most block pairs that are compared; a larger stretch of difference counts as all changed. */
 const MAX_PAIRS = 4_000_000;
@@ -96,7 +96,7 @@ interface Meta {
   readonly positions: readonly number[];
 }
 
-export const changeMarksKey = new PluginKey<State>('phrase-change-marks');
+export const changeMarksKey = new PluginKey<State>('stanza-change-marks');
 
 function build(doc: EditorNode, positions: readonly number[]): State {
   const marks = [...new Set(positions)]

@@ -3,8 +3,8 @@ import type { Block, Inline } from './document.js';
 import type { NodeId } from './ids.js';
 import { isStyleName, type StyleName } from './style-name.js';
 
-/** The kind of the `phrase-toc` block (ADR 0018). */
-export const TOC_PHRASE_KIND = 'toc';
+/** The kind of the `stanza-toc` block (ADR 0018). */
+export const TOC_STANZA_KIND = 'toc';
 
 export const DEFAULT_TOC_DEPTH = 3;
 export const MAX_TOC_DEPTH = 6;
@@ -21,7 +21,7 @@ export interface TocOptions {
 }
 
 /**
- * Reads the body of a `phrase-toc` block: empty, or a line `depth: N` with N from 1 to 6. The
+ * Reads the body of a `stanza-toc` block: empty, or a line `depth: N` with N from 1 to 6. The
  * options are returned with the default depth wherever a problem was found.
  */
 export function readTocOptions(text: string): {

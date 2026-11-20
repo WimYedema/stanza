@@ -18,8 +18,8 @@ import {
   type ProjectDefaults,
   type SlotPart,
   type Stylesheet,
-} from '@phrase/core';
-import { paragraphClass, tableClass } from '@phrase/css';
+} from '@stanza/core';
+import { paragraphClass, tableClass } from '@stanza/css';
 
 /**
  * The paper look of the editor (ADR 0028): the page of the selected template around the text, with
@@ -31,7 +31,7 @@ import { paragraphClass, tableClass } from '@phrase/css';
 const BAND_DISTANCE_PT = 35.4;
 
 /** The class that the CSS of the stylesheet is scoped to, so that its rules reach the parts here. */
-const SCOPE = 'phrase-document';
+const SCOPE = 'stanza-document';
 
 export interface SheetInput {
   readonly stylesheet: Stylesheet;

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import type { Stylesheet } from '@phrase/core';
-import { parseStylesheet } from '@phrase/format';
+import type { Stylesheet } from '@stanza/core';
+import { parseStylesheet } from '@stanza/format';
 import { describe, expect, it } from 'vitest';
 import { compileStylesheetToCss } from './compile.js';
 import {
@@ -27,7 +27,7 @@ const RESERVED = [
 
 /** A stylesheet with the reserved styles and the given parts. `body` and `table` are overridable. */
 function sheet(extra: string, body = '  body: {}\n', table = '  table: {}\n'): Stylesheet {
-  const source = `phrase-format: 1\n${extra}\nparagraph-styles:\n${body}${RESERVED.map(
+  const source = `stanza-format: 1\n${extra}\nparagraph-styles:\n${body}${RESERVED.map(
     (name) => `  ${name}: {}\n`,
   ).join('')}table-styles:\n${table}`;
   const result = parseStylesheet(source);
@@ -39,7 +39,7 @@ function sheet(extra: string, body = '  body: {}\n', table = '  table: {}\n'): S
 function sheetWithoutCode(): Stylesheet {
   const names = ['body', ...RESERVED.filter((name) => name !== 'code')];
   const body = names.map((name) => `  ${name}: {}\n`).join('');
-  const source = `phrase-format: 1\nparagraph-styles:\n${body}table-styles:\n  table: {}\n`;
+  const source = `stanza-format: 1\nparagraph-styles:\n${body}table-styles:\n  table: {}\n`;
   return parseStylesheet(source).stylesheet;
 }
 
@@ -71,19 +71,19 @@ const EXAMPLE = parseStylesheet(
 describe('class names', () => {
   it('are written once and used by the rules', () => {
     const name = 'body' as Parameters<typeof paragraphClass>[0];
-    expect(SCOPE_CLASS).toBe('phrase-document');
-    expect(LIST_CLASS).toBe('phrase-list');
-    expect(paragraphClass(name)).toBe('phrase-p-body');
-    expect(listItemClass(name)).toBe('phrase-li-body');
-    expect(characterClass(name)).toBe('phrase-c-body');
-    expect(tableClass(name)).toBe('phrase-t-body');
-    expect(markClass('strong')).toBe('phrase-m-strong');
+    expect(SCOPE_CLASS).toBe('stanza-document');
+    expect(LIST_CLASS).toBe('stanza-list');
+    expect(paragraphClass(name)).toBe('stanza-p-body');
+    expect(listItemClass(name)).toBe('stanza-li-body');
+    expect(characterClass(name)).toBe('stanza-c-body');
+    expect(tableClass(name)).toBe('stanza-t-body');
+    expect(markClass('strong')).toBe('stanza-m-strong');
   });
 });
 
 describe('compileStylesheetToCss', () => {
   it('shows a white paper, whatever the theme of the host', () => {
-    expect(rule(css(sheet('')), '.phrase-document')).toEqual([
+    expect(rule(css(sheet('')), '.stanza-document')).toEqual([
       'background-color: #FFFFFF;',
       'color: #000000;',
       'font-size: 11pt;',
@@ -92,8 +92,8 @@ describe('compileStylesheetToCss', () => {
 
   it('writes every rule under the scope, which can be changed', () => {
     const text = css(sheet(''), 'editor');
-    expect(text).toContain('.editor .phrase-p-body {');
-    expect(text).not.toContain('.phrase-document');
+    expect(text).toContain('.editor .stanza-p-body {');
+    expect(text).not.toContain('.stanza-document');
   });
 
   it('refuses a scope that is not a class name', () => {
@@ -128,7 +128,7 @@ describe('compileStylesheetToCss', () => {
 `,
       ),
     );
-    expect(rule(text, '.phrase-document .phrase-p-body')).toEqual([
+    expect(rule(text, '.stanza-document .stanza-p-body')).toEqual([
       'margin-top: 3pt;',
       'margin-bottom: 6pt;',
       'margin-left: 36pt;',
@@ -145,7 +145,7 @@ describe('compileStylesheetToCss', () => {
   });
 
   it('resets what a browser adds when a style sets nothing', () => {
-    expect(rule(css(sheet('')), '.phrase-document .phrase-p-code')).toEqual([
+    expect(rule(css(sheet('')), '.stanza-document .stanza-p-code')).toEqual([
       'margin-top: 0;',
       'margin-bottom: 0;',
       'margin-left: 0;',
@@ -163,7 +163,7 @@ describe('compileStylesheetToCss', () => {
         '  body:\n    size: 11\n    bold: true\n    space-after: 6\n  heading-1x:\n    based-on: body\n    size: 18\n    bold: false\n',
       ),
     );
-    expect(rule(text, '.phrase-document .phrase-p-heading-1x')).toEqual([
+    expect(rule(text, '.stanza-document .stanza-p-heading-1x')).toEqual([
       'margin-top: 0;',
       'margin-bottom: 6pt;',
       'margin-left: 0;',
@@ -178,7 +178,7 @@ describe('compileStylesheetToCss', () => {
     const lines = (spacing: string): string =>
       rule(
         css(sheet('', `  body: { line-spacing: ${spacing} }\n`)),
-        '.phrase-document .phrase-p-body',
+        '.stanza-document .stanza-p-body',
       ).find((line) => line.startsWith('line-height')) ?? '';
     expect(lines('{ multiple: 1.5 }')).toBe('line-height: 1.5;');
     expect(lines('{ exactly: 14 }')).toBe('line-height: 14pt;');
@@ -196,7 +196,7 @@ describe('compileStylesheetToCss', () => {
     const text = css(
       sheet('', '  body: {}\n  list-x:\n    indent-left: 18\n    first-line-indent: -9\n'),
     );
-    expect(rule(text, '.phrase-document .phrase-li-list-x')).toEqual([
+    expect(rule(text, '.stanza-document .stanza-li-list-x')).toEqual([
       'margin-top: 0;',
       'margin-bottom: 0;',
       'margin-left: 18pt;',
@@ -204,8 +204,8 @@ describe('compileStylesheetToCss', () => {
       'font-weight: 400;',
       'font-style: normal;',
     ]);
-    expect(rule(text, '.phrase-document .phrase-p-list-x')).toContain('text-indent: -9pt;');
-    expect(rule(text, '.phrase-document .phrase-list')).toEqual(['margin: 0;', 'padding: 0;']);
+    expect(rule(text, '.stanza-document .stanza-p-list-x')).toContain('text-indent: -9pt;');
+    expect(rule(text, '.stanza-document .stanza-list')).toEqual(['margin: 0;', 'padding: 0;']);
   });
 
   it('writes a mark as a rule under its paragraph style and its list item, only if allowed', () => {
@@ -216,15 +216,15 @@ describe('compileStylesheetToCss', () => {
       ),
     );
     const selector =
-      '.phrase-document .phrase-p-body .phrase-m-strong,\n.phrase-document .phrase-li-body .phrase-m-strong';
+      '.stanza-document .stanza-p-body .stanza-m-strong,\n.stanza-document .stanza-li-body .stanza-m-strong';
     expect(rule(text, selector)).toEqual(['font-weight: 700;']);
     // A variant without properties is allowed but has nothing to write.
-    expect(text).not.toContain('.phrase-p-body .phrase-m-emphasis');
-    expect(text).toContain('.phrase-p-body .phrase-m-link');
+    expect(text).not.toContain('.stanza-p-body .stanza-m-emphasis');
+    expect(text).toContain('.stanza-p-body .stanza-m-link');
     // A style without the variant gets no rule, and a variant that is switched off neither.
-    expect(text).not.toContain('.phrase-p-plain .phrase-m-');
-    expect(text).toContain('.phrase-p-sans .phrase-m-strong');
-    expect(text).not.toContain('.phrase-p-sans .phrase-m-link');
+    expect(text).not.toContain('.stanza-p-plain .stanza-m-');
+    expect(text).toContain('.stanza-p-sans .stanza-m-strong');
+    expect(text).not.toContain('.stanza-p-sans .stanza-m-link');
   });
 
   it('writes a character style with its bases applied', () => {
@@ -233,12 +233,12 @@ describe('compileStylesheetToCss', () => {
         'tokens:\n  colors:\n    muted: "#7F7F7F"\ncharacter-styles:\n  marker:\n    bold: true\n  loud:\n    based-on: marker\n    color: muted\n  empty: {}',
       ),
     );
-    expect(rule(out, '.phrase-document .phrase-c-marker')).toEqual(['font-weight: 700;']);
-    expect(rule(out, '.phrase-document .phrase-c-loud')).toEqual([
+    expect(rule(out, '.stanza-document .stanza-c-marker')).toEqual(['font-weight: 700;']);
+    expect(rule(out, '.stanza-document .stanza-c-loud')).toEqual([
       'font-weight: 700;',
       'color: #7F7F7F;',
     ]);
-    expect(out).not.toContain('phrase-c-empty');
+    expect(out).not.toContain('stanza-c-empty');
   });
 
   it('escapes what could end a CSS string or the style element', () => {
@@ -248,7 +248,7 @@ describe('compileStylesheetToCss', () => {
         '  body:\n    font: odd\n',
       ),
     );
-    const line = rule(text, '.phrase-document .phrase-p-body').find((l) =>
+    const line = rule(text, '.stanza-document .stanza-p-body').find((l) =>
       l.startsWith('font-family'),
     );
     expect(line).toBe(
@@ -277,28 +277,28 @@ describe('compileStylesheetToCss', () => {
 `,
       ),
     );
-    expect(rule(text, '.phrase-document .phrase-t-table')).toEqual([
+    expect(rule(text, '.stanza-document .stanza-t-table')).toEqual([
       'border-collapse: collapse;',
       'width: 100%;',
       'border: 0.75pt solid #BFBFBF;',
     ]);
-    expect(rule(text, '.phrase-document .phrase-t-table tr + tr > *')).toEqual([
+    expect(rule(text, '.stanza-document .stanza-t-table tr + tr > *')).toEqual([
       'border-top: 0.5pt solid #000000;',
     ]);
-    expect(text).not.toContain('phrase-t-table tr > * + *');
-    expect(rule(text, '.phrase-document .phrase-t-table-grid tr > * + *')).toEqual([
+    expect(text).not.toContain('stanza-t-table tr > * + *');
+    expect(rule(text, '.stanza-document .stanza-t-table-grid tr > * + *')).toEqual([
       'border-left: 0.5pt solid #BFBFBF;',
     ]);
     expect(
-      rule(text, '.phrase-document .phrase-t-table th,\n.phrase-document .phrase-t-table td'),
+      rule(text, '.stanza-document .stanza-t-table th,\n.stanza-document .stanza-t-table td'),
     ).toEqual(['padding: 4pt;', 'text-align: left;', 'vertical-align: top;']);
-    expect(rule(text, '.phrase-document .phrase-t-table th')).toEqual([
+    expect(rule(text, '.stanza-document .stanza-t-table th')).toEqual([
       'font-weight: 700;',
       'background-color: #F2F2F2;',
     ]);
     // The paragraphs and list items of a header cell have their own reset, so they get the header text.
     expect(
-      rule(text, '.phrase-document .phrase-t-table th p,\n.phrase-document .phrase-t-table th li'),
+      rule(text, '.stanza-document .stanza-t-table th p,\n.stanza-document .stanza-t-table th li'),
     ).toEqual(['font-weight: 700;']);
   });
 
@@ -319,8 +319,8 @@ describe('compileStylesheetToCss', () => {
       ),
     );
     const bands = (table: string, odd: boolean): string => {
-      const headed = `.phrase-document .phrase-t-${table}:has(tr:first-child > th)`;
-      const headless = `.phrase-document .phrase-t-${table}:not(:has(tr:first-child > th))`;
+      const headed = `.stanza-document .stanza-t-${table}:has(tr:first-child > th)`;
+      const headless = `.stanza-document .stanza-t-${table}:not(:has(tr:first-child > th))`;
       return odd
         ? `${headed} tr:nth-child(even) > td,\n${headless} tr:nth-child(odd) > td`
         : `${headed} tr:nth-child(odd) > td,\n${headless} tr:nth-child(even) > td`;
@@ -333,17 +333,17 @@ describe('compileStylesheetToCss', () => {
   });
 
   it('does not let the browser style header cells of a table without a header row', () => {
-    expect(rule(css(sheet('')), '.phrase-document .phrase-t-table th')).toEqual([
+    expect(rule(css(sheet('')), '.stanza-document .stanza-t-table th')).toEqual([
       'font-weight: 400;',
     ]);
-    expect(css(sheet(''))).not.toContain('phrase-t-table th p');
+    expect(css(sheet(''))).not.toContain('stanza-t-table th p');
   });
 
   it('compiles the example stylesheet to the same text every time, without gaps', () => {
     const first = css(EXAMPLE);
     expect(css(EXAMPLE)).toBe(first);
     expect(first).not.toMatch(/undefined|NaN|\[object/);
-    expect(first).toContain('.phrase-document .phrase-p-cover-title {');
+    expect(first).toContain('.stanza-document .stanza-p-cover-title {');
     expect(first).toContain('font-family: "Calibri", "Arial";');
     expect(first.endsWith('}\n')).toBe(true);
   });

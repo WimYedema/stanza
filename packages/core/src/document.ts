@@ -68,16 +68,16 @@ export interface CodeBlock extends BlockBase {
   readonly text: string;
 }
 
-/** A fenced block whose info string starts with `phrase-`; its body is kept verbatim. */
-export interface PhraseBlock extends BlockBase {
-  readonly type: 'phrase';
+/** A fenced block whose info string starts with `stanza-`; its body is kept verbatim. */
+export interface StanzaBlock extends BlockBase {
+  readonly type: 'stanza';
   readonly kind: string;
   readonly text: string;
 }
 
 export type Block = Heading | ListItemBlock;
 
-export type ListItemBlock = Paragraph | List | Table | CodeBlock | PhraseBlock;
+export type ListItemBlock = Paragraph | List | Table | CodeBlock | StanzaBlock;
 
 export type Inline = Text;
 

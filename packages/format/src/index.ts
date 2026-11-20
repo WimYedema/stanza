@@ -16,6 +16,13 @@ export {
 } from './edit-stylesheet.js';
 export { checkDocumentText, checkParsedDocument, type CheckResult } from './check.js';
 export { FORMAT_VERSION } from './front-matter.js';
+export {
+  LEGACY_FORMAT_CODE,
+  LEGACY_FORMAT_MESSAGE,
+  migrateLegacyDocument,
+  migrateLegacyYaml,
+  type LegacyRewrite,
+} from './legacy.js';
 export { blockStartLines, parseDocument, type ParseResult } from './parse.js';
 export { parseProject, type ProjectParseResult } from './project.js';
 export {

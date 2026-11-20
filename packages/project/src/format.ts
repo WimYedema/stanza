@@ -5,8 +5,8 @@ import {
   indexProjectReferences,
   isSafeRelativePath,
   type Document,
-} from '@phrase/core';
-import { parseDocument, serializeDocument, type ParseResult } from '@phrase/format';
+} from '@stanza/core';
+import { parseDocument, serializeDocument, type ParseResult } from '@stanza/format';
 import { inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX, findDocuments, readText } from './files.js';
 import type { ProjectStorage } from './storage.js';
@@ -72,7 +72,7 @@ export async function formatDocuments(
           file,
           severity: 'error',
           code: 'invalid-selection',
-          message: 'Select an existing .phrase.md document inside this project.',
+          message: 'Select an existing .stanza.md document inside this project.',
         });
       }
     }

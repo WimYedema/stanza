@@ -1,5 +1,5 @@
 {
-  "name": "@phrase/css",
+  "name": "@stanza/css",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,12 +13,12 @@
     "dist"
   ],
   "dependencies": {
-    "@phrase/core": "*"
+    "@stanza/core": "*"
   },
   "scripts": {
     "typecheck:tests": "tsc -p tsconfig.test.json"
   },
   "devDependencies": {
-    "@phrase/format": "*"
+    "@stanza/format": "*"
   }
 }

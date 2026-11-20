@@ -1,5 +1,5 @@
-import type { OutlineEntry } from '@phrase/core';
-import { DOCUMENT_SUFFIX, type LoadedProject } from '@phrase/project';
+import type { OutlineEntry } from '@stanza/core';
+import { DOCUMENT_SUFFIX, type LoadedProject } from '@stanza/project';
 import { headingsOf, nestHeadings, type HeadingNode } from './headings.js';
 
 export interface OutlineDocument {

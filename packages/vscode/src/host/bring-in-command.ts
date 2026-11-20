@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { describeImport, type ProjectStorage } from '@phrase/project';
+import { describeImport, type ProjectStorage } from '@stanza/project';
 import { projectRoot, uriInProject } from './project-files.js';
 import { documentListStorage } from './document-list-commands.js';
 
@@ -43,14 +43,14 @@ export interface BringIn {
 
 /**
  * Registers a command that asks for a file, writes it into the project as a new document, opens it
- * in the Phrase editor, and writes the report to the Phrase output (ADR 0047, 0060).
+ * in the Stanza editor, and writes the report to the Stanza output (ADR 0047, 0060).
  */
 export function registerBringIn(spec: BringIn, log: vscode.OutputChannel): vscode.Disposable {
   return vscode.commands.registerCommand(spec.command, async () => {
     const root = await projectRoot();
     if (root === undefined) {
       void vscode.window.showErrorMessage(
-        'Phrase: there is no project here. Open a folder that has a phrase.yaml file.',
+        'Stanza: there is no project here. Open a folder that has a stanza.yaml file.',
       );
       return;
     }
@@ -70,11 +70,11 @@ export function registerBringIn(spec: BringIn, log: vscode.OutputChannel): vscod
       const bytes = await vscode.workspace.fs.readFile(file);
       result = await spec.bring(await documentListStorage(root), bytes, nameOf(file));
     } catch (error) {
-      void vscode.window.showErrorMessage(`Phrase: the ${spec.noun} failed. ${reasonOf(error)}`);
+      void vscode.window.showErrorMessage(`Stanza: the ${spec.noun} failed. ${reasonOf(error)}`);
       return;
     }
     if (!result.ok) {
-      void vscode.window.showErrorMessage(`Phrase: nothing was ${spec.past}. ${result.message}`);
+      void vscode.window.showErrorMessage(`Stanza: nothing was ${spec.past}. ${result.message}`);
       return;
     }
 
@@ -84,11 +84,11 @@ export function registerBringIn(spec: BringIn, log: vscode.OutputChannel): vscod
     await vscode.commands.executeCommand(
       'vscode.openWith',
       uriInProject(root, result.document),
-      'phrase.editor',
+      'stanza.editor',
     );
     const notes = result.report.diagnostics.length;
     const choice = await vscode.window.showInformationMessage(
-      `Phrase: ${spec.past} ${result.document}. The report has ${String(notes)} ${notes === 1 ? 'entry' : 'entries'}.`,
+      `Stanza: ${spec.past} ${result.document}. The report has ${String(notes)} ${notes === 1 ? 'entry' : 'entries'}.`,
       SHOW_REPORT,
     );
     if (choice === SHOW_REPORT) log.show();

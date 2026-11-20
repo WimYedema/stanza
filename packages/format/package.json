@@ -1,5 +1,5 @@
 {
-  "name": "@phrase/format",
+  "name": "@stanza/format",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,7 +13,7 @@
     "dist"
   ],
   "dependencies": {
-    "@phrase/core": "*",
+    "@stanza/core": "*",
     "markdown-it": "^15.0.3",
     "yaml": "^2.9.1"
   },

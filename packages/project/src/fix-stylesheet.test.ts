@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { useTokensInStylesheet } from './fix-stylesheet.js';
 import { memoryStorage } from './memory-storage.testing.js';
 
-const PROJECT = "phrase-format: 1\ntitle: 'P'\nstylesheet: 'styles/default.yaml'\n";
-const RAW = "phrase-format: 1\nparagraph-styles:\n  body:\n    color: '#112233'\n";
+const PROJECT = "stanza-format: 1\ntitle: 'P'\nstylesheet: 'styles/default.yaml'\n";
+const RAW = "stanza-format: 1\nparagraph-styles:\n  body:\n    color: '#112233'\n";
 
 describe('useTokensInStylesheet', () => {
   it('writes the stylesheet that the project file names, and only that', async () => {
-    const storage = memoryStorage({ 'phrase.yaml': PROJECT, 'styles/default.yaml': RAW });
+    const storage = memoryStorage({ 'stanza.yaml': PROJECT, 'styles/default.yaml': RAW });
     const result = await useTokensInStylesheet(storage, { check: false });
     expect(result).toMatchObject({ path: 'styles/default.yaml', status: 'changed', moved: 1 });
     expect([...storage.texts.keys()]).toEqual(['styles/default.yaml']);
@@ -15,15 +15,15 @@ describe('useTokensInStylesheet', () => {
   });
 
   it('writes nothing when checking, and nothing when there is nothing to move', async () => {
-    const storage = memoryStorage({ 'phrase.yaml': PROJECT, 'styles/default.yaml': RAW });
+    const storage = memoryStorage({ 'stanza.yaml': PROJECT, 'styles/default.yaml': RAW });
     expect(await useTokensInStylesheet(storage, { check: true })).toMatchObject({
       status: 'changed',
     });
     expect(storage.texts.size).toBe(0);
 
     const clean = memoryStorage({
-      'phrase.yaml': PROJECT,
-      'styles/default.yaml': 'phrase-format: 1\n',
+      'stanza.yaml': PROJECT,
+      'styles/default.yaml': 'stanza-format: 1\n',
     });
     expect(await useTokensInStylesheet(clean, { check: false })).toMatchObject({
       status: 'unchanged',
@@ -37,9 +37,9 @@ describe('useTokensInStylesheet', () => {
     expect(noProject.diagnostics[0]?.code).toBe('file-unreadable');
 
     const storage = memoryStorage({
-      'phrase.yaml': PROJECT,
+      'stanza.yaml': PROJECT,
       'styles/default.yaml':
-        'phrase-format: 1\nparagraph-styles:\n  code:\n    font:\n      - Consolas\n',
+        'stanza-format: 1\nparagraph-styles:\n  code:\n    font:\n      - Consolas\n',
     });
     const refused = await useTokensInStylesheet(storage, { check: false });
     expect(refused).toMatchObject({ status: 'refused', path: 'styles/default.yaml' });

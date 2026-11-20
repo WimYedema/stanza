@@ -1,5 +1,5 @@
 {
-  "name": "@phrase/export-docx",
+  "name": "@stanza/export-docx",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,12 +13,12 @@
     "dist"
   ],
   "dependencies": {
-    "@phrase/core": "*",
+    "@stanza/core": "*",
     "docx": "^9.15.0",
     "fflate": "^0.8.3"
   },
   "devDependencies": {
-    "@phrase/format": "*"
+    "@stanza/format": "*"
   },
   "scripts": {
     "typecheck:tests": "tsc -p tsconfig.test.json"

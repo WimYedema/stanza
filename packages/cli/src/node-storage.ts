@@ -1,16 +1,26 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { isSafeRelativePath } from '@phrase/core';
-import type { DirectoryEntry, ProjectStorage } from '@phrase/project';
+import { isSafeRelativePath } from '@stanza/core';
+import type { DirectoryEntry, ProjectStorage } from '@stanza/project';
 
-/** The project storage on the Node filesystem, rooted at one directory. */
-export function nodeStorage(root: string): ProjectStorage {
+/** Paths come from project files and document names, so none may leave the root. */
+function locator(root: string): (path: string) => string {
   const base = resolve(root);
-  // Paths come from project files and document names, so none may leave the root.
-  const locate = (path: string): string => {
+  return (path) => {
     if (path !== '' && !isSafeRelativePath(path)) throw new Error(`Unsafe path "${path}".`);
     return join(base, ...path.split('/'));
   };
+}
+
+/** Removes one file below the root; only `stanza migrate` removes files (ADR 0083). */
+export function nodeRemove(root: string): (path: string) => Promise<void> {
+  const locate = locator(root);
+  return (path) => unlink(locate(path));
+}
+
+/** The project storage on the Node filesystem, rooted at one directory. */
+export function nodeStorage(root: string): ProjectStorage {
+  const locate = locator(root);
   return {
     readText: async (path) => readFile(locate(path), 'utf8'),
     async list(directory): Promise<readonly DirectoryEntry[]> {

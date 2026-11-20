@@ -1,0 +1,14 @@
+stanza-format: 1
+title: 'Example project'
+stylesheet: 'styles/default.yaml'
+defaults:
+  classification: 'Internal'
+  authors:
+    - 'Example Author'
+metadata-fields:
+  document-number:
+    type: string
+    required: true
+    label: 'Document number'
+  reviewers:
+    type: list

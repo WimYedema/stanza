@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { markAllowed, type StyleName } from '@phrase/core';
+import { markAllowed, type StyleName } from '@stanza/core';
 import { describe, expect, it } from 'vitest';
 import { declareVariant } from './declare-variant.js';
 import { parseStylesheet } from './stylesheet.js';
@@ -27,7 +27,7 @@ const OTHERS = [
 
 /** A stylesheet with the given text for the style `body`, and the other reserved styles empty. */
 const sheet = (body: string): string =>
-  `phrase-format: 1\n\nparagraph-styles:\n${body}\n${OTHERS}\ntable-styles:\n  table: {}\n`;
+  `stanza-format: 1\n\nparagraph-styles:\n${body}\n${OTHERS}\ntable-styles:\n  table: {}\n`;
 
 function declared(source: string, style: string, mark: Parameters<typeof declareVariant>[2]) {
   const result = declareVariant(source, name(style), mark);
@@ -101,7 +101,7 @@ describe('declareVariant', () => {
   });
 
   it('works on the last style of the file without a final newline', () => {
-    const source = `phrase-format: 1\ntable-styles:\n  table: {}\nparagraph-styles:\n${OTHERS}  body:\n    size: 11`;
+    const source = `stanza-format: 1\ntable-styles:\n  table: {}\nparagraph-styles:\n${OTHERS}  body:\n    size: 11`;
     expect(declared(source, 'body', 'strong')).toBe(
       `${source}\n    variants:\n      strong: { bold: true }`,
     );

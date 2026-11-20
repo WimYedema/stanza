@@ -12,8 +12,8 @@ import {
   type HeadingLevel,
   type StyleName,
   type Stylesheet,
-} from '@phrase/core';
-import { listItemClass, paragraphClass, tableClass } from '@phrase/css';
+} from '@stanza/core';
+import { listItemClass, paragraphClass, tableClass } from '@stanza/css';
 import { styleOf } from './block-styles.js';
 
 /**
@@ -23,7 +23,7 @@ import { styleOf } from './block-styles.js';
  * never stored in the document.
  */
 
-const stylesKey = new PluginKey<DecorationSet>('phrase-context-classes');
+const stylesKey = new PluginKey<DecorationSet>('stanza-context-classes');
 
 /** Recomputes the classes, for example after the stylesheet has changed. */
 export const REFRESH_CLASSES = 'refresh';

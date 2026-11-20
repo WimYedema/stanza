@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import { addAgentInstructions, AGENT_INSTRUCTIONS_FILE } from '@phrase/project';
+import { addAgentInstructions, AGENT_INSTRUCTIONS_FILE } from '@stanza/project';
 import { projectRoot, storageOf, uriInProject } from './project-files.js';
 
-export const ADD_AGENT_INSTRUCTIONS_COMMAND = 'phrase.addAgentInstructions';
+export const ADD_AGENT_INSTRUCTIONS_COMMAND = 'stanza.addAgentInstructions';
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /**
- * "Phrase: Add Agent Instructions" writes `AGENTS.md` into the project of the document in front,
+ * "Stanza: Add Agent Instructions" writes `AGENTS.md` into the project of the document in front,
  * so that coding agents know the rules of the dialect (ADR 0061). It never replaces a file.
  */
 export function registerAddAgentInstructions(): vscode.Disposable {
@@ -16,7 +16,7 @@ export function registerAddAgentInstructions(): vscode.Disposable {
     const root = await projectRoot();
     if (root === undefined) {
       void vscode.window.showErrorMessage(
-        'Phrase: there is no project here. Open a folder that has a phrase.yaml file.',
+        'Stanza: there is no project here. Open a folder that has a stanza.yaml file.',
       );
       return;
     }
@@ -25,13 +25,13 @@ export function registerAddAgentInstructions(): vscode.Disposable {
       result = await addAgentInstructions(storageOf(root));
     } catch (error) {
       void vscode.window.showErrorMessage(
-        `Phrase: ${AGENT_INSTRUCTIONS_FILE} could not be written. ${reasonOf(error)}`,
+        `Stanza: ${AGENT_INSTRUCTIONS_FILE} could not be written. ${reasonOf(error)}`,
       );
       return;
     }
     if (!result.ok) {
       void vscode.window.showInformationMessage(
-        `Phrase: the project has ${AGENT_INSTRUCTIONS_FILE} already. It was not changed.`,
+        `Stanza: the project has ${AGENT_INSTRUCTIONS_FILE} already. It was not changed.`,
       );
       return;
     }

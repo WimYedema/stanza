@@ -1,6 +1,6 @@
-phrase-format: 1
+stanza-format: 1
 
-# The stylesheet of the documentation of Phrase. The headings are not numbered, because the
+# The stylesheet of the documentation of Stanza. The headings are not numbered, because the
 # documents number their own sections where they need it.
 
 # Colors and fonts are named here once, and the styles below refer to them by name.
@@ -137,10 +137,10 @@ page-templates:
     margins: { top: 72, right: 72, bottom: 72, left: 72 }
     header:
       style: header-footer
-      left: '[](phrase:title)'
+      left: '[](stanza:title)'
     footer:
       style: header-footer
-      right: 'Page [1](phrase:page) of [1](phrase:pages)'
+      right: 'Page [1](stanza:page) of [1](stanza:pages)'
 
 table-of-contents:
   page-numbers: true

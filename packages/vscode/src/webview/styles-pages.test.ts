@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseStylesheet } from '@phrase/format';
+import { parseStylesheet } from '@stanza/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
 import { entriesOf, type Entry } from './styles-families.js';
 import { createPagePanel, type PagePanel } from './styles-pages.js';
 
-const stylesheet = parseStylesheet(`phrase-format: 1
+const stylesheet = parseStylesheet(`stanza-format: 1
 paragraph-styles:
   body: {}
   header-footer:
@@ -16,8 +16,8 @@ page-templates:
     margins: { top: 54, right: 90 }
     header:
       style: header-footer
-      left: '[](phrase:title)'
-      right: 'Page [1](phrase:page) of [1](phrase:pages)'
+      left: '[](stanza:title)'
+      right: 'Page [1](stanza:page) of [1](stanza:pages)'
   plain:
     size: Letter
 `).stylesheet;
@@ -81,9 +81,9 @@ describe('the page panel', () => {
     expect(inputOf('Margins', 'Top').value).toBe('54');
     expect(inputOf('Margins', 'Left').value).toBe('72');
     expect(selectOf('Header', 'Style').value).toBe('header-footer');
-    expect(inputOf('Header', 'Left').value).toBe('[](phrase:title)');
+    expect(inputOf('Header', 'Left').value).toBe('[](stanza:title)');
     expect(inputOf('Header', 'Center').value).toBe('');
-    expect(inputOf('Header', 'Right').value).toBe('Page [1](phrase:page) of [1](phrase:pages)');
+    expect(inputOf('Header', 'Right').value).toBe('Page [1](stanza:page) of [1](stanza:pages)');
     panel.show(entry('plain'), stylesheet);
     expect(selectOf('Page', 'Size').value).toBe('Letter');
     expect(inputOf('Header', 'Left').value).toBe('');
@@ -149,13 +149,13 @@ describe('the page panel', () => {
     expect(send).toHaveBeenLastCalledWith({
       type: 'set',
       path: ['page-templates', 'page', 'footer', 'right'],
-      value: 'Page [1](phrase:page) of',
+      value: 'Page [1](stanza:page) of',
     });
     change(selectOf('Footer', 'Left'), 'title');
     expect(send).toHaveBeenLastCalledWith({
       type: 'set',
       path: ['page-templates', 'page', 'footer', 'left'],
-      value: '[](phrase:title)',
+      value: '[](stanza:title)',
     });
   });
 

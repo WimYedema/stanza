@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Editor } from '@tiptap/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { phraseExtensions } from './editor.js';
+import { stanzaExtensions } from './editor.js';
 import type { Notice } from './notice.js';
 import { COMMANDS_STYLESHEET } from './styles.testing.js';
 
@@ -25,7 +25,7 @@ afterEach(() => {
 function open(...blocks: object[]): Editor {
   editor = new Editor({
     element,
-    extensions: phraseExtensions(
+    extensions: stanzaExtensions(
       () => stylesheet,
       (notice) => notices.push(notice),
     ),

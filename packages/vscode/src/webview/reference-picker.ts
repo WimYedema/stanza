@@ -1,5 +1,5 @@
-import { suggestReferences, type Document, type ReferenceSuggestion } from '@phrase/core';
-import type { CommandResult, EditorCommand, PhraseEditor } from '@phrase/editor';
+import { suggestReferences, type Document, type ReferenceSuggestion } from '@stanza/core';
+import type { CommandResult, EditorCommand, StanzaEditor } from '@stanza/editor';
 
 /**
  * The list for "Make reference" (ADR 0069): the headings of the document, the best match for the
@@ -10,7 +10,7 @@ import type { CommandResult, EditorCommand, PhraseEditor } from '@phrase/editor'
 
 export interface ReferencePickerHost {
   /** The editor, or nothing while there is none. */
-  editor(): PhraseEditor | undefined;
+  editor(): StanzaEditor | undefined;
   /** Shows what a command answered. A refusal with a fix offers it (ADR 0026). */
   answered(command: EditorCommand, result: CommandResult): void;
 }

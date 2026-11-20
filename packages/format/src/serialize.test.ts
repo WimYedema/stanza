@@ -9,7 +9,7 @@ import {
   type Paragraph,
   type StyleName,
   type TableCell,
-} from '@phrase/core';
+} from '@stanza/core';
 import { describe, expect, it } from 'vitest';
 import { parseDocument } from './parse.js';
 import { serializeDocument } from './serialize.js';
@@ -43,18 +43,18 @@ function expectRoundTrip(document: Document): void {
 
 describe('serializeDocument', () => {
   it('writes front matter and no blocks', () => {
-    expect(serializeDocument(documentOf())).toBe('---\nphrase-format: 1\n---\n');
+    expect(serializeDocument(documentOf())).toBe('---\nstanza-format: 1\n---\n');
   });
 
   it('writes an empty heading without trailing whitespace', () => {
     expect(serializeDocument(documentOf({ type: 'heading', level: 2, content: [] }))).toBe(
-      '---\nphrase-format: 1\n---\n\n##\n',
+      '---\nstanza-format: 1\n---\n\n##\n',
     );
   });
 
   it('drops empty paragraphs, which Markdown cannot express', () => {
     const text = serializeDocument(documentOf(paragraph(), paragraph(run('kept'))));
-    expect(text).toBe('---\nphrase-format: 1\n---\n\nkept\n');
+    expect(text).toBe('---\nstanza-format: 1\n---\n\nkept\n');
   });
 
   it('writes an empty list item as a bare marker', () => {
@@ -63,7 +63,7 @@ describe('serializeDocument', () => {
       kind: 'bulleted',
       items: [{ blocks: [] }, { blocks: [paragraph(run('x'))] }],
     };
-    expect(serializeDocument(documentOf(list))).toBe('---\nphrase-format: 1\n---\n\n-\n- x\n');
+    expect(serializeDocument(documentOf(list))).toBe('---\nstanza-format: 1\n---\n\n-\n- x\n');
     expectRoundTrip(documentOf(list));
   });
 
@@ -80,7 +80,7 @@ describe('serializeDocument', () => {
     expect(text).toBe(
       [
         '---',
-        'phrase-format: 1',
+        'stanza-format: 1',
         'title: "T: \\"quoted\\""',
         'authors: []',
         'classification: "restricted"',
@@ -138,8 +138,8 @@ describe('round trips', () => {
       '#section',
       'mailto:a@b.c',
       '#aaaaaaaaaa',
-      '../other%20file.phrase.md#aaaaaaaaaa',
-      'other.phrase.md',
+      '../other%20file.stanza.md#aaaaaaaaaa',
+      'other.stanza.md',
     ]) {
       expectRoundTrip(documentOf(paragraph(run('see '), run('here', { type: 'link', href }))));
     }
@@ -165,7 +165,7 @@ describe('round trips', () => {
                 header: [plainCell([run('H')])],
                 rows: [[plainCell([run('c')])]],
               },
-              { type: 'phrase', kind: 'diagram', text: 'a\nb' },
+              { type: 'stanza', kind: 'diagram', text: 'a\nb' },
             ],
           },
           { blocks: [paragraph(run('second'))] },
@@ -315,14 +315,14 @@ describe('a table with cells that are more than plain text', () => {
     [cell(), plainCell([run('An empty first cell')])],
   );
 
-  it('is written as a phrase-table block, with a list of rows of cells', () => {
+  it('is written as a stanza-table block, with a list of rows of cells', () => {
     expect(serializeDocument(documentOf(rich))).toBe(
       [
         '---',
-        'phrase-format: 1',
+        'stanza-format: 1',
         '---',
         '',
-        '```phrase-table',
+        '```stanza-table',
         '- - Control',
         '  - Notes',
         '- - Logging',
@@ -343,7 +343,7 @@ describe('a table with cells that are more than plain text', () => {
   it('keeps the annotation before the block, the same as for a pipe table', () => {
     const annotated = { ...rich, id: 'n3d8w5r1ya' as never, widths: [30, 70] };
     const text = serializeDocument(documentOf(annotated));
-    expect(text).toContain('<!-- phrase: #n3d8w5r1ya widths="30 70" -->\n```phrase-table\n');
+    expect(text).toContain('<!-- stanza: #n3d8w5r1ya widths="30 70" -->\n```stanza-table\n');
     expectRoundTrip(documentOf(annotated));
   });
 
@@ -397,12 +397,12 @@ describe('a table with cells that are more than plain text', () => {
     expectRoundTrip(documentOf(list, pipe, rich));
   });
 
-  it('rewrites a phrase-table with only plain cells as a pipe table', () => {
-    const text = '---\nphrase-format: 1\n---\n\n```phrase-table\n- - A\n  - B\n- - 1\n  - 2\n```\n';
+  it('rewrites a stanza-table with only plain cells as a pipe table', () => {
+    const text = '---\nstanza-format: 1\n---\n\n```stanza-table\n- - A\n  - B\n- - 1\n  - 2\n```\n';
     const parsed = parseDocument(text);
     expect(parsed.diagnostics).toEqual([]);
     expect(serializeDocument(parsed.document)).toBe(
-      '---\nphrase-format: 1\n---\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n',
+      '---\nstanza-format: 1\n---\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n',
     );
   });
 });

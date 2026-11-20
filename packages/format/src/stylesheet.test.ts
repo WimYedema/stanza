@@ -5,7 +5,7 @@ import {
   resolveTextProps,
   type Mark,
   type StyleName,
-} from '@phrase/core';
+} from '@stanza/core';
 import { describe, expect, it } from 'vitest';
 import { parseStylesheet } from './stylesheet.js';
 
@@ -14,7 +14,7 @@ const fixture = readFileSync(
   'utf8',
 );
 
-const HEADER = 'phrase-format: 1\n';
+const HEADER = 'stanza-format: 1\n';
 
 /** The reserved styles, so that only the part under test can cause diagnostics. */
 const RESERVED = [
@@ -216,11 +216,11 @@ describe('parseStylesheet', () => {
     expect(problems('a: [\n')[0]?.[0]).toBe('invalid-yaml');
     expect(problems('paragraph-styles: {}\n')).toContainEqual([
       'format-version-missing',
-      'phrase-format',
+      'stanza-format',
     ]);
-    expect(problems('phrase-format: 2\n')).toContainEqual([
+    expect(problems('stanza-format: 2\n')).toContainEqual([
       'format-version-unsupported',
-      'phrase-format',
+      'stanza-format',
     ]);
   });
 
@@ -266,7 +266,7 @@ describe('parseStylesheet', () => {
 
   it('reads a cover table with the default table style', () => {
     const source = sheet(
-      "page-templates:\n  page:\n    cover:\n      - table:\n          rows:\n            - { label: A, value: 'x [](phrase:authors)' }",
+      "page-templates:\n  page:\n    cover:\n      - table:\n          rows:\n            - { label: A, value: 'x [](stanza:authors)' }",
     );
     const { stylesheet, diagnostics } = parseStylesheet(source);
     expect(diagnostics).toEqual([]);
@@ -300,7 +300,7 @@ describe('parseStylesheet', () => {
       ['invalid-value', 'page-templates.page.cover[0]'],
       ['invalid-value', 'page-templates.page.cover[1]'],
     ]);
-    expect(problems(sheet(cover("- text: '[](phrase:field:Bad) [](phrase:nope)'")))).toEqual([
+    expect(problems(sheet(cover("- text: '[](stanza:field:Bad) [](stanza:nope)'")))).toEqual([
       ['unknown-slot-token', 'page-templates.page.cover[0].text'],
       ['unknown-slot-token', 'page-templates.page.cover[0].text'],
     ]);
@@ -349,7 +349,7 @@ describe('parseStylesheet', () => {
         'page-templates:',
         '  a:',
         '    footer:',
-        "      left: 'Section [x](https://example.com) {literal} [y](phrase:nope) [](phrase:pages)'",
+        "      left: 'Section [x](https://example.com) {literal} [y](stanza:nope) [](stanza:pages)'",
         '      center: 3',
         '      middle: x',
       ].join('\n'),
@@ -363,7 +363,7 @@ describe('parseStylesheet', () => {
     expect(stylesheet.pageTemplates.get(name('a'))?.footer?.left).toEqual([
       {
         kind: 'text',
-        text: 'Section [x](https://example.com) {literal} [y](phrase:nope) ',
+        text: 'Section [x](https://example.com) {literal} [y](stanza:nope) ',
       },
       { kind: 'token', token: 'pages', label: '' },
     ]);

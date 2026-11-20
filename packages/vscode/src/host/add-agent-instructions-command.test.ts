@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
-import { AGENT_INSTRUCTIONS } from '@phrase/project';
+import { AGENT_INSTRUCTIONS } from '@stanza/project';
 import {
   ADD_AGENT_INSTRUCTIONS_COMMAND,
   registerAddAgentInstructions,
@@ -12,12 +12,12 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const DOCUMENT = '/w/p/documents/one.phrase.md';
-const TEXT = '---\nphrase-format: 1\ntitle: "T"\n---\n\nText.\n';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
+const TEXT = '---\nstanza-format: 1\ntitle: "T"\n---\n\nText.\n';
 
 async function run(): Promise<void> {
   const handler = world.commandHandlers.get(ADD_AGENT_INSTRUCTIONS_COMMAND);
@@ -26,9 +26,9 @@ async function run(): Promise<void> {
 }
 
 function open(extra: Record<string, string> = {}): void {
-  reset({ '/w/p/phrase.yaml': PROJECT, [DOCUMENT]: TEXT, ...extra }, DOCUMENT, TEXT);
+  reset({ '/w/p/stanza.yaml': PROJECT, [DOCUMENT]: TEXT, ...extra }, DOCUMENT, TEXT);
   world.activeTab = {
-    input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'phrase.editor'),
+    input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'stanza.editor'),
   };
   registerAddAgentInstructions();
 }
@@ -37,7 +37,7 @@ beforeEach(() => {
   open();
 });
 
-describe('Phrase: Add Agent Instructions', () => {
+describe('Stanza: Add Agent Instructions', () => {
   it('writes AGENTS.md into the project of the document in front, and opens it', async () => {
     await run();
     expect(world.files.get('/w/p/AGENTS.md')).toBe(AGENT_INSTRUCTIONS);

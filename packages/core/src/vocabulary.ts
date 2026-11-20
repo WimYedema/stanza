@@ -16,7 +16,7 @@ export const BLOCK_ATTRIBUTES = {
   list: ['id', 'style', 'kind'],
   table: ['id', 'style', 'widths'],
   code: ['id', 'style', 'language'],
-  phrase: ['id', 'style', 'kind', 'text'],
+  stanza: ['id', 'style', 'kind', 'text'],
 } as const satisfies Record<BlockType, readonly string[]>;
 
 /**

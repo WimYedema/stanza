@@ -1,4 +1,4 @@
-import type { CommandResult, EditorCommand, PhraseEditor } from '@phrase/editor';
+import type { CommandResult, EditorCommand, StanzaEditor } from '@stanza/editor';
 
 /**
  * The prompt of the "Link" button (ADR 0075): one field for where the link goes, with the address
@@ -8,7 +8,7 @@ import type { CommandResult, EditorCommand, PhraseEditor } from '@phrase/editor'
 
 export interface LinkPromptHost {
   /** The editor, or nothing while there is none. */
-  editor(): PhraseEditor | undefined;
+  editor(): StanzaEditor | undefined;
   /** Shows what a command answered. A refusal with a fix offers it (ADR 0026). */
   answered(command: EditorCommand, result: CommandResult): void;
 }
@@ -24,7 +24,7 @@ export function createLinkPrompt(root: HTMLElement, host: LinkPromptHost): LinkP
   const input = document.createElement('input');
   input.type = 'text';
   input.setAttribute('aria-label', 'Where the link goes');
-  input.placeholder = 'https://\u2026, mailto:\u2026, #id, document.phrase.md#id or scheme://id';
+  input.placeholder = 'https://\u2026, mailto:\u2026, #id, document.stanza.md#id or scheme://id';
   const hint = document.createElement('p');
   hint.className = 'hint';
   root.replaceChildren(input, hint);

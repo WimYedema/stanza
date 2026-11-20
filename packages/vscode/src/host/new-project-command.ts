@@ -1,14 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
-import { createProject } from '@phrase/project';
+import { createProject } from '@stanza/project';
 import { uriInProject, storageOf } from './project-files.js';
 
-export const NEW_PROJECT_COMMAND = 'phrase.newProject';
+export const NEW_PROJECT_COMMAND = 'stanza.newProject';
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-/** "Phrase: New Project" writes a project into a folder that is picked, and opens its first document (ADR 0042). */
+/** "Stanza: New Project" writes a project into a folder that is picked, and opens its first document (ADR 0042). */
 export function registerNewProject(): vscode.Disposable {
   return vscode.commands.registerCommand(NEW_PROJECT_COMMAND, async () => {
     const picked = await vscode.window.showOpenDialog({
@@ -25,7 +25,7 @@ export function registerNewProject(): vscode.Disposable {
     if (folder === undefined) return;
 
     const title = await vscode.window.showInputBox({
-      title: 'Phrase: New Project',
+      title: 'Stanza: New Project',
       prompt: 'The title of the project, which is also the title of its first document',
       value: folder.path.split('/').filter(Boolean).pop() ?? '',
       validateInput: (value) => (value.trim() === '' ? 'A title is needed.' : undefined),
@@ -40,21 +40,21 @@ export function registerNewProject(): vscode.Disposable {
       });
     } catch (error) {
       void vscode.window.showErrorMessage(
-        `Phrase: the project could not be written. ${reasonOf(error)}`,
+        `Stanza: the project could not be written. ${reasonOf(error)}`,
       );
       return;
     }
     if (!result.ok) {
       void vscode.window.showErrorMessage(
         result.reason === 'exists'
-          ? `Phrase: nothing was written, because the folder has ${result.existing.join(', ')} already.`
-          : 'Phrase: a title is needed.',
+          ? `Stanza: nothing was written, because the folder has ${result.existing.join(', ')} already.`
+          : 'Stanza: a title is needed.',
       );
       return;
     }
     if (result.agentInstructions === 'exists') {
       void vscode.window.showInformationMessage(
-        'Phrase: the folder has an AGENTS.md already, so the instructions for agents were not written.',
+        'Stanza: the folder has an AGENTS.md already, so the instructions for agents were not written.',
       );
     }
 
@@ -62,13 +62,13 @@ export function registerNewProject(): vscode.Disposable {
       await vscode.commands.executeCommand(
         'vscode.openWith',
         uriInProject(folder, result.document),
-        'phrase.editor',
+        'stanza.editor',
       );
       return;
     }
     // Without a workspace folder the project of a document is not found, so the folder is opened.
     const choice = await vscode.window.showInformationMessage(
-      `Phrase: the project is written. Open its folder, then the file ${result.document}.`,
+      `Stanza: the project is written. Open its folder, then the file ${result.document}.`,
       'Open folder',
     );
     if (choice === 'Open folder') await vscode.commands.executeCommand('vscode.openFolder', folder);
