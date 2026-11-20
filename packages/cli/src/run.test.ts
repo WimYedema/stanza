@@ -724,3 +724,46 @@ describe('stanza migrate', () => {
     expect(again.out).toContain('nothing to migrate');
   });
 });
+
+describe('stanza review inspect', () => {
+  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+  /** A reviewed file: one comment in the bookmark of the first heading, one before any bookmark. */
+  const writeReviewed = (): void => {
+    const body =
+      `<w:p><w:commentRangeStart w:id="1"/><w:r><w:t>Title</w:t></w:r><w:commentRangeEnd w:id="1"/></w:p>` +
+      `<w:p><w:bookmarkStart w:id="1" w:name="stanza_k7m2q9x4zb"/><w:commentRangeStart w:id="0"/>` +
+      `<w:r><w:t>Heading</w:t></w:r><w:commentRangeEnd w:id="0"/><w:bookmarkEnd w:id="1"/></w:p>`;
+    const comments =
+      `<w:comment w:id="0" w:author="Manager" w:date="2026-11-21T10:00:00Z"><w:p><w:r><w:t>Why?</w:t></w:r></w:p></w:comment>` +
+      `<w:comment w:id="1" w:author="Manager"><w:p><w:r><w:t>On the title.</w:t></w:r></w:p></w:comment>`;
+    writeFileSync(
+      join(work, 'reviewed.docx'),
+      zipSync({
+        'word/document.xml': strToU8(`<w:document ${W}><w:body>${body}</w:body></w:document>`),
+        'word/comments.xml': strToU8(`<w:comments ${W}>${comments}</w:comments>`),
+      }),
+    );
+  };
+
+  it('lists comments by document and heading, and reports the rest', async () => {
+    writeReviewed();
+    const result = await stanza('review', 'inspect', 'reviewed.docx', 'project');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain(
+      'reviewed.docx: 1 bookmark, 2 comments, built from documents/introduction.stanza.md.',
+    );
+    expect(result.out).toContain('documents/introduction.stanza.md: ');
+    expect(result.out).toContain('(#k7m2q9x4zb)\n    Manager, 2026-11-21: Why?\n');
+    expect(result.out).toContain('Not placed: 1 comment without a block of the project.');
+    expect(result.out).toContain('    Manager: On the title.');
+    expect(result.out).toContain(
+      'no bookmark in the file (added since the build, or lost in review)',
+    );
+  });
+
+  it('needs inspect and a Word file', async () => {
+    const result = await stanza('review', 'reviewed.docx');
+    expect(result.code).toBe(2);
+    expect(result.err).toContain('review needs inspect and a Word file');
+  });
+});
