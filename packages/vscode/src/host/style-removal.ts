@@ -4,8 +4,8 @@ import {
   type StyleFamily,
   type StyleName,
   type Stylesheet,
-} from '@phrase/core';
-import type { StyleUse } from '@phrase/project';
+} from '@stanza/core';
+import type { StyleUse } from '@stanza/project';
 
 const MAX_FILES = 5;
 
@@ -15,7 +15,7 @@ const FAMILY_MAPS = {
   table: (sheet: Stylesheet) => sheet.tableStyles,
 } as const;
 
-/** `a.phrase.md (2 blocks), b.phrase.md (1 block)`, for the uses that are not through a derived style. */
+/** `a.stanza.md (2 blocks), b.stanza.md (1 block)`, for the uses that are not through a derived style. */
 function whereUsed(uses: readonly StyleUse[]): string {
   const blocks = new Map<string, Set<string>>();
   for (const use of uses) {

@@ -8,17 +8,17 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
 // Lines: 6 "# One", 8 "Some text.", 10 "## Two", 12 "# Three".
 const TEXT = `${FRONT}# One\n\nSome text.\n\n## Two\n\n# Three\n`;
 
-const DOCUMENT = '/w/p/documents/one.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
 const reveal = vi.fn<(document: vscode.Uri, block: number) => void>();
 
 function open(text = TEXT): void {
   reset({ [DOCUMENT]: text }, DOCUMENT, text);
   world.activeTab = {
-    input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'phrase.editor'),
+    input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'stanza.editor'),
   };
   registerGoToLine(reveal);
 }
@@ -35,13 +35,13 @@ beforeEach(() => {
   open();
 });
 
-describe('Phrase: Go to Line', () => {
+describe('Stanza: Go to Line', () => {
   it.each([
     ['2', 0],
     ['8', 1],
     ['9', 1],
     ['10', 2],
-    ['documents/one.phrase.md#L12', 3],
+    ['documents/one.stanza.md#L12', 3],
     ['500', 3],
   ])('reveals the block that holds %j', async (typed, block) => {
     await run(typed);
@@ -71,10 +71,10 @@ describe('Phrase: Go to Line', () => {
     expect(world.infos).toEqual([expect.stringContaining('no blocks')]);
   });
 
-  it('says so when the editor in front is not a Phrase document', async () => {
+  it('says so when the editor in front is not a Stanza document', async () => {
     world.activeTab = { input: new vscode.TabInputText(vscode.Uri.file('/w/p/notes.md')) };
     await run('3');
-    expect(world.errors).toEqual([expect.stringContaining('open a Phrase document')]);
+    expect(world.errors).toEqual([expect.stringContaining('open a Stanza document')]);
     expect(reveal).not.toHaveBeenCalled();
   });
 });

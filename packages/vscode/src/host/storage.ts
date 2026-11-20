@@ -1,4 +1,4 @@
-import type { DirectoryEntry, ProjectStorage } from '@phrase/project';
+import type { DirectoryEntry, ProjectStorage } from '@stanza/project';
 
 /** What the storage needs from a file system. Paths are relative to the project root, with `/`. */
 export interface FileIo {

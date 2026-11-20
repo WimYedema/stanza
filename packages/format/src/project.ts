@@ -7,7 +7,7 @@ import {
   type ProjectDefaults,
   type ProjectSettings,
   type LinkSchemes,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   KEBAB_CASE,
   asMap,
@@ -27,7 +27,7 @@ import {
 export interface ProjectParseResult {
   readonly settings: ProjectSettings;
   readonly diagnostics: readonly Diagnostic[];
-  /** The `phrase-format` value found in the file, when there was one. */
+  /** The `stanza-format` value found in the file, when there was one. */
   readonly formatVersion: number | undefined;
 }
 
@@ -161,7 +161,7 @@ export function parseProject(source: string): ProjectParseResult {
   checkKeys(
     data,
     [
-      'phrase-format',
+      'stanza-format',
       'title',
       'stylesheet',
       'defaults',

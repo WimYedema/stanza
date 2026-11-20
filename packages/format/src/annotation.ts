@@ -1,4 +1,4 @@
-import { isNodeId, isStyleName, type Diagnostic, type NodeId, type StyleName } from '@phrase/core';
+import { isNodeId, isStyleName, type Diagnostic, type NodeId, type StyleName } from '@stanza/core';
 
 export interface Annotation {
   readonly id?: NodeId;
@@ -12,12 +12,12 @@ export interface ParsedAnnotation {
   readonly diagnostics: readonly Diagnostic[];
 }
 
-const COMMENT = /^<!--\s*phrase:\s*(.*?)\s*-->$/;
+const COMMENT = /^<!--\s*stanza:\s*(.*?)\s*-->$/;
 const TOKEN = /#\S+|\.\S+|[A-Za-z][\w-]*="[^"]*"|\S+/g;
 const KEY_VALUE = /^([A-Za-z][\w-]*)="([^"]*)"$/;
 
 /**
- * Parses a block annotation such as `<!-- phrase: #k7m2q9x4zb .cover-title widths="30 70" -->`.
+ * Parses a block annotation such as `<!-- stanza: #k7m2q9x4zb .cover-title widths="30 70" -->`.
  * Returns undefined when the line is not an annotation.
  */
 export function parseAnnotation(line: string, lineNumber: number): ParsedAnnotation | undefined {
@@ -73,5 +73,5 @@ export function formatAnnotation(annotation: Annotation): string | undefined {
   if (annotation.id !== undefined) parts.push(`#${annotation.id}`);
   if (annotation.style !== undefined) parts.push(`.${annotation.style}`);
   if (annotation.widths !== undefined) parts.push(`widths="${annotation.widths.join(' ')}"`);
-  return parts.length === 0 ? undefined : `<!-- phrase: ${parts.join(' ')} -->`;
+  return parts.length === 0 ? undefined : `<!-- stanza: ${parts.join(' ')} -->`;
 }

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
 import { ProjectDiagnostics } from './project-diagnostics.js';
-import { PhraseTree } from './phrase-tree.js';
+import { StanzaTree } from './stanza-tree.js';
 import { changeDocument, FakeUri, reset, world } from './vscode-fake.testing.js';
 
 vi.mock('vscode', async () => {
@@ -11,11 +11,11 @@ vi.mock('vscode', async () => {
 });
 
 const ROOT = new FakeUri('/w/p') as unknown as vscode.Uri;
-const SOURCE = '/w/p/documents/one.phrase.md';
-const TARGET = '/w/p/documents/two.phrase.md';
-const FRONT = '---\nphrase-format: 1\n---\n\n';
-const ONE = `${FRONT}<!-- phrase: #aaaaaaaaaa -->\n# One\n`;
-const TWO = `${FRONT}<!-- phrase: #bbbbbbbbbb -->\n# Two\n`;
+const SOURCE = '/w/p/documents/one.stanza.md';
+const TARGET = '/w/p/documents/two.stanza.md';
+const FRONT = '---\nstanza-format: 1\n---\n\n';
+const ONE = `${FRONT}<!-- stanza: #aaaaaaaaaa -->\n# One\n`;
+const TWO = `${FRONT}<!-- stanza: #bbbbbbbbbb -->\n# Two\n`;
 const STYLESHEET = readFileSync(
   new URL('../../../../fixtures/example-project/styles/default.yaml', import.meta.url),
   'utf8',
@@ -25,7 +25,7 @@ let diagnostics: ProjectDiagnostics;
 beforeEach(() => {
   reset(
     {
-      '/w/p/phrase.yaml': 'phrase-format: 1\ntitle: P\nstylesheet: styles/default.yaml\n',
+      '/w/p/stanza.yaml': 'stanza-format: 1\ntitle: P\nstylesheet: styles/default.yaml\n',
       '/w/p/styles/default.yaml': STYLESHEET,
       [SOURCE]: ONE,
       [TARGET]: TWO,
@@ -53,7 +53,7 @@ describe('shared project snapshots', () => {
     expect(read.mock.calls.filter(([uri]) => uri.path === TARGET)).toHaveLength(1);
     const count = read.mock.calls.length;
     expect(await diagnostics.load(ROOT)).toBe(first);
-    const tree = new PhraseTree(diagnostics);
+    const tree = new StanzaTree(diagnostics);
     await tree.getChildren();
     tree.dispose();
     expect(read).toHaveBeenCalledTimes(count);
@@ -66,7 +66,7 @@ describe('shared project snapshots', () => {
     const after = await diagnostics.load(ROOT);
     expect(after).not.toBe(before);
     expect(
-      after.documents.find((document) => document.path === 'documents/one.phrase.md')?.document
+      after.documents.find((document) => document.path === 'documents/one.stanza.md')?.document
         .blocks[0]?.id,
     ).toBe('cccccccccc');
     for (const listener of world.closeListeners) listener(world.document as never);
@@ -89,16 +89,16 @@ describe('shared project snapshots', () => {
       await diagnostics.load(ROOT);
       const watcher = world.fileWatchers[0];
       if (watcher === undefined) throw new Error('No snapshot watcher was installed.');
-      if (event === 'create') world.files.set('/w/p/new.phrase.md', `${FRONT}New\n`);
+      if (event === 'create') world.files.set('/w/p/new.stanza.md', `${FRONT}New\n`);
       if (event === 'delete') world.files.delete(TARGET);
-      if (event === 'change') world.files.set('/w/p/phrase.yaml', 'phrase-format: 1\n');
+      if (event === 'change') world.files.set('/w/p/stanza.yaml', 'stanza-format: 1\n');
       for (const listener of watcher[event]) listener(new FakeUri(TARGET));
       expect(diagnostics.current(ROOT)).toBeUndefined();
       const loaded = await diagnostics.load(ROOT);
       if (event === 'create')
-        expect(loaded.documents.some((entry) => entry.path === 'new.phrase.md')).toBe(true);
+        expect(loaded.documents.some((entry) => entry.path === 'new.stanza.md')).toBe(true);
       if (event === 'delete')
-        expect(loaded.documents.some((entry) => entry.path === 'documents/two.phrase.md')).toBe(
+        expect(loaded.documents.some((entry) => entry.path === 'documents/two.stanza.md')).toBe(
           false,
         );
       if (event === 'change') expect(loaded.settings).toBeUndefined();
@@ -132,7 +132,7 @@ describe('shared project snapshots', () => {
     expect(await first).toBe(latest);
     expect(diagnostics.current(ROOT)).toBe(latest);
     expect(
-      latest.documents.find((document) => document.path === 'documents/two.phrase.md')?.document
+      latest.documents.find((document) => document.path === 'documents/two.stanza.md')?.document
         .blocks[0]?.id,
     ).toBe('dddddddddd');
   });

@@ -7,7 +7,7 @@ import {
 } from './styles-provider.js';
 import { locateStylesheet } from './styles-project.js';
 
-export const EDIT_STYLES_COMMAND = 'phrase.editStyles';
+export const EDIT_STYLES_COMMAND = 'stanza.editStyles';
 
 const KINDS: readonly unknown[] = ['paragraph-style', 'character-style', 'table-style'];
 
@@ -20,7 +20,7 @@ function selectionOf(value: unknown): StyleSelection | undefined {
 }
 
 /**
- * "Phrase: Edit Styles" opens the stylesheet of the project of the file in front (ADR 0036). Given
+ * "Stanza: Edit Styles" opens the stylesheet of the project of the file in front (ADR 0036). Given
  * a style, as the document editor does, it selects it (ADR 0054).
  */
 export function registerEditStyles(): vscode.Disposable {
@@ -28,14 +28,14 @@ export function registerEditStyles(): vscode.Disposable {
     const from = activeFile() ?? (await pickedProjectFile());
     if (from === undefined) {
       void vscode.window.showErrorMessage(
-        'Phrase: there is no project here. Open a folder that has a phrase.yaml file.',
+        'Stanza: there is no project here. Open a folder that has a stanza.yaml file.',
       );
       return;
     }
     const found = await locateStylesheet(from);
     if (!found.ok) {
       void vscode.window.showErrorMessage(
-        `Phrase: ${found.title}. ${found.reasons.map((reason) => reason.message).join(' ')}`,
+        `Stanza: ${found.title}. ${found.reasons.map((reason) => reason.message).join(' ')}`,
       );
       return;
     }

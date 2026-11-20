@@ -13,7 +13,7 @@ import type {
   ParagraphProps,
   TextProps,
   Tokens,
-} from '@phrase/core';
+} from '@stanza/core';
 
 type Writable<T> = { -readonly [K in keyof T]: T[K] };
 

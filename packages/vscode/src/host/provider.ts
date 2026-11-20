@@ -14,9 +14,9 @@ import {
   type ListItemBlock,
   type NodeId,
   type ProjectSettings,
-} from '@phrase/core';
-import { parseDocument, serializeDocument } from '@phrase/format';
-import { styleUsage, type LoadedProject } from '@phrase/project';
+} from '@stanza/core';
+import { parseDocument, serializeDocument } from '@stanza/format';
+import { styleUsage, type LoadedProject } from '@stanza/project';
 import {
   parseWebviewMessage,
   type HostMessage,
@@ -36,9 +36,9 @@ import { summarizeUsage } from './usage-summary.js';
 /** After a change, the project is checked again when nothing has changed for this long. */
 const REFRESH_DELAY_MS = 300;
 
-/** Opens `*.phrase.md` in the visual editor, bound to the text of the file (ADR 0025). */
-export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
-  static readonly viewType = 'phrase.editor';
+/** Opens `*.stanza.md` in the visual editor, bound to the text of the file (ADR 0025). */
+export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
+  static readonly viewType = 'stanza.editor';
 
   /** The open editors by document, to tell one of them to scroll. */
   private readonly sessions = new Map<string, EditorSession>();
@@ -63,7 +63,7 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
-   * Shows a document in the Phrase editor, in front, and scrolls to a block when one is given. The
+   * Shows a document in the Stanza editor, in front, and scrolls to a block when one is given. The
    * editor may not be open yet, so the block is kept until it is.
    */
   async open(uri: vscode.Uri, block?: number): Promise<void> {
@@ -73,7 +73,7 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
       if (session === undefined) this.waiting.set(key, block);
       else session.reveal(block);
     }
-    await vscode.commands.executeCommand('vscode.openWith', uri, PhraseEditorProvider.viewType);
+    await vscode.commands.executeCommand('vscode.openWith', uri, StanzaEditorProvider.viewType);
   }
 
   async followReference(source: vscode.Uri, target: string): Promise<void> {
@@ -84,35 +84,35 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
       (link?.target !== undefined && !isNodeId(link.target))
     ) {
       await vscode.window.showErrorMessage(
-        'Phrase: use an immutable block ID, not a heading title fragment, for a reference.',
+        'Stanza: use an immutable block ID, not a heading title fragment, for a reference.',
       );
       return;
     }
     const root = await findRoot(source);
     if (root === undefined) {
       await vscode.window.showErrorMessage(
-        'Phrase: could not find the project for this reference.',
+        'Stanza: could not find the project for this reference.',
       );
       return;
     }
     const loaded = await this.diagnostics.load(root);
     if (loaded.settings === undefined || loaded.stylesheet === undefined) {
       await vscode.window.showErrorMessage(
-        'Phrase: the project has errors and its references cannot be followed.',
+        'Stanza: the project has errors and its references cannot be followed.',
       );
       return;
     }
     if (link === undefined) {
       const resolved = resolveLink(target, loaded.settings.linkSchemes);
       if (!resolved.ok) {
-        await vscode.window.showErrorMessage(`Phrase: ${resolved.message}`);
+        await vscode.window.showErrorMessage(`Stanza: ${resolved.message}`);
       } else if (/^(https?|mailto):/i.test(resolved.href)) {
         if (!(await vscode.env.openExternal(vscode.Uri.parse(resolved.href)))) {
-          await vscode.window.showErrorMessage(`Phrase: could not open "${resolved.href}".`);
+          await vscode.window.showErrorMessage(`Stanza: could not open "${resolved.href}".`);
         }
       } else {
         await vscode.window.showErrorMessage(
-          'Phrase: the link does not resolve to a web or mail address.',
+          'Stanza: the link does not resolve to a web or mail address.',
         );
       }
       return;
@@ -124,13 +124,13 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
     const hinted = link.file === '' ? own : referenceFile(own, link.file);
     if (hinted === undefined) {
       await vscode.window.showErrorMessage(
-        'Phrase: the document link must stay inside this project.',
+        'Stanza: the document link must stay inside this project.',
       );
       return;
     }
     if (link.target !== undefined && isNodeId(link.target) && index.duplicates.has(link.target)) {
       await vscode.window.showErrorMessage(
-        `Phrase: reference #${link.target} is ambiguous because its ID is duplicated.`,
+        `Stanza: reference #${link.target} is ambiguous because its ID is duplicated.`,
       );
       return;
     }
@@ -146,8 +146,8 @@ export class PhraseEditorProvider implements vscode.CustomTextEditorProvider {
     if (destination === undefined || (link.target !== undefined && block === undefined)) {
       await vscode.window.showErrorMessage(
         link.target === undefined
-          ? `Phrase: document "${hinted}" was not found in this project.`
-          : `Phrase: reference target #${link.target} was not found in this project.`,
+          ? `Stanza: document "${hinted}" was not found in this project.`
+          : `Stanza: reference target #${link.target} was not found in this project.`,
       );
       return;
     }
@@ -183,7 +183,7 @@ type Shown = 'nothing' | 'editor' | 'refused';
 
 /** The files that the project is made of, which can change without being saved. */
 const isProjectFile = (fileName: string): boolean =>
-  fileName.endsWith('.phrase.md') || fileName.endsWith('.yaml') || fileName.endsWith('.yml');
+  fileName.endsWith('.stanza.md') || fileName.endsWith('.yaml') || fileName.endsWith('.yml');
 
 const metadataFields = (settings: ProjectSettings): readonly MetadataField[] | undefined =>
   settings.fields === undefined
@@ -313,7 +313,7 @@ class EditorSession {
         return;
       case 'startup-timing':
         this.log.appendLine(
-          `Phrase startup: visible ${String(message.visibleMs)} ms, editable ${String(message.editableMs)} ms (${this.document.fileName}).`,
+          `Stanza startup: visible ${String(message.visibleMs)} ms, editable ${String(message.editableMs)} ms (${this.document.fileName}).`,
         );
         return;
       case 'change':
@@ -324,11 +324,11 @@ class EditorSession {
         return;
       case 'open-project':
         if (this.root === undefined) {
-          await vscode.window.showErrorMessage('Phrase: the metadata project was not found.');
+          await vscode.window.showErrorMessage('Stanza: the metadata project was not found.');
         } else {
           await vscode.commands.executeCommand(
             'vscode.open',
-            vscode.Uri.joinPath(this.root, 'phrase.yaml'),
+            vscode.Uri.joinPath(this.root, 'stanza.yaml'),
           );
         }
         return;
@@ -389,7 +389,7 @@ class EditorSession {
         await this.onDocumentChanged();
       } else if (!reviewText(text).ok || !reviewText(before).ok) {
         message =
-          'Properties require valid canonical Phrase source. Open the document as text to inspect it.';
+          'Properties require valid canonical Stanza source. Open the document as text to inspect it.';
       } else {
         const previous = parseDocument(before).document;
         const next = parseDocument(text).document;
@@ -476,10 +476,10 @@ class EditorSession {
   private async sendInit(): Promise<void> {
     const root = (this.root ??= await findRoot(this.document.uri));
     if (root === undefined) {
-      await this.refuse('This file is not in a Phrase project', [
+      await this.refuse('This file is not in a Stanza project', [
         {
           message:
-            'No phrase.yaml was found in the folder of this file or in a folder above it, inside the workspace folder.',
+            'No stanza.yaml was found in the folder of this file or in a folder above it, inside the workspace folder.',
         },
       ]);
       return;
@@ -617,7 +617,7 @@ class EditorSession {
     if (this.watched === root.toString()) return;
     this.watched = root.toString();
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(root, '**/*.{yaml,yml,phrase.md}'),
+      new vscode.RelativePattern(root, '**/*.{yaml,yml,stanza.md}'),
     );
     this.disposables.push(
       watcher,

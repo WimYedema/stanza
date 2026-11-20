@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDocument } from './parse.js';
 
 function parseBody(body: string) {
-  return parseDocument(`---\nphrase-format: 1\n---\n\n${body}\n`);
+  return parseDocument(`---\nstanza-format: 1\n---\n\n${body}\n`);
 }
 
 function codes(body: string): string[] {
@@ -14,7 +14,7 @@ describe('front matter', () => {
     const { document, formatVersion, diagnostics } = parseDocument(
       [
         '---',
-        'phrase-format: 1',
+        'stanza-format: 1',
         'title: Plain title',
         'authors:',
         '  - A',
@@ -39,7 +39,7 @@ describe('front matter', () => {
 
   it('reads unquoted scalars as strings', () => {
     const { document } = parseDocument(
-      '---\nphrase-format: 1\ntitle: no\nsign-off: 2026-10-13\ncount: 12\n---\n',
+      '---\nstanza-format: 1\ntitle: no\nsign-off: 2026-10-13\ncount: 12\n---\n',
     );
     expect(document.meta).toEqual({
       title: 'no',
@@ -60,17 +60,17 @@ describe('front matter', () => {
   });
 
   it('reports an unsupported format version', () => {
-    const result = parseDocument('---\nphrase-format: 2\n---\n');
+    const result = parseDocument('---\nstanza-format: 2\n---\n');
     expect(result.diagnostics.map((d) => d.code)).toEqual(['format-version-unsupported']);
     expect(result.formatVersion).toBe(2);
   });
 
   it('reports invalid YAML and invalid values', () => {
-    expect(parseDocument('---\nphrase-format: 1\ntitle: [\n---\n').diagnostics[0]?.code).toBe(
+    expect(parseDocument('---\nstanza-format: 1\ntitle: [\n---\n').diagnostics[0]?.code).toBe(
       'front-matter-invalid-yaml',
     );
     const invalid = parseDocument(
-      '---\nphrase-format: 1\nauthors: someone\nNot_Kebab: x\nnested:\n  a: b\n---\n',
+      '---\nstanza-format: 1\nauthors: someone\nNot_Kebab: x\nnested:\n  a: b\n---\n',
     );
     expect(invalid.diagnostics.map((d) => d.code)).toEqual([
       'front-matter-invalid',
@@ -80,7 +80,7 @@ describe('front matter', () => {
   });
 
   it('accepts CRLF line endings and a byte order mark', () => {
-    const result = parseDocument('\uFEFF---\r\nphrase-format: 1\r\n---\r\n\r\nText\r\n');
+    const result = parseDocument('\uFEFF---\r\nstanza-format: 1\r\n---\r\n\r\nText\r\n');
     expect(result.diagnostics).toEqual([]);
     expect(result.document.blocks).toHaveLength(1);
   });
@@ -89,7 +89,7 @@ describe('front matter', () => {
 describe('blocks', () => {
   it('applies an annotation to the next block', () => {
     const { document, diagnostics } = parseBody(
-      '<!-- phrase: #k7m2q9x4zb .note -->\n## Title\n\n<!-- phrase: .cover-title -->\nText',
+      '<!-- stanza: #k7m2q9x4zb .note -->\n## Title\n\n<!-- stanza: .cover-title -->\nText',
     );
     expect(diagnostics).toEqual([]);
     expect(document.blocks).toEqual([
@@ -99,16 +99,16 @@ describe('blocks', () => {
   });
 
   it('reports an annotation without a following block', () => {
-    expect(codes('Text\n\n<!-- phrase: #k7m2q9x4zb -->')).toEqual(['annotation-unused']);
+    expect(codes('Text\n\n<!-- stanza: #k7m2q9x4zb -->')).toEqual(['annotation-unused']);
   });
 
   it('keeps table widths only when they match the columns', () => {
-    const ok = parseBody('<!-- phrase: widths="30 70" -->\n| A | B |\n| --- | --- |\n| 1 | 2 |');
+    const ok = parseBody('<!-- stanza: widths="30 70" -->\n| A | B |\n| --- | --- |\n| 1 | 2 |');
     expect(ok.document.blocks[0]).toEqual(expect.objectContaining({ widths: [30, 70] }));
     expect(
-      codes('<!-- phrase: widths="30 70 10" -->\n| A | B |\n| --- | --- |\n| 1 | 2 |'),
+      codes('<!-- stanza: widths="30 70 10" -->\n| A | B |\n| --- | --- |\n| 1 | 2 |'),
     ).toEqual(['widths-mismatch']);
-    expect(codes('<!-- phrase: widths="30 70" -->\nText')).toEqual(['widths-not-table']);
+    expect(codes('<!-- stanza: widths="30 70" -->\nText')).toEqual(['widths-not-table']);
   });
 
   it('pads and truncates table rows to the header width', () => {
@@ -126,14 +126,14 @@ describe('blocks', () => {
     );
   });
 
-  it('reads code and phrase blocks', () => {
+  it('reads code and stanza blocks', () => {
     const { document, diagnostics } = parseBody(
-      '```ts\nlet x;\n```\n\n```phrase-chart\nraw\n```\n\n    indented\n',
+      '```ts\nlet x;\n```\n\n```stanza-chart\nraw\n```\n\n    indented\n',
     );
     expect(diagnostics).toEqual([]);
     expect(document.blocks).toEqual([
       { type: 'code', language: 'ts', text: 'let x;' },
-      { type: 'phrase', kind: 'chart', text: 'raw' },
+      { type: 'stanza', kind: 'chart', text: 'raw' },
       { type: 'code', text: 'indented' },
     ]);
   });
@@ -169,7 +169,7 @@ describe('unsupported constructs are reported, not dropped silently', () => {
     ['a list start number', '3. three', ['list-start-unsupported']],
     ['table alignment', '| A |\n| :-: |\n| 1 |', ['table-alignment-unsupported']],
     ['extra fence info', '```ts title=x\ncode\n```', ['fence-info-ignored']],
-    ['a phrase block without a kind', '```phrase-\nx\n```', ['phrase-block-kind-missing']],
+    ['a stanza block without a kind', '```stanza-\nx\n```', ['stanza-block-kind-missing']],
   ])('%s', (_label, body, expected) => {
     expect(codes(body)).toEqual(expected);
   });
@@ -184,7 +184,7 @@ describe('unsupported constructs are reported, not dropped silently', () => {
   });
 
   it('reports the source line', () => {
-    const result = parseDocument('---\nphrase-format: 1\n---\n\nText\n\n---\n');
+    const result = parseDocument('---\nstanza-format: 1\n---\n\nText\n\n---\n');
     expect(result.diagnostics).toEqual([expect.objectContaining({ line: 7 })]);
   });
 });
@@ -228,12 +228,12 @@ describe('inline content', () => {
   });
 });
 
-describe('phrase-table blocks', () => {
+describe('stanza-table blocks', () => {
   const para = (text: string) => ({
     type: 'paragraph',
     content: [{ type: 'text', text, marks: [] }],
   });
-  const table = (body: string) => parseBody(`\`\`\`phrase-table\n${body}\n\`\`\``);
+  const table = (body: string) => parseBody(`\`\`\`stanza-table\n${body}\n\`\`\``);
 
   it('reads rows of cells, with paragraphs and lists in a cell, as a table', () => {
     const { document, diagnostics } = table(
@@ -265,7 +265,7 @@ describe('phrase-table blocks', () => {
 
   it('takes the ID, style and widths from the annotation, as for a pipe table', () => {
     const { document, diagnostics } = parseBody(
-      '<!-- phrase: #n3d8w5r1ya .table-grid widths="30 70" -->\n```phrase-table\n- - A\n  - B\n```',
+      '<!-- stanza: #n3d8w5r1ya .table-grid widths="30 70" -->\n```stanza-table\n- - A\n  - B\n```',
     );
     expect(diagnostics).toEqual([]);
     expect(document.blocks[0]).toMatchObject({
@@ -278,7 +278,7 @@ describe('phrase-table blocks', () => {
 
   it('reads a table in a list item', () => {
     const { document, diagnostics } = parseBody(
-      '- item\n\n  ```phrase-table\n  - - A\n  - - b\n\n      c\n  ```',
+      '- item\n\n  ```stanza-table\n  - - A\n  - - b\n\n      c\n  ```',
     );
     expect(diagnostics).toEqual([]);
     expect(document.blocks[0]).toMatchObject({
@@ -296,14 +296,14 @@ describe('phrase-table blocks', () => {
     ['rows that are not lists of cells', '- A\n- B'],
     ['a row that holds a paragraph too', '- - A\n\n  text'],
     ['more than one list', '- - A\n\ntext\n\n- - B'],
-    ['an annotation in the body', '<!-- phrase: #n3d8w5r1ya -->\n- - A'],
+    ['an annotation in the body', '<!-- stanza: #n3d8w5r1ya -->\n- - A'],
   ])('refuses %s', (_name, body) => {
-    expect(codes(`\`\`\`phrase-table\n${body}\n\`\`\``)).toEqual(['invalid-table-body']);
+    expect(codes(`\`\`\`stanza-table\n${body}\n\`\`\``)).toEqual(['invalid-table-body']);
   });
 
   it('refuses a block that a cell may not hold, and says where the table starts', () => {
     const { diagnostics } = parseBody(
-      'text\n\n```phrase-table\n- - A\n- - ```ts\n    code\n    ```\n```',
+      'text\n\n```stanza-table\n- - A\n- - ```ts\n    code\n    ```\n```',
     );
     expect(diagnostics).toEqual([
       expect.objectContaining({ code: 'table-cell-block', severity: 'error' }),
@@ -311,7 +311,7 @@ describe('phrase-table blocks', () => {
   });
 
   it('points a problem inside a cell at its own line', () => {
-    const { diagnostics } = parseBody('text\n\n```phrase-table\n- - A\n- - # heading\n```');
+    const { diagnostics } = parseBody('text\n\n```stanza-table\n- - A\n- - # heading\n```');
     expect(diagnostics).toEqual([expect.objectContaining({ code: 'heading-in-list', line: 9 })]);
   });
 

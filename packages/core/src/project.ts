@@ -46,7 +46,7 @@ export interface ProjectSettings {
 
 /** Names that belong to the hardcoded metadata and cannot be declared as custom fields. */
 export const HARDCODED_FIELD_NAMES: readonly string[] = [
-  'phrase-format',
+  'stanza-format',
   'title',
   'authors',
   'classification',

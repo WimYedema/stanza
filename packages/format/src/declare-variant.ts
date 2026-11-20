@@ -1,4 +1,4 @@
-import { markAllowed, type StyleName, type VariantMark } from '@phrase/core';
+import { markAllowed, type StyleName, type VariantMark } from '@stanza/core';
 import { isMap, parseDocument } from 'yaml';
 import { findPair, setProperty, type YamlValue } from './edit-stylesheet.js';
 import { parseStylesheet } from './stylesheet.js';

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parseStylesheet } from '@phrase/format';
+import { parseStylesheet } from '@stanza/format';
 import { listHeadings, nestHeadings } from './headings.js';
 
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
 const RESERVED = [
   'heading-3',
   'heading-4',
@@ -15,7 +15,7 @@ const RESERVED = [
   .map((name) => `  ${name}: {}\n`)
   .join('');
 const stylesheet = parseStylesheet(
-  `phrase-format: 1\nparagraph-styles:\n  body: {}\n  heading-1:\n    numbered: true\n  heading-2:\n    based-on: heading-1\n${RESERVED}table-styles:\n  table: {}\n`,
+  `stanza-format: 1\nparagraph-styles:\n  body: {}\n  heading-1:\n    numbered: true\n  heading-2:\n    based-on: heading-1\n${RESERVED}table-styles:\n  table: {}\n`,
 ).stylesheet;
 
 describe('listHeadings', () => {

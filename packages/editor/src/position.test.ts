@@ -13,7 +13,7 @@ const doc = (...blocks: object[]) => schema.nodeFromJSON({ type: 'doc', content:
 const SAMPLE = doc(
   { type: 'heading', attrs: { level: 1 }, content: [text('Title')] },
   paragraph(text('Some '), text('bold', [{ type: 'strong' }]), text(' text')),
-  { type: 'phraseBlock', attrs: { kind: 'toc', text: '' } },
+  { type: 'stanzaBlock', attrs: { kind: 'toc', text: '' } },
   {
     type: 'bulletList',
     content: [
@@ -68,7 +68,7 @@ describe('the position of the cursor', () => {
   it('copes with a block that is only an atom, and with an empty document', () => {
     const atom = EditorState.create({ schema, doc: SAMPLE });
     const moved = atom.apply(moveTo(atom, { block: 2, offset: 0 }));
-    expect(moved.selection.$head.parent.type.name).not.toBe('phraseBlock');
+    expect(moved.selection.$head.parent.type.name).not.toBe('stanzaBlock');
     const empty = EditorState.create({ schema, doc: doc() });
     expect(moveTo(empty, { block: 0, offset: 0 }).docChanged).toBe(false);
   });

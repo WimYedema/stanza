@@ -3,11 +3,11 @@ import type { ProjectDiagnostics } from './project-diagnostics.js';
 import type { HeadingNode } from './headings.js';
 import { outlineOf, type OutlineDocument, type OutlineGroup, type OutlineItem } from './outline.js';
 import { uriInProject } from './project-files.js';
-import type { PhraseEditorProvider } from './provider.js';
+import type { StanzaEditorProvider } from './provider.js';
 
-export const OUTLINE_VIEW = 'phrase.outline';
+export const OUTLINE_VIEW = 'stanza.outline';
 /** The command that a click in the tree runs: opens a document, at a block when one is given. */
-export const OPEN_AT_COMMAND = 'phrase.openAt';
+export const OPEN_AT_COMMAND = 'stanza.openAt';
 
 /** After a change, the tree is made again when nothing has changed for this long. */
 const REFRESH_DELAY_MS = 300;
@@ -46,7 +46,7 @@ function nodeOf(root: vscode.Uri, item: OutlineItem, alone: boolean, trail: stri
 }
 
 /** The projects of the workspace, their documents and the headings of each (item 111). */
-export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposable {
+export class StanzaTree implements vscode.TreeDataProvider<Node>, vscode.Disposable {
   constructor(private readonly diagnostics: ProjectDiagnostics) {}
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
@@ -92,7 +92,7 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
       case 'project': {
         const item = new vscode.TreeItem(node.title, vscode.TreeItemCollapsibleState.Expanded);
         item.id = node.root.toString();
-        item.contextValue = 'phraseProject';
+        item.contextValue = 'stanzaProject';
         item.iconPath = new vscode.ThemeIcon('root-folder');
         if (!node.inOrder) item.description = 'has errors';
         return item;
@@ -114,7 +114,7 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
             : vscode.TreeItemCollapsibleState.Collapsed,
         );
         item.id = node.uri.toString();
-        item.contextValue = node.document.listed ? 'phraseDocument' : 'phraseUnlistedDocument';
+        item.contextValue = node.document.listed ? 'stanzaDocument' : 'stanzaUnlistedDocument';
         const file = node.document.path.slice(node.document.path.lastIndexOf('/') + 1);
         item.description = node.document.listed ? file : `${file} (not listed)`;
         item.iconPath = new vscode.ThemeIcon('file');
@@ -140,15 +140,15 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
         return item;
       }
       case 'none': {
-        const item = new vscode.TreeItem('No Phrase project in the workspace');
-        item.description = 'a folder with a phrase.yaml file';
+        const item = new vscode.TreeItem('No Stanza project in the workspace');
+        item.description = 'a folder with a stanza.yaml file';
         return item;
       }
     }
   }
 
   private async projects(): Promise<Node[]> {
-    const found = await vscode.workspace.findFiles('**/phrase.yaml', '**/node_modules/**', 20);
+    const found = await vscode.workspace.findFiles('**/stanza.yaml', '**/node_modules/**', 20);
     const roots = found
       .map((file) => vscode.Uri.joinPath(file, '..'))
       .sort((a, b) => a.path.localeCompare(b.path));
@@ -169,14 +169,14 @@ export class PhraseTree implements vscode.TreeDataProvider<Node>, vscode.Disposa
 }
 
 const isProjectFile = (fileName: string): boolean =>
-  fileName.endsWith('.phrase.md') || fileName.endsWith('.yaml');
+  fileName.endsWith('.stanza.md') || fileName.endsWith('.yaml');
 
 /** Shows the tree in the Explorer, keeps it up to date, and opens a document where it is clicked. */
-export function registerPhraseTree(
-  editors: PhraseEditorProvider,
+export function registerStanzaTree(
+  editors: StanzaEditorProvider,
   diagnostics: ProjectDiagnostics,
 ): vscode.Disposable {
-  const tree = new PhraseTree(diagnostics);
+  const tree = new StanzaTree(diagnostics);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const schedule = (): void => {
     clearTimeout(timer);
@@ -184,7 +184,7 @@ export function registerPhraseTree(
       tree.refresh();
     }, REFRESH_DELAY_MS);
   };
-  const watchers = ['**/*.phrase.md', '**/*.yaml'].map((pattern) =>
+  const watchers = ['**/*.stanza.md', '**/*.yaml'].map((pattern) =>
     vscode.workspace.createFileSystemWatcher(pattern),
   );
   const parts: vscode.Disposable[] = [

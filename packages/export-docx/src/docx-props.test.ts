@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Tokens } from '@phrase/core';
+import type { Tokens } from '@stanza/core';
 import { paragraphProps, runProps } from './docx-props.js';
 
 const tokens: Tokens = {

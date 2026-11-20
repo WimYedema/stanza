@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { StyleUsage, StyleUse } from '@phrase/project';
+import type { StyleUsage, StyleUse } from '@stanza/project';
 import { summarizeUsage } from './usage-summary.js';
 
 const use = (kind: StyleUse['kind'], file: string, path: string, via?: string): StyleUse => ({
@@ -25,19 +25,19 @@ describe('summarizeUsage', () => {
     const summary = summarizeUsage(
       usage({
         body: [
-          use('default', 'a.phrase.md', 'blocks[0]'),
-          use('default', 'a.phrase.md', 'blocks[1]'),
-          use('direct', 'a.phrase.md', 'blocks[2]'),
-          use('inherited', 'a.phrase.md', 'blocks[3]', 'note'),
-          use('default', 'b.phrase.md', 'blocks[0]'),
+          use('default', 'a.stanza.md', 'blocks[0]'),
+          use('default', 'a.stanza.md', 'blocks[1]'),
+          use('direct', 'a.stanza.md', 'blocks[2]'),
+          use('inherited', 'a.stanza.md', 'blocks[3]', 'note'),
+          use('default', 'b.stanza.md', 'blocks[0]'),
         ],
       }),
-      'a.phrase.md',
+      'a.stanza.md',
     );
-    expect(summary.current).toBe('a.phrase.md');
+    expect(summary.current).toBe('a.stanza.md');
     expect(summary.paragraph['body']).toEqual([
-      { file: 'a.phrase.md', direct: 1, default: 2, inherited: 1 },
-      { file: 'b.phrase.md', direct: 0, default: 1, inherited: 0 },
+      { file: 'a.stanza.md', direct: 1, default: 2, inherited: 1 },
+      { file: 'b.stanza.md', direct: 0, default: 1, inherited: 0 },
     ]);
   });
 
@@ -45,27 +45,27 @@ describe('summarizeUsage', () => {
     const summary = summarizeUsage(
       usage({
         body: [
-          use('inherited', 'a.phrase.md', 'blocks[0]', 'note'),
-          use('inherited', 'a.phrase.md', 'blocks[0]', 'heading-1'),
+          use('inherited', 'a.stanza.md', 'blocks[0]', 'note'),
+          use('inherited', 'a.stanza.md', 'blocks[0]', 'heading-1'),
         ],
       }),
-      'a.phrase.md',
+      'a.stanza.md',
     );
     expect(summary.paragraph['body']).toEqual([
-      { file: 'a.phrase.md', direct: 0, default: 0, inherited: 1 },
+      { file: 'a.stanza.md', direct: 0, default: 0, inherited: 1 },
     ]);
   });
 
   it('leaves out the styles that nothing uses, and keeps the families apart', () => {
     const summary = summarizeUsage(
       usage(
-        { body: [], note: [use('direct', 'a.phrase.md', 'blocks[0]')] },
+        { body: [], note: [use('direct', 'a.stanza.md', 'blocks[0]')] },
         { status: [] },
         {
-          table: [use('default', 'a.phrase.md', 'blocks[1]')],
+          table: [use('default', 'a.stanza.md', 'blocks[1]')],
         },
       ),
-      'a.phrase.md',
+      'a.stanza.md',
     );
     expect(Object.keys(summary.paragraph)).toEqual(['note']);
     expect(summary.character).toEqual({});

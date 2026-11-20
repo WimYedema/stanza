@@ -1,6 +1,6 @@
 ---
-phrase-format: 1
-title: "Code and phrase blocks"
+stanza-format: 1
+title: "Code and stanza blocks"
 ---
 
 ```ts
@@ -11,6 +11,6 @@ let x = 1;
 A fence with ``` inside
 ````
 
-```phrase-chart
+```stanza-chart
 raw body kept verbatim
 ```

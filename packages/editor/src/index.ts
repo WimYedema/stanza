@@ -10,11 +10,11 @@ export {
 export { editorContext, type EditorContext, type MarkState } from './context.js';
 export {
   EDITOR_CHROME_CSS,
-  createPhraseEditor,
-  phraseExtensions,
+  createStanzaEditor,
+  stanzaExtensions,
   type DocumentChange,
-  type PhraseEditor,
-  type PhraseEditorOptions,
+  type StanzaEditor,
+  type StanzaEditorOptions,
 } from './editor.js';
 export type { Notice } from './notice.js';
 export type { EditorPosition } from './position.js';

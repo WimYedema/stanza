@@ -7,8 +7,8 @@ import {
   type PropertyType,
   type StyleName,
   type Stylesheet,
-} from '@phrase/core';
-import type { PhraseEditor } from '@phrase/editor';
+} from '@stanza/core';
+import type { StanzaEditor } from '@stanza/editor';
 import type { UsageCount, UsageSummary } from '../shared/protocol.js';
 import { el } from './styles-dom.js';
 import { describeContext } from './toolbar.js';
@@ -26,7 +26,7 @@ const DRAW_DELAY_MS = 150;
 
 export interface StyleInfoOptions {
   readonly root: HTMLElement;
-  readonly editor: () => PhraseEditor | undefined;
+  readonly editor: () => StanzaEditor | undefined;
   /** Opens the style editor at a style. */
   readonly edit: (kind: 'paragraph-style' | 'table-style', name: StyleName) => void;
 }

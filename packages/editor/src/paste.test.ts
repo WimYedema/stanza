@@ -3,7 +3,7 @@ import { Editor } from '@tiptap/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import { normalizePastedHtml } from './paste-html.js';
-import { phraseExtensions } from './editor.js';
+import { stanzaExtensions } from './editor.js';
 import type { Notice } from './notice.js';
 import { COMMANDS_STYLESHEET } from './styles.testing.js';
 
@@ -31,7 +31,7 @@ describe('normalizePastedHtml', () => {
   it('keeps configured short links, including the authored destination of copied resolved links', () => {
     const schemes = { jira: 'https://example.org/{id}' };
     const html =
-      '<p><a href="https://example.org/PROJ-123" data-phrase-href="jira://PROJ-123"><strong>Ticket</strong></a></p>';
+      '<p><a href="https://example.org/PROJ-123" data-stanza-href="jira://PROJ-123"><strong>Ticket</strong></a></p>';
     expect(normalizePastedHtml(html, stylesheet, false, schemes)).toBe(
       '<p><a href="jira://PROJ-123"><strong>Ticket</strong></a></p>',
     );
@@ -40,7 +40,7 @@ describe('normalizePastedHtml', () => {
     ).toBe('<a href="jira://PROJ-123">Ticket</a>');
     expect(
       normalizePastedHtml(
-        '<a href="https://example.org/" data-phrase-href="javascript:alert(1)">Ticket</a>',
+        '<a href="https://example.org/" data-stanza-href="javascript:alert(1)">Ticket</a>',
         stylesheet,
         false,
         schemes,
@@ -98,22 +98,22 @@ describe('normalizePastedHtml', () => {
   it('keeps the name of a style when the stylesheet declares it, and only then', () => {
     expect(
       clean(
-        '<p data-phrase-style="note">a</p><p data-phrase-style="nope">b</p><p data-phrase-style="table-plain">c</p><ul data-phrase-style="note"><li>d</li></ul><table data-phrase-style="table-plain"><tbody><tr><td>e</td></tr></tbody></table><table data-phrase-style="note"><tbody><tr><td>f</td></tr></tbody></table>',
+        '<p data-stanza-style="note">a</p><p data-stanza-style="nope">b</p><p data-stanza-style="table-plain">c</p><ul data-stanza-style="note"><li>d</li></ul><table data-stanza-style="table-plain"><tbody><tr><td>e</td></tr></tbody></table><table data-stanza-style="note"><tbody><tr><td>f</td></tr></tbody></table>',
       ),
     ).toBe(
-      '<p data-phrase-style="note">a</p><p>b</p><p>c</p><ul data-phrase-style="note"><li>d</li></ul><table data-phrase-style="table-plain"><tbody><tr><td>e</td></tr></tbody></table><table><tbody><tr><td>f</td></tr></tbody></table>',
+      '<p data-stanza-style="note">a</p><p>b</p><p>c</p><ul data-stanza-style="note"><li>d</li></ul><table data-stanza-style="table-plain"><tbody><tr><td>e</td></tr></tbody></table><table><tbody><tr><td>f</td></tr></tbody></table>',
     );
     expect(
       clean(
-        '<p><span data-phrase-style="marker">a</span><span data-phrase-style="note">b</span></p>',
+        '<p><span data-stanza-style="marker">a</span><span data-stanza-style="note">b</span></p>',
       ),
-    ).toBe('<p><span data-phrase-style="marker">a</span>b</p>');
+    ).toBe('<p><span data-stanza-style="marker">a</span>b</p>');
   });
 
   it('keeps the paragraphs and lists of a cell, without style names, and flattens a table in a cell', () => {
     expect(
       clean(
-        '<table><tbody><tr><td><p data-phrase-style="note">a</p><ul data-phrase-style="note"><li>b</li></ul></td></tr></tbody></table>',
+        '<table><tbody><tr><td><p data-stanza-style="note">a</p><ul data-stanza-style="note"><li>b</li></ul></td></tr></tbody></table>',
       ),
     ).toBe('<table><tbody><tr><td><p>a</p><ul><li>b</li></ul></td></tr></tbody></table>');
     expect(
@@ -123,20 +123,20 @@ describe('normalizePastedHtml', () => {
     ).toBe('<table><tbody><tr><td>outer<p>in1</p><p>in2</p></td></tr></tbody></table>');
   });
 
-  it('reduces a paste into a cell to paragraphs and lists, and leaves out a phrase block', () => {
+  it('reduces a paste into a cell to paragraphs and lists, and leaves out a stanza block', () => {
     const html =
-      '<h1>T</h1><pre>c</pre><table><tbody><tr><td>x</td></tr></tbody></table><div data-phrase-kind="toc">t</div><ul><li>l</li></ul>';
+      '<h1>T</h1><pre>c</pre><table><tbody><tr><td>x</td></tr></tbody></table><div data-stanza-kind="toc">t</div><ul><li>l</li></ul>';
     expect(normalizePastedHtml(html, stylesheet, true)).toBe(
       '<p>T</p><p>c</p><p>x</p><ul><li>l</li></ul>',
     );
   });
 
-  it('keeps a phrase block with its kind and body, and not one with a bad kind', () => {
+  it('keeps a stanza block with its kind and body, and not one with a bad kind', () => {
     expect(
       clean(
-        '<div data-phrase-kind="toc" data-phrase-text="depth: 2" class="x" id="y">toc</div><div data-phrase-kind="Not A Kind">x</div>',
+        '<div data-stanza-kind="toc" data-stanza-text="depth: 2" class="x" id="y">toc</div><div data-stanza-kind="Not A Kind">x</div>',
       ),
-    ).toBe('<div data-phrase-kind="toc" data-phrase-text="depth: 2"></div>');
+    ).toBe('<div data-stanza-kind="toc" data-stanza-text="depth: 2"></div>');
   });
 });
 
@@ -161,7 +161,7 @@ afterEach(() => {
 function open(...blocks: object[]): Editor {
   editor = new Editor({
     element,
-    extensions: phraseExtensions(
+    extensions: stanzaExtensions(
       () => stylesheet,
       (notice) => notices.push(notice),
     ),
@@ -232,7 +232,7 @@ describe('pasting into the editor', () => {
   it('never keeps an ID that the pasted HTML has, and keeps the style of a block that exists', () => {
     const current = open(paragraph(''));
     current.view.pasteHTML(
-      '<h2 id="k7m2q9x4zb" data-phrase-style="note">Title</h2><p data-phrase-style="nope" id="a1b2c3d4e5">Text</p>',
+      '<h2 id="k7m2q9x4zb" data-stanza-style="note">Title</h2><p data-stanza-style="nope" id="a1b2c3d4e5">Text</p>',
     );
     const [heading, text] = blocks(current);
     expect(heading?.type.name).toBe('heading');
@@ -268,15 +268,15 @@ describe('pasting into the editor', () => {
     expect(notices).toEqual([]);
   });
 
-  it('keeps a pasted phrase block with its body', () => {
+  it('keeps a pasted stanza block with its body', () => {
     const current = open(paragraph(''));
-    current.view.pasteHTML('<div data-phrase-kind="toc" data-phrase-text="depth: 2">toc</div>');
-    const found = blocks(current).find((node) => node.type.name === 'phraseBlock');
+    current.view.pasteHTML('<div data-stanza-kind="toc" data-stanza-text="depth: 2">toc</div>');
+    const found = blocks(current).find((node) => node.type.name === 'stanzaBlock');
     expect(found?.attrs).toMatchObject({ kind: 'toc', text: 'depth: 2', id: null });
   });
 
   it('has the editor write the names the paste keeps', () => {
     const current = open(paragraph('A note', { style: 'note' }));
-    expect(current.view.dom.querySelector('p')?.getAttribute('data-phrase-style')).toBe('note');
+    expect(current.view.dom.querySelector('p')?.getAttribute('data-stanza-style')).toBe('note');
   });
 });

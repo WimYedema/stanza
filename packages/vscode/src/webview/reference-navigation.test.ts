@@ -18,7 +18,7 @@ describe('reference navigation', () => {
   it('shows the resolved URL but sends the short link to the host for current-configuration resolution', () => {
     const root = document.createElement('div');
     root.innerHTML =
-      '<a href="https://example.org/PROJ-123" data-phrase-href="jira://PROJ-123">Ticket</a>';
+      '<a href="https://example.org/PROJ-123" data-stanza-href="jira://PROJ-123">Ticket</a>';
     const follow = vi.fn();
     install(root, follow);
     const link = root.querySelector('a');
@@ -34,7 +34,7 @@ describe('reference navigation', () => {
 
   it('hints on hover, changes the modifier affordance, and acknowledges navigation immediately', () => {
     const root = document.createElement('div');
-    root.innerHTML = '<a href="other.phrase.md#aaaaaaaaaa"><strong>Other</strong></a>';
+    root.innerHTML = '<a href="other.stanza.md#aaaaaaaaaa"><strong>Other</strong></a>';
     const follow = vi.fn();
     const status = vi.fn();
     const navigation = install(root, follow, status);
@@ -48,8 +48,8 @@ describe('reference navigation', () => {
     child?.dispatchEvent(
       new MouseEvent('click', { bubbles: true, ctrlKey: true, cancelable: true }),
     );
-    expect(follow).toHaveBeenCalledWith('other.phrase.md#aaaaaaaaaa');
-    expect(status).toHaveBeenCalledWith('Opening other.phrase.md#aaaaaaaaaa...');
+    expect(follow).toHaveBeenCalledWith('other.stanza.md#aaaaaaaaaa');
+    expect(status).toHaveBeenCalledWith('Opening other.stanza.md#aaaaaaaaaa...');
     expect(root.getAttribute('aria-busy')).toBe('true');
     child?.dispatchEvent(
       new MouseEvent('click', { bubbles: true, ctrlKey: true, cancelable: true }),

@@ -34,7 +34,7 @@ export function cliVersion(): string {
  */
 export function docxVersion(): string {
   try {
-    const exporter = import.meta.resolve('@phrase/export-docx');
+    const exporter = import.meta.resolve('@stanza/export-docx');
     let directory = dirname(createRequire(exporter).resolve('docx'));
     for (;;) {
       const file = join(directory, 'package.json');

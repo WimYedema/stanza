@@ -77,7 +77,7 @@ export const world = {
   }[],
   messageListeners: [] as Listener<unknown>[],
   failEdits: false,
-  /** What `phrase` settings say, by name. */
+  /** What `stanza` settings say, by name. */
   settings: {} as Record<string, unknown>,
   /** The messages shown in the status bar. */
   status: [] as string[],

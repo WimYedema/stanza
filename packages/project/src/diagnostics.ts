@@ -1,4 +1,4 @@
-import type { Diagnostic } from '@phrase/core';
+import type { Diagnostic } from '@stanza/core';
 
 /** A diagnostic and the file it is about, relative to the project root. */
 export interface ProjectDiagnostic extends Diagnostic {

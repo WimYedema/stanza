@@ -1,5 +1,5 @@
-import { numberHeadings, type Document, type Inline, type Stylesheet } from '@phrase/core';
-import { parseDocument } from '@phrase/format';
+import { numberHeadings, type Document, type Inline, type Stylesheet } from '@stanza/core';
+import { parseDocument } from '@stanza/format';
 
 export interface HeadingItem {
   /** The number of the heading among the top-level blocks of the document. */

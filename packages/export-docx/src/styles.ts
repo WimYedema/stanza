@@ -4,7 +4,7 @@ import type {
   ParagraphStyle,
   StyleName,
   Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import type { ICharacterStyleOptions, IParagraphStyleOptions } from 'docx';
 import { paragraphProps, runProps } from './docx-props.js';
 import { wordStyleId, wordStyleName } from './style-ids.js';

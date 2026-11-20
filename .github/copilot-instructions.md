@@ -1,6 +1,6 @@
 # Copilot constraints
 
-Rationale lives in `docs/documents/architecture.phrase.md`, `docs/documents/product-vision.phrase.md` and the ADRs (`docs/documents/NNNN-*.phrase.md`). Find the right ADR through `docs/INDEX.md`. Do not rediscover decisions; do not load whole directories.
+Rationale lives in `docs/documents/architecture.stanza.md`, `docs/documents/product-vision.stanza.md` and the ADRs (`docs/documents/NNNN-*.stanza.md`). Find the right ADR through `docs/INDEX.md`. Do not rediscover decisions; do not load whole directories.
 
 ## Product invariants
 
@@ -43,7 +43,7 @@ Rationale lives in `docs/documents/architecture.phrase.md`, `docs/documents/prod
 
 - Deterministic file order and formatting; do not rewrite unrelated files on save or migration. Never auto-resolve conflict markers. Keep generated outputs out of Git.
 - Accepted ADRs are not rewritten: add a new ADR that refers to the old one. New ADRs stay under about 2 KB and get a line in `docs/INDEX.md`. When an item is done, move it to `docs/BACKLOG_DONE.md` as one line.
-- The files in `docs/documents/` are Phrase documents (ADR 0064): keep the `<!-- phrase: #id -->` lines and never change an ID, write no direct formatting, and run `npm run docs:fix` (canonical form, IDs for new headings) and `npm run docs:check` after editing. A new ADR is a new `NNNN-name.phrase.md` there with front matter (`phrase-format: 1` and a `title`).
+- The files in `docs/documents/` are Stanza documents (ADR 0064): keep the `<!-- stanza: #id -->` lines and never change an ID, write no direct formatting, and run `npm run docs:fix` (canonical form, IDs for new headings) and `npm run docs:check` after editing. A new ADR is a new `NNNN-name.stanza.md` there with front matter (`stanza-format: 1` and a `title`).
 
 ## Working efficiently
 

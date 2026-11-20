@@ -1,5 +1,5 @@
-import { applyDefaults, isSafeRelativePath } from '@phrase/core';
-import { exportDocx } from '@phrase/export-docx';
+import { applyDefaults, isSafeRelativePath } from '@stanza/core';
+import { exportDocx } from '@stanza/export-docx';
 import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX } from './files.js';
 import { loadProject } from './load.js';
@@ -20,7 +20,7 @@ export interface BuildResult {
   readonly documents: number;
 }
 
-/** `documents/a.phrase.md` becomes `<outDir>/documents/a.docx`. */
+/** `documents/a.stanza.md` becomes `<outDir>/documents/a.docx`. */
 export function outputPath(outDir: string, documentPath: string): string {
   return `${outDir}/${documentPath.slice(0, -DOCUMENT_SUFFIX.length)}.docx`;
 }

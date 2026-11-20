@@ -11,7 +11,7 @@ export function parseReferenceLink(href: string): ReferenceLink | undefined {
   if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//')) return undefined;
   const hash = href.indexOf('#');
   const file = hash < 0 ? href : href.slice(0, hash);
-  if (!file.endsWith('.phrase.md')) return undefined;
+  if (!file.endsWith('.stanza.md')) return undefined;
   return { file, ...(hash < 0 ? {} : { target: href.slice(hash + 1) }) };
 }
 
@@ -37,7 +37,7 @@ export function referenceFile(source: string, hint: string): string | undefined 
     }
   }
   const file = parts.join('/');
-  return file.endsWith('.phrase.md') ? file : undefined;
+  return file.endsWith('.stanza.md') ? file : undefined;
 }
 
 export function relativeReferenceFile(source: string, target: string): string {

@@ -1,5 +1,5 @@
-import { applyDefaults, indexProjectReferences, indexReferences } from '@phrase/core';
-import { exportDocx } from '@phrase/export-docx';
+import { applyDefaults, indexProjectReferences, indexReferences } from '@stanza/core';
+import { exportDocx } from '@stanza/export-docx';
 import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './diagnostics.js';
 import { PROJECT_FILE } from './files.js';
 import type { LoadedProject } from './load.js';

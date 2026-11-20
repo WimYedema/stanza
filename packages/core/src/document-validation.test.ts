@@ -282,15 +282,15 @@ describe('validateDocument', () => {
     ]);
   });
 
-  it('reports phrase blocks, since no kind is supported yet', () => {
+  it('reports stanza blocks, since no kind is supported yet', () => {
     const result = validateDocument(
-      documentOf({ type: 'phrase', kind: 'diagram', text: 'x' }),
+      documentOf({ type: 'stanza', kind: 'diagram', text: 'x' }),
       stylesheet,
     );
     expect(result).toEqual([
       expect.objectContaining({
         severity: 'error',
-        code: 'unknown-phrase-kind',
+        code: 'unknown-stanza-kind',
         path: 'blocks[0]',
       }),
     ]);

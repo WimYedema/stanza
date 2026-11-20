@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseStylesheet } from '@phrase/format';
+import { parseStylesheet } from '@stanza/format';
 import type { Entry, Family } from './styles-families.js';
 import { createStylesView, type StylesView } from './styles-view.js';
 

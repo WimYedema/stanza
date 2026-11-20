@@ -5,17 +5,17 @@ export default defineConfig({
   resolve: {
     // Tests run against source, so they do not need a build first.
     alias: {
-      '@phrase/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
-      '@phrase/format': fileURLToPath(new URL('./packages/format/src/index.ts', import.meta.url)),
-      '@phrase/export-docx': fileURLToPath(
+      '@stanza/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
+      '@stanza/format': fileURLToPath(new URL('./packages/format/src/index.ts', import.meta.url)),
+      '@stanza/export-docx': fileURLToPath(
         new URL('./packages/export-docx/src/index.ts', import.meta.url),
       ),
-      '@phrase/css': fileURLToPath(new URL('./packages/css/src/index.ts', import.meta.url)),
-      '@phrase/import-docx': fileURLToPath(
+      '@stanza/css': fileURLToPath(new URL('./packages/css/src/index.ts', import.meta.url)),
+      '@stanza/import-docx': fileURLToPath(
         new URL('./packages/import-docx/src/index.ts', import.meta.url),
       ),
-      '@phrase/editor': fileURLToPath(new URL('./packages/editor/src/index.ts', import.meta.url)),
-      '@phrase/project': fileURLToPath(new URL('./packages/project/src/index.ts', import.meta.url)),
+      '@stanza/editor': fileURLToPath(new URL('./packages/editor/src/index.ts', import.meta.url)),
+      '@stanza/project': fileURLToPath(new URL('./packages/project/src/index.ts', import.meta.url)),
     },
   },
   test: {

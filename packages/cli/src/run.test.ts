@@ -4,7 +4,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { strToU8, zipSync } from 'fflate';
-import { createProject } from '@phrase/project';
+import { createProject } from '@stanza/project';
 import { nodeStorage } from './node-storage.js';
 import { run } from './run.js';
 
@@ -12,16 +12,16 @@ const EXAMPLE = fileURLToPath(new URL('../../../fixtures/example-project/', impo
 
 let work: string;
 beforeEach(() => {
-  work = mkdtempSync(join(tmpdir(), 'phrase-cli-'));
+  work = mkdtempSync(join(tmpdir(), 'stanza-cli-'));
   const project = join(work, 'project');
   // A build of the fixture may have left a build directory behind.
   cpSync(EXAMPLE, project, { recursive: true, filter: (source) => basename(source) !== 'build' });
   // A working copy on Windows may have CRLF, and a canonical project has LF.
   for (const file of [
-    'phrase.yaml',
+    'stanza.yaml',
     'styles/default.yaml',
-    'documents/introduction.phrase.md',
-    'documents/reference.phrase.md',
+    'documents/introduction.stanza.md',
+    'documents/reference.stanza.md',
   ]) {
     const path = join(project, ...file.split('/'));
     writeFileSync(path, readFileSync(path, 'utf8').replace(/\r\n/g, '\n'));
@@ -31,7 +31,7 @@ afterEach(() => {
   rmSync(work, { recursive: true, force: true });
 });
 
-async function phrase(...argv: string[]): Promise<{ code: number; out: string; err: string }> {
+async function stanza(...argv: string[]): Promise<{ code: number; out: string; err: string }> {
   let out = '';
   let err = '';
   const code = await run(argv, {
@@ -44,37 +44,37 @@ async function phrase(...argv: string[]): Promise<{ code: number; out: string; e
 
 const bytesOf = (...path: string[]): Buffer => readFileSync(join(work, ...path));
 
-describe('phrase validate', () => {
+describe('stanza validate', () => {
   it('suggests explicit list repairs without changing the project', async () => {
-    const file = join(work, 'project', 'phrase.yaml');
-    const before = `${readFileSync(file, 'utf8')}documents: [documents/introduction.phrase.md, gone.phrase.md]\n`;
+    const file = join(work, 'project', 'stanza.yaml');
+    const before = `${readFileSync(file, 'utf8')}documents: [documents/introduction.stanza.md, gone.stanza.md]\n`;
     writeFileSync(file, before);
-    const result = await phrase('validate', 'project');
+    const result = await stanza('validate', 'project');
     expect(result.code).toBe(1);
     expect(result.out).toContain(
-      'Suggestion: remove "gone.phrase.md" from the documents list in phrase.yaml.',
+      'Suggestion: remove "gone.stanza.md" from the documents list in stanza.yaml.',
     );
     expect(result.out).toContain(
-      'Suggestion: add "documents/reference.phrase.md" to the documents list in phrase.yaml.',
+      'Suggestion: add "documents/reference.stanza.md" to the documents list in stanza.yaml.',
     );
     expect(readFileSync(file, 'utf8')).toBe(before);
   });
   it('validates selected files with cross-document reference context and writes nothing', async () => {
-    const first = join(work, 'project', 'documents', 'introduction.phrase.md');
-    const second = join(work, 'project', 'documents', 'reference.phrase.md');
-    const target = /<!-- phrase: #([0-9a-z]+)(?: | -->)/.exec(readFileSync(second, 'utf8'))?.[1];
+    const first = join(work, 'project', 'documents', 'introduction.stanza.md');
+    const second = join(work, 'project', 'documents', 'reference.stanza.md');
+    const target = /<!-- stanza: #([0-9a-z]+)(?: | -->)/.exec(readFileSync(second, 'utf8'))?.[1];
     expect(target).toBeDefined();
     writeFileSync(second, `${readFileSync(second, 'utf8')}\n[Unrelated](#zzzzzzzzzz)\n`);
     writeFileSync(
       first,
-      `---\nphrase-format: 1\ndocument-number: "EX-001"\n---\n\n[Other](#${target ?? ''})\n`,
+      `---\nstanza-format: 1\ndocument-number: "EX-001"\n---\n\n[Other](#${target ?? ''})\n`,
     );
     const before = readFileSync(first);
-    const result = await phrase(
+    const result = await stanza(
       'validate',
       'project',
       '--file',
-      'documents\\introduction.phrase.md',
+      'documents\\introduction.stanza.md',
     );
     expect(result.code).toBe(0);
     expect(result.out).toContain('Checked 1 document: 0 errors, 0 warnings.');
@@ -85,10 +85,10 @@ describe('phrase validate', () => {
 
   it('bounds displayed diagnostics without hiding the failure or total counts', async () => {
     writeFileSync(
-      join(work, 'project', 'documents', 'bad.phrase.md'),
-      '---\nphrase-format: 1\ndocument-number: "EX-003"\n---\n\n> unsupported quote\n\n[Missing](#aaaaaaaaaa) and [Missing too](#bbbbbbbbbb)\n',
+      join(work, 'project', 'documents', 'bad.stanza.md'),
+      '---\nstanza-format: 1\ndocument-number: "EX-003"\n---\n\n> unsupported quote\n\n[Missing](#aaaaaaaaaa) and [Missing too](#bbbbbbbbbb)\n',
     );
-    const result = await phrase('validate', 'project', '--max-diagnostics', '1');
+    const result = await stanza('validate', 'project', '--max-diagnostics', '1');
     expect(result.code).toBe(1);
     expect(result.out).toContain('warning blockquote-unsupported');
     expect(result.out).not.toContain(': error broken-reference:');
@@ -97,11 +97,11 @@ describe('phrase validate', () => {
   });
 
   it('suggests a declared mark variant without changing the document or stylesheet', async () => {
-    const file = join(work, 'project', 'documents', 'reference.phrase.md');
+    const file = join(work, 'project', 'documents', 'reference.stanza.md');
     const text = readFileSync(file, 'utf8').replace('# Reference', '# **Reference**');
     writeFileSync(file, text);
     const sheet = bytesOf('project', 'styles', 'default.yaml');
-    const result = await phrase('validate', 'project');
+    const result = await stanza('validate', 'project');
     expect(result.code).toBe(1);
     expect(result.out).toContain(
       'Suggestion: declare the "strong" variant on style "heading-1" if intended.',
@@ -111,28 +111,28 @@ describe('phrase validate', () => {
   });
   it('keeps global duplicate-ID errors even when the later duplicate is unselected', async () => {
     const first = readFileSync(
-      join(work, 'project', 'documents', 'introduction.phrase.md'),
+      join(work, 'project', 'documents', 'introduction.stanza.md'),
       'utf8',
     );
-    writeFileSync(join(work, 'project', 'documents', 'zz-duplicate.phrase.md'), first);
-    const result = await phrase(
+    writeFileSync(join(work, 'project', 'documents', 'zz-duplicate.stanza.md'), first);
+    const result = await stanza(
       'validate',
       'project',
       '--file',
-      'documents/introduction.phrase.md',
+      'documents/introduction.stanza.md',
     );
     expect(result.code).toBe(1);
-    expect(result.out).toContain('zz-duplicate.phrase.md: error duplicate-id:');
+    expect(result.out).toContain('zz-duplicate.stanza.md: error duplicate-id:');
   });
 
   it('reports an unknown selected file instead of succeeding with an empty selection', async () => {
-    const result = await phrase('validate', 'project', '--file', 'missing.phrase.md');
+    const result = await stanza('validate', 'project', '--file', 'missing.stanza.md');
     expect(result.code).toBe(1);
-    expect(result.out).toContain('missing.phrase.md: error invalid-selection:');
+    expect(result.out).toContain('missing.stanza.md: error invalid-selection:');
   });
 
   it('accepts the example project', async () => {
-    const result = await phrase('validate', 'project');
+    const result = await stanza('validate', 'project');
     expect(result.code).toBe(0);
     expect(result.out).toBe('Checked 2 documents: 0 errors, 0 warnings.\n');
   });
@@ -150,48 +150,48 @@ describe('phrase validate', () => {
 
   it('prints the problems of a document with file and line, and exits with 1', async () => {
     writeFileSync(
-      join(work, 'project', 'documents', 'bad.phrase.md'),
-      '---\nphrase-format: 1\ndocument-number: "N"\n---\n\n---\n\n<!-- phrase: .missing -->\nText\n',
+      join(work, 'project', 'documents', 'bad.stanza.md'),
+      '---\nstanza-format: 1\ndocument-number: "N"\n---\n\n---\n\n<!-- stanza: .missing -->\nText\n',
     );
-    const result = await phrase('validate', 'project');
+    const result = await stanza('validate', 'project');
     expect(result.code).toBe(1);
-    expect(result.out).toContain('documents/bad.phrase.md:6: error thematic-break-unsupported: ');
+    expect(result.out).toContain('documents/bad.stanza.md:6: error thematic-break-unsupported: ');
     expect(result.out).toMatch(
-      /documents\/bad\.phrase\.md: error unknown-style: .* \[blocks\[0\]\]/,
+      /documents\/bad\.stanza\.md: error unknown-style: .* \[blocks\[0\]\]/,
     );
     expect(result.out).toContain('Checked 3 documents: 2 errors, 0 warnings.');
   });
 
   it('exits with 2 when the project cannot be read', async () => {
-    const result = await phrase('validate', 'nowhere');
+    const result = await stanza('validate', 'nowhere');
     expect(result.code).toBe(2);
-    expect(result.out).toContain('phrase.yaml: error file-unreadable: ');
+    expect(result.out).toContain('stanza.yaml: error file-unreadable: ');
   });
 });
 
-describe('phrase build', () => {
+describe('stanza build', () => {
   it('writes one DOCX per document into build/ and says what it used', async () => {
-    const result = await phrase('build', 'project');
+    const result = await stanza('build', 'project');
     expect(result.code).toBe(0);
     expect(existsSync(join(work, 'project', 'build', 'documents', 'introduction.docx'))).toBe(true);
     expect(existsSync(join(work, 'project', 'build', 'documents', 'reference.docx'))).toBe(true);
     expect(result.out).toContain('Wrote 2 files to build/.');
     expect(result.out).toMatch(
-      /phrase \d+\.\d+\.\d+, docx \d+\.\d+\.\d+, date 1980-01-01T00:00:00.000Z\./,
+      /stanza \d+\.\d+\.\d+, docx \d+\.\d+\.\d+, date 1980-01-01T00:00:00.000Z\./,
     );
   });
 
   it('writes the same bytes every time, with or without a date', async () => {
     for (const args of [[], ['--date', '2026-03-04']]) {
-      await phrase('build', 'project', '--out', 'one', ...args);
-      await phrase('build', 'project', '--out', 'two', ...args);
+      await stanza('build', 'project', '--out', 'one', ...args);
+      await stanza('build', 'project', '--out', 'two', ...args);
       expect(
         bytesOf('project', 'one', 'documents', 'reference.docx').equals(
           bytesOf('project', 'two', 'documents', 'reference.docx'),
         ),
       ).toBe(true);
     }
-    await phrase('build', 'project', '--out', 'dated', '--date', '2026-03-04T05:06:07Z');
+    await stanza('build', 'project', '--out', 'dated', '--date', '2026-03-04T05:06:07Z');
     expect(
       bytesOf('project', 'dated', 'documents', 'reference.docx').equals(
         bytesOf('project', 'one', 'documents', 'reference.docx'),
@@ -200,7 +200,7 @@ describe('phrase build', () => {
   });
 
   it('accepts a time with an offset, and a trailing slash in the output directory', async () => {
-    const result = await phrase(
+    const result = await stanza(
       'build',
       'project',
       '--date',
@@ -215,69 +215,69 @@ describe('phrase build', () => {
 
   it('writes nothing when the project has errors', async () => {
     writeFileSync(
-      join(work, 'project', 'documents', 'bad.phrase.md'),
-      '---\nphrase-format: 1\ndocument-number: "N"\n---\n\n<!-- phrase: .missing -->\nText\n',
+      join(work, 'project', 'documents', 'bad.stanza.md'),
+      '---\nstanza-format: 1\ndocument-number: "N"\n---\n\n<!-- stanza: .missing -->\nText\n',
     );
-    const result = await phrase('build', 'project');
+    const result = await stanza('build', 'project');
     expect(result.code).toBe(1);
     expect(result.out).toContain('Nothing was written.');
     expect(existsSync(join(work, 'project', 'build'))).toBe(false);
   });
 });
 
-describe('phrase format', () => {
+describe('stanza format', () => {
   it('reports stale paths read-only, dry-runs and fixes only selected reference hints', async () => {
     const source =
-      '---\nphrase-format: 1\ndocument-number: "N-3"\n---\n\n[Introduction](old.phrase.md#k7m2q9x4zb)\n';
-    const selected = join(work, 'project', 'notes.phrase.md');
-    const unselected = join(work, 'project', 'unselected.phrase.md');
+      '---\nstanza-format: 1\ndocument-number: "N-3"\n---\n\n[Introduction](old.stanza.md#k7m2q9x4zb)\n';
+    const selected = join(work, 'project', 'notes.stanza.md');
+    const unselected = join(work, 'project', 'unselected.stanza.md');
     writeFileSync(selected, source);
     writeFileSync(unselected, source.replace('N-3', 'N-4'));
     const before = readFileSync(unselected);
-    const validate = await phrase('validate', 'project', '--file', 'notes.phrase.md');
+    const validate = await stanza('validate', 'project', '--file', 'notes.stanza.md');
     expect(validate.code).toBe(0);
     expect(validate.out).toContain('stale-reference-path');
-    expect(validate.out).toContain('documents/introduction.phrase.md#k7m2q9x4zb');
+    expect(validate.out).toContain('documents/introduction.stanza.md#k7m2q9x4zb');
     expect(readFileSync(selected, 'utf8')).toBe(source);
-    const args = ['format', 'project', '--file', 'notes.phrase.md', '--fix-references'];
-    expect((await phrase(...args, '--check')).code).toBe(1);
+    const args = ['format', 'project', '--file', 'notes.stanza.md', '--fix-references'];
+    expect((await stanza(...args, '--check')).code).toBe(1);
     expect(readFileSync(selected, 'utf8')).toBe(source);
-    expect((await phrase(...args)).code).toBe(0);
+    expect((await stanza(...args)).code).toBe(0);
     expect(readFileSync(selected, 'utf8')).toBe(
-      source.replace('old.phrase.md', 'documents/introduction.phrase.md'),
+      source.replace('old.stanza.md', 'documents/introduction.stanza.md'),
     );
     expect(readFileSync(unselected).equals(before)).toBe(true);
-    expect((await phrase(...args, '--check')).code).toBe(0);
-    expect((await phrase('validate', 'project', '--fix-references')).code).toBe(2);
-    expect((await phrase('format', selected, '--fix-references')).code).toBe(2);
+    expect((await stanza(...args, '--check')).code).toBe(0);
+    expect((await stanza('validate', 'project', '--fix-references')).code).toBe(2);
+    expect((await stanza('format', selected, '--fix-references')).code).toBe(2);
   });
   const crlf = (...path: string[]): void => {
     const file = join(work, ...path);
     writeFileSync(file, readFileSync(file, 'utf8').replace(/\n/g, '\r\n'));
   };
-  const introduction = join('project', 'documents', 'introduction.phrase.md');
+  const introduction = join('project', 'documents', 'introduction.stanza.md');
 
   it('checks and formats repeated selected files without touching an unselected document', async () => {
-    const selected = ['documents/introduction.phrase.md', 'documents/reference.phrase.md'];
-    const unselected = join(work, 'project', 'documents', 'unselected.phrase.md');
-    const untouched = '---\nphrase-format: 1\n---\n\n* keep this\n';
+    const selected = ['documents/introduction.stanza.md', 'documents/reference.stanza.md'];
+    const unselected = join(work, 'project', 'documents', 'unselected.stanza.md');
+    const untouched = '---\nstanza-format: 1\n---\n\n* keep this\n';
     writeFileSync(unselected, untouched);
     crlf(introduction);
     const before = bytesOf(introduction);
     const selection = selected.flatMap((file) => ['--file', file]);
-    const checked = await phrase('format', 'project', ...selection, '--check');
+    const checked = await stanza('format', 'project', ...selection, '--check');
     expect(checked.code).toBe(1);
     expect(checked.out).toContain('Checked 2 documents: 1 not canonical');
     expect(bytesOf(introduction).equals(before)).toBe(true);
 
-    expect((await phrase('format', 'project', ...selection)).code).toBe(0);
+    expect((await stanza('format', 'project', ...selection)).code).toBe(0);
     expect(readFileSync(unselected, 'utf8')).toBe(untouched);
-    expect((await phrase('format', 'project', ...selection, '--check')).code).toBe(0);
+    expect((await stanza('format', 'project', ...selection, '--check')).code).toBe(0);
   });
 
   it('leaves the example project as it is', async () => {
     const before = bytesOf(introduction);
-    const result = await phrase('format', 'project');
+    const result = await stanza('format', 'project');
     expect(result.code).toBe(0);
     expect(result.out).toBe('Checked 2 documents: 0 reformatted, 0 refused.\n');
     expect(bytesOf(introduction).equals(before)).toBe(true);
@@ -286,64 +286,64 @@ describe('phrase format', () => {
   it('rewrites a document that is not canonical, once', async () => {
     const canonical = bytesOf(introduction);
     crlf(introduction);
-    const result = await phrase('format', 'project');
+    const result = await stanza('format', 'project');
     expect(result.code).toBe(0);
-    expect(result.out).toContain('reformatted documents/introduction.phrase.md\n');
+    expect(result.out).toContain('reformatted documents/introduction.stanza.md\n');
     expect(result.out).toContain('Checked 2 documents: 1 reformatted, 0 refused.');
     expect(bytesOf(introduction).equals(canonical)).toBe(true);
-    expect((await phrase('format', 'project')).out).toContain('0 reformatted');
+    expect((await stanza('format', 'project')).out).toContain('0 reformatted');
   });
 
   it('with --check, lists the documents that are not canonical, writes nothing, and exits with 1', async () => {
     crlf(introduction);
     const before = bytesOf(introduction);
-    const result = await phrase('format', 'project', '--check');
+    const result = await stanza('format', 'project', '--check');
     expect(result.code).toBe(1);
-    expect(result.out).toContain('not canonical documents/introduction.phrase.md\n');
+    expect(result.out).toContain('not canonical documents/introduction.stanza.md\n');
     expect(result.out).toContain('Checked 2 documents: 1 not canonical, 0 refused.');
     expect(bytesOf(introduction).equals(before)).toBe(true);
-    expect((await phrase('format', 'project', '--check')).code).toBe(1);
+    expect((await stanza('format', 'project', '--check')).code).toBe(1);
   });
 
   it('exits with 0 when checking a canonical project', async () => {
-    expect((await phrase('format', 'project', '--check')).code).toBe(0);
+    expect((await stanza('format', 'project', '--check')).code).toBe(0);
   });
 
   it('refuses a document with something the model cannot keep, and leaves it as it was', async () => {
-    const file = join(work, 'project', 'documents', 'html.phrase.md');
-    writeFileSync(file, '---\nphrase-format: 1\n---\n\n<div>raw</div>\n');
+    const file = join(work, 'project', 'documents', 'html.stanza.md');
+    writeFileSync(file, '---\nstanza-format: 1\n---\n\n<div>raw</div>\n');
     const before = readFileSync(file);
-    const result = await phrase('format', 'project');
+    const result = await stanza('format', 'project');
     expect(result.code).toBe(1);
-    expect(result.out).toContain('documents/html.phrase.md:5: warning html-unsupported: ');
+    expect(result.out).toContain('documents/html.stanza.md:5: warning html-unsupported: ');
     expect(result.out).toContain('Checked 3 documents: 0 reformatted, 1 refused.');
     expect(readFileSync(file).equals(before)).toBe(true);
   });
 
   it('formats a single document, which needs no project file', async () => {
-    const file = join(work, 'solo.phrase.md');
-    writeFileSync(file, '---\r\nphrase-format: 1\r\n---\r\n\r\n* one\r\n');
-    const result = await phrase('format', 'solo.phrase.md');
+    const file = join(work, 'solo.stanza.md');
+    writeFileSync(file, '---\r\nstanza-format: 1\r\n---\r\n\r\n* one\r\n');
+    const result = await stanza('format', 'solo.stanza.md');
     expect(result.code).toBe(0);
-    expect(result.out).toContain('reformatted solo.phrase.md\n');
-    expect(readFileSync(file, 'utf8')).toBe('---\nphrase-format: 1\n---\n\n- one\n');
+    expect(result.out).toContain('reformatted solo.stanza.md\n');
+    expect(readFileSync(file, 'utf8')).toBe('---\nstanza-format: 1\n---\n\n- one\n');
   });
 
   it('exits with 2 when the document cannot be read', async () => {
-    const result = await phrase('format', 'missing.phrase.md');
+    const result = await stanza('format', 'missing.stanza.md');
     expect(result.code).toBe(2);
-    expect(result.out).toContain('missing.phrase.md: error file-unreadable: ');
+    expect(result.out).toContain('missing.stanza.md: error file-unreadable: ');
   });
 });
 
-describe('phrase usage', () => {
+describe('stanza usage', () => {
   it('shows help and the versions', async () => {
-    const help = await phrase('--help');
+    const help = await stanza('--help');
     expect(help.code).toBe(0);
-    expect(help.out).toContain('Usage: phrase <command> [project] [options]');
-    const version = await phrase('--version');
+    expect(help.out).toContain('Usage: stanza <command> [project] [options]');
+    const version = await stanza('--version');
     expect(version.code).toBe(0);
-    expect(version.out).toMatch(/^phrase \d+\.\d+\.\d+ \(docx \d+\.\d+\.\d+\)\n$/);
+    expect(version.out).toMatch(/^stanza \d+\.\d+\.\d+ \(docx \d+\.\d+\.\d+\)\n$/);
   });
 
   it.each([
@@ -355,12 +355,12 @@ describe('phrase usage', () => {
     [['format', '--date', '2026-03-04'], '--out and --date apply to build only'],
     [['build', '--check'], '--check applies to format only'],
     [['validate', '--check'], '--check applies to format only'],
-    [['build', '--file', 'a.phrase.md'], '--file applies to validate and format only'],
-    [['validate', '--file', '../a.phrase.md'], '--file must name a relative'],
+    [['build', '--file', 'a.stanza.md'], '--file applies to validate and format only'],
+    [['validate', '--file', '../a.stanza.md'], '--file must name a relative'],
     [['validate', '--file', 'styles/default.yaml'], '--file must name a relative'],
-    [['format', 'a.phrase.md', '--file', 'a.phrase.md'], '--file needs a project directory'],
+    [['format', 'a.stanza.md', '--file', 'a.stanza.md'], '--file needs a project directory'],
     [
-      ['format', '--file', 'a.phrase.md', '--fix-stylesheet'],
+      ['format', '--file', 'a.stanza.md', '--fix-stylesheet'],
       '--fix-stylesheet cannot be combined',
     ],
     [['format', '--max-diagnostics', '1'], '--max-diagnostics applies to validate only'],
@@ -380,15 +380,15 @@ describe('phrase usage', () => {
     [['adopt', 'a.md', 'project', 'x'], 'unexpected argument "x"'],
     [['adopt', 'a.md', '--check'], 'adopt takes no options'],
   ])('refuses %j with exit code 2 and the usage', async (argv, message) => {
-    const result = await phrase(...argv);
+    const result = await stanza(...argv);
     expect(result.code).toBe(2);
     expect(result.err).toContain(message);
-    expect(result.err).toContain('Usage: phrase');
+    expect(result.err).toContain('Usage: stanza');
     expect(result.out).toBe('');
   });
 });
 
-describe('phrase import', () => {
+describe('stanza import', () => {
   const WORD =
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
     '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Scope</w:t></w:r></w:p>' +
@@ -409,26 +409,26 @@ describe('phrase import', () => {
 
   it('adds the content as a new document, names it after the file and lists the losses', async () => {
     writeWord();
-    const result = await phrase('import', 'Meeting notes.docx', 'plain');
+    const result = await stanza('import', 'Meeting notes.docx', 'plain');
     expect(result.code).toBe(0);
     expect(result.out).toContain(
-      'Imported Meeting notes.docx as documents/meeting-notes.phrase.md (1 ID assigned).',
+      'Imported Meeting notes.docx as documents/meeting-notes.stanza.md (1 ID assigned).',
     );
     expect(result.out).toContain('info: Direct formatting');
-    const text = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
+    const text = readFileSync(documentsOf('meeting-notes.stanza.md'), 'utf8');
     expect(text).toContain('# Scope');
     expect(text).toContain('Some text.');
-    expect((await phrase('validate', 'plain')).out).toBe(
+    expect((await stanza('validate', 'plain')).out).toBe(
       'Checked 2 documents: 0 errors, 0 warnings.\n',
     );
   });
 
   it('shows what the project says about the new document, and exits with 1 for an error', async () => {
     writeWord();
-    const result = await phrase('import', 'Meeting notes.docx', 'project');
+    const result = await stanza('import', 'Meeting notes.docx', 'project');
     expect(result.code).toBe(1);
     expect(result.out).toContain('missing-field');
-    expect(existsSync(join(work, 'project', 'documents', 'meeting-notes.phrase.md'))).toBe(true);
+    expect(existsSync(join(work, 'project', 'documents', 'meeting-notes.stanza.md'))).toBe(true);
   });
 
   it('uses the current directory by default', async () => {
@@ -440,42 +440,42 @@ describe('phrase import', () => {
       stderr: () => undefined,
     });
     expect(code).toBe(0);
-    expect(out).toContain('documents/meeting-notes.phrase.md');
+    expect(out).toContain('documents/meeting-notes.stanza.md');
   });
 
   it('never writes over a document: a second import gets a number', async () => {
     writeWord();
-    await phrase('import', 'Meeting notes.docx', 'plain');
-    const first = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
-    const again = await phrase('import', 'Meeting notes.docx', 'plain');
-    expect(again.out).toContain('documents/meeting-notes-2.phrase.md');
-    expect(readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8')).toBe(first);
-    expect(existsSync(documentsOf('meeting-notes-2.phrase.md'))).toBe(true);
+    await stanza('import', 'Meeting notes.docx', 'plain');
+    const first = readFileSync(documentsOf('meeting-notes.stanza.md'), 'utf8');
+    const again = await stanza('import', 'Meeting notes.docx', 'plain');
+    expect(again.out).toContain('documents/meeting-notes-2.stanza.md');
+    expect(readFileSync(documentsOf('meeting-notes.stanza.md'), 'utf8')).toBe(first);
+    expect(existsSync(documentsOf('meeting-notes-2.stanza.md'))).toBe(true);
   });
 
   it('says so, with exit code 2, when the Word file cannot be read', async () => {
-    const result = await phrase('import', 'missing.docx', 'plain');
+    const result = await stanza('import', 'missing.docx', 'plain');
     expect(result.code).toBe(2);
     expect(result.err).toContain('cannot read missing.docx');
   });
 
   it('refuses a file that is not a DOCX, and writes nothing', async () => {
     writeFileSync(join(work, 'old.docx'), Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0, 0]));
-    const result = await phrase('import', 'old.docx', 'plain');
+    const result = await stanza('import', 'old.docx', 'plain');
     expect(result.code).toBe(2);
     expect(result.err).toContain('old Word file');
-    expect(existsSync(documentsOf('old.phrase.md'))).toBe(false);
+    expect(existsSync(documentsOf('old.stanza.md'))).toBe(false);
   });
 
   it('refuses a folder that is not a project', async () => {
     writeWord();
-    const result = await phrase('import', 'Meeting notes.docx', 'nowhere');
+    const result = await stanza('import', 'Meeting notes.docx', 'nowhere');
     expect(result.code).toBe(2);
     expect(result.err).toContain('no project in order');
   });
 });
 
-describe('phrase adopt', () => {
+describe('stanza adopt', () => {
   const MARKDOWN = '# Meeting notes\n\nSome *text*.\n\n> quoted\n\n---\n';
   const writeMarkdown = (name = 'Meeting notes.md', text = MARKDOWN): void => {
     writeFileSync(join(work, name), text);
@@ -491,62 +491,62 @@ describe('phrase adopt', () => {
 
   it('adds the Markdown as a new document, leaves the original and lists the losses', async () => {
     writeMarkdown();
-    const result = await phrase('adopt', 'Meeting notes.md', 'plain');
+    const result = await stanza('adopt', 'Meeting notes.md', 'plain');
     expect(result.code).toBe(0);
     expect(result.out).toContain(
-      'Adopted Meeting notes.md as documents/meeting-notes.phrase.md (1 ID assigned).',
+      'Adopted Meeting notes.md as documents/meeting-notes.stanza.md (1 ID assigned).',
     );
     expect(result.out).toContain('warning: Thematic breaks (horizontal rules) were left out.');
     expect(result.out).toContain('info: Block quotes were written as ordinary blocks.');
-    const text = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
+    const text = readFileSync(documentsOf('meeting-notes.stanza.md'), 'utf8');
     expect(text).toContain('# Meeting notes');
     expect(text).toContain('Some *text*.');
     expect(readFileSync(join(work, 'Meeting notes.md'), 'utf8')).toBe(MARKDOWN);
-    expect((await phrase('validate', 'plain')).out).toBe(
+    expect((await stanza('validate', 'plain')).out).toBe(
       'Checked 2 documents: 0 errors, 0 warnings.\n',
     );
   });
 
   it('shows what the project says about the new document, and exits with 1 for an error', async () => {
     writeMarkdown();
-    const result = await phrase('adopt', 'Meeting notes.md', 'project');
+    const result = await stanza('adopt', 'Meeting notes.md', 'project');
     expect(result.code).toBe(1);
     expect(result.out).toContain('missing-field');
-    expect(existsSync(join(work, 'project', 'documents', 'meeting-notes.phrase.md'))).toBe(true);
+    expect(existsSync(join(work, 'project', 'documents', 'meeting-notes.stanza.md'))).toBe(true);
   });
 
   it('never writes over a document: a second adoption gets a number', async () => {
     writeMarkdown();
-    await phrase('adopt', 'Meeting notes.md', 'plain');
-    const first = readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8');
-    const again = await phrase('adopt', 'Meeting notes.md', 'plain');
-    expect(again.out).toContain('documents/meeting-notes-2.phrase.md');
-    expect(readFileSync(documentsOf('meeting-notes.phrase.md'), 'utf8')).toBe(first);
+    await stanza('adopt', 'Meeting notes.md', 'plain');
+    const first = readFileSync(documentsOf('meeting-notes.stanza.md'), 'utf8');
+    const again = await stanza('adopt', 'Meeting notes.md', 'plain');
+    expect(again.out).toContain('documents/meeting-notes-2.stanza.md');
+    expect(readFileSync(documentsOf('meeting-notes.stanza.md'), 'utf8')).toBe(first);
   });
 
   it('says so, with exit code 2, when the file cannot be read', async () => {
-    const result = await phrase('adopt', 'missing.md', 'plain');
+    const result = await stanza('adopt', 'missing.md', 'plain');
     expect(result.code).toBe(2);
     expect(result.err).toContain('cannot read missing.md');
   });
 
-  it('refuses a file that is a Phrase document already, and writes nothing', async () => {
-    writeMarkdown('doc.md', '---\nphrase-format: 1\ntitle: T\n---\n\nText\n');
-    const result = await phrase('adopt', 'doc.md', 'plain');
+  it('refuses a file that is a Stanza document already, and writes nothing', async () => {
+    writeMarkdown('doc.md', '---\nstanza-format: 1\ntitle: T\n---\n\nText\n');
+    const result = await stanza('adopt', 'doc.md', 'plain');
     expect(result.code).toBe(2);
-    expect(result.err).toContain('is a Phrase document');
-    expect(existsSync(documentsOf('doc.phrase.md'))).toBe(false);
+    expect(result.err).toContain('is a Stanza document');
+    expect(existsSync(documentsOf('doc.stanza.md'))).toBe(false);
   });
 
   it('refuses a folder that is not a project', async () => {
     writeMarkdown();
-    const result = await phrase('adopt', 'Meeting notes.md', 'nowhere');
+    const result = await stanza('adopt', 'Meeting notes.md', 'nowhere');
     expect(result.code).toBe(2);
     expect(result.err).toContain('no project in order');
   });
 });
 
-describe('phrase format --assign-ids', () => {
+describe('stanza format --assign-ids', () => {
   const IDS = ['aaaaaaaaaa', 'bbbbbbbbbb', 'cccccccccc'];
   async function assign(...argv: string[]): Promise<{ code: number; out: string; err: string }> {
     let out = '';
@@ -560,22 +560,22 @@ describe('phrase format --assign-ids', () => {
     });
     return { code, out, err };
   }
-  const reference = (): string => join(work, 'project', 'documents', 'reference.phrase.md');
+  const reference = (): string => join(work, 'project', 'documents', 'reference.stanza.md');
   const withoutIds = (): void => {
     writeFileSync(
       reference(),
-      readFileSync(reference(), 'utf8').replace(/<!-- phrase: #\w+ -->\n(?=#)/g, ''),
+      readFileSync(reference(), 'utf8').replace(/<!-- stanza: #\w+ -->\n(?=#)/g, ''),
     );
   };
 
   it('adds the missing IDs, and then has nothing left to do', async () => {
     withoutIds();
-    expect((await phrase('validate', 'project')).out).toContain('warning missing-id');
+    expect((await stanza('validate', 'project')).out).toContain('warning missing-id');
     const result = await assign('format', 'project', '--assign-ids');
     expect(result.code).toBe(0);
-    expect(result.out).toMatch(/reformatted documents\/reference\.phrase\.md \(\d IDs? assigned\)/);
+    expect(result.out).toMatch(/reformatted documents\/reference\.stanza\.md \(\d IDs? assigned\)/);
     expect(result.out).toMatch(/Checked 2 documents: 1 reformatted, 0 refused, \d IDs? assigned\./);
-    expect(readFileSync(reference(), 'utf8')).toContain('<!-- phrase: #aaaaaaaaaa -->');
+    expect(readFileSync(reference(), 'utf8')).toContain('<!-- stanza: #aaaaaaaaaa -->');
     const again = await assign('format', 'project', '--assign-ids');
     expect(again.out).toBe('Checked 2 documents: 0 reformatted, 0 refused, 0 IDs assigned.\n');
   });
@@ -586,13 +586,13 @@ describe('phrase format --assign-ids', () => {
     const result = await assign('format', 'project', '--assign-ids', '--check');
     expect(result.code).toBe(1);
     expect(result.out).toMatch(
-      /not canonical documents\/reference\.phrase\.md \(\d IDs? missing\)/,
+      /not canonical documents\/reference\.stanza\.md \(\d IDs? missing\)/,
     );
     expect(readFileSync(reference(), 'utf8')).toBe(before);
   });
 
   it('needs a project, and belongs to format', async () => {
-    const single = await assign('format', 'project/documents/reference.phrase.md', '--assign-ids');
+    const single = await assign('format', 'project/documents/reference.stanza.md', '--assign-ids');
     expect(single.code).toBe(2);
     expect(single.err).toContain('--assign-ids needs a project directory');
     const other = await assign('build', 'project', '--assign-ids');
@@ -602,16 +602,16 @@ describe('phrase format --assign-ids', () => {
 
   it('uses random IDs of the right shape by default', async () => {
     withoutIds();
-    const result = await phrase('format', 'project', '--assign-ids');
+    const result = await stanza('format', 'project', '--assign-ids');
     expect(result.code).toBe(0);
-    expect(readFileSync(reference(), 'utf8')).toMatch(/<!-- phrase: #[0-9a-hjkmnp-tv-z]{10} -->/);
-    expect((await phrase('validate', 'project')).out).toBe(
+    expect(readFileSync(reference(), 'utf8')).toMatch(/<!-- stanza: #[0-9a-hjkmnp-tv-z]{10} -->/);
+    expect((await stanza('validate', 'project')).out).toBe(
       'Checked 2 documents: 0 errors, 0 warnings.\n',
     );
   });
 });
 
-describe('phrase format --fix-stylesheet', () => {
+describe('stanza format --fix-stylesheet', () => {
   const sheet = (): string => join(work, 'project', 'styles', 'default.yaml');
   // A stylesheet from before ADR 0065, with the colors written in the styles.
   const withRawColors = (): string => {
@@ -624,12 +624,12 @@ describe('phrase format --fix-stylesheet', () => {
 
   it('is suggested by validate, and moves the colors into tokens', async () => {
     withRawColors();
-    const invalid = await phrase('validate', 'project');
+    const invalid = await stanza('validate', 'project');
     expect(invalid.code).toBe(1);
     expect(invalid.out).toContain('error raw-color');
-    expect(invalid.out).toContain('phrase format --fix-stylesheet');
+    expect(invalid.out).toContain('stanza format --fix-stylesheet');
 
-    const fixed = await phrase('format', 'project', '--fix-stylesheet');
+    const fixed = await stanza('format', 'project', '--fix-stylesheet');
     expect(fixed.code).toBe(0);
     expect(fixed.out).toContain(
       'reformatted styles/default.yaml (2 values to tokens, 1 token added)',
@@ -638,30 +638,30 @@ describe('phrase format --fix-stylesheet', () => {
     expect(text).toContain('background: surface');
     expect(text).toContain('highlight: color-123456');
     expect(text).toContain("color-123456: '#123456'");
-    expect((await phrase('validate', 'project')).code).toBe(0);
+    expect((await stanza('validate', 'project')).code).toBe(0);
 
-    const again = await phrase('format', 'project', '--fix-stylesheet');
+    const again = await stanza('format', 'project', '--fix-stylesheet');
     expect(again.out).toBe('Checked 2 documents: 0 reformatted, 0 refused.\n');
     expect(readFileSync(sheet(), 'utf8')).toBe(text);
   });
 
   it('only lists the stylesheet when checking', async () => {
     const raw = withRawColors();
-    const result = await phrase('format', 'project', '--fix-stylesheet', '--check');
+    const result = await stanza('format', 'project', '--fix-stylesheet', '--check');
     expect(result.code).toBe(1);
     expect(result.out).toContain('not canonical styles/default.yaml (2 values to tokens');
     expect(readFileSync(sheet(), 'utf8')).toBe(raw);
   });
 
   it('needs a project, and belongs to format', async () => {
-    const single = await phrase(
+    const single = await stanza(
       'format',
-      'project/documents/reference.phrase.md',
+      'project/documents/reference.stanza.md',
       '--fix-stylesheet',
     );
     expect(single.code).toBe(2);
     expect(single.err).toContain('--fix-stylesheet needs a project directory');
-    const other = await phrase('validate', 'project', '--fix-stylesheet');
+    const other = await stanza('validate', 'project', '--fix-stylesheet');
     expect(other.code).toBe(2);
     expect(other.err).toContain('--fix-stylesheet applies to format only');
   });

@@ -5,7 +5,7 @@ import {
   type DocumentMeta,
   type HeaderFooter,
   type SlotPart,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   Footer,
   Header,

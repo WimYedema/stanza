@@ -1,4 +1,4 @@
-import { MAX_TOC_DEPTH, type Mark, type Paragraph, type Text } from '@phrase/core';
+import { MAX_TOC_DEPTH, type Mark, type Paragraph, type Text } from '@stanza/core';
 import type { ImportContext } from './context.js';
 import { isMonospace, toggleOf } from './styles.js';
 import { childOf, descendantsOf, elementsOf, plainText, type XmlElement } from './xml.js';

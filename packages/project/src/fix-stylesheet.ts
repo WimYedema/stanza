@@ -1,4 +1,4 @@
-import { moveValuesToTokens, parseProject } from '@phrase/format';
+import { moveValuesToTokens, parseProject } from '@stanza/format';
 import { hasErrors, inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { PROJECT_FILE, readText } from './files.js';
 import type { ProjectStorage } from './storage.js';

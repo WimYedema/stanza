@@ -1,6 +1,6 @@
-import type { SlotPart } from '@phrase/core';
+import type { SlotPart } from '@stanza/core';
 
-/** The text of a slot as it is written in the stylesheet: tokens and fields as `[label](phrase:...)` links. */
+/** The text of a slot as it is written in the stylesheet: tokens and fields as `[label](stanza:...)` links. */
 export function slotSource(parts: readonly SlotPart[]): string {
   return parts
     .map((part) => {
@@ -8,9 +8,9 @@ export function slotSource(parts: readonly SlotPart[]): string {
         case 'text':
           return part.text;
         case 'token':
-          return `[${part.label}](phrase:${part.token})`;
+          return `[${part.label}](stanza:${part.token})`;
         case 'field':
-          return `[${part.label}](phrase:field:${part.name})`;
+          return `[${part.label}](stanza:field:${part.name})`;
       }
     })
     .join('');

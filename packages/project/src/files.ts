@@ -1,8 +1,8 @@
 import type { ProjectDiagnostic } from './diagnostics.js';
 import type { ProjectStorage } from './storage.js';
 
-export const PROJECT_FILE = 'phrase.yaml';
-export const DOCUMENT_SUFFIX = '.phrase.md';
+export const PROJECT_FILE = 'stanza.yaml';
+export const DOCUMENT_SUFFIX = '.stanza.md';
 
 /** The text of a file, or a `file-unreadable` diagnostic in its place. */
 export async function readText(

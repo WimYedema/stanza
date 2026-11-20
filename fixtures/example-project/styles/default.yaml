@@ -1,4 +1,4 @@
-phrase-format: 1
+stanza-format: 1
 
 tokens:
   colors:
@@ -147,38 +147,38 @@ page-templates:
     margins: { top: 72, right: 72, bottom: 72, left: 72 }
     header:
       style: header-footer
-      left: '[](phrase:title)'
-      right: '[](phrase:classification)'
+      left: '[](stanza:title)'
+      right: '[](stanza:classification)'
     footer:
       style: header-footer
-      left: '[](phrase:section)'
-      right: 'Page [1](phrase:page) of [1](phrase:pages)'
+      left: '[](stanza:section)'
+      right: 'Page [1](stanza:page) of [1](stanza:pages)'
 
   page-letter:
     size: Letter
     margins: { top: 54, right: 90, bottom: 54, left: 90 }
     header:
       style: header-footer
-      left: '[](phrase:title)'
-      center: 'Draft [v?](phrase:version)'
-      right: '[](phrase:classification)'
+      left: '[](stanza:title)'
+      center: 'Draft [v?](stanza:version)'
+      right: '[](stanza:classification)'
     footer:
       style: header-footer
-      right: 'Page [1](phrase:page) of [1](phrase:pages)'
+      right: 'Page [1](stanza:page) of [1](stanza:pages)'
     cover:
       - style: cover-title
-        text: '[Untitled](phrase:title)'
+        text: '[Untitled](stanza:title)'
       - style: cover-meta
-        text: '[](phrase:authors)'
+        text: '[](stanza:authors)'
       - table:
           style: table-grid
           rows:
             - label: 'Classification'
-              value: '[](phrase:classification)'
+              value: '[](stanza:classification)'
             - label: 'Document number'
-              value: '[](phrase:field:document-number)'
+              value: '[](stanza:field:document-number)'
             - label: 'Reviewers'
-              value: '[](phrase:field:reviewers)'
+              value: '[](stanza:field:reviewers)'
 
 table-of-contents:
   page-numbers: true

@@ -3,7 +3,7 @@ import type { Node as EditorNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { NodeView } from '@tiptap/pm/view';
 import {
-  TOC_PHRASE_KIND,
+  TOC_STANZA_KIND,
   collectTocEntries,
   numberHeadings,
   readTocOptions,
@@ -11,20 +11,20 @@ import {
   type Block,
   type HeadingLevel,
   type Stylesheet,
-} from '@phrase/core';
-import { paragraphClass } from '@phrase/css';
+} from '@stanza/core';
+import { paragraphClass } from '@stanza/css';
 import { styleOf } from './block-styles.js';
-import { PHRASE_BLOCK_CLASS } from './schema.js';
+import { STANZA_BLOCK_CLASS } from './schema.js';
 
 /**
- * How a phrase block looks in the editor: a box with a name. A table of contents shows its entries
+ * How a stanza block looks in the editor: a box with a name. A table of contents shows its entries
  * as they would be written, from the headings of the document and the numbers of the stylesheet,
  * without page numbers (Word adds them, ADR 0018). This is a view of the document and is never
  * stored in it, and the blocks themselves are kept as they are.
  */
 
-export const PHRASE_BLOCK_LABEL_CLASS = 'phrase-block-label';
-export const PHRASE_BLOCK_EMPTY_CLASS = 'phrase-block-empty';
+export const STANZA_BLOCK_LABEL_CLASS = 'stanza-block-label';
+export const STANZA_BLOCK_EMPTY_CLASS = 'stanza-block-empty';
 
 const HEADING_LEVELS: readonly number[] = [1, 2, 3, 4, 5, 6];
 
@@ -65,14 +65,14 @@ function drawToc(
   const owner = root.ownerDocument;
 
   const label = owner.createElement('div');
-  label.className = PHRASE_BLOCK_LABEL_CLASS;
+  label.className = STANZA_BLOCK_LABEL_CLASS;
   const pages = stylesheet.tableOfContents.pageNumbers ? ', page numbers added by Word' : '';
   label.textContent = `Table of contents (down to level ${String(depth)}${pages})`;
   root.replaceChildren(label);
 
   if (entries.length === 0) {
     const empty = owner.createElement('div');
-    empty.className = PHRASE_BLOCK_EMPTY_CLASS;
+    empty.className = STANZA_BLOCK_EMPTY_CLASS;
     empty.textContent = 'No headings yet.';
     root.append(empty);
     return;
@@ -87,20 +87,20 @@ function drawToc(
 
 function draw(root: HTMLElement, node: EditorNode, doc: EditorNode, stylesheet: Stylesheet): void {
   const kind = String(node.attrs['kind']);
-  if (kind === TOC_PHRASE_KIND) drawToc(root, node, doc, stylesheet);
-  else root.textContent = `Phrase block "${kind}"`;
+  if (kind === TOC_STANZA_KIND) drawToc(root, node, doc, stylesheet);
+  else root.textContent = `Stanza block "${kind}"`;
 }
 
-export interface PhraseBlockViewOptions {
+export interface StanzaBlockViewOptions {
   /** The stylesheet in force, read whenever a block is drawn. */
   readonly stylesheet: () => Stylesheet;
 }
 
-export const PhraseBlockView = Extension.create<PhraseBlockViewOptions>({
-  name: 'phraseBlockView',
+export const StanzaBlockView = Extension.create<StanzaBlockViewOptions>({
+  name: 'stanzaBlockView',
   addOptions: () => ({
     stylesheet: () => {
-      throw new Error('PhraseBlockView needs a stylesheet.');
+      throw new Error('StanzaBlockView needs a stylesheet.');
     },
   }),
   addProseMirrorPlugins() {
@@ -111,12 +111,12 @@ export const PhraseBlockView = Extension.create<PhraseBlockViewOptions>({
 
     return [
       new Plugin({
-        key: new PluginKey('phrase-block-view'),
+        key: new PluginKey('stanza-block-view'),
         props: {
           nodeViews: {
-            phraseBlock: (initial, view) => {
+            stanzaBlock: (initial, view) => {
               const root = view.dom.ownerDocument.createElement('div');
-              root.className = PHRASE_BLOCK_CLASS;
+              root.className = STANZA_BLOCK_CLASS;
               let current = initial;
               draw(root, current, view.state.doc, stylesheet());
               const nodeView: NodeView = {

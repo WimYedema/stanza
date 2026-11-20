@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Document, Stylesheet } from '@phrase/core';
-import { parseDocument, parseStylesheet, serializeDocument } from '@phrase/format';
+import type { Document, Stylesheet } from '@stanza/core';
+import { parseDocument, parseStylesheet, serializeDocument } from '@stanza/format';
 import { type FromEditorResult } from './convert.js';
-import { createPhraseEditor, type PhraseEditor } from './editor.js';
+import { createStanzaEditor, type StanzaEditor } from './editor.js';
 
 const read = (path: string): string =>
   readFileSync(
@@ -17,12 +17,12 @@ const read = (path: string): string =>
 const stylesheet = parseStylesheet(read('example-project/styles/default.yaml')).stylesheet;
 
 function documentOf(body: string): Document {
-  const parsed = parseDocument(`---\nphrase-format: 1\ntitle: "T"\n---\n\n${body}`);
+  const parsed = parseDocument(`---\nstanza-format: 1\ntitle: "T"\n---\n\n${body}`);
   expect(parsed.diagnostics).toEqual([]);
   return parsed.document;
 }
 
-const SAMPLE = `<!-- phrase: #k7m2q9x4zb -->
+const SAMPLE = `<!-- stanza: #k7m2q9x4zb -->
 # Title
 
 Some **strong** and *emphasis* text with <span class="marker">marked</span> words.
@@ -34,7 +34,7 @@ Some **strong** and *emphasis* text with <span class="marker">marked</span> word
 
   - nested
 
-<!-- phrase: .note -->
+<!-- stanza: .note -->
 A note.
 
 \`\`\`ts
@@ -45,13 +45,13 @@ let x = 1;
 | - | - |
 | 1 | 2 |
 
-\`\`\`phrase-toc
+\`\`\`stanza-toc
 depth: 2
 \`\`\`
 `;
 
 let element: HTMLElement;
-let editor: PhraseEditor | undefined;
+let editor: StanzaEditor | undefined;
 
 beforeEach(() => {
   element = document.createElement('div');
@@ -67,8 +67,8 @@ function open(
   body = SAMPLE,
   sheet: Stylesheet = stylesheet,
   onChange?: (result: FromEditorResult) => void,
-): PhraseEditor {
-  editor = createPhraseEditor({
+): StanzaEditor {
+  editor = createStanzaEditor({
     element,
     stylesheet: sheet,
     document: documentOf(body),
@@ -80,11 +80,11 @@ function open(
 const classOf = (selector: string): string | null =>
   element.querySelector(selector)?.getAttribute('class') ?? null;
 
-describe('createPhraseEditor', () => {
+describe('createStanzaEditor', () => {
   it('updates rendered project links without changing authored content, marks or selection', () => {
     const changed = vi.fn<(result: FromEditorResult) => void>();
     const source = documentOf('See [**ticket**](jira://PROJ-123).\n');
-    editor = createPhraseEditor({
+    editor = createStanzaEditor({
       element,
       stylesheet,
       document: source,
@@ -95,7 +95,7 @@ describe('createPhraseEditor', () => {
     const before = editor.getPosition();
     const link = element.querySelector('a');
     expect(link?.getAttribute('href')).toBe('https://example.org/browse/PROJ-123');
-    expect(link?.getAttribute('data-phrase-href')).toBe('jira://PROJ-123');
+    expect(link?.getAttribute('data-stanza-href')).toBe('jira://PROJ-123');
     expect(link?.querySelector('strong')?.textContent).toBe('ticket');
     expect(editor.getLinkHref()).toBe('jira://PROJ-123');
     editor.setLinkSchemes({ jira: 'https://other.example/?id={id}' });
@@ -136,10 +136,10 @@ describe('createPhraseEditor', () => {
   it('gates commands and keyboard transactions in a preview, then enables editing without losing the selection', () => {
     const changed = vi.fn();
     const ids = vi.fn(() => 'bbbbbbbbbb');
-    editor = createPhraseEditor({
+    editor = createStanzaEditor({
       element,
       stylesheet,
-      document: documentOf('<!-- phrase: #aaaaaaaaaa -->\n# Heading\n'),
+      document: documentOf('<!-- stanza: #aaaaaaaaaa -->\n# Heading\n'),
       editable: false,
       newId: ids,
       onChange: changed,
@@ -166,7 +166,7 @@ describe('createPhraseEditor', () => {
     expect(editor.getDocument().document?.blocks[0]?.type).toBe('paragraph');
   });
   it('can be made a view that only shows the content', () => {
-    editor = createPhraseEditor({
+    editor = createStanzaEditor({
       element,
       stylesheet,
       document: documentOf('Some text.\n'),
@@ -174,7 +174,7 @@ describe('createPhraseEditor', () => {
     });
     expect(element.querySelector('.ProseMirror')?.getAttribute('contenteditable')).toBe('false');
     editor.destroy();
-    editor = createPhraseEditor({ element, stylesheet, document: documentOf('Some text.\n') });
+    editor = createStanzaEditor({ element, stylesheet, document: documentOf('Some text.\n') });
     expect(element.querySelector('.ProseMirror')?.getAttribute('contenteditable')).toBe('true');
   });
 
@@ -205,34 +205,34 @@ describe('createPhraseEditor', () => {
   it('scopes the editor and writes the stylesheet next to it', () => {
     open();
     const root = element.querySelector('.ProseMirror');
-    expect(root?.classList.contains('phrase-document')).toBe(true);
+    expect(root?.classList.contains('stanza-document')).toBe(true);
     const css = element.querySelector('style')?.textContent ?? '';
-    expect(css).toContain('.phrase-document .phrase-p-heading-1 {');
-    expect(css).toContain('.phrase-block');
+    expect(css).toContain('.stanza-document .stanza-p-heading-1 {');
+    expect(css).toContain('.stanza-block');
     // The text of a list item has no class, so the browser's margins are reset for it.
     expect(css).toContain('li > p:not([class])');
   });
 
   it('gives each block the class of its style, the default style included', () => {
     open();
-    expect(classOf('h1')).toContain('phrase-p-heading-1');
-    expect(classOf('.ProseMirror > p')).toContain('phrase-p-body');
-    expect(classOf('p.phrase-p-note')).not.toBeNull();
-    expect(classOf('pre')).toContain('phrase-p-code');
-    expect(classOf('table')).toContain('phrase-t-table');
-    expect(classOf('td > p')).toContain('phrase-p-table-cell');
-    expect(classOf('th > p')).toContain('phrase-p-table-cell');
+    expect(classOf('h1')).toContain('stanza-p-heading-1');
+    expect(classOf('.ProseMirror > p')).toContain('stanza-p-body');
+    expect(classOf('p.stanza-p-note')).not.toBeNull();
+    expect(classOf('pre')).toContain('stanza-p-code');
+    expect(classOf('table')).toContain('stanza-t-table');
+    expect(classOf('td > p')).toContain('stanza-p-table-cell');
+    expect(classOf('th > p')).toContain('stanza-p-table-cell');
     expect(classOf('td')).toBeNull();
-    expect(classOf('ul')).toBe('phrase-list');
+    expect(classOf('ul')).toBe('stanza-list');
   });
 
   it('lets a list item take its look from its list, and its text carry no class', () => {
     open();
     const items = [...element.querySelectorAll('li')];
     expect(items.map((li) => li.getAttribute('class'))).toEqual([
-      'phrase-li-list-bulleted',
-      'phrase-li-list-bulleted',
-      'phrase-li-list-bulleted',
+      'stanza-li-list-bulleted',
+      'stanza-li-list-bulleted',
+      'stanza-li-list-bulleted',
     ]);
     expect([...element.querySelectorAll('li > p')].map((p) => p.getAttribute('class'))).toEqual([
       null,
@@ -244,28 +244,28 @@ describe('createPhraseEditor', () => {
 
   it('writes marks and character styles with their classes, in the order of the model', () => {
     open();
-    expect(classOf('strong')).toBe('phrase-m-strong');
-    expect(classOf('em')).toBe('phrase-m-emphasis');
-    expect(classOf('span.phrase-c-marker')).toBe('phrase-c-marker');
+    expect(classOf('strong')).toBe('stanza-m-strong');
+    expect(classOf('em')).toBe('stanza-m-emphasis');
+    expect(classOf('span.stanza-c-marker')).toBe('stanza-c-marker');
   });
 
   it('writes no inline style, and shows a table of contents as a labelled box with its entries', () => {
     open();
     expect(element.querySelectorAll('[style]')).toHaveLength(0);
-    const box = element.querySelector('.phrase-block');
-    expect(box?.querySelector('.phrase-block-label')?.textContent).toBe(
+    const box = element.querySelector('.stanza-block');
+    expect(box?.querySelector('.stanza-block-label')?.textContent).toBe(
       'Table of contents (down to level 2, page numbers added by Word)',
     );
     expect(
       [...(box?.querySelectorAll('p') ?? [])].map((p) => [p.className, p.textContent]),
-    ).toEqual([['phrase-p-toc-1', '1 Title']]);
+    ).toEqual([['stanza-p-toc-1', '1 Title']]);
   });
 
   describe('a table of contents', () => {
     const TOC = (depth: number): string =>
-      `# One\n\nText\n\n\`\`\`phrase-toc\ndepth: ${String(depth)}\n\`\`\`\n`;
+      `# One\n\nText\n\n\`\`\`stanza-toc\ndepth: ${String(depth)}\n\`\`\`\n`;
     const entries = (): (string | null)[] =>
-      [...element.querySelectorAll('.phrase-block p')].map((p) => p.textContent);
+      [...element.querySelectorAll('.stanza-block p')].map((p) => p.textContent);
 
     it('lists the headings down to its depth, with their numbers', () => {
       open(`${TOC(2)}\n## Two\n\n### Three\n`);
@@ -284,15 +284,15 @@ describe('createPhraseEditor', () => {
     });
 
     it('says when there is nothing to list', () => {
-      open('Text\n\n```phrase-toc\n```\n');
+      open('Text\n\n```stanza-toc\n```\n');
       expect(entries()).toEqual([]);
-      expect(element.querySelector('.phrase-block-empty')?.textContent).toBe('No headings yet.');
+      expect(element.querySelector('.stanza-block-empty')?.textContent).toBe('No headings yet.');
     });
 
     it('follows a new stylesheet', () => {
       const api = open(TOC(2));
       const label = (): string | null | undefined =>
-        element.querySelector('.phrase-block-label')?.textContent;
+        element.querySelector('.stanza-block-label')?.textContent;
       expect(label()).toContain('page numbers added by Word');
       expect(api.setStylesheet({ ...stylesheet, tableOfContents: { pageNumbers: false } })).toEqual(
         [],
@@ -301,8 +301,8 @@ describe('createPhraseEditor', () => {
     });
 
     it('names any other kind of block as it is', () => {
-      open('Text\n\n```phrase-foo\nbody\n```\n');
-      expect(element.querySelector('.phrase-block')?.textContent).toBe('Phrase block "foo"');
+      open('Text\n\n```stanza-foo\nbody\n```\n');
+      expect(element.querySelector('.stanza-block')?.textContent).toBe('Stanza block "foo"');
     });
   });
 
@@ -389,7 +389,7 @@ describe('createPhraseEditor', () => {
   describe('changes from outside', () => {
     const THREE = 'First.\n\nSecond one.\n\nThird.\n';
     const marked = (): string[] =>
-      [...element.querySelectorAll('.phrase-changed')].map((node) => node.textContent);
+      [...element.querySelectorAll('.stanza-changed')].map((node) => node.textContent);
 
     it('marks a block that is different, and counts it as changed and one as removed', () => {
       const api = open(THREE, stylesheet);
@@ -463,12 +463,12 @@ describe('createPhraseEditor', () => {
       const api = open(THREE, stylesheet);
       api.setDocument(documentOf('First.\n\nSecond big one.\n\nThird.\n'), { markChanges: true });
       expect(api.getDocument().document?.blocks).toHaveLength(3);
-      expect(JSON.stringify(api.getDocument().document)).not.toContain('phrase-changed');
+      expect(JSON.stringify(api.getDocument().document)).not.toContain('stanza-changed');
     });
   });
 
   describe('the state at the cursor', () => {
-    const TEXT = `<!-- phrase: #k7m2q9x4zb -->
+    const TEXT = `<!-- stanza: #k7m2q9x4zb -->
 # Title
 
 Some **strong** text.
@@ -563,7 +563,7 @@ Some **strong** text.
 
     it('tells when the cursor moved, a change was made, or the stylesheet changed', () => {
       const onContextChange = vi.fn();
-      editor = createPhraseEditor({
+      editor = createStanzaEditor({
         element,
         stylesheet,
         document: documentOf(TEXT),
@@ -613,8 +613,8 @@ Some **strong** text.
       ]),
     };
     expect(api.setStylesheet(roomy)).toEqual([]);
-    expect(classOf('td > p')).toContain('phrase-p-code');
-    expect(element.querySelector('style')?.textContent).toContain('.phrase-t-table');
+    expect(classOf('td > p')).toContain('stanza-p-code');
+    expect(element.querySelector('style')?.textContent).toContain('.stanza-t-table');
   });
 
   it('refuses a stylesheet with errors, and keeps the one in force', () => {
@@ -626,7 +626,7 @@ Some **strong** text.
     };
     expect(api.setStylesheet(broken).length).toBeGreaterThan(0);
     expect(element.querySelector('style')?.textContent).toBe(before);
-    expect(classOf('td > p')).toContain('phrase-p-table-cell');
+    expect(classOf('td > p')).toContain('stanza-p-table-cell');
   });
 
   it('refuses to start with a stylesheet that has errors', () => {
@@ -635,7 +635,7 @@ Some **strong** text.
       paragraphStyles: new Map([...stylesheet.paragraphStyles].filter(([name]) => name !== 'code')),
     };
     expect(() =>
-      createPhraseEditor({ element, stylesheet: broken, document: documentOf('x\n') }),
+      createStanzaEditor({ element, stylesheet: broken, document: documentOf('x\n') }),
     ).toThrow('The stylesheet has errors');
   });
 });

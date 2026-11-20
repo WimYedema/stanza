@@ -1,4 +1,4 @@
-# @phrase/project
+# @stanza/project
 
 Use cases over a `ProjectStorage` port (`storage.ts`); no direct file access. `memory-storage.testing.ts` is the in-memory storage for tests.
 

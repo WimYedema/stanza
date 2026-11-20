@@ -19,7 +19,7 @@ describe('project link schemes', () => {
     });
   });
 
-  it.each(['https://example.org/a', 'mailto:a@b.c', '#aaaaaaaaaa', 'doc.phrase.md#aaaaaaaaaa'])(
+  it.each(['https://example.org/a', 'mailto:a@b.c', '#aaaaaaaaaa', 'doc.stanza.md#aaaaaaaaaa'])(
     'leaves ordinary destination %s unchanged',
     (href) => {
       expect(resolveLink(href, schemes)).toEqual({ ok: true, href });

@@ -3,8 +3,8 @@ import {
   mapDocumentLinks,
   parseReferenceLink,
   referenceFile,
-} from '@phrase/core';
-import type { ReferenceFile } from '@phrase/export-docx';
+} from '@stanza/core';
+import type { ReferenceFile } from '@stanza/export-docx';
 import { DOCUMENT_SUFFIX } from './files.js';
 import type { LoadedDocument } from './load.js';
 

@@ -2,7 +2,7 @@ import { getSchema } from '@tiptap/core';
 import type { Node as EditorNode } from '@tiptap/pm/model';
 import { EditorState, TextSelection, type Transaction } from '@tiptap/pm/state';
 import { describe, expect, it, vi } from 'vitest';
-import type { StyleName } from '@phrase/core';
+import type { StyleName } from '@stanza/core';
 import {
   checkCommand,
   isAllowedHref,
@@ -686,7 +686,7 @@ describe('lists', () => {
   });
 });
 
-describe('code blocks and phrase blocks', () => {
+describe('code blocks and stanza blocks', () => {
   it('turns a paragraph into a code block with its language, and back', () => {
     const doc = build(paragraph('let x;', { id: 'k7m2q9x4zb' }));
     const on = run(select(doc, 'let'), { type: 'toggle-code-block', language: 'ts' });
@@ -714,15 +714,15 @@ describe('code blocks and phrase blocks', () => {
     );
   });
 
-  it('puts a phrase block after the block, or in place of an empty paragraph', () => {
+  it('puts a stanza block after the block, or in place of an empty paragraph', () => {
     const after = run(select(build(paragraph('One'), paragraph('Two')), 'One'), {
-      type: 'insert-phrase-block',
+      type: 'insert-stanza-block',
       kind: 'toc',
       text: 'depth: 2',
     });
     expect(after.next.doc.children.map((child) => child.type.name)).toEqual([
       'paragraph',
-      'phraseBlock',
+      'stanzaBlock',
       'paragraph',
     ]);
     expect(after.next.doc.child(1).attrs).toMatchObject({ kind: 'toc', text: 'depth: 2' });
@@ -732,16 +732,16 @@ describe('code blocks and phrase blocks', () => {
       doc: empty,
       selection: TextSelection.create(empty, empty.child(0).nodeSize + 1),
     });
-    const replaced = run(state, { type: 'insert-phrase-block', kind: 'toc', text: '' });
+    const replaced = run(state, { type: 'insert-stanza-block', kind: 'toc', text: '' });
     expect(replaced.next.doc.children.map((child) => child.type.name)).toEqual([
       'paragraph',
-      'phraseBlock',
+      'stanzaBlock',
     ]);
   });
 
   it('refuses a kind that is not a name', () => {
     const outcome = run(select(build(paragraph('One')), 'One'), {
-      type: 'insert-phrase-block',
+      type: 'insert-stanza-block',
       kind: 'Not A Kind',
       text: '',
     });

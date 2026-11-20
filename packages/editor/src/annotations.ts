@@ -8,7 +8,7 @@ import {
   type Diagnostic,
   type HeadingLevel,
   type Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import { styleOf } from './block-styles.js';
 
 /**
@@ -18,8 +18,8 @@ import { styleOf } from './block-styles.js';
  * computed from the document, so they are never in the text.
  */
 
-export const HEADING_NUMBER_CLASS = 'phrase-heading-number';
-export const DIAGNOSTIC_CLASS = 'phrase-diagnostic';
+export const HEADING_NUMBER_CLASS = 'stanza-heading-number';
+export const DIAGNOSTIC_CLASS = 'stanza-diagnostic';
 
 interface State {
   readonly diagnostics: readonly Diagnostic[];
@@ -31,7 +31,7 @@ interface Meta {
   readonly diagnostics?: readonly Diagnostic[];
 }
 
-export const annotationsKey = new PluginKey<State>('phrase-annotations');
+export const annotationsKey = new PluginKey<State>('stanza-annotations');
 
 /** Recomputes the numbers, for example after the stylesheet has changed. */
 export const REFRESH_ANNOTATIONS: Meta = {};

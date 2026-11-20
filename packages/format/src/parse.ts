@@ -16,7 +16,7 @@ import {
   type Mark,
   type TableCell,
   type Text,
-} from '@phrase/core';
+} from '@stanza/core';
 import MarkdownIt, { type Token } from 'markdown-it';
 import { parseAnnotation, type Annotation } from './annotation.js';
 import { FORMAT_VERSION, parseFrontMatter, splitFrontMatter } from './front-matter.js';
@@ -24,7 +24,7 @@ import { FORMAT_VERSION, parseFrontMatter, splitFrontMatter } from './front-matt
 export interface ParseResult {
   readonly document: Document;
   readonly diagnostics: readonly Diagnostic[];
-  /** The `phrase-format` value found in the file, when there was one. */
+  /** The `stanza-format` value found in the file, when there was one. */
   readonly formatVersion: number | undefined;
 }
 
@@ -59,7 +59,7 @@ function isListItemBlock(block: Block): block is ListItemBlock {
 
 const EMPTY_META: DocumentMeta = { fields: {} };
 
-/** Reads a Phrase document. Anything that cannot be represented is reported, never dropped silently. */
+/** Reads a Stanza document. Anything that cannot be represented is reported, never dropped silently. */
 export function parseDocument(source: string): ParseResult {
   const text = source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   const lines = text.split('\n');
@@ -72,7 +72,7 @@ export function parseDocument(source: string): ParseResult {
     diagnostics.push({
       severity: 'error',
       code: 'front-matter-missing',
-      message: 'The file must start with front matter containing "phrase-format".',
+      message: 'The file must start with front matter containing "stanza-format".',
       line: 1,
     });
   } else {
@@ -86,7 +86,7 @@ export function parseDocument(source: string): ParseResult {
       diagnostics.push({
         severity: 'error',
         code: 'format-version-missing',
-        message: 'Front matter must contain "phrase-format".',
+        message: 'Front matter must contain "stanza-format".',
         line: 1,
       });
     }
@@ -366,12 +366,12 @@ function fenceBlock(state: State, token: Token): Block {
       token,
     );
   }
-  if (first === 'phrase-table') return parsePhraseTable(state, token, text);
-  if (first.startsWith('phrase-')) {
-    const kind = first.slice('phrase-'.length);
+  if (first === 'stanza-table') return parseStanzaTable(state, token, text);
+  if (first.startsWith('stanza-')) {
+    const kind = first.slice('stanza-'.length);
     if (kind === '')
-      report(state, 'error', 'phrase-block-kind-missing', 'A phrase block needs a kind.', token);
-    return { type: 'phrase', kind, text };
+      report(state, 'error', 'stanza-block-kind-missing', 'A stanza block needs a kind.', token);
+    return { type: 'stanza', kind, text };
   }
   return first === '' ? { type: 'code', text } : { type: 'code', language: first, text };
 }
@@ -399,12 +399,12 @@ function cellOf(state: State, fence: Token, blocks: readonly ListItemBlock[]): T
 }
 
 /**
- * The body of a `phrase-table` (ADR 0048): a bullet list of rows, each a bullet list of cells, each
+ * The body of a `stanza-table` (ADR 0048): a bullet list of rows, each a bullet list of cells, each
  * cell holding blocks. The first row is the header. The levels count by position, so a list in a
  * cell does not clash with the rows and cells. Rows of different length are left for the checks of
  * the document to report.
  */
-function parsePhraseTable(state: State, fence: Token, text: string): Block {
+function parseStanzaTable(state: State, fence: Token, text: string): Block {
   const body: State = {
     tokens: markdown.parse(text, {}),
     pos: 0,
@@ -418,7 +418,7 @@ function parsePhraseTable(state: State, fence: Token, text: string): Block {
   const [rowList, ...others] = parseBlocks(body, undefined, false);
   if (!isPlainBulletList(rowList) || others.length > 0) {
     return invalid(
-      'The body of a phrase-table must be one bullet list of rows, as in "- - first cell".',
+      'The body of a stanza-table must be one bullet list of rows, as in "- - first cell".',
     );
   }
   const rows: TableCell[][] = [];
@@ -426,7 +426,7 @@ function parsePhraseTable(state: State, fence: Token, text: string): Block {
     const [cells, ...more] = row.blocks;
     if (!isPlainBulletList(cells) || more.length > 0) {
       return invalid(
-        `Row ${String(index + 1)} of a phrase-table must be a bullet list of cells, as in "- - first cell".`,
+        `Row ${String(index + 1)} of a stanza-table must be a bullet list of cells, as in "- - first cell".`,
       );
     }
     rows.push(cells.items.map((item) => cellOf(state, fence, item.blocks)));

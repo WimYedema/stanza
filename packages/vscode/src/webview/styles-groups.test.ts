@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PARAGRAPH_PROPERTIES } from '@phrase/core';
+import { PARAGRAPH_PROPERTIES } from '@stanza/core';
 import type { Family } from './styles-families.js';
 import { paragraphGroups } from './styles-groups.js';
 

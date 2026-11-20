@@ -1,4 +1,4 @@
-import { isStyleName, type Stylesheet } from '@phrase/core';
+import { isStyleName, type Stylesheet } from '@stanza/core';
 import type { StyleKind, StylesWebviewMessage } from '../shared/styles-protocol.js';
 import { el, option, simpleRow as row, simpleSection as section } from './styles-dom.js';
 import type { Family } from './styles-families.js';

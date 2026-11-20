@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPhraseEditor, type PhraseEditor } from '@phrase/editor';
-import { parseStylesheet } from '@phrase/format';
+import { createStanzaEditor, type StanzaEditor } from '@stanza/editor';
+import { parseStylesheet } from '@stanza/format';
 import type { Entry } from './styles-families.js';
 import { FOCUS_CLASS, focusSample, sampleDocument, sampleSelector } from './styles-sample.js';
 
@@ -63,7 +63,7 @@ describe('sampleDocument', () => {
 
   it('has lists, a code block, and a table of contents', () => {
     expect(sample.blocks.map((block) => block.type)).toEqual(
-      expect.arrayContaining(['list', 'code', 'phrase']),
+      expect.arrayContaining(['list', 'code', 'stanza']),
     );
   });
 
@@ -85,14 +85,14 @@ describe('sampleDocument', () => {
 
 describe('the sample in the editor', () => {
   let root: HTMLElement;
-  let editor: PhraseEditor;
+  let editor: StanzaEditor;
 
   beforeEach(() => {
     // The test environment does not scroll.
     Element.prototype.scrollIntoView = vi.fn();
     root = document.createElement('div');
     document.body.append(root);
-    editor = createPhraseEditor({
+    editor = createStanzaEditor({
       element: root,
       stylesheet,
       document: sampleDocument(stylesheet),
@@ -107,25 +107,25 @@ describe('the sample in the editor', () => {
   it('is shown and cannot be edited', () => {
     expect(root.querySelector('.ProseMirror')?.getAttribute('contenteditable')).toBe('false');
     expect(root.querySelector('h1')?.textContent).toBe('1Sample document');
-    expect(root.querySelector('h1 .phrase-heading-number')?.textContent).toBe('1');
-    expect(root.querySelector('.phrase-p-cover-title')?.textContent).toContain('cover-title');
+    expect(root.querySelector('h1 .stanza-heading-number')?.textContent).toBe('1');
+    expect(root.querySelector('.stanza-p-cover-title')?.textContent).toContain('cover-title');
   });
 
   it('marks what an entry looks like, and moves the mark when another is chosen', () => {
     focusSample(root, entry('paragraph-style', 'paragraphs', 'cover-title'));
     expect([...root.querySelectorAll(`.${FOCUS_CLASS}`)].map((e) => e.className)).toEqual([
-      expect.stringContaining('phrase-p-cover-title'),
+      expect.stringContaining('stanza-p-cover-title'),
     ]);
     focusSample(root, entry('character-style', 'characters', 'marker'));
     const marked = [...root.querySelectorAll(`.${FOCUS_CLASS}`)];
     expect(marked).toHaveLength(1);
-    expect(marked[0]?.className).toContain('phrase-c-marker');
+    expect(marked[0]?.className).toContain('stanza-c-marker');
     focusSample(root, entry('table-style', 'tables', 'table-grid'));
-    expect(root.querySelector('table.phrase-t-table-grid')?.classList.contains(FOCUS_CLASS)).toBe(
+    expect(root.querySelector('table.stanza-t-table-grid')?.classList.contains(FOCUS_CLASS)).toBe(
       true,
     );
     focusSample(root, entry('paragraph-style', 'lists', 'list-bulleted'));
-    expect(root.querySelector('li.phrase-li-list-bulleted')?.classList.contains(FOCUS_CLASS)).toBe(
+    expect(root.querySelector('li.stanza-li-list-bulleted')?.classList.contains(FOCUS_CLASS)).toBe(
       true,
     );
   });
@@ -142,10 +142,10 @@ describe('the sample in the editor', () => {
 describe('sampleSelector', () => {
   it('names the class that the editor gives what the entry is', () => {
     expect(sampleSelector(entry('paragraph-style', 'headings', 'heading-2'))).toBe(
-      '.phrase-p-heading-2',
+      '.stanza-p-heading-2',
     );
     expect(sampleSelector(entry('paragraph-style', 'lists', 'list-numbered'))).toBe(
-      '.phrase-li-list-numbered',
+      '.stanza-li-list-numbered',
     );
     expect(sampleSelector(entry('page-template', 'pages', 'page'))).toBeUndefined();
   });

@@ -13,7 +13,7 @@ import type {
   Inline,
   List,
   ListItemBlock,
-  PhraseBlock,
+  StanzaBlock,
   Table,
   TableCell,
 } from './document.js';
@@ -28,10 +28,10 @@ import {
   type ResolvedParagraphStyle,
 } from './style-resolution.js';
 import { RESERVED_TABLE_STYLE, type Stylesheet } from './stylesheet.js';
-import { TOC_PHRASE_KIND, readTocOptions, tocStyleName } from './toc.js';
+import { TOC_STANZA_KIND, readTocOptions, tocStyleName } from './toc.js';
 
-/** Kinds of phrase block that the exporters understand. */
-export const KNOWN_PHRASE_KINDS: readonly string[] = [TOC_PHRASE_KIND];
+/** Kinds of stanza block that the exporters understand. */
+export const KNOWN_STANZA_KINDS: readonly string[] = [TOC_STANZA_KIND];
 
 interface Context {
   /** The paragraph style that paragraphs directly inside a list item use. */
@@ -41,7 +41,7 @@ interface Context {
 /**
  * Checks a document against a stylesheet and against the rules of the model: styles must exist,
  * marks must be allowed by the style they occur in, referenceable blocks need unique IDs, tables
- * must be rectangular, and phrase blocks must be of a known kind. Diagnostics point into the
+ * must be rectangular, and stanza blocks must be of a known kind. Diagnostics point into the
  * document with a path such as `blocks[2].items[0].blocks[1]`.
  *
  * The stylesheet is assumed to have been validated. Where one of its styles is missing, the checks
@@ -230,7 +230,7 @@ export function validateDocument(
     });
   };
 
-  const checkToc = (block: PhraseBlock, path: string, nested: boolean): void => {
+  const checkToc = (block: StanzaBlock, path: string, nested: boolean): void => {
     const { options, diagnostics: found } = readTocOptions(block.text);
     for (const problem of found) report('error', problem.code, problem.message, path, block.id);
     if (nested) {
@@ -327,16 +327,16 @@ export function validateDocument(
       case 'code':
         checkNotNumbered(style ?? CODE_STYLE, path, block.id);
         break;
-      case 'phrase':
-        if (!KNOWN_PHRASE_KINDS.includes(block.kind)) {
+      case 'stanza':
+        if (!KNOWN_STANZA_KINDS.includes(block.kind)) {
           report(
             'error',
-            'unknown-phrase-kind',
-            `The phrase block kind "${block.kind}" is not supported.`,
+            'unknown-stanza-kind',
+            `The stanza block kind "${block.kind}" is not supported.`,
             path,
             block.id,
           );
-        } else if (block.kind === TOC_PHRASE_KIND) {
+        } else if (block.kind === TOC_STANZA_KIND) {
           checkToc(block, path, context.listStyle !== undefined);
         }
         break;

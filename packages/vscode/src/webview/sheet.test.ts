@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PAGE_SIZES } from '@phrase/core';
-import { parseDocument, parseStylesheet } from '@phrase/format';
+import { PAGE_SIZES } from '@stanza/core';
+import { parseDocument, parseStylesheet } from '@stanza/format';
 import { createSheet, sectionOf, sheetCss, templateOf, type Sheet } from './sheet.js';
 
 const stylesheet = parseStylesheet(
@@ -18,15 +18,15 @@ const stylesheet = parseStylesheet(
 ).stylesheet;
 
 function documentOf(front: string, body = '# Introduction\n'): ReturnType<typeof parseDocument> {
-  return parseDocument(`---\nphrase-format: 1\n${front}---\n\n${body}`);
+  return parseDocument(`---\nstanza-format: 1\n${front}---\n\n${body}`);
 }
 
-const BODY = `<!-- phrase: #k7m2q9x4zb -->
+const BODY = `<!-- stanza: #k7m2q9x4zb -->
 # Introduction
 
 Text.
 
-<!-- phrase: #a1b2c3d4e5 -->
+<!-- stanza: #a1b2c3d4e5 -->
 ## Scope
 `;
 
@@ -113,7 +113,7 @@ describe('createSheet', () => {
     expect(header.hidden).toBe(false);
     expect(slots(header)).toEqual(['My title', '', 'Secret']);
     expect(slots(footer)).toEqual(['1 Introduction', '', 'Page 1 of 1']);
-    expect(header.querySelector('.slots')?.className).toContain('phrase-p-header-footer');
+    expect(header.querySelector('.slots')?.className).toContain('stanza-p-header-footer');
     const fields = [...footer.querySelectorAll('.field')];
     expect(fields.map((field) => field.textContent)).toEqual(['1', '1']);
     expect(fields[0]?.getAttribute('title')).toContain('Word fills in');
@@ -136,17 +136,17 @@ describe('createSheet', () => {
     );
     expect(cover.hidden).toBe(false);
     const [title, authors] = [...cover.querySelectorAll('p')];
-    expect(title?.className).toBe('phrase-p-cover-title');
+    expect(title?.className).toBe('stanza-p-cover-title');
     expect(title?.textContent).toBe('My title');
-    expect(authors?.className).toBe('phrase-p-cover-meta');
+    expect(authors?.className).toBe('stanza-p-cover-meta');
     expect(authors?.textContent).toBe('A, B');
     const table = cover.querySelector('table');
-    expect(table?.className).toBe('phrase-t-table-grid');
+    expect(table?.className).toBe('stanza-t-table-grid');
     // No document number or reviewers, so only the classification row is left.
     expect([...(table?.rows ?? [])].map((row) => row.textContent)).toEqual([
       'ClassificationSecret',
     ]);
-    expect(table?.querySelector('td')?.className).toBe('phrase-p-table-cell');
+    expect(table?.querySelector('td')?.className).toBe('stanza-p-table-cell');
   });
 
   it('has no cover for a template without one, and hides a header with nothing in it', () => {

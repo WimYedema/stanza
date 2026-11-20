@@ -1,4 +1,4 @@
-import type { Stylesheet } from '@phrase/core';
+import type { Stylesheet } from '@stanza/core';
 
 /**
  * The families of the style editor (ADR 0036): the tabs, and what each one lists. The styles of the

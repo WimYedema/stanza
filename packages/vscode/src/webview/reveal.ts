@@ -1,4 +1,4 @@
-import type { PhraseEditor } from '@phrase/editor';
+import type { StanzaEditor } from '@stanza/editor';
 
 /** The space left between the bar at the top and the block that is scrolled to, in pixels. */
 const GAP_PX = 12;
@@ -8,7 +8,7 @@ const GAP_PX = 12;
  * just under the bar that sticks to the top, where the cursor alone would leave it behind the bar.
  */
 export function revealBlock(
-  editor: Pick<PhraseEditor, 'setPosition' | 'blockElement'>,
+  editor: Pick<StanzaEditor, 'setPosition' | 'blockElement'>,
   block: number,
   bar: HTMLElement,
   page: Pick<Window, 'scrollY' | 'scrollTo'> = window,

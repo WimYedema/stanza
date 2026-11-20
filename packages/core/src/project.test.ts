@@ -115,28 +115,28 @@ describe('the outline of the documents', () => {
   it('lists the paths in order, down through the groups', () => {
     expect(
       outlinePaths([
-        doc('a.phrase.md'),
-        group('G', doc('b.phrase.md'), group('H', doc('c.phrase.md'))),
-        doc('d.phrase.md'),
+        doc('a.stanza.md'),
+        group('G', doc('b.stanza.md'), group('H', doc('c.stanza.md'))),
+        doc('d.stanza.md'),
       ]),
-    ).toEqual(['a.phrase.md', 'b.phrase.md', 'c.phrase.md', 'd.phrase.md']);
+    ).toEqual(['a.stanza.md', 'b.stanza.md', 'c.stanza.md', 'd.stanza.md']);
     expect(outlinePaths([])).toEqual([]);
   });
 
   it('accepts safe paths, in groups too, and no outline at all', () => {
-    expect(problems([doc('documents/a.phrase.md'), group('G', doc('b.phrase.md'))])).toEqual([]);
+    expect(problems([doc('documents/a.stanza.md'), group('G', doc('b.stanza.md'))])).toEqual([]);
     expect(validateProjectSettings(settings())).toEqual([]);
   });
 
   it('rejects a path that is not a safe relative one', () => {
-    expect(problems([group('G', doc('../a.phrase.md')), doc('/b.phrase.md')])).toEqual([
+    expect(problems([group('G', doc('../a.stanza.md')), doc('/b.stanza.md')])).toEqual([
       ['invalid-path', 'documents'],
       ['invalid-path', 'documents'],
     ]);
   });
 
   it('rejects a document listed twice, also in another group', () => {
-    expect(problems([doc('a.phrase.md'), group('G', doc('a.phrase.md'))])).toEqual([
+    expect(problems([doc('a.stanza.md'), group('G', doc('a.stanza.md'))])).toEqual([
       ['duplicate-document', 'documents'],
     ]);
   });

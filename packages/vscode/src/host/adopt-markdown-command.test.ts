@@ -8,11 +8,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: {}
@@ -27,10 +27,10 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const DOCUMENT = '/w/p/documents/one.phrase.md';
-const FIRST = `---\nphrase-format: 1\ntitle: "T"\n---\n\n<!-- phrase: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
+const DOCUMENT = '/w/p/documents/one.stanza.md';
+const FIRST = `---\nstanza-format: 1\ntitle: "T"\n---\n\n<!-- stanza: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
 const MARKDOWN_FILE = '/w/docs/Meeting notes.md';
-const NEW_DOCUMENT = '/w/p/documents/meeting-notes.phrase.md';
+const NEW_DOCUMENT = '/w/p/documents/meeting-notes.stanza.md';
 const MARKDOWN = '# Scope\n\nSome text.\n\n> quoted\n';
 
 let lines: string[];
@@ -52,7 +52,7 @@ beforeEach(() => {
   shown = 0;
   reset(
     {
-      '/w/p/phrase.yaml': PROJECT,
+      '/w/p/stanza.yaml': PROJECT,
       '/w/p/styles/default.yaml': STYLESHEET,
       [DOCUMENT]: FIRST,
     },
@@ -63,23 +63,23 @@ beforeEach(() => {
   world.dialogFolder = MARKDOWN_FILE;
 });
 
-describe('Phrase: Adopt Markdown File', () => {
-  it('adds the Markdown as a new document and opens it in the Phrase editor', async () => {
+describe('Stanza: Adopt Markdown File', () => {
+  it('adds the Markdown as a new document and opens it in the Stanza editor', async () => {
     await run();
     expect(world.files.get(NEW_DOCUMENT)).toContain('# Scope');
     expect(world.commands).toEqual(['vscode.openWith']);
     const [uri, viewType] = world.commandArgs[0] ?? [];
     expect((uri as { path: string }).path).toBe(NEW_DOCUMENT);
-    expect(viewType).toBe('phrase.editor');
+    expect(viewType).toBe('stanza.editor');
     expect(world.errors).toEqual([]);
   });
 
-  it('writes the report to the Phrase output, and shows it on request', async () => {
+  it('writes the report to the Stanza output, and shows it on request', async () => {
     world.infoChoice = 'Show report';
     await run();
-    expect(lines[0]).toBe('Adopted Meeting notes.md as documents/meeting-notes.phrase.md.');
+    expect(lines[0]).toBe('Adopted Meeting notes.md as documents/meeting-notes.stanza.md.');
     expect(lines.some((line) => line.includes('Block quotes were written'))).toBe(true);
-    expect(world.infos[0]).toContain('documents/meeting-notes.phrase.md');
+    expect(world.infos[0]).toContain('documents/meeting-notes.stanza.md');
     expect(shown).toBe(1);
   });
 
@@ -90,14 +90,14 @@ describe('Phrase: Adopt Markdown File', () => {
     expect(world.commands).toEqual([]);
   });
 
-  it('says so and writes nothing when the file is a Phrase document already', async () => {
+  it('says so and writes nothing when the file is a Stanza document already', async () => {
     world.binary.set(
       MARKDOWN_FILE,
-      new TextEncoder().encode('---\nphrase-format: 1\ntitle: T\n---\n\nText\n'),
+      new TextEncoder().encode('---\nstanza-format: 1\ntitle: T\n---\n\nText\n'),
     );
     await run();
     expect(world.errors[0]).toContain('nothing was adopted');
-    expect(world.errors[0]).toContain('is a Phrase document');
+    expect(world.errors[0]).toContain('is a Stanza document');
     expect(world.files.has(NEW_DOCUMENT)).toBe(false);
   });
 

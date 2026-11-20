@@ -5,9 +5,9 @@ import {
   type DeclareVariantFix,
   type StyleName,
   type VariantMark,
-} from '@phrase/core';
-import { declareVariant } from '@phrase/format';
-import { loadProject } from '@phrase/project';
+} from '@stanza/core';
+import { declareVariant } from '@stanza/format';
+import { loadProject } from '@stanza/project';
 import { lineEdit } from './line-diff.js';
 import { storageOf, uriInProject } from './project-files.js';
 import { normalized } from './review.js';

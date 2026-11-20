@@ -1,5 +1,5 @@
-import type { Diagnostic, StyleName, Stylesheet } from '@phrase/core';
-import { resolveParagraphStyle } from '@phrase/core';
+import type { Diagnostic, StyleName, Stylesheet } from '@stanza/core';
+import { resolveParagraphStyle } from '@stanza/core';
 import {
   LevelFormat,
   type ILevelsOptions,

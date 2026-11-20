@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { DocumentMeta } from '@phrase/core';
-import { parseDocument, serializeDocument } from '@phrase/format';
+import type { DocumentMeta } from '@stanza/core';
+import { parseDocument, serializeDocument } from '@stanza/format';
 import { createMetadataPanel } from './metadata.js';
 
 afterEach(() => {
@@ -76,12 +76,12 @@ describe('document properties', () => {
       fields: new Map([['doc-no', { type: 'string', required: true, label: 'Document number' }]]),
     });
     expect(property(root, 'authors').closest('section')?.textContent).toContain(
-      'From phrase.yaml defaults',
+      'From stanza.yaml defaults',
     );
     expect(property(root, 'page-template').textContent).toContain('letter');
     expect(property(root, 'doc-no').textContent).toContain('Document number (required)');
     expect(root.textContent).toContain('The field "doc-no" is required');
-    expect(root.textContent).toContain('phrase-format: 1');
+    expect(root.textContent).toContain('stanza-format: 1');
     expect(root.textContent).toContain('revision: unavailable');
     expect(button(root, 'Apply').disabled).toBe(true);
     expect(apply).not.toHaveBeenCalled();
@@ -131,7 +131,7 @@ describe('document properties', () => {
     const { root, panel, apply, openProject } = open();
     panel.update({ fields: new Map([['tags', { type: 'list', required: false }]]) });
     button(property(root, 'tags'), 'Add tags').click();
-    for (const name of ['bad Name', 'phrase-format', 'title', 'tags']) {
+    for (const name of ['bad Name', 'stanza-format', 'title', 'tags']) {
       edit(root, 'Custom property name', name);
       button(root, 'Add custom property').click();
       expect(button(root, 'Apply').disabled).toBe(false);

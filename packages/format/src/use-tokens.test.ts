@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { moveValuesToTokens } from './use-tokens.js';
 import { parseStylesheet } from './stylesheet.js';
 
-const OLD = `phrase-format: 1
+const OLD = `stanza-format: 1
 
 # Colors and fonts are named here once.
 tokens:
@@ -78,7 +78,7 @@ describe('moveValuesToTokens', () => {
   });
 
   it('adds the tokens sections when the stylesheet has none, and keeps CRLF', () => {
-    const source = "phrase-format: 1\r\nparagraph-styles:\r\n  body:\r\n    color: '#112233'\r\n";
+    const source = "stanza-format: 1\r\nparagraph-styles:\r\n  body:\r\n    color: '#112233'\r\n";
     const result = moveValuesToTokens(source);
     if (!result.ok) throw new Error(result.message);
     expect(result.text).toContain('color: color-112233');
@@ -88,7 +88,7 @@ describe('moveValuesToTokens', () => {
   });
 
   it('does not take the name of a token that holds another value', () => {
-    const source = `phrase-format: 1
+    const source = `stanza-format: 1
 tokens:
   colors:
     color-112233: '#445566'
@@ -105,7 +105,7 @@ paragraph-styles:
   });
 
   it('changes nothing when a value cannot be moved or the YAML is broken', () => {
-    const block = `phrase-format: 1
+    const block = `stanza-format: 1
 paragraph-styles:
   code:
     font:

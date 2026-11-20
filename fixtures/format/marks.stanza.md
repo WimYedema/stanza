@@ -1,5 +1,5 @@
 ---
-phrase-format: 1
+stanza-format: 1
 title: "Marks"
 ---
 

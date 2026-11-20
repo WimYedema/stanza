@@ -1,10 +1,10 @@
 ---
-phrase-format: 1
+stanza-format: 1
 title: "Rich tables"
 ---
 
-<!-- phrase: #q5w8e2r7ta .table-grid widths="30 70" -->
-```phrase-table
+<!-- stanza: #q5w8e2r7ta .table-grid widths="30 70" -->
+```stanza-table
 - - Control
   - Notes
 - - Logging

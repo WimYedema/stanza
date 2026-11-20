@@ -24,38 +24,38 @@ const source = (href: string): Document => ({
     },
   ],
 });
-const index = indexProjectReferences([{ file: 'new/target file.phrase.md', document: target }]);
+const index = indexProjectReferences([{ file: 'new/target file.stanza.md', document: target }]);
 
 describe('reference location hints', () => {
   it('resolves encoded relative paths, including parent directories, but never escapes the project', () => {
-    expect(parseReferenceLink('../new/target%20file.phrase.md#aaaaaaaaaa')).toEqual({
-      file: '../new/target%20file.phrase.md',
+    expect(parseReferenceLink('../new/target%20file.stanza.md#aaaaaaaaaa')).toEqual({
+      file: '../new/target%20file.stanza.md',
       target: ID,
     });
-    expect(referenceFile('old/source.phrase.md', '../new/target%20file.phrase.md')).toBe(
-      'new/target file.phrase.md',
+    expect(referenceFile('old/source.stanza.md', '../new/target%20file.stanza.md')).toBe(
+      'new/target file.stanza.md',
     );
-    expect(relativeReferenceFile('old/source.phrase.md', 'new/target file.phrase.md')).toBe(
-      '../new/target%20file.phrase.md',
+    expect(relativeReferenceFile('old/source.stanza.md', 'new/target file.stanza.md')).toBe(
+      '../new/target%20file.stanza.md',
     );
     for (const hint of [
-      '../../outside.phrase.md',
-      '/outside.phrase.md',
-      '%2foutside.phrase.md',
-      '%ZZ.phrase.md',
-      '..%5coutside.phrase.md',
+      '../../outside.stanza.md',
+      '/outside.stanza.md',
+      '%2foutside.stanza.md',
+      '%ZZ.stanza.md',
+      '..%5coutside.stanza.md',
     ]) {
-      expect(referenceFile('old/source.phrase.md', hint)).toBeUndefined();
+      expect(referenceFile('old/source.stanza.md', hint)).toBeUndefined();
     }
-    expect(parseReferenceLink('https://example.org/a.phrase.md#aaaaaaaaaa')).toBeUndefined();
+    expect(parseReferenceLink('https://example.org/a.stanza.md#aaaaaaaaaa')).toBeUndefined();
   });
 
   it('warns about a stale filename and explicitly fixes only that hint, preserving identity and label', () => {
-    const document = source('missing.phrase.md#aaaaaaaaaa');
+    const document = source('missing.stanza.md#aaaaaaaaaa');
     const diagnostics = checkReferencePaths(
       document,
-      'old/source.phrase.md',
-      new Set(['new/target file.phrase.md']),
+      'old/source.stanza.md',
+      new Set(['new/target file.stanza.md']),
       index,
     );
     expect(diagnostics).toMatchObject([
@@ -64,33 +64,33 @@ describe('reference location hints', () => {
         code: 'stale-reference-path',
         fix: {
           kind: 'reference-path',
-          href: 'missing.phrase.md#aaaaaaaaaa',
-          replacement: '../new/target%20file.phrase.md#aaaaaaaaaa',
+          href: 'missing.stanza.md#aaaaaaaaaa',
+          replacement: '../new/target%20file.stanza.md#aaaaaaaaaa',
         },
       },
     ]);
-    const fixed = fixReferencePaths(document, 'old/source.phrase.md', index);
-    expect(fixed).toEqual(source('../new/target%20file.phrase.md#aaaaaaaaaa'));
-    expect(fixReferencePaths(fixed, 'old/source.phrase.md', index)).toEqual(fixed);
-    expect(document).toEqual(source('missing.phrase.md#aaaaaaaaaa'));
+    const fixed = fixReferencePaths(document, 'old/source.stanza.md', index);
+    expect(fixed).toEqual(source('../new/target%20file.stanza.md#aaaaaaaaaa'));
+    expect(fixReferencePaths(fixed, 'old/source.stanza.md', index)).toEqual(fixed);
+    expect(document).toEqual(source('missing.stanza.md#aaaaaaaaaa'));
   });
 
   it('keeps ID-only links unchanged and reports missing file-only destinations', () => {
-    expect(fixReferencePaths(source('#aaaaaaaaaa'), 'source.phrase.md', index)).toEqual(
+    expect(fixReferencePaths(source('#aaaaaaaaaa'), 'source.stanza.md', index)).toEqual(
       source('#aaaaaaaaaa'),
     );
     expect(
-      checkReferencePaths(source('gone.phrase.md'), 'source.phrase.md', new Set(), index),
+      checkReferencePaths(source('gone.stanza.md'), 'source.stanza.md', new Set(), index),
     ).toMatchObject([{ code: 'missing-linked-document', severity: 'error' }]);
   });
 
   it('does not resolve or fix an ambiguous ID', () => {
     const ambiguous = indexProjectReferences([
-      { file: 'one.phrase.md', document: target },
-      { file: 'two.phrase.md', document: target },
+      { file: 'one.stanza.md', document: target },
+      { file: 'two.stanza.md', document: target },
     ]);
     expect(resolveProjectReference(ambiguous, ID)).toBeUndefined();
-    const document = source('old.phrase.md#aaaaaaaaaa');
-    expect(fixReferencePaths(document, 'source.phrase.md', ambiguous)).toEqual(document);
+    const document = source('old.stanza.md#aaaaaaaaaa');
+    expect(fixReferencePaths(document, 'source.stanza.md', ambiguous)).toEqual(document);
   });
 });

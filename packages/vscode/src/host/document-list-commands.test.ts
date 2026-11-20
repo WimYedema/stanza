@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
-import { parseProject } from '@phrase/format';
+import { parseProject } from '@stanza/format';
 import { StylesheetSaves } from './declare-variant.js';
 import {
   FIX_DOCUMENT_LIST_COMMAND,
@@ -11,7 +11,7 @@ import {
   registerDocumentListCommands,
 } from './document-list-commands.js';
 import { NEW_DOCUMENT_COMMAND, registerNewDocument } from './new-document-command.js';
-import { PhraseTree } from './phrase-tree.js';
+import { StanzaTree } from './stanza-tree.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import { registerDeclareVariant } from './quick-fix.js';
 import { FakeUri, reset, world } from './vscode-fake.testing.js';
@@ -22,12 +22,12 @@ vi.mock('vscode', async () => {
 });
 
 const ROOT = '/w/p';
-const FILE = `${ROOT}/phrase.yaml`;
-const A = 'documents/a.phrase.md';
-const B = 'documents/b.phrase.md';
-const PROJECT = "phrase-format: 1\nstylesheet: 'styles/default.yaml' # keep\n";
-const FRONT = '---\nphrase-format: 1\n---\n\n';
-const STYLES = `phrase-format: 1
+const FILE = `${ROOT}/stanza.yaml`;
+const A = 'documents/a.stanza.md';
+const B = 'documents/b.stanza.md';
+const PROJECT = "stanza-format: 1\nstylesheet: 'styles/default.yaml' # keep\n";
+const FRONT = '---\nstanza-format: 1\n---\n\n';
+const STYLES = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: {}
@@ -57,11 +57,11 @@ function setup(outline = ''): void {
     {
       [FILE]: PROJECT + outline,
       [`${ROOT}/styles/default.yaml`]: STYLES,
-      [`${ROOT}/${A}`]: `${FRONT}<!-- phrase: #aaaaaaaaaa -->\n# A\n`,
-      [`${ROOT}/${B}`]: `${FRONT}<!-- phrase: #bbbbbbbbbb -->\n# B\n`,
+      [`${ROOT}/${A}`]: `${FRONT}<!-- stanza: #aaaaaaaaaa -->\n# A\n`,
+      [`${ROOT}/${B}`]: `${FRONT}<!-- stanza: #bbbbbbbbbb -->\n# B\n`,
     },
     `${ROOT}/${A}`,
-    `${FRONT}<!-- phrase: #aaaaaaaaaa -->\n# A\n`,
+    `${FRONT}<!-- stanza: #aaaaaaaaaa -->\n# A\n`,
   );
   diagnostics = new ProjectDiagnostics();
   subscriptions = registerDocumentListCommands(diagnostics);
@@ -98,13 +98,13 @@ describe('document-list commands', () => {
   it('reorders and regroups a real tree document, refreshing the cached tree from the edited buffer', async () => {
     diagnostics.dispose();
     setup(`documents:\n  - ${A}\n  - ${B}\n  - group: Part two\n    items: []\n`);
-    const tree = new PhraseTree(diagnostics);
+    const tree = new StanzaTree(diagnostics);
     subscriptions.push(tree);
     const project = (await tree.getChildren())[0];
     if (project?.kind !== 'project') throw new Error('Missing project node.');
     const first = (await tree.getChildren(project))[0];
     if (first?.kind !== 'document') throw new Error('Missing document node.');
-    expect(tree.getTreeItem(first).contextValue).toBe('phraseDocument');
+    expect(tree.getTreeItem(first).contextValue).toBe('stanzaDocument');
     await run(MOVE_DOCUMENT_DOWN_COMMAND, first);
     expect(parseProject(buffer()).settings.documents?.[0]).toEqual({
       kind: 'document',
@@ -160,12 +160,12 @@ describe('document-list commands', () => {
     subscriptions.push(registerNewDocument());
     world.inputValue = 'Notes';
     await run(NEW_DOCUMENT_COMMAND);
-    expect(world.files.get(`${ROOT}/documents/notes.phrase.md`)).toContain('# Notes');
+    expect(world.files.get(`${ROOT}/documents/notes.stanza.md`)).toContain('# Notes');
     expect(parseProject(buffer()).settings.documents?.at(-1)).toEqual({
       kind: 'document',
-      path: 'documents/notes.phrase.md',
+      path: 'documents/notes.stanza.md',
     });
-    expect(world.files.get(FILE)).not.toContain('notes.phrase.md');
+    expect(world.files.get(FILE)).not.toContain('notes.stanza.md');
     expect(world.errors).toEqual([]);
   });
 
@@ -185,13 +185,13 @@ describe('document-list commands', () => {
     world.inputValue = 'Notes';
     await run(NEW_DOCUMENT_COMMAND);
     expect(world.commands).toContain('vscode.openWith');
-    expect(buffer()).toContain('documents/notes.phrase.md');
+    expect(buffer()).toContain('documents/notes.stanza.md');
     notification.close();
   });
 
   it('offers and applies unlisted/missing quick fixes, requiring confirmation for removal', async () => {
     diagnostics.dispose();
-    setup(`documents:\n  - ${A}\n  - gone.phrase.md # investigate\n`);
+    setup(`documents:\n  - ${A}\n  - gone.stanza.md # investigate\n`);
     const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
     const saves = new StylesheetSaves(log);
     subscriptions.push(saves, ...registerDeclareVariant(diagnostics, saves));
@@ -214,7 +214,7 @@ describe('document-list commands', () => {
     expect(buffer()).toBe(before);
     world.warningChoice = 'Remove entry';
     await run(FIX_DOCUMENT_LIST_COMMAND, ...(remove?.command?.arguments ?? []));
-    expect(buffer()).not.toContain('gone.phrase.md');
+    expect(buffer()).not.toContain('gone.stanza.md');
     expect(buffer()).toContain('# investigate');
     expect(world.files.has(`${ROOT}/${A}`)).toBe(true);
     expect(world.files.has(`${ROOT}/${B}`)).toBe(true);

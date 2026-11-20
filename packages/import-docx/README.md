@@ -1,4 +1,4 @@
-# @phrase/import-docx
+# @stanza/import-docx
 
 `importDocx(bytes)` reads a Word file into the `core` model plus a report of what could not be represented. One-time, content-only import.
 

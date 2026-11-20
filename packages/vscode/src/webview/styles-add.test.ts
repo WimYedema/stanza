@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseStylesheet } from '@phrase/format';
+import { parseStylesheet } from '@stanza/format';
 import type { StyleKind, StylesWebviewMessage } from '../shared/styles-protocol.js';
 import { createAddPanel, type AddPanel } from './styles-add.js';
 
-const SOURCE = `phrase-format: 1
+const SOURCE = `stanza-format: 1
 paragraph-styles:
   body: {}
   note: { based-on: body }

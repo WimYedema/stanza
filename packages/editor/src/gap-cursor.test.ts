@@ -2,7 +2,7 @@
 import { Editor } from '@tiptap/core';
 import { GapCursor as GapCursorSelection } from '@tiptap/pm/gapcursor';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { phraseExtensions } from './editor.js';
+import { stanzaExtensions } from './editor.js';
 import { COMMANDS_STYLESHEET } from './styles.testing.js';
 
 const stylesheet = COMMANDS_STYLESHEET.stylesheet;
@@ -38,7 +38,7 @@ const table = {
 function open(...blocks: object[]): Editor {
   editor = new Editor({
     element,
-    extensions: phraseExtensions(
+    extensions: stanzaExtensions(
       () => stylesheet,
       () => undefined,
     ),

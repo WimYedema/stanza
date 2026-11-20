@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { basename, dirname, extname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { isSafeRelativePath, nodeIdFromRandomBytes } from '@phrase/core';
+import { isSafeRelativePath, nodeIdFromRandomBytes } from '@stanza/core';
 import {
   DEFAULT_BUILD_DATE,
   DOCUMENT_SUFFIX,
@@ -17,7 +17,7 @@ import {
   useTokensInStylesheet,
   type ProjectDiagnostic,
   type ProjectStorage,
-} from '@phrase/project';
+} from '@stanza/project';
 import { nodeStorage } from './node-storage.js';
 import { cliVersion, docxVersion } from './versions.js';
 
@@ -33,7 +33,7 @@ export interface Io {
   readonly readBytes?: (path: string) => Promise<Uint8Array>;
 }
 
-const USAGE = `Usage: phrase <command> [project] [options]
+const USAGE = `Usage: stanza <command> [project] [options]
 
 Commands:
   validate [project]   Check the project and report problems.
@@ -69,7 +69,7 @@ Options for format:
                        Needs a project; respects --file and --check.
 
 Options for validate and format:
-  --file <path>        Select a .phrase.md file relative to the project; repeat for more files.
+  --file <path>        Select a .stanza.md file relative to the project; repeat for more files.
                        Needs a project directory. Validation keeps project-wide ID/reference
                        context; formatting writes only selected files.
 
@@ -80,9 +80,9 @@ Options for validate:
 
 Other options:
   -h, --help           Show this help.
-  -v, --version        Show the versions of phrase and of the DOCX library.
+  -v, --version        Show the versions of stanza and of the DOCX library.
 
-The project is a directory with a phrase.yaml file; the default is the current directory.
+The project is a directory with a stanza.yaml file; the default is the current directory.
 Exit codes: 0 no errors, 1 errors in the project (or, with --check, documents that are not
 canonical), 2 wrong usage or a file that cannot be read.
 `;
@@ -110,11 +110,11 @@ function formatDiagnostic(d: ProjectDiagnostic): string {
     d.fix?.kind === 'declare-variant'
       ? ` Suggestion: declare the "${d.fix.mark}" variant on style "${d.fix.style}" if intended.`
       : d.fix?.kind === 'reference-path'
-        ? ` Suggestion: replace "${d.fix.href}" with "${d.fix.replacement}", or run "phrase format --fix-references".`
+        ? ` Suggestion: replace "${d.fix.href}" with "${d.fix.replacement}", or run "stanza format --fix-references".`
         : d.fix?.kind === 'use-tokens'
-          ? ' Suggestion: run "phrase format --fix-stylesheet".'
+          ? ' Suggestion: run "stanza format --fix-stylesheet".'
           : d.fix?.kind === 'document-list'
-            ? ` Suggestion: ${d.fix.action === 'append' ? 'add' : 'remove'} "${d.fix.document}" ${d.fix.action === 'append' ? 'to' : 'from'} the documents list in phrase.yaml.`
+            ? ` Suggestion: ${d.fix.action === 'append' ? 'add' : 'remove'} "${d.fix.document}" ${d.fix.action === 'append' ? 'to' : 'from'} the documents list in stanza.yaml.`
             : '';
   return `${where}: ${d.severity} ${d.code}: ${d.message}${path}${fix}\n`;
 }
@@ -123,7 +123,7 @@ function summary(documents: number, diagnostics: readonly ProjectDiagnostic[]): 
   const errors = diagnostics.filter((d) => d.severity === 'error').length;
   const warnings = diagnostics.filter((d) => d.severity === 'warning').length;
   const hint = diagnostics.some((d) => d.code === 'raw-color' || d.code === 'raw-font')
-    ? 'Run "phrase format --fix-stylesheet" to move those colors and fonts into tokens.\n'
+    ? 'Run "stanza format --fix-stylesheet" to move those colors and fonts into tokens.\n'
     : '';
   return `${hint}Checked ${plural(documents, 'document')}: ${plural(errors, 'error')}, ${plural(warnings, 'warning')}.\n`;
 }
@@ -136,7 +136,7 @@ function exitCode(diagnostics: readonly ProjectDiagnostic[]): number {
 /** Runs the command line and returns the exit code. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   const usage = (message: string): number => {
-    io.stderr(`phrase: ${message}\n\n${USAGE}`);
+    io.stderr(`stanza: ${message}\n\n${USAGE}`);
     return 2;
   };
 
@@ -167,7 +167,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     return 0;
   }
   if (values.version === true) {
-    io.stdout(`phrase ${cliVersion()} (docx ${docxVersion()})\n`);
+    io.stdout(`stanza ${cliVersion()} (docx ${docxVersion()})\n`);
     return 0;
   }
 
@@ -199,8 +199,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     if (file === undefined || !(word ? isWordFile : isMarkdownFile)(file)) {
       return usage(
         word
-          ? 'import needs a Word file, as in: phrase import report.docx [project].'
-          : 'adopt needs a Markdown file, as in: phrase adopt notes.md [project].',
+          ? 'import needs a Word file, as in: stanza import report.docx [project].'
+          : 'adopt needs a Markdown file, as in: stanza adopt notes.md [project].',
       );
     }
     if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
@@ -209,7 +209,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       bytes = await (io.readBytes ?? readFile)(resolve(io.cwd, file));
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      io.stderr(`phrase: cannot read ${file}: ${reason}\n`);
+      io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
       return 2;
     }
     const storage = (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder));
@@ -218,7 +218,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       ? await importWordDocument(storage, bytes, options)
       : await adoptMarkdownDocument(storage, new TextDecoder().decode(bytes), options);
     if (!brought.ok) {
-      io.stderr(`phrase: ${brought.message}\n`);
+      io.stderr(`stanza: ${brought.message}\n`);
       return 2;
     }
     const ids = plural(brought.assigned, 'ID');
@@ -240,7 +240,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     }
     if (project.endsWith(DOCUMENT_SUFFIX)) return usage('--file needs a project directory.');
     if (files.some((file) => !isSafeRelativePath(file) || !file.endsWith(DOCUMENT_SUFFIX))) {
-      return usage('--file must name a relative .phrase.md path inside the project, without "..".');
+      return usage('--file must name a relative .stanza.md path inside the project, without "..".');
     }
   }
   const maxText = values['max-diagnostics'];
@@ -364,7 +364,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
             file,
             severity: 'error',
             code: 'invalid-selection',
-            message: 'Select an existing .phrase.md document inside this project.',
+            message: 'Select an existing .stanza.md document inside this project.',
           });
         }
       }
@@ -402,7 +402,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   const code = exitCode(result.diagnostics);
   if (code === 0) {
     io.stdout(`Wrote ${plural(result.written.length, 'file')} to ${outDir}/.\n`);
-    io.stdout(`phrase ${cliVersion()}, docx ${docxVersion()}, date ${timestamp.toISOString()}.\n`);
+    io.stdout(`stanza ${cliVersion()}, docx ${docxVersion()}, date ${timestamp.toISOString()}.\n`);
   } else {
     io.stdout('Nothing was written.\n');
   }

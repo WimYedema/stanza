@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
 import type { HostMessage } from '../shared/protocol.js';
 import { StylesheetSaves } from './declare-variant.js';
-import { PhraseEditorProvider } from './provider.js';
+import { StanzaEditorProvider } from './provider.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import {
   changeDocument,
@@ -19,11 +19,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: {}
@@ -38,24 +38,24 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
-const CANONICAL = `${FRONT}<!-- phrase: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
-const OTHER = `${FRONT}<!-- phrase: #a1b2c3d4e5 -->\n# Other\n`;
-const OTHER_WITH_TARGET_AFTER_FIRST = `${FRONT}<!-- phrase: #a1b2c3d4e5 -->\n# First\n\n<!-- phrase: #f1e2d3c4b5 -->\n# Target\n`;
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
+const CANONICAL = `${FRONT}<!-- stanza: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
+const OTHER = `${FRONT}<!-- stanza: #a1b2c3d4e5 -->\n# Other\n`;
+const OTHER_WITH_TARGET_AFTER_FIRST = `${FRONT}<!-- stanza: #a1b2c3d4e5 -->\n# First\n\n<!-- stanza: #f1e2d3c4b5 -->\n# Target\n`;
 
 const files = (extra: Record<string, string> = {}): Record<string, string> => ({
-  '/w/p/phrase.yaml': PROJECT,
+  '/w/p/stanza.yaml': PROJECT,
   '/w/p/styles/default.yaml': STYLESHEET,
-  '/w/p/documents/other.phrase.md': OTHER,
+  '/w/p/documents/other.stanza.md': OTHER,
   ...extra,
 });
 
-const DOCUMENT = '/w/p/documents/one.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
 
 const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
 
-function newProvider(diagnostics = new ProjectDiagnostics()): PhraseEditorProvider {
-  return new PhraseEditorProvider(
+function newProvider(diagnostics = new ProjectDiagnostics()): StanzaEditorProvider {
+  return new StanzaEditorProvider(
     { extensionUri: { path: '/ext' } } as unknown as vscode.ExtensionContext,
     diagnostics,
     log,
@@ -116,7 +116,7 @@ describe('starting', () => {
       CANONICAL,
       '\n',
       files({
-        '/w/p/phrase.yaml': `${PROJECT}link-schemes:\n  jira: https://example.org/{id}\n`,
+        '/w/p/stanza.yaml': `${PROJECT}link-schemes:\n  jira: https://example.org/{id}\n`,
       }),
     );
     fromWebview({ type: 'ready' });
@@ -134,10 +134,10 @@ describe('starting', () => {
       ['', {}],
     ] as const) {
       const text = PROJECT + definition;
-      world.files.set('/w/p/phrase.yaml', text);
+      world.files.set('/w/p/stanza.yaml', text);
       const document = {
-        uri: new FakeUri('/w/p/phrase.yaml'),
-        fileName: '/w/p/phrase.yaml',
+        uri: new FakeUri('/w/p/stanza.yaml'),
+        fileName: '/w/p/stanza.yaml',
         getText: () => text,
       };
       for (const listener of world.changeListeners) listener({ document });
@@ -159,7 +159,7 @@ describe('starting', () => {
     });
     const spy = vi.spyOn(vscode.workspace.fs, 'readFile').mockImplementation(async (uri) => {
       const bytes = await read(uri);
-      if (uri.path.endsWith('/other.phrase.md')) await gate;
+      if (uri.path.endsWith('/other.stanza.md')) await gate;
       return bytes;
     });
     try {
@@ -242,7 +242,7 @@ describe('starting', () => {
       const spy = vi
         .spyOn(vscode.workspace.fs, 'readFile')
         .mockImplementation((uri) =>
-          uri.path.endsWith('/other.phrase.md')
+          uri.path.endsWith('/other.stanza.md')
             ? Promise.reject(new Error('Access denied'))
             : read(uri),
         );
@@ -307,7 +307,7 @@ describe('starting', () => {
   });
 
   it('refuses a file with no project, with the way out', async () => {
-    open(CANONICAL, '\n', { '/w/p/documents/other.phrase.md': OTHER });
+    open(CANONICAL, '\n', { '/w/p/documents/other.stanza.md': OTHER });
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
@@ -316,7 +316,7 @@ describe('starting', () => {
   });
 
   it('refuses a project with an error in its stylesheet, and says which', async () => {
-    open(CANONICAL, '\n', files({ '/w/p/styles/default.yaml': 'phrase-format: 1\nbad: [' }));
+    open(CANONICAL, '\n', files({ '/w/p/styles/default.yaml': 'stanza-format: 1\nbad: [' }));
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
@@ -340,7 +340,7 @@ describe('the defaults of the project', () => {
   const WITH_DEFAULTS = `${PROJECT}defaults:\n  classification: 'Internal'\n  authors:\n    - 'A'\n  page-template: 'page'\n`;
 
   it('sends them with the document, for the values of the header and the cover', async () => {
-    open(CANONICAL, '\n', files({ '/w/p/phrase.yaml': WITH_DEFAULTS }));
+    open(CANONICAL, '\n', files({ '/w/p/stanza.yaml': WITH_DEFAULTS }));
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
@@ -357,14 +357,14 @@ describe('the defaults of the project', () => {
       expect(posted()).toHaveLength(1);
     });
     const changeProject = (): void => {
-      const document = { uri: { toString: () => 'project' }, fileName: '/w/p/phrase.yaml' };
+      const document = { uri: { toString: () => 'project' }, fileName: '/w/p/stanza.yaml' };
       for (const listener of world.changeListeners) listener({ document } as never);
     };
     changeProject();
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(posted()).toHaveLength(1);
 
-    world.files.set('/w/p/phrase.yaml', WITH_DEFAULTS);
+    world.files.set('/w/p/stanza.yaml', WITH_DEFAULTS);
     changeProject();
     await settled(() => {
       expect(posted()).toHaveLength(2);
@@ -556,17 +556,17 @@ describe('document properties', () => {
 
   it('sends declared fields initially and refreshes empty/removed declarations; opening their definition does not edit it', async () => {
     const declared = `${PROJECT}metadata-fields:\n  doc-no:\n    type: string\n    required: true\n    label: Document number\n`;
-    open(CANONICAL, '\n', files({ '/w/p/phrase.yaml': declared }));
+    open(CANONICAL, '\n', files({ '/w/p/stanza.yaml': declared }));
     await started();
     expect(posted()[0]).toMatchObject({
       type: 'init',
       fields: [{ name: 'doc-no', type: 'string', required: true, label: 'Document number' }],
     });
     const changeProject = (text: string): void => {
-      world.files.set('/w/p/phrase.yaml', text);
+      world.files.set('/w/p/stanza.yaml', text);
       const document = {
-        uri: new FakeUri('/w/p/phrase.yaml'),
-        fileName: '/w/p/phrase.yaml',
+        uri: new FakeUri('/w/p/stanza.yaml'),
+        fileName: '/w/p/stanza.yaml',
         getText: () => text,
       };
       for (const listener of world.changeListeners) listener({ document });
@@ -583,9 +583,9 @@ describe('document properties', () => {
     await settled(() => {
       expect(world.commands).toContain('vscode.open');
     });
-    expect(world.commandArgs.at(-1)).toEqual([new FakeUri('/w/p/phrase.yaml')]);
+    expect(world.commandArgs.at(-1)).toEqual([new FakeUri('/w/p/stanza.yaml')]);
     expect(world.edits).toEqual([]);
-    expect(world.files.get('/w/p/phrase.yaml')).toBe(PROJECT);
+    expect(world.files.get('/w/p/stanza.yaml')).toBe(PROJECT);
   });
 });
 
@@ -818,8 +818,8 @@ describe('allowing a mark in a style', () => {
 });
 
 describe('the usage of the styles', () => {
-  const ONE = 'documents/one.phrase.md';
-  const OTHER_FILE = 'documents/other.phrase.md';
+  const ONE = 'documents/one.stanza.md';
+  const OTHER_FILE = 'documents/other.stanza.md';
 
   it('sends where the styles are used, for each document, after the document', async () => {
     fromWebview({ type: 'ready' });
@@ -845,7 +845,7 @@ describe('the usage of the styles', () => {
     const changeOther = (): void => {
       const document = {
         uri: { toString: () => 'other' },
-        fileName: '/w/p/documents/other.phrase.md',
+        fileName: '/w/p/documents/other.stanza.md',
       };
       for (const listener of world.changeListeners) listener({ document } as never);
     };
@@ -853,7 +853,7 @@ describe('the usage of the styles', () => {
     await new Promise((resolve) => setTimeout(resolve, 400));
     expect(usages()).toHaveLength(1);
 
-    world.files.set('/w/p/documents/other.phrase.md', `${OTHER}\nA paragraph.\n`);
+    world.files.set('/w/p/documents/other.stanza.md', `${OTHER}\nA paragraph.\n`);
     changeOther();
     await settled(() => {
       expect(usages()).toHaveLength(2);
@@ -867,7 +867,7 @@ describe('the usage of the styles', () => {
   it('opens the style editor when the page asks for it', async () => {
     fromWebview({ type: 'edit-styles' });
     await settled(() => {
-      expect(world.commands).toEqual(['phrase.editStyles']);
+      expect(world.commands).toEqual(['stanza.editStyles']);
     });
   });
 });
@@ -893,7 +893,7 @@ describe('the diagnostics of the document', () => {
   });
 
   it('leaves out what the checks say about the other documents of the project', async () => {
-    open(CANONICAL, '\n', files({ '/w/p/documents/other.phrase.md': `${FRONT}# No ID\n` }));
+    open(CANONICAL, '\n', files({ '/w/p/documents/other.stanza.md': `${FRONT}# No ID\n` }));
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(diagnosticsPosted()).toHaveLength(1);
@@ -909,7 +909,7 @@ describe('the diagnostics of the document', () => {
     const changeOther = (): void => {
       const document = {
         uri: { toString: () => 'other' },
-        fileName: '/w/p/documents/other.phrase.md',
+        fileName: '/w/p/documents/other.stanza.md',
       };
       for (const listener of world.changeListeners) listener({ document } as never);
     };
@@ -929,7 +929,7 @@ describe('the diagnostics of the document', () => {
 
 describe('revealing a block', () => {
   /** Opens a document in a new provider, as the extension does, and returns the provider. */
-  function openIn(projectFiles = files()): PhraseEditorProvider {
+  function openIn(projectFiles = files()): StanzaEditorProvider {
     reset({ ...projectFiles, [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
     const provider = newProvider();
     provider.resolveCustomTextEditor(
@@ -959,7 +959,7 @@ describe('revealing a block', () => {
     await settled(() => {
       expect(posted()).toHaveLength(1);
     });
-    provider.reveal({ toString: () => 'file:///w/p/documents/other.phrase.md' } as vscode.Uri, 1);
+    provider.reveal({ toString: () => 'file:///w/p/documents/other.stanza.md' } as vscode.Uri, 1);
     for (const close of world.disposers) close();
     provider.reveal(documentUri(), 1);
     await settled(() => {
@@ -969,7 +969,7 @@ describe('revealing a block', () => {
   });
 
   it('does nothing while the editor shows a refusal', async () => {
-    const provider = openIn({ '/w/p/documents/other.phrase.md': OTHER });
+    const provider = openIn({ '/w/p/documents/other.stanza.md': OTHER });
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
@@ -983,7 +983,7 @@ describe('revealing a block', () => {
 });
 
 describe('asking for a reference', () => {
-  function openIn(projectFiles = files()): PhraseEditorProvider {
+  function openIn(projectFiles = files()): StanzaEditorProvider {
     reset({ ...projectFiles, [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
     const provider = newProvider();
     provider.resolveCustomTextEditor(
@@ -1009,7 +1009,7 @@ describe('asking for a reference', () => {
   });
 
   it('does nothing while the editor shows a refusal', async () => {
-    const provider = openIn({ '/w/p/documents/other.phrase.md': OTHER });
+    const provider = openIn({ '/w/p/documents/other.stanza.md': OTHER });
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
@@ -1022,12 +1022,12 @@ describe('asking for a reference', () => {
 });
 
 describe('opening a document at a block', () => {
-  const start = (): PhraseEditorProvider => {
+  const start = (): StanzaEditorProvider => {
     reset({ ...files(), [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
     return newProvider();
   };
   const documentUri = (): vscode.Uri => world.document?.uri as unknown as vscode.Uri;
-  const resolve = (provider: PhraseEditorProvider): void => {
+  const resolve = (provider: StanzaEditorProvider): void => {
     provider.resolveCustomTextEditor(
       world.document as unknown as vscode.TextDocument,
       fakePanel() as unknown as vscode.WebviewPanel,
@@ -1038,7 +1038,7 @@ describe('opening a document at a block', () => {
     const provider = start();
     await provider.open(documentUri(), 2);
     expect(world.commands).toEqual(['vscode.openWith']);
-    expect(world.commandArgs[0]?.[1]).toBe('phrase.editor');
+    expect(world.commandArgs[0]?.[1]).toBe('stanza.editor');
     resolve(provider);
     fromWebview({ type: 'ready' });
     await settled(() => {
@@ -1089,7 +1089,7 @@ describe('opening a document at a block', () => {
 
 describe('following a reference', () => {
   const source = new FakeUri(DOCUMENT) as unknown as vscode.Uri;
-  function start(projectFiles = files()): PhraseEditorProvider {
+  function start(projectFiles = files()): StanzaEditorProvider {
     reset({ ...projectFiles, [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL);
     const provider = newProvider();
     provider.resolveCustomTextEditor(
@@ -1102,7 +1102,7 @@ describe('following a reference', () => {
   it('opens configured scheme URLs externally and reports invalid destinations and opening failures', async () => {
     const provider = start(
       files({
-        '/w/p/phrase.yaml': `${PROJECT}link-schemes:\n  jira: https://example.org/browse/{id}\n`,
+        '/w/p/stanza.yaml': `${PROJECT}link-schemes:\n  jira: https://example.org/browse/{id}\n`,
       }),
     );
     await provider.followReference(source, 'jira://PROJ-123');
@@ -1119,10 +1119,10 @@ describe('following a reference', () => {
     expect(world.edits).toEqual([]);
   });
 
-  it.each(['other.phrase.md#f1e2d3c4b5', 'old-name.phrase.md#f1e2d3c4b5'])(
+  it.each(['other.stanza.md#f1e2d3c4b5', 'old-name.stanza.md#f1e2d3c4b5'])(
     'follows %s by ID without rewriting the source',
     async (href) => {
-      const targetPath = '/w/p/documents/other.phrase.md';
+      const targetPath = '/w/p/documents/other.stanza.md';
       const provider = start({ ...files(), [targetPath]: OTHER_WITH_TARGET_AFTER_FIRST });
       fromWebview({ type: 'ready' });
       await settled(() => {
@@ -1142,16 +1142,16 @@ describe('following a reference', () => {
     await settled(() => {
       expect(posted()[0]?.type).toBe('init');
     });
-    await provider.followReference(source, 'other.phrase.md');
-    expect(world.commandArgs[0]?.[0]).toMatchObject({ path: '/w/p/documents/other.phrase.md' });
+    await provider.followReference(source, 'other.stanza.md');
+    expect(world.commandArgs[0]?.[0]).toMatchObject({ path: '/w/p/documents/other.stanza.md' });
     expect(posted().some((message) => message.type === 'reveal')).toBe(false);
   });
 
   it.each([
-    ['other.phrase.md#zzzzzzzzzz', 'not found'],
-    ['other.phrase.md#heading-title', 'immutable block ID'],
-    ['../../outside.phrase.md', 'inside this project'],
-    ['missing.phrase.md', 'not found'],
+    ['other.stanza.md#zzzzzzzzzz', 'not found'],
+    ['other.stanza.md#heading-title', 'immutable block ID'],
+    ['../../outside.stanza.md', 'inside this project'],
+    ['missing.stanza.md', 'not found'],
   ])('reports %s without falling back to a file or title', async (href, reason) => {
     const provider = start();
     fromWebview({ type: 'ready' });
@@ -1165,12 +1165,12 @@ describe('following a reference', () => {
   });
 
   it('refuses ambiguous IDs, even with a correct-looking filename', async () => {
-    const provider = start(files({ '/w/p/documents/duplicate.phrase.md': CANONICAL }));
+    const provider = start(files({ '/w/p/documents/duplicate.stanza.md': CANONICAL }));
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()[0]?.type).toBe('init');
     });
-    await provider.followReference(source, 'one.phrase.md#k7m2q9x4zb');
+    await provider.followReference(source, 'one.stanza.md#k7m2q9x4zb');
     expect(world.errors[0]).toContain('ambiguous');
     expect(world.commands).toEqual([]);
   });
@@ -1212,7 +1212,7 @@ describe('following a reference', () => {
   });
 
   it('opens the target document at the referenced block', async () => {
-    const targetPath = '/w/p/documents/other.phrase.md';
+    const targetPath = '/w/p/documents/other.stanza.md';
     const provider = start({ ...files(), [targetPath]: OTHER_WITH_TARGET_AFTER_FIRST });
     fromWebview({ type: 'ready' });
     await settled(() => {
@@ -1224,7 +1224,7 @@ describe('following a reference', () => {
       expect(world.commands).toEqual(['vscode.openWith']);
     });
     expect(world.commandArgs[0]?.[0]).toMatchObject({ path: targetPath });
-    expect(world.commandArgs[0]?.[1]).toBe(PhraseEditorProvider.viewType);
+    expect(world.commandArgs[0]?.[1]).toBe(StanzaEditorProvider.viewType);
 
     world.posted = [];
     const targetUri = new FakeUri(targetPath);
@@ -1250,7 +1250,7 @@ describe('following a reference', () => {
     fromWebview({ type: 'follow-reference', target: '#zzzzzzzzzz' });
     await settled(() => {
       expect(world.errors).toEqual([
-        'Phrase: reference target #zzzzzzzzzz was not found in this project.',
+        'Stanza: reference target #zzzzzzzzzz was not found in this project.',
       ]);
     });
     expect(world.commands).toEqual([]);

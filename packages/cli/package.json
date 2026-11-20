@@ -1,17 +1,17 @@
 {
-  "name": "@phrase/cli",
+  "name": "@stanza/cli",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "bin": {
-    "phrase": "./dist/main.js"
+    "stanza": "./dist/main.js"
   },
   "files": [
     "dist"
   ],
   "dependencies": {
-    "@phrase/core": "*",
-    "@phrase/project": "*"
+    "@stanza/core": "*",
+    "@stanza/project": "*"
   },
   "scripts": {
     "typecheck:tests": "tsc -p tsconfig.test.json"

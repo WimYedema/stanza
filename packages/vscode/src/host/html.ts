@@ -26,9 +26,9 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${policy}">
-<meta name="phrase-nonce" content="${nonce}">
+<meta name="stanza-nonce" content="${nonce}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phrase</title>
+<title>Stanza</title>
 <style nonce="${nonce}">
   html, body { margin: 0; min-height: 100%; background: #555555; font-family: sans-serif; }
   #top { position: sticky; top: 0; z-index: 2; background: #3c3c3c; }
@@ -143,7 +143,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
 </style>
 </head>
 <body>
-<div id="startup-status" role="status">Opening Phrase document...</div>
+<div id="startup-status" role="status">Opening Stanza document...</div>
 <div id="editing" hidden>
   <div id="top">
     <div id="bar">

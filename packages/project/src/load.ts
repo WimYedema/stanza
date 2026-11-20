@@ -10,14 +10,14 @@ import {
   type OutlineEntry,
   type ProjectSettings,
   type Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   checkParsedDocument,
   parseDocument,
   parseProject,
   parseStylesheet,
   type ParseResult,
-} from '@phrase/format';
+} from '@stanza/format';
 import { hasErrors, inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX, PROJECT_FILE, findDocuments, readText } from './files.js';
 import type { ProjectStorage } from './storage.js';

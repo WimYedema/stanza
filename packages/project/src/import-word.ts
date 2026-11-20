@@ -1,5 +1,5 @@
-import type { Document } from '@phrase/core';
-import { importDocx, type ImportReport } from '@phrase/import-docx';
+import type { Document } from '@stanza/core';
+import { importDocx, type ImportReport } from '@stanza/import-docx';
 import type { ProjectDiagnostic } from './diagnostics.js';
 import type { ProjectStorage } from './storage.js';
 import { NO_PROJECT_MESSAGE, loadOrderedProject, storeNewDocument } from './store-document.js';

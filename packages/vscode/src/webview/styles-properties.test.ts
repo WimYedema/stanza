@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PARAGRAPH_PROPERTIES, TEXT_PROPERTIES, type StyleName } from '@phrase/core';
-import { parseStylesheet } from '@phrase/format';
+import { PARAGRAPH_PROPERTIES, TEXT_PROPERTIES, type StyleName } from '@stanza/core';
+import { parseStylesheet } from '@stanza/format';
 import {
   borderText,
   lineSpacingText,
@@ -12,7 +12,7 @@ import {
   variantStateOf,
 } from './styles-properties.js';
 
-const stylesheet = parseStylesheet(`phrase-format: 1
+const stylesheet = parseStylesheet(`stanza-format: 1
 tokens:
   colors:
     brand: '#2E75B6'

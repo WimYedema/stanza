@@ -5,8 +5,8 @@ import {
   defaultHeadingStyle,
   type HeadingLevel,
   type StyleName,
-} from '@phrase/core';
-import type { CommandResult, EditorCommand, EditorContext, PhraseEditor } from '@phrase/editor';
+} from '@stanza/core';
+import type { CommandResult, EditorCommand, EditorContext, StanzaEditor } from '@stanza/editor';
 
 /**
  * The toolbar (ADR 0027, 0029): short buttons in groups, one list for the kind and the style of the
@@ -110,7 +110,7 @@ const INSERT_GROUP: GroupSpec = {
     {
       text: 'TOC',
       label: 'Insert table of contents',
-      command: { type: 'insert-phrase-block', kind: 'toc', text: 'depth: 2' },
+      command: { type: 'insert-stanza-block', kind: 'toc', text: 'depth: 2' },
     },
     {
       text: 'Link',
@@ -217,7 +217,7 @@ export function styleValue(context: EditorContext): string {
 
 export interface ToolbarHost {
   /** The editor, or nothing while there is none. */
-  editor(): PhraseEditor | undefined;
+  editor(): StanzaEditor | undefined;
   /** Shows what a command answered. A refusal with a fix offers it (ADR 0026). */
   answered(command: EditorCommand, result: CommandResult): void;
   /** Opens the list of headings for a reference (ADR 0069). */
@@ -302,7 +302,7 @@ function addStyleLists(container: HTMLElement, host: ToolbarHost): () => void {
   addOption(characters, '', 'Character style');
   let choices = new Map<string, StyleChoice>();
 
-  const fillStyles = (editor: PhraseEditor, withChecks = true): void => {
+  const fillStyles = (editor: StanzaEditor, withChecks = true): void => {
     const context = editor.getContext();
     const groups = styleGroups(context);
     const current = styleValue(context);
@@ -327,7 +327,7 @@ function addStyleLists(container: HTMLElement, host: ToolbarHost): () => void {
     styles.value = current;
   };
 
-  const fillCharacters = (editor: PhraseEditor): void => {
+  const fillCharacters = (editor: StanzaEditor): void => {
     const context = editor.getContext();
     characters.replaceChildren();
     addOption(characters, '', 'Character style');
@@ -379,7 +379,7 @@ function addStyleLists(container: HTMLElement, host: ToolbarHost): () => void {
 }
 
 /** Shows a button as on, and as disabled with the reason when its command has no place here. */
-function showButton(button: HTMLButtonElement, spec: ButtonSpec, editor: PhraseEditor): void {
+function showButton(button: HTMLButtonElement, spec: ButtonSpec, editor: StanzaEditor): void {
   const context = editor.getContext();
   // A cursor in a link can change or remove it, with nothing selected.
   const command: EditorCommand =

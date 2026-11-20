@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isStyleName, type StyleName } from '@phrase/core';
+import { isStyleName, type StyleName } from '@stanza/core';
 import { wordStyleId, wordStyleName } from './style-ids.js';
 
 function name(value: string): StyleName {

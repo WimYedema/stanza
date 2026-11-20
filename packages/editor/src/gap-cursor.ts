@@ -6,6 +6,6 @@ import { gapCursor } from '@tiptap/pm/gapcursor';
  * start or end of the document. Typing there makes a paragraph.
  */
 export const GapCursor = Extension.create({
-  name: 'phraseGapCursor',
+  name: 'stanzaGapCursor',
   addProseMirrorPlugins: () => [gapCursor()],
 });

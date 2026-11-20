@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { isSafeRelativePath } from '@phrase/core';
-import type { DirectoryEntry, ProjectStorage } from '@phrase/project';
+import { isSafeRelativePath } from '@stanza/core';
+import type { DirectoryEntry, ProjectStorage } from '@stanza/project';
 
 /** The project storage on the Node filesystem, rooted at one directory. */
 export function nodeStorage(root: string): ProjectStorage {

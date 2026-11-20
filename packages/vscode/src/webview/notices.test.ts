@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import type { StyleName } from '@phrase/core';
-import type { CommandResult, EditorCommand } from '@phrase/editor';
+import type { StyleName } from '@stanza/core';
+import type { CommandResult, EditorCommand } from '@stanza/editor';
 import type { WebviewMessage } from '../shared/protocol.js';
 import { createNotices } from './notices.js';
 

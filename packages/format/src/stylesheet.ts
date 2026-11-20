@@ -26,7 +26,7 @@ import {
   type TextProps,
   type VariantDeclaration,
   type VariantMark,
-} from '@phrase/core';
+} from '@stanza/core';
 import {
   KEBAB_CASE,
   asMap,
@@ -49,7 +49,7 @@ import { readPageTemplate } from './stylesheet-pages.js';
 export interface StylesheetParseResult {
   readonly stylesheet: Stylesheet;
   readonly diagnostics: readonly Diagnostic[];
-  /** The `phrase-format` value found in the file, when there was one. */
+  /** The `stanza-format` value found in the file, when there was one. */
   readonly formatVersion: number | undefined;
 }
 
@@ -400,7 +400,7 @@ export function parseStylesheet(source: string): StylesheetParseResult {
   checkKeys(
     data,
     [
-      'phrase-format',
+      'stanza-format',
       'tokens',
       'paragraph-styles',
       'character-styles',

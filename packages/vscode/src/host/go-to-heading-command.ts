@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
-import { loadProject, DOCUMENT_SUFFIX } from '@phrase/project';
+import { loadProject, DOCUMENT_SUFFIX } from '@stanza/project';
 import { listHeadings } from './headings.js';
 import { activeFile, findRoot, storageOf } from './project-files.js';
 
-export const GO_TO_HEADING_COMMAND = 'phrase.goToHeading';
+export const GO_TO_HEADING_COMMAND = 'stanza.goToHeading';
 
 /** The title of a heading in the list, indented by its level and led by its number. */
 const labelOf = (level: number, number: string | undefined, title: string): string =>
   `${'\u2003'.repeat(level - 1)}${number === undefined ? '' : `${number} `}${title}`;
 
 /**
- * "Phrase: Go to Heading" lists the headings of the document in front, with their numbers, and
+ * "Stanza: Go to Heading" lists the headings of the document in front, with their numbers, and
  * scrolls the editor to the one that is chosen.
  */
 export function registerGoToHeading(
@@ -19,7 +19,7 @@ export function registerGoToHeading(
   return vscode.commands.registerCommand(GO_TO_HEADING_COMMAND, async () => {
     const file = activeFile();
     if (file === undefined || !file.path.endsWith(DOCUMENT_SUFFIX)) {
-      void vscode.window.showErrorMessage('Phrase: open a Phrase document (.phrase.md) first.');
+      void vscode.window.showErrorMessage('Stanza: open a Stanza document (.stanza.md) first.');
       return;
     }
     // The text as it is in the editor, saved or not.
@@ -29,7 +29,7 @@ export function registerGoToHeading(
       root === undefined ? undefined : (await loadProject(storageOf(root))).stylesheet;
     const headings = listHeadings(text.replace(/\r\n?/g, '\n'), stylesheet);
     if (headings.length === 0) {
-      void vscode.window.showInformationMessage('Phrase: this document has no headings.');
+      void vscode.window.showInformationMessage('Stanza: this document has no headings.');
       return;
     }
     const picked = await vscode.window.showQuickPick(

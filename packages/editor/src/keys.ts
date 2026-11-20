@@ -1,10 +1,10 @@
 import { Extension } from '@tiptap/core';
 import { splitListItem } from '@tiptap/pm/schema-list';
-import type { Stylesheet } from '@phrase/core';
+import type { Stylesheet } from '@stanza/core';
 import { runCommand, type EditorCommand } from './commands.js';
 import type { Notice } from './notice.js';
 
-export interface PhraseKeysOptions {
+export interface StanzaKeysOptions {
   /** The stylesheet in force, read whenever a key is pressed. */
   readonly stylesheet: () => Stylesheet;
   readonly notice: (notice: Notice) => void;
@@ -15,13 +15,13 @@ export interface PhraseKeysOptions {
  * commands as any other way of giving one. A command that is refused is swallowed and reported as a
  * notice, so the key does nothing else.
  */
-export const PhraseKeys = Extension.create<PhraseKeysOptions>({
-  name: 'phraseKeys',
+export const StanzaKeys = Extension.create<StanzaKeysOptions>({
+  name: 'stanzaKeys',
   // Before the keys of the library, which would split a list item into two paragraphs.
   priority: 1000,
   addOptions: () => ({
     stylesheet: () => {
-      throw new Error('PhraseKeys needs a stylesheet.');
+      throw new Error('StanzaKeys needs a stylesheet.');
     },
     notice: () => undefined,
   }),

@@ -57,7 +57,7 @@ function findDocument(
 export function editDocumentList(source: string, change: DocumentListChange): DocumentListEdit {
   const parsed = parseProject(source);
   if (parsed.diagnostics.some((d) => d.severity === 'error')) {
-    return refused('Fix the errors in phrase.yaml before editing its document list.');
+    return refused('Fix the errors in stanza.yaml before editing its document list.');
   }
   const yaml = parseDocument(source);
   const root = yaml.contents;

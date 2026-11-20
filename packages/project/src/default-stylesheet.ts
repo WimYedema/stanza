@@ -3,7 +3,7 @@
  * the headings numbered, a grid table, and an A4 page with a header and a page number. It is text so
  * that it can be edited by hand, and its comments say where to start.
  */
-export const DEFAULT_STYLESHEET = `phrase-format: 1
+export const DEFAULT_STYLESHEET = `stanza-format: 1
 
 # Colors and fonts are named here once, and the styles below refer to them by name.
 tokens:
@@ -139,10 +139,10 @@ page-templates:
     margins: { top: 72, right: 72, bottom: 72, left: 72 }
     header:
       style: header-footer
-      left: '[](phrase:title)'
+      left: '[](stanza:title)'
     footer:
       style: header-footer
-      right: 'Page [1](phrase:page) of [1](phrase:pages)'
+      right: 'Page [1](stanza:page) of [1](stanza:pages)'
 
 table-of-contents:
   page-numbers: true

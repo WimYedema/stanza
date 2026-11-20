@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Diagnostic, NodeId } from '@phrase/core';
-import { parseDocument, parseStylesheet } from '@phrase/format';
-import { createPhraseEditor, type PhraseEditor } from './editor.js';
+import type { Diagnostic, NodeId } from '@stanza/core';
+import { parseDocument, parseStylesheet } from '@stanza/format';
+import { createStanzaEditor, type StanzaEditor } from './editor.js';
 
 const stylesheet = parseStylesheet(
   readFileSync(
@@ -17,7 +17,7 @@ const stylesheet = parseStylesheet(
   ).replace(/\r\n/g, '\n'),
 ).stylesheet;
 
-const BODY = `<!-- phrase: #k7m2q9x4zb -->
+const BODY = `<!-- stanza: #k7m2q9x4zb -->
 # One
 
 Text.
@@ -35,7 +35,7 @@ Text.
 `;
 
 let element: HTMLElement;
-let editor: PhraseEditor | undefined;
+let editor: StanzaEditor | undefined;
 
 beforeEach(() => {
   element = document.createElement('div');
@@ -47,18 +47,18 @@ afterEach(() => {
   element.remove();
 });
 
-function open(body = BODY): PhraseEditor {
-  const parsed = parseDocument(`---\nphrase-format: 1\ntitle: "T"\n---\n\n${body}`);
-  editor = createPhraseEditor({ element, stylesheet, document: parsed.document });
+function open(body = BODY): StanzaEditor {
+  const parsed = parseDocument(`---\nstanza-format: 1\ntitle: "T"\n---\n\n${body}`);
+  editor = createStanzaEditor({ element, stylesheet, document: parsed.document });
   return editor;
 }
 
 const numbers = (): (string | null)[] =>
   [...element.querySelectorAll('.ProseMirror > h1, .ProseMirror > h2, .ProseMirror > h4')].map(
-    (heading) => heading.querySelector('.phrase-heading-number')?.textContent ?? null,
+    (heading) => heading.querySelector('.stanza-heading-number')?.textContent ?? null,
   );
 const marked = (): HTMLElement[] => [
-  ...element.querySelectorAll<HTMLElement>('.phrase-diagnostic'),
+  ...element.querySelectorAll<HTMLElement>('.stanza-diagnostic'),
 ];
 
 const diagnostic = (extra: Partial<Diagnostic> = {}): Diagnostic => ({
@@ -77,7 +77,7 @@ describe('the numbers of the headings', () => {
   it('is not part of the text or the document', () => {
     const api = open();
     const heading = element.querySelector('h1');
-    expect(heading?.querySelector('.phrase-heading-number')?.getAttribute('contenteditable')).toBe(
+    expect(heading?.querySelector('.stanza-heading-number')?.getAttribute('contenteditable')).toBe(
       'false',
     );
     expect(api.getDocument().document?.blocks[0]).toMatchObject({
@@ -91,7 +91,7 @@ describe('the numbers of the headings', () => {
     const api = open();
     api.setDocument(
       parseDocument(
-        `---\nphrase-format: 1\ntitle: "T"\n---\n\n# Zero\n\n${BODY.replace('<!-- phrase: #k7m2q9x4zb -->\n', '')}`,
+        `---\nstanza-format: 1\ntitle: "T"\n---\n\n# Zero\n\n${BODY.replace('<!-- stanza: #k7m2q9x4zb -->\n', '')}`,
       ).document,
     );
     expect(numbers()).toEqual(['1', '2', '2.1', '2.2', '3', null]);
@@ -123,7 +123,7 @@ describe('the marks of the diagnostics', () => {
     expect(marked()).toHaveLength(1);
     expect(block?.tagName).toBe('H1');
     expect(block?.title).toBe('Something to look at.');
-    expect(block?.classList.contains('phrase-diagnostic-warning')).toBe(true);
+    expect(block?.classList.contains('stanza-diagnostic-warning')).toBe(true);
   });
 
   it('marks the top-level block of a path when there is no ID', () => {
@@ -141,16 +141,16 @@ describe('the marks of the diagnostics', () => {
     const [block] = marked();
     expect(marked()).toHaveLength(1);
     expect(block?.title).toBe('First.\nSecond.');
-    expect(block?.classList.contains('phrase-diagnostic-error')).toBe(true);
-    expect(block?.classList.contains('phrase-diagnostic-warning')).toBe(false);
+    expect(block?.classList.contains('stanza-diagnostic-error')).toBe(true);
+    expect(block?.classList.contains('stanza-diagnostic-warning')).toBe(false);
   });
 
   it('marks the whole list for a diagnostic about one of its items, and keeps its other classes', () => {
     const api = open();
     api.setDiagnostics([diagnostic({ path: 'blocks[6].items[1].blocks[0]' })]);
     expect(marked().map((node) => node.tagName)).toEqual(['UL']);
-    expect(marked()[0]?.classList.contains('phrase-diagnostic-warning')).toBe(true);
-    expect(marked()[0]?.className).toMatch(/\bphrase-list\b/);
+    expect(marked()[0]?.classList.contains('stanza-diagnostic-warning')).toBe(true);
+    expect(marked()[0]?.className).toMatch(/\bstanza-list\b/);
   });
 
   it('leaves out a diagnostic about nothing in the document, and a block that is gone', () => {

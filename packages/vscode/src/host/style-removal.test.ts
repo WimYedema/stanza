@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { StyleName } from '@phrase/core';
-import { parseStylesheet } from '@phrase/format';
-import type { StyleUse } from '@phrase/project';
+import type { StyleName } from '@stanza/core';
+import { parseStylesheet } from '@stanza/format';
+import type { StyleUse } from '@stanza/project';
 import { removalBlockers } from './style-removal.js';
 
 const n = (value: string): StyleName => value as StyleName;
 
-const stylesheet = parseStylesheet(`phrase-format: 1
+const stylesheet = parseStylesheet(`stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: { based-on: body }
@@ -60,18 +60,18 @@ describe('removalBlockers', () => {
 
   it('names the documents and the number of blocks that use the style', () => {
     const uses = [
-      use('a.phrase.md', 'blocks[0]'),
-      use('a.phrase.md', 'blocks[0]', 'default'),
-      use('a.phrase.md', 'blocks[3]'),
-      use('b.phrase.md', 'blocks[1]'),
+      use('a.stanza.md', 'blocks[0]'),
+      use('a.stanza.md', 'blocks[0]', 'default'),
+      use('a.stanza.md', 'blocks[3]'),
+      use('b.stanza.md', 'blocks[1]'),
     ];
     expect(removalBlockers(stylesheet, 'paragraph', n('unused'), uses)).toEqual([
-      'The documents use it: a.phrase.md (2 blocks), b.phrase.md (1 block).',
+      'The documents use it: a.stanza.md (2 blocks), b.stanza.md (1 block).',
     ]);
   });
 
   it('does not count an inherited use, which a style based on it explains', () => {
-    const uses = [use('a.phrase.md', 'blocks[0]', 'inherited')];
+    const uses = [use('a.stanza.md', 'blocks[0]', 'inherited')];
     expect(removalBlockers(stylesheet, 'paragraph', n('unused'), uses)).toEqual([]);
   });
 
@@ -85,9 +85,9 @@ describe('removalBlockers', () => {
   });
 
   it('shortens a long list of documents', () => {
-    const uses = Array.from({ length: 7 }, (_, index) => use(`d${String(index)}.phrase.md`, 'b'));
+    const uses = Array.from({ length: 7 }, (_, index) => use(`d${String(index)}.stanza.md`, 'b'));
     expect(removalBlockers(stylesheet, 'paragraph', n('unused'), uses)[0]).toMatch(
-      /d4\.phrase\.md \(1 block\) and 2 more\.$/,
+      /d4\.stanza\.md \(1 block\) and 2 more\.$/,
     );
   });
 });

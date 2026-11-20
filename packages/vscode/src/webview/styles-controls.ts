@@ -1,4 +1,4 @@
-import type { Border, LineSpacing, PropertyType, StyleName, Tokens } from '@phrase/core';
+import type { Border, LineSpacing, PropertyType, StyleName, Tokens } from '@stanza/core';
 import type { Value } from '../shared/styles-protocol.js';
 import { el, option } from './styles-dom.js';
 import {

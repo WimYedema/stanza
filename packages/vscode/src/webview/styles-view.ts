@@ -1,4 +1,4 @@
-import type { Stylesheet } from '@phrase/core';
+import type { Stylesheet } from '@stanza/core';
 import {
   FAMILIES,
   describeEntry,

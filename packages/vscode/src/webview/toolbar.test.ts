@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPhraseEditor, type CommandResult, type PhraseEditor } from '@phrase/editor';
-import type { StyleName } from '@phrase/core';
-import { parseDocument, parseStylesheet } from '@phrase/format';
+import { createStanzaEditor, type CommandResult, type StanzaEditor } from '@stanza/editor';
+import type { StyleName } from '@stanza/core';
+import { parseDocument, parseStylesheet } from '@stanza/format';
 import { buildToolbar, describeContext, type Toolbar } from './toolbar.js';
 
 const STYLES_TEXT = readFileSync(
@@ -18,11 +18,11 @@ const STYLES_TEXT = readFileSync(
 const stylesheet = parseStylesheet(STYLES_TEXT).stylesheet;
 
 const TEXT = `---
-phrase-format: 1
+stanza-format: 1
 title: "T"
 ---
 
-<!-- phrase: #k7m2q9x4zb -->
+<!-- stanza: #k7m2q9x4zb -->
 # Title
 
 Some **strong** text.
@@ -40,7 +40,7 @@ Plain words.
 
 let toolbar: HTMLElement;
 let shown: Toolbar;
-let editor: PhraseEditor;
+let editor: StanzaEditor;
 const answered = vi.fn<(command: unknown, result: CommandResult) => void>();
 const makeReference = vi.fn<() => void>();
 const editLink = vi.fn<() => void>();
@@ -50,7 +50,7 @@ beforeEach(() => {
   toolbar = document.createElement('div');
   document.body.append(toolbar, element);
   const parsed = parseDocument(TEXT);
-  editor = createPhraseEditor({ element, stylesheet, document: parsed.document });
+  editor = createStanzaEditor({ element, stylesheet, document: parsed.document });
   shown = buildToolbar(toolbar, { editor: () => editor, answered, makeReference, editLink });
   answered.mockClear();
   editLink.mockClear();
@@ -325,7 +325,7 @@ describe('the labels of styles', () => {
     const element = document.createElement('div');
     const bar = document.createElement('div');
     document.body.append(bar, element);
-    const other = createPhraseEditor({
+    const other = createStanzaEditor({
       element,
       stylesheet: labelled,
       document: parseDocument(TEXT).document,

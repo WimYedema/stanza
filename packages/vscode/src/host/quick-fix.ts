@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { moveValuesToTokens, parseDocument, serializeDocument } from '@phrase/format';
-import { mapDocumentLinks } from '@phrase/core';
+import { moveValuesToTokens, parseDocument, serializeDocument } from '@stanza/format';
+import { mapDocumentLinks } from '@stanza/core';
 import {
   declareVariantInProject,
   parseFix,
@@ -12,9 +12,9 @@ import { findRoot } from './project-files.js';
 import { normalized } from './review.js';
 import { FIX_DOCUMENT_LIST_COMMAND } from './document-list-commands.js';
 
-export const DECLARE_VARIANT_COMMAND = 'phrase.declareVariant';
-export const USE_TOKENS_COMMAND = 'phrase.useTokens';
-export const FIX_REFERENCE_PATH_COMMAND = 'phrase.fixReferencePath';
+export const DECLARE_VARIANT_COMMAND = 'stanza.declareVariant';
+export const USE_TOKENS_COMMAND = 'stanza.useTokens';
+export const FIX_REFERENCE_PATH_COMMAND = 'stanza.fixReferencePath';
 
 /** Offers the fix that a diagnostic carries (ADR 0026, ADR 0074). */
 class FixActions implements vscode.CodeActionProvider {
@@ -98,12 +98,12 @@ export function registerDeclareVariant(
       FIX_REFERENCE_PATH_COMMAND,
       async (uri: unknown, href: unknown) => {
         if (!(uri instanceof vscode.Uri) || typeof href !== 'string') {
-          await vscode.window.showErrorMessage('Phrase: invalid reference path fix.');
+          await vscode.window.showErrorMessage('Stanza: invalid reference path fix.');
           return;
         }
         const root = await findRoot(uri);
         if (root === undefined) {
-          await vscode.window.showErrorMessage('Phrase: no project found for this reference.');
+          await vscode.window.showErrorMessage('Stanza: no project found for this reference.');
           return;
         }
         const loaded = await diagnostics.refresh(root);
@@ -113,7 +113,7 @@ export function registerDeclareVariant(
         );
         if (fixes.length === 0) {
           await vscode.window.showErrorMessage(
-            'Phrase: the reference path fix is no longer applicable.',
+            'Stanza: the reference path fix is no longer applicable.',
           );
           return;
         }
@@ -124,13 +124,13 @@ export function registerDeclareVariant(
         const parsed = parseDocument(before);
         if (parsed.diagnostics.length > 0) {
           await vscode.window.showErrorMessage(
-            'Phrase: fix the document syntax before updating reference paths.',
+            'Stanza: fix the document syntax before updating reference paths.',
           );
           return;
         }
         if (serializeDocument(parsed.document) !== before) {
           await vscode.window.showErrorMessage(
-            'Phrase: format this document before applying a reference path quick fix, or use phrase format --fix-references.',
+            'Stanza: format this document before applying a reference path quick fix, or use stanza format --fix-references.',
           );
           return;
         }
@@ -144,19 +144,19 @@ export function registerDeclareVariant(
         const after = serializeDocument(fixed);
         if (after === before) {
           await vscode.window.showErrorMessage(
-            'Phrase: the reference changed; request its path fix again.',
+            'Stanza: the reference changed; request its path fix again.',
           );
           return;
         }
         if (!(await replaceText(document, before, after))) {
-          await vscode.window.showErrorMessage('Phrase: the reference path edit was not applied.');
+          await vscode.window.showErrorMessage('Stanza: the reference path edit was not applied.');
           return;
         }
         await diagnostics.refresh(root);
       },
     ),
     vscode.languages.registerCodeActionsProvider(
-      [{ pattern: '**/*.phrase.md' }, { pattern: '**/*.{yaml,yml}' }],
+      [{ pattern: '**/*.stanza.md' }, { pattern: '**/*.{yaml,yml}' }],
       new FixActions(diagnostics),
       { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
     ),

@@ -8,12 +8,12 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const DOCUMENT = '/w/p/documents/one.phrase.md';
-const NEW_DOCUMENT = '/w/p/documents/meeting-notes.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
+const NEW_DOCUMENT = '/w/p/documents/meeting-notes.stanza.md';
 
 async function run(): Promise<void> {
   registerNewDocument();
@@ -25,9 +25,9 @@ async function run(): Promise<void> {
 beforeEach(() => {
   reset(
     {
-      '/w/p/phrase.yaml': PROJECT,
-      '/w/p/styles/default.yaml': 'phrase-format: 1\n',
-      [DOCUMENT]: '---\nphrase-format: 1\n---\n',
+      '/w/p/stanza.yaml': PROJECT,
+      '/w/p/styles/default.yaml': 'stanza-format: 1\n',
+      [DOCUMENT]: '---\nstanza-format: 1\n---\n',
     },
     DOCUMENT,
     '',
@@ -35,16 +35,16 @@ beforeEach(() => {
   world.inputValue = 'Meeting Notes';
 });
 
-describe('Phrase: New Document', () => {
-  it('adds a document to the project of the editor in front and opens it in the Phrase editor', async () => {
+describe('Stanza: New Document', () => {
+  it('adds a document to the project of the editor in front and opens it in the Stanza editor', async () => {
     world.activeTab = {
-      input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'phrase.editor'),
+      input: new vscode.TabInputCustom(vscode.Uri.file(DOCUMENT), 'stanza.editor'),
     };
     await run();
     expect(world.files.get(NEW_DOCUMENT)).toContain('# Meeting Notes');
     const [uri, viewType] = world.commandArgs[0] ?? [];
     expect((uri as { path: string }).path).toBe(NEW_DOCUMENT);
-    expect(viewType).toBe('phrase.editor');
+    expect(viewType).toBe('stanza.editor');
     expect(world.errors).toEqual([]);
   });
 

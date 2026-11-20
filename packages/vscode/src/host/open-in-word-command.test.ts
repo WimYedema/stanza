@@ -10,11 +10,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: {}
@@ -29,18 +29,18 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
-const GOOD = `${FRONT}<!-- phrase: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
-const BAD = `${FRONT}<!-- phrase: .missing -->\nText\n`;
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
+const GOOD = `${FRONT}<!-- stanza: #k7m2q9x4zb -->\n# One\n\nSome text.\n`;
+const BAD = `${FRONT}<!-- stanza: .missing -->\nText\n`;
 
-const DOCUMENT = '/w/p/documents/one.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
 const OUTPUT = '/w/p/build/documents/one.docx';
 const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
 
 function open(openText = GOOD, project = true): void {
   reset(
     {
-      ...(project ? { '/w/p/phrase.yaml': PROJECT, '/w/p/styles/default.yaml': STYLESHEET } : {}),
+      ...(project ? { '/w/p/stanza.yaml': PROJECT, '/w/p/styles/default.yaml': STYLESHEET } : {}),
       [DOCUMENT]: GOOD,
     },
     DOCUMENT,
@@ -61,7 +61,7 @@ beforeEach(() => {
   open();
 });
 
-describe('Phrase: Open in Word', () => {
+describe('Stanza: Open in Word', () => {
   it('exports the document that the title bar passes and opens its DOCX', async () => {
     await run(documentUri());
     expect(world.files.has(OUTPUT)).toBe(true);
@@ -69,7 +69,7 @@ describe('Phrase: Open in Word', () => {
   });
 
   it('uses the editor in front when the palette runs it', async () => {
-    world.activeTab = { input: new vscode.TabInputCustom(documentUri(), 'phrase.editor') };
+    world.activeTab = { input: new vscode.TabInputCustom(documentUri(), 'stanza.editor') };
     await run();
     expect(world.opened).toEqual([OUTPUT]);
   });
@@ -102,9 +102,9 @@ describe('Phrase: Open in Word', () => {
     expect(world.files.has(OUTPUT)).toBe(false);
   });
 
-  it('asks for a Phrase document when there is none in front', async () => {
+  it('asks for a Stanza document when there is none in front', async () => {
     await run();
-    expect(world.errors).toEqual([expect.stringContaining('open a Phrase document')]);
+    expect(world.errors).toEqual([expect.stringContaining('open a Stanza document')]);
   });
 
   it('says so when the document is not in a project', async () => {

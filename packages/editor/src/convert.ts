@@ -17,7 +17,7 @@ import {
   type StyleName,
   type Table,
   type TableCell,
-} from '@phrase/core';
+} from '@stanza/core';
 import type { JSONContent } from '@tiptap/core';
 import type { Mark as EditorMark, Node as EditorNode } from '@tiptap/pm/model';
 
@@ -108,9 +108,9 @@ function itemBlockJson(block: ListItemBlock): JSONContent {
         attrs: attributes(block, block.language !== undefined ? { language: block.language } : {}),
         content: block.text === '' ? [] : [{ type: 'text', text: block.text }],
       };
-    case 'phrase':
+    case 'stanza':
       return {
-        type: 'phraseBlock',
+        type: 'stanzaBlock',
         attrs: attributes(block, { kind: block.kind, text: block.text }),
       };
   }
@@ -322,10 +322,10 @@ class Reader {
           text: node.textContent,
         };
       }
-      case 'phraseBlock': {
+      case 'stanzaBlock': {
         const kind = this.optionalString(node, 'kind', path) ?? '';
         const text = this.optionalString(node, 'text', path) ?? '';
-        return { type: 'phrase', ...this.base(node, path), kind, text };
+        return { type: 'stanza', ...this.base(node, path), kind, text };
       }
       default:
         this.problem(`"${node.type.name}" is not allowed here.`, path);

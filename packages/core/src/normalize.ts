@@ -179,7 +179,7 @@ function normalizeListItemBlock(block: ListItemBlock): ListItemBlock {
     case 'table':
       return normalizeTable(block);
     case 'code':
-    case 'phrase':
+    case 'stanza':
       return block;
   }
 }

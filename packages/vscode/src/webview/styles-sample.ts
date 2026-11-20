@@ -8,8 +8,8 @@ import {
   type Mark,
   type StyleName,
   type Stylesheet,
-} from '@phrase/core';
-import { characterClass, listItemClass, paragraphClass, tableClass } from '@phrase/css';
+} from '@stanza/core';
+import { characterClass, listItemClass, paragraphClass, tableClass } from '@stanza/css';
 import type { Entry } from './styles-families.js';
 
 /**
@@ -67,7 +67,7 @@ export function sampleDocument(stylesheet: Stylesheet): Document {
     blocks.push(paragraph(inlines));
   }
 
-  blocks.push({ type: 'phrase', kind: 'toc', text: 'depth: 3' });
+  blocks.push({ type: 'stanza', kind: 'toc', text: 'depth: 3' });
 
   blocks.push(heading(2, 'Lists'));
   const item = (value: string, ...more: ListItemBlock[]) => ({

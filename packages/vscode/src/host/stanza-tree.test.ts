@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscode from 'vscode';
-import { OPEN_AT_COMMAND, OUTLINE_VIEW, PhraseTree, registerPhraseTree } from './phrase-tree.js';
-import type { PhraseEditorProvider } from './provider.js';
+import { OPEN_AT_COMMAND, OUTLINE_VIEW, StanzaTree, registerStanzaTree } from './stanza-tree.js';
+import type { StanzaEditorProvider } from './provider.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import { reset, world } from './vscode-fake.testing.js';
 
@@ -10,11 +10,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Example'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1:
@@ -31,29 +31,29 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const FRONT = (title: string): string => `---\nphrase-format: 1\ntitle: "${title}"\n---\n\n`;
+const FRONT = (title: string): string => `---\nstanza-format: 1\ntitle: "${title}"\n---\n\n`;
 const INTRO = `${FRONT('Introduction')}# Scope\n\nText.\n\n## Aim\n\n# Method\n`;
 const REFERENCE = `${FRONT('Reference')}# Terms\n`;
 
 const files = (extra: Record<string, string> = {}): Record<string, string> => ({
-  '/w/p/phrase.yaml': PROJECT,
+  '/w/p/stanza.yaml': PROJECT,
   '/w/p/styles/default.yaml': STYLESHEET,
-  '/w/p/documents/introduction.phrase.md': INTRO,
-  '/w/p/documents/reference.phrase.md': REFERENCE,
+  '/w/p/documents/introduction.stanza.md': INTRO,
+  '/w/p/documents/reference.stanza.md': REFERENCE,
   ...extra,
 });
 
-type Node = Awaited<ReturnType<PhraseTree['getChildren']>>[number];
+type Node = Awaited<ReturnType<StanzaTree['getChildren']>>[number];
 
 const open = vi.fn<(uri: vscode.Uri, block?: number) => Promise<void>>(() => Promise.resolve());
 let registered: vscode.Disposable | undefined;
 let diagnostics: ProjectDiagnostics | undefined;
 
-function show(projectFiles = files()): PhraseTree {
-  reset(projectFiles, '/w/p/documents/introduction.phrase.md', INTRO);
+function show(projectFiles = files()): StanzaTree {
+  reset(projectFiles, '/w/p/documents/introduction.stanza.md', INTRO);
   diagnostics = new ProjectDiagnostics();
-  registered = registerPhraseTree({ open } as unknown as PhraseEditorProvider, diagnostics);
-  return world.treeProviders.get(OUTLINE_VIEW) as PhraseTree;
+  registered = registerStanzaTree({ open } as unknown as StanzaEditorProvider, diagnostics);
+  return world.treeProviders.get(OUTLINE_VIEW) as StanzaTree;
 }
 
 function only(nodes: readonly Node[], index = 0): Node {
@@ -63,7 +63,7 @@ function only(nodes: readonly Node[], index = 0): Node {
 }
 
 /** The labels, descriptions and commands of the children of a node. */
-async function listing(tree: PhraseTree, node?: Node) {
+async function listing(tree: StanzaTree, node?: Node) {
   const children = await tree.getChildren(node);
   return children.map((child) => {
     const item = tree.getTreeItem(child);
@@ -81,14 +81,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('the Phrase tree', () => {
+describe('the Stanza tree', () => {
   it('shows the project by its title, then its documents, then the headings with numbers', async () => {
     const tree = show();
     const project = only(await tree.getChildren());
     expect(tree.getTreeItem(project).label).toBe('Example');
     expect(await listing(tree, project)).toEqual([
-      expect.objectContaining({ label: 'Introduction', description: 'introduction.phrase.md' }),
-      expect.objectContaining({ label: 'Reference', description: 'reference.phrase.md' }),
+      expect.objectContaining({ label: 'Introduction', description: 'introduction.stanza.md' }),
+      expect.objectContaining({ label: 'Reference', description: 'reference.stanza.md' }),
     ]);
     const introduction = only(await tree.getChildren(project));
     expect(await listing(tree, introduction)).toEqual([
@@ -102,7 +102,7 @@ describe('the Phrase tree', () => {
   it('shows the groups and the order of the list of documents, and the documents it leaves out last', async () => {
     const tree = show(
       files({
-        '/w/p/phrase.yaml': `${PROJECT}documents:\n  - group: Part one\n    items:\n      - documents/reference.phrase.md\n`,
+        '/w/p/stanza.yaml': `${PROJECT}documents:\n  - group: Part one\n    items:\n      - documents/reference.stanza.md\n`,
       }),
     );
     const project = only(await tree.getChildren());
@@ -110,13 +110,13 @@ describe('the Phrase tree', () => {
       expect.objectContaining({ label: 'Part one' }),
       expect.objectContaining({
         label: 'Introduction',
-        description: 'introduction.phrase.md (not listed)',
+        description: 'introduction.stanza.md (not listed)',
       }),
     ]);
     const group = only(await tree.getChildren(project));
     expect(tree.getTreeItem(group).id).toContain('group:0');
     expect(await listing(tree, group)).toEqual([
-      expect.objectContaining({ label: 'Reference', description: 'reference.phrase.md' }),
+      expect.objectContaining({ label: 'Reference', description: 'reference.stanza.md' }),
     ]);
   });
 
@@ -130,7 +130,7 @@ describe('the Phrase tree', () => {
     expect(method?.command).toBe(OPEN_AT_COMMAND);
     expect(method?.arguments?.[1]).toBe(3);
     expect((method?.arguments?.[0] as vscode.Uri).path).toBe(
-      '/w/p/documents/introduction.phrase.md',
+      '/w/p/documents/introduction.stanza.md',
     );
   });
 
@@ -140,7 +140,7 @@ describe('the Phrase tree', () => {
       uri: vscode.Uri,
       block?: number,
     ) => Promise<void>;
-    const uri = { path: '/w/p/documents/introduction.phrase.md' } as vscode.Uri;
+    const uri = { path: '/w/p/documents/introduction.stanza.md' } as vscode.Uri;
     await handler(uri, 4);
     await handler(uri);
     expect(open.mock.calls).toEqual([
@@ -152,13 +152,13 @@ describe('the Phrase tree', () => {
   it('says that there is no project when the workspace has none', async () => {
     const tree = show({});
     expect(await listing(tree)).toEqual([
-      expect.objectContaining({ label: 'No Phrase project in the workspace' }),
+      expect.objectContaining({ label: 'No Stanza project in the workspace' }),
     ]);
     expect(await tree.getChildren(only(await tree.getChildren()))).toEqual([]);
   });
 
   it('marks a project that has errors, and shows no documents for it', async () => {
-    const tree = show(files({ '/w/p/styles/default.yaml': 'phrase-format: 1\nbad: [' }));
+    const tree = show(files({ '/w/p/styles/default.yaml': 'stanza-format: 1\nbad: [' }));
     const project = only(await tree.getChildren());
     expect(tree.getTreeItem(project).description).toBe('has errors');
     expect(await tree.getChildren(project)).toEqual([]);
@@ -170,8 +170,8 @@ describe('the Phrase tree', () => {
     const changed = vi.fn();
     tree.onDidChangeTreeData(changed);
     for (const listener of world.changeListeners) {
-      listener({ document: { fileName: '/w/p/documents/introduction.phrase.md' } as never });
-      listener({ document: { fileName: '/w/p/documents/introduction.phrase.md' } as never });
+      listener({ document: { fileName: '/w/p/documents/introduction.stanza.md' } as never });
+      listener({ document: { fileName: '/w/p/documents/introduction.stanza.md' } as never });
     }
     expect(changed).not.toHaveBeenCalled();
     vi.advanceTimersByTime(400);

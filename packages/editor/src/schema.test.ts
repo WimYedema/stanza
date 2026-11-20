@@ -1,6 +1,6 @@
 import { getSchema } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
-import { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES } from '@phrase/core';
+import { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES } from '@stanza/core';
 import { schemaExtensions } from './schema.js';
 
 const schema = getSchema(schemaExtensions());
@@ -24,7 +24,7 @@ describe('the schema against the vocabulary of core', () => {
     expect(attributesOf('paragraph')).toEqual(own('paragraph'));
     expect(attributesOf('table')).toEqual(own('table'));
     expect(attributesOf('codeBlock')).toEqual(own('code'));
-    expect(attributesOf('phraseBlock')).toEqual(own('phrase'));
+    expect(attributesOf('stanzaBlock')).toEqual(own('stanza'));
     // The kind of a list is the node: a bulleted or a numbered list.
     const list = own('list').filter((name) => name !== 'kind');
     expect(attributesOf('bulletList')).toEqual(list);
@@ -46,7 +46,7 @@ describe('the schema against the vocabulary of core', () => {
       'paragraph',
       'table',
       'codeBlock',
-      'phraseBlock',
+      'stanzaBlock',
       'bulletList',
       'orderedList',
     ]);
@@ -105,7 +105,7 @@ describe('the markup that the schema writes', () => {
           ],
         },
         { type: 'codeBlock', attrs: { language: 'ts' }, content: [{ type: 'text', text: 'a' }] },
-        { type: 'phraseBlock', attrs: { kind: 'toc', text: 'depth: 2' } },
+        { type: 'stanzaBlock', attrs: { kind: 'toc', text: 'depth: 2' } },
       ],
     });
     const names = new Set<string>();
@@ -118,9 +118,9 @@ describe('the markup that the schema writes', () => {
     // Names and texts that travel in the clipboard HTML are data attributes, never `style`.
     expect(attributes.sort()).toEqual([
       'class',
-      'data-phrase-kind',
-      'data-phrase-style',
-      'data-phrase-text',
+      'data-stanza-kind',
+      'data-stanza-style',
+      'data-stanza-text',
       'href',
     ]);
     expect(attributes).not.toContain('style');

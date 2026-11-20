@@ -8,9 +8,9 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${policy}">
-<meta name="phrase-nonce" content="${nonce}">
+<meta name="stanza-nonce" content="${nonce}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phrase styles</title>
+<title>Stanza styles</title>
 <style nonce="${nonce}">
   html, body { margin: 0; min-height: 100%; background: #555555; font-family: sans-serif; }
   #tabs { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 2px;

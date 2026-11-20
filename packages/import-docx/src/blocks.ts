@@ -1,12 +1,12 @@
 import {
-  TOC_PHRASE_KIND,
+  TOC_STANZA_KIND,
   maxHeadingLevel,
   normalizeInlines,
   type Block,
   type HeadingLevel,
   type Paragraph,
   type Text,
-} from '@phrase/core';
+} from '@stanza/core';
 import type { ImportContext } from './context.js';
 import { BlockWriter, paragraphNumbering } from './block-writer.js';
 import { joinParts, readParagraph } from './paragraph.js';
@@ -135,7 +135,7 @@ export function convertBody(body: XmlElement, ctx: ImportContext): Block[] {
     else emit(properties, parts, extras, inToc);
     if (toc !== undefined) {
       const text = toc.depth === undefined ? '' : `depth: ${String(toc.depth)}`;
-      writer.push({ type: 'phrase', kind: TOC_PHRASE_KIND, text });
+      writer.push({ type: 'stanza', kind: TOC_STANZA_KIND, text });
       ctx.report.add('toc-field', ctx.place());
     }
   };

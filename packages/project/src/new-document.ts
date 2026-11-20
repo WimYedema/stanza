@@ -1,4 +1,4 @@
-import { nodeIdFromRandomBytes } from '@phrase/core';
+import { nodeIdFromRandomBytes } from '@stanza/core';
 import { DOCUMENT_SUFFIX } from './files.js';
 import { firstDocument, names, slugOf, type NewProjectOptions } from './new-project.js';
 import type { ProjectStorage } from './storage.js';

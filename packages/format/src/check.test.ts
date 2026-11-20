@@ -14,14 +14,14 @@ const { stylesheet } = parseStylesheet(
 );
 
 const { settings } = parseProject(
-  readFileSync(new URL('../../../fixtures/example-project/phrase.yaml', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../../fixtures/example-project/stanza.yaml', import.meta.url), 'utf8'),
 );
 
-const HEADER = '---\nphrase-format: 1\n---\n\n';
+const HEADER = '---\nstanza-format: 1\n---\n\n';
 
 describe('checkDocumentText', () => {
   it('checks configured schemes in nested content while keeping short links deterministic', () => {
-    const source = `${HEADER}- [ticket](jira://PROJ-123)\n\n<!-- phrase: #aaaaaaaaaa -->\n| H |\n| --- |\n| [missing](jira://) |\n\n[unknown](other://x)\n`;
+    const source = `${HEADER}- [ticket](jira://PROJ-123)\n\n<!-- stanza: #aaaaaaaaaa -->\n| H |\n| --- |\n| [missing](jira://) |\n\n[unknown](other://x)\n`;
     const project = {
       ...settings,
       fields: undefined,
@@ -37,14 +37,14 @@ describe('checkDocumentText', () => {
   });
 
   it('finds nothing wrong with a clean document', () => {
-    const text = `${HEADER}<!-- phrase: #k7m2q9x4zb -->\n# Title\n\nSome **strong** text.\n`;
+    const text = `${HEADER}<!-- stanza: #k7m2q9x4zb -->\n# Title\n\nSome **strong** text.\n`;
     expect(checkDocumentText(text, stylesheet).diagnostics).toEqual([]);
   });
 
   it('reports unsupported constructs, then problems against the stylesheet', () => {
     const text =
-      `${HEADER}<!-- phrase: #k7m2q9x4zb -->\n# A **bold** title\n\n` +
-      `<div>raw</div>\n\n<!-- phrase: .missing -->\nText.\n`;
+      `${HEADER}<!-- stanza: #k7m2q9x4zb -->\n# A **bold** title\n\n` +
+      `<div>raw</div>\n\n<!-- stanza: .missing -->\nText.\n`;
     expect(checkDocumentText(text, stylesheet).diagnostics.map((d) => d.code)).toEqual([
       'html-unsupported',
       'mark-not-allowed',

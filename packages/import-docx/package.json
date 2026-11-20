@@ -1,5 +1,5 @@
 {
-  "name": "@phrase/import-docx",
+  "name": "@stanza/import-docx",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,7 +13,7 @@
     "dist"
   ],
   "dependencies": {
-    "@phrase/core": "*",
+    "@stanza/core": "*",
     "fflate": "^0.8.3",
     "saxes": "^6.0.0"
   },

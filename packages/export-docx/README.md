@@ -1,4 +1,4 @@
-# @phrase/export-docx
+# @stanza/export-docx
 
 `exportDocx(document, stylesheet, options)` writes a DOCX from a validated snapshot. The only package that imports `docx` (and `fflate` for the package); `docx` types do not leave it.
 

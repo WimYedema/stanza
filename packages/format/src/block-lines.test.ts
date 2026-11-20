@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { blockStartLines, parseDocument } from './parse.js';
 
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
 
 describe('blockStartLines', () => {
   it('gives the line where each block starts, counted from 1 in the whole file', () => {
@@ -13,7 +13,7 @@ describe('blockStartLines', () => {
   });
 
   it('counts the annotation line before a block as the start of the block', () => {
-    const text = `${FRONT}<!-- phrase: #k7m2q9x4zb -->\n# One\n\nText.\n\n<!-- phrase: .note -->\nA note.\n`;
+    const text = `${FRONT}<!-- stanza: #k7m2q9x4zb -->\n# One\n\nText.\n\n<!-- stanza: .note -->\nA note.\n`;
     expect(blockStartLines(text)).toEqual([6, 9, 11]);
   });
 
@@ -33,7 +33,7 @@ describe('blockStartLines', () => {
     );
     let checked = 0;
     for (const folder of folders) {
-      for (const name of readdirSync(folder).filter((file) => file.endsWith('.phrase.md'))) {
+      for (const name of readdirSync(folder).filter((file) => file.endsWith('.stanza.md'))) {
         const text = readFileSync(fileURLToPath(new URL(name, folder)), 'utf8');
         const parsed = parseDocument(text);
         if (parsed.diagnostics.some((d) => d.severity === 'error')) continue;

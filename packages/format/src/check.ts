@@ -6,7 +6,7 @@ import {
   type Document,
   type ProjectSettings,
   type Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import { parseDocument, type ParseResult } from './parse.js';
 
 export interface CheckResult {

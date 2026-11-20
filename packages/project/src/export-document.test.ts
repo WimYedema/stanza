@@ -6,8 +6,8 @@ import { loadProject } from './load.js';
 import { exampleProject, memoryStorage } from './memory-storage.testing.js';
 
 const options = { outDir: 'build', timestamp: new Date('2026-03-04T05:06:07Z') };
-const INTRODUCTION = 'documents/introduction.phrase.md';
-const BAD = '---\nphrase-format: 1\ndocument-number: "N"\n---\n\n<!-- phrase: .missing -->\nText\n';
+const INTRODUCTION = 'documents/introduction.stanza.md';
+const BAD = '---\nstanza-format: 1\ndocument-number: "N"\n---\n\n<!-- stanza: .missing -->\nText\n';
 
 async function run(files: Record<string, string>, path = INTRODUCTION, outDir = 'build') {
   const storage = memoryStorage(files);
@@ -21,8 +21,8 @@ async function run(files: Record<string, string>, path = INTRODUCTION, outDir = 
 describe('exportDocument', () => {
   it('passes project link schemes through both project build and single-document export', async () => {
     const files = exampleProject();
-    files['phrase.yaml'] =
-      `${files['phrase.yaml'] ?? ''}link-schemes:\n  jira: https://example.org/browse/{id}\n`;
+    files['stanza.yaml'] =
+      `${files['stanza.yaml'] ?? ''}link-schemes:\n  jira: https://example.org/browse/{id}\n`;
     files[INTRODUCTION] = `${files[INTRODUCTION] ?? ''}\n[Ticket](jira://PROJ-123)\n`;
     const { storage, result } = await run(files);
     expect(result.blocked).toBe(false);
@@ -39,13 +39,13 @@ describe('exportDocument', () => {
   it('cannot export a local target or a reference whose ID is duplicated in another file', async () => {
     const files = exampleProject();
     const duplicate = files[INTRODUCTION] ?? '';
-    files['zz-duplicate.phrase.md'] = duplicate;
+    files['zz-duplicate.stanza.md'] = duplicate;
     const local = await run(files);
     expect(local.result.blocked).toBe(true);
     expect(local.storage.written.size).toBe(0);
-    files['source.phrase.md'] =
-      '---\nphrase-format: 1\ndocument-number: "N"\n---\n\n[Target](documents/introduction.phrase.md#k7m2q9x4zb)\n';
-    const reference = await run(files, 'source.phrase.md');
+    files['source.stanza.md'] =
+      '---\nstanza-format: 1\ndocument-number: "N"\n---\n\n[Target](documents/introduction.stanza.md#k7m2q9x4zb)\n';
+    const reference = await run(files, 'source.stanza.md');
     expect(reference.result.diagnostics).toMatchObject([{ code: 'duplicate-id' }]);
     expect(reference.storage.written.size).toBe(0);
   });
@@ -71,31 +71,31 @@ describe('exportDocument', () => {
   });
 
   it('is not stopped by an error in another document', async () => {
-    const { storage, result } = await run({ ...exampleProject(), 'documents/bad.phrase.md': BAD });
+    const { storage, result } = await run({ ...exampleProject(), 'documents/bad.stanza.md': BAD });
     expect(result.written).toBe('build/documents/introduction.docx');
     expect(storage.written.size).toBe(1);
   });
 
   it('writes nothing for a document with an error, and says it did not try', async () => {
-    const files = { ...exampleProject(), 'documents/bad.phrase.md': BAD };
-    const { storage, result } = await run(files, 'documents/bad.phrase.md');
+    const files = { ...exampleProject(), 'documents/bad.stanza.md': BAD };
+    const { storage, result } = await run(files, 'documents/bad.stanza.md');
     expect(result).toEqual({ written: undefined, diagnostics: [], blocked: true });
     expect(storage.written.size).toBe(0);
   });
 
   it('writes nothing when the project file or the stylesheet has an error', async () => {
-    const brokenProject = await run({ ...exampleProject(), 'phrase.yaml': 'phrase-format: 1\n' });
+    const brokenProject = await run({ ...exampleProject(), 'stanza.yaml': 'stanza-format: 1\n' });
     expect(brokenProject.result.blocked).toBe(true);
     const brokenStyles = await run({
       ...exampleProject(),
-      'styles/default.yaml': 'phrase-format: 1\nbad: [',
+      'styles/default.yaml': 'stanza-format: 1\nbad: [',
     });
     expect(brokenStyles.result.blocked).toBe(true);
     expect(brokenProject.storage.written.size + brokenStyles.storage.written.size).toBe(0);
   });
 
   it('does not take a path that is not a document of the project', async () => {
-    const { storage, result } = await run(exampleProject(), 'documents/nope.phrase.md');
+    const { storage, result } = await run(exampleProject(), 'documents/nope.stanza.md');
     expect(result.blocked).toBe(true);
     expect(storage.written.size).toBe(0);
   });

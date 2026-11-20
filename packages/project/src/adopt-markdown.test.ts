@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { adoptMarkdownDocument } from './adopt-markdown.js';
 import { describeImport } from './import-word.js';
-import { parseProject } from '@phrase/format';
+import { parseProject } from '@stanza/format';
 import { loadProject } from './load.js';
 import { memoryStorage } from './memory-storage.testing.js';
 import { bytes, counting, project, projectFiles } from './new-project.testing.js';
@@ -14,16 +14,16 @@ describe('adoptMarkdownDocument', () => {
     const files = await projectFiles();
     const storage = memoryStorage({
       ...files,
-      'phrase.yaml': `${files['phrase.yaml'] ?? ''}documents: [documents/my-report.phrase.md]\n`,
+      'stanza.yaml': `${files['stanza.yaml'] ?? ''}documents: [documents/my-report.stanza.md]\n`,
     });
     const result = await adoptMarkdownDocument(storage, SOURCE, {
       name: 'Notes',
       randomBytes: counting(20),
     });
     expect(result.ok).toBe(true);
-    expect(parseProject(storage.texts.get('phrase.yaml') ?? '').settings.documents).toEqual([
-      { kind: 'document', path: 'documents/my-report.phrase.md' },
-      { kind: 'document', path: 'documents/notes.phrase.md' },
+    expect(parseProject(storage.texts.get('stanza.yaml') ?? '').settings.documents).toEqual([
+      { kind: 'document', path: 'documents/my-report.stanza.md' },
+      { kind: 'document', path: 'documents/notes.stanza.md' },
     ]);
   });
   it('writes the Markdown as a new document, with IDs, and reports', async () => {
@@ -32,11 +32,11 @@ describe('adoptMarkdownDocument', () => {
       name: 'Team Notes',
       randomBytes: counting(20),
     });
-    expect(result).toMatchObject({ ok: true, document: 'documents/team-notes.phrase.md' });
+    expect(result).toMatchObject({ ok: true, document: 'documents/team-notes.stanza.md' });
     if (!result.ok) throw new Error(result.message);
-    const written = storage.texts.get('documents/team-notes.phrase.md') ?? '';
+    const written = storage.texts.get('documents/team-notes.stanza.md') ?? '';
     expect(written).toContain('title: "Team Notes"');
-    expect(written).toMatch(/<!-- phrase: #[0-9a-z]{10} -->\n# Notes/);
+    expect(written).toMatch(/<!-- stanza: #[0-9a-z]{10} -->\n# Notes/);
     expect(written).toContain('Some *text* and a [link](https://example.com).');
     expect(result.assigned).toBe(2);
     expect(result.report.diagnostics.map((d) => d.code)).toEqual([
@@ -63,25 +63,25 @@ describe('adoptMarkdownDocument', () => {
     const storage = await project();
     const options = { name: 'whatever', randomBytes: counting(20) };
     await adoptMarkdownDocument(storage, '---\ntitle: Real title\n---\n\nText\n', options);
-    expect(storage.texts.get('documents/whatever.phrase.md')).toContain('title: "Real title"');
+    expect(storage.texts.get('documents/whatever.stanza.md')).toContain('title: "Real title"');
   });
 
   it('never writes over a document, and numbers the name instead', async () => {
     const storage = await project();
     const options = { name: 'My Report', randomBytes: counting(20) };
     const result = await adoptMarkdownDocument(storage, SOURCE, options);
-    expect(result).toMatchObject({ ok: true, document: 'documents/my-report-2.phrase.md' });
-    expect(storage.texts.has('documents/my-report.phrase.md')).toBe(false);
+    expect(result).toMatchObject({ ok: true, document: 'documents/my-report-2.stanza.md' });
+    expect(storage.texts.has('documents/my-report.stanza.md')).toBe(false);
   });
 
-  it('refuses a file that is a Phrase document already, and writes nothing', async () => {
+  it('refuses a file that is a Stanza document already, and writes nothing', async () => {
     const storage = await project();
     const result = await adoptMarkdownDocument(
       storage,
-      '---\nphrase-format: 1\ntitle: T\n---\n\nText\n',
+      '---\nstanza-format: 1\ntitle: T\n---\n\nText\n',
       { name: 'a', randomBytes: bytes(20) },
     );
-    expect(result).toMatchObject({ ok: false, reason: 'already-phrase' });
+    expect(result).toMatchObject({ ok: false, reason: 'already-stanza' });
     expect(storage.texts.size).toBe(0);
   });
 

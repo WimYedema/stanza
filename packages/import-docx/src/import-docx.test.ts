@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Block, Mark } from '@phrase/core';
+import type { Block, Mark } from '@stanza/core';
 import { importDocx } from './import-docx.js';
 import {
   HEADING_STYLES,
@@ -728,9 +728,9 @@ describe('a table of contents', () => {
     ) +
     para(entry('Method'), '<w:pStyle w:val="TOC1"/>') +
     para(end, '<w:pStyle w:val="TOC1"/>');
-  const toBlock = (text: string): Block => ({ type: 'phrase', kind: 'toc', text });
+  const toBlock = (text: string): Block => ({ type: 'stanza', kind: 'toc', text });
 
-  it('becomes a phrase-toc block with the depth of the field, and drops the entries', () => {
+  it('becomes a stanza-toc block with the depth of the field, and drops the entries', () => {
     const parts = { body: text('Before') + toc('TOC \\o "1-2" \\h \\z \\u') + text('After') };
     expect(imported(parts).document.blocks).toEqual([P('Before'), toBlock('depth: 2'), P('After')]);
     expect(diagnostic(parts, 'toc-field')?.count).toBe(1);

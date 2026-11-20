@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseStylesheet } from '@phrase/format';
+import { parseStylesheet } from '@stanza/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
 import { entriesOf, type Entry } from './styles-families.js';
 import { createThemePanel, type ThemePanel } from './styles-theme.js';
 
-const stylesheet = parseStylesheet(`phrase-format: 1
+const stylesheet = parseStylesheet(`stanza-format: 1
 tokens:
   colors:
     brand: '#2E75B6'
@@ -172,7 +172,7 @@ describe('the theme panel', () => {
       undefined,
       'theme',
       parseStylesheet(
-        "phrase-format: 1\ntokens:\n  colors:\n    accent: '#ABCDEF'\nparagraph-styles:\n  body: {}\n",
+        "stanza-format: 1\ntokens:\n  colors:\n    accent: '#ABCDEF'\nparagraph-styles:\n  body: {}\n",
       ).stylesheet,
     );
     expect(input(NAME).value).toBe('');

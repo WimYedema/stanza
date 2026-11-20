@@ -9,11 +9,11 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const PROJECT = `phrase-format: 1
+const PROJECT = `stanza-format: 1
 title: 'Project'
 stylesheet: 'styles/default.yaml'
 `;
-const STYLESHEET = 'phrase-format: 1\nparagraph-styles:\n  body: {}\n';
+const STYLESHEET = 'stanza-format: 1\nparagraph-styles:\n  body: {}\n';
 const SHEET = '/w/p/styles/default.yaml';
 const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
 
@@ -39,7 +39,7 @@ const settled = async (check: () => void): Promise<void> => {
   await vi.waitFor(check);
 };
 const project = (extra: Record<string, string> = {}): Record<string, string> => ({
-  '/w/p/phrase.yaml': PROJECT,
+  '/w/p/stanza.yaml': PROJECT,
   [SHEET]: STYLESHEET,
   ...extra,
 });
@@ -68,9 +68,9 @@ describe('starting', () => {
   });
 
   it('refuses a file that is not the stylesheet of its project, and says which is', async () => {
-    panel = open('/w/p/styles/other.yaml', 'phrase-format: 1\n', {
+    panel = open('/w/p/styles/other.yaml', 'stanza-format: 1\n', {
       ...project(),
-      '/w/p/styles/other.yaml': 'phrase-format: 1\n',
+      '/w/p/styles/other.yaml': 'stanza-format: 1\n',
     });
     fromWebview({ type: 'ready' });
     await settled(() => {
@@ -84,7 +84,7 @@ describe('starting', () => {
   });
 
   it('refuses the project file itself', async () => {
-    open('/w/p/phrase.yaml', PROJECT, project());
+    open('/w/p/stanza.yaml', PROJECT, project());
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
@@ -100,18 +100,18 @@ describe('starting', () => {
     });
     expect(posted()[0]).toMatchObject({
       type: 'refused',
-      title: 'This file is not in a Phrase project',
+      title: 'This file is not in a Stanza project',
     });
   });
 
   it('refuses a project with an error in its project file, and says which', async () => {
-    open(SHEET, STYLESHEET, project({ '/w/p/phrase.yaml': 'phrase-format: 1\n' }));
+    open(SHEET, STYLESHEET, project({ '/w/p/stanza.yaml': 'stanza-format: 1\n' }));
     fromWebview({ type: 'ready' });
     await settled(() => {
       expect(posted()).toHaveLength(1);
     });
     expect(posted()[0]).toMatchObject({ type: 'refused', title: 'The project has errors' });
-    expect(JSON.stringify(posted()[0])).toContain('phrase.yaml');
+    expect(JSON.stringify(posted()[0])).toContain('stanza.yaml');
   });
 });
 
@@ -130,7 +130,7 @@ describe('changes from the page', () => {
     await ready();
     fromWebview({ type: 'set', path: SIZE, value: 12 });
     await settled(() => {
-      expect(world.text).toBe('phrase-format: 1\nparagraph-styles:\n  body:\n    size: 12\n');
+      expect(world.text).toBe('stanza-format: 1\nparagraph-styles:\n  body:\n    size: 12\n');
     });
     expect(world.edits).toHaveLength(1);
     // The page is told of the new text by the change of the document, as for any change.
@@ -140,11 +140,11 @@ describe('changes from the page', () => {
   });
 
   it('removes a property, and writes a style that has nothing left as {}', async () => {
-    open(SHEET, 'phrase-format: 1\nparagraph-styles:\n  body:\n    size: 12\n', project());
+    open(SHEET, 'stanza-format: 1\nparagraph-styles:\n  body:\n    size: 12\n', project());
     await ready();
     fromWebview({ type: 'unset', path: SIZE });
     await settled(() => {
-      expect(world.text).toBe('phrase-format: 1\nparagraph-styles:\n  body: {}\n');
+      expect(world.text).toBe('stanza-format: 1\nparagraph-styles:\n  body: {}\n');
     });
   });
 
@@ -163,9 +163,9 @@ describe('changes from the page', () => {
 
   it('does not change a file that has not been shown to be the stylesheet of its project', async () => {
     fromWebview({ type: 'set', path: SIZE, value: 12 });
-    open('/w/p/styles/other.yaml', 'phrase-format: 1\n', {
+    open('/w/p/styles/other.yaml', 'stanza-format: 1\n', {
       ...project(),
-      '/w/p/styles/other.yaml': 'phrase-format: 1\n',
+      '/w/p/styles/other.yaml': 'stanza-format: 1\n',
     });
     fromWebview(READY);
     await settled(() => {
@@ -184,13 +184,13 @@ describe('while it is open', () => {
     await settled(() => {
       expect(posted()).toHaveLength(1);
     });
-    changeDocument('phrase-format: 1\nparagraph-styles:\n  body:\n    size: 11\n');
+    changeDocument('stanza-format: 1\nparagraph-styles:\n  body:\n    size: 11\n');
     await settled(() => {
       expect(posted()).toHaveLength(2);
     });
     expect(posted()[1]).toEqual({
       type: 'text',
-      text: 'phrase-format: 1\nparagraph-styles:\n  body:\n    size: 11\n',
+      text: 'stanza-format: 1\nparagraph-styles:\n  body:\n    size: 11\n',
     });
   });
 
@@ -212,7 +212,7 @@ describe('while it is open', () => {
 
 describe('adding and deleting styles', () => {
   const READY = { type: 'ready' };
-  const FULL = `phrase-format: 1
+  const FULL = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: { based-on: body }
@@ -233,7 +233,7 @@ table-styles:
   table: {}
 `;
   const DOCUMENT =
-    '---\nphrase-format: 1\ntitle: "Doc"\n---\n\n<!-- phrase: #efwkbkgsbr .loose -->\nText.\n';
+    '---\nstanza-format: 1\ntitle: "Doc"\n---\n\n<!-- stanza: #efwkbkgsbr .loose -->\nText.\n';
 
   async function ready(extra: Record<string, string> = {}): Promise<void> {
     open(SHEET, FULL, project({ [SHEET]: FULL, ...extra }));
@@ -304,9 +304,9 @@ table-styles:
   });
 
   it('refuses to delete a style that a document uses, and says where', async () => {
-    await ready({ '/w/p/documents/a.phrase.md': DOCUMENT });
+    await ready({ '/w/p/documents/a.stanza.md': DOCUMENT });
     fromWebview({ type: 'delete-style', kind: 'paragraph-style', name: 'loose' });
-    expect(await refusal()).toContain('The documents use it: documents/a.phrase.md (1 block).');
+    expect(await refusal()).toContain('The documents use it: documents/a.stanza.md (1 block).');
     expect(world.warnings).toEqual([]);
     expect(world.edits).toEqual([]);
   });
@@ -324,7 +324,7 @@ table-styles:
   });
 
   it('refuses when the project has errors, since the documents cannot be known', async () => {
-    await ready({ '/w/p/phrase.yaml': `${PROJECT}defaults:\n  page-template: nowhere\n` });
+    await ready({ '/w/p/stanza.yaml': `${PROJECT}defaults:\n  page-template: nowhere\n` });
     fromWebview({ type: 'delete-style', kind: 'paragraph-style', name: 'loose' });
     expect(await refusal()).toContain('cannot be known');
   });
@@ -362,9 +362,9 @@ describe('selecting a style on request', () => {
   });
 
   it('does not select anything in an editor that was refused', async () => {
-    panel = open('/w/p/styles/other.yaml', 'phrase-format: 1\n', {
+    panel = open('/w/p/styles/other.yaml', 'stanza-format: 1\n', {
       ...project(),
-      '/w/p/styles/other.yaml': 'phrase-format: 1\n',
+      '/w/p/styles/other.yaml': 'stanza-format: 1\n',
     });
     requestStyleSelection(uri(), selection);
     fromWebview({ type: 'ready' });

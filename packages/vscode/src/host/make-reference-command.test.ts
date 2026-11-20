@@ -8,12 +8,12 @@ vi.mock('vscode', async () => {
   return fake.createFakeVscode();
 });
 
-const DOCUMENT = '/w/p/documents/one.phrase.md';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
 const request = vi.fn<(document: vscode.Uri) => void>();
 
 function open(path = DOCUMENT): void {
   reset({ [path]: '# One\n' }, path, '# One\n');
-  world.activeTab = { input: new vscode.TabInputCustom(vscode.Uri.file(path), 'phrase.editor') };
+  world.activeTab = { input: new vscode.TabInputCustom(vscode.Uri.file(path), 'stanza.editor') };
   registerMakeReference(request);
 }
 
@@ -27,7 +27,7 @@ beforeEach(() => {
   request.mockReset();
 });
 
-describe('Phrase: Make Reference', () => {
+describe('Stanza: Make Reference', () => {
   it('asks the editor in front to open its list of headings', () => {
     open();
     run();
@@ -35,7 +35,7 @@ describe('Phrase: Make Reference', () => {
     expect(request.mock.calls[0]?.[0].path).toBe(DOCUMENT);
   });
 
-  it('does nothing for a file that is not a Phrase document', () => {
+  it('does nothing for a file that is not a Stanza document', () => {
     open('/w/p/notes.md');
     run();
     expect(request).not.toHaveBeenCalled();

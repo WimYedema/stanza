@@ -11,7 +11,7 @@ vi.mock('vscode', async () => {
 });
 
 const SHEET = '/w/p/styles/default.yaml';
-const STYLESHEET = `phrase-format: 1
+const STYLESHEET = `stanza-format: 1
 paragraph-styles:
   body: {}
   heading-1: {}
@@ -26,16 +26,16 @@ paragraph-styles:
 table-styles:
   table: {}
 `;
-const FRONT = '---\nphrase-format: 1\ntitle: "T"\n---\n\n';
-const DOCUMENT = '/w/p/documents/one.phrase.md';
-const MARKED = `${FRONT}<!-- phrase: #k7m2q9x4zb -->\n# One\n\nSome **strong** text.\n`;
+const FRONT = '---\nstanza-format: 1\ntitle: "T"\n---\n\n';
+const DOCUMENT = '/w/p/documents/one.stanza.md';
+const MARKED = `${FRONT}<!-- stanza: #k7m2q9x4zb -->\n# One\n\nSome **strong** text.\n`;
 
 const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
 const diagnostics = new ProjectDiagnostics();
 
 type Handler = (...args: unknown[]) => Promise<void>;
 const command = (): Handler => {
-  const handler = world.commandHandlers.get('phrase.declareVariant');
+  const handler = world.commandHandlers.get('stanza.declareVariant');
   if (handler === undefined) throw new Error('The command is not registered.');
   return handler as unknown as Handler;
 };
@@ -43,7 +43,7 @@ const command = (): Handler => {
 beforeEach(async () => {
   reset(
     {
-      '/w/p/phrase.yaml': "phrase-format: 1\ntitle: 'P'\nstylesheet: 'styles/default.yaml'\n",
+      '/w/p/stanza.yaml': "stanza-format: 1\ntitle: 'P'\nstylesheet: 'styles/default.yaml'\n",
       [SHEET]: STYLESHEET,
       [DOCUMENT]: MARKED,
     },
@@ -63,20 +63,20 @@ function actions() {
 
 describe('the quick fix', () => {
   it('updates stale destinations in the unsaved buffer without changing labels or saving', async () => {
-    const before = `${FRONT}[See **the heading**](old.phrase.md#bbbbbbbbbb)\n`;
-    const after = before.replace('old.phrase.md', 'two.phrase.md');
+    const before = `${FRONT}[See **the heading**](old.stanza.md#bbbbbbbbbb)\n`;
+    const after = before.replace('old.stanza.md', 'two.stanza.md');
     world.files.set(
-      '/w/p/documents/two.phrase.md',
-      `${FRONT}<!-- phrase: #bbbbbbbbbb -->\n# Target\n`,
+      '/w/p/documents/two.stanza.md',
+      `${FRONT}<!-- stanza: #bbbbbbbbbb -->\n# Target\n`,
     );
     changeDocument(before);
     await diagnostics.refresh(new FakeUri('/w/p') as never);
     const remaining = (world.diagnostics.get(DOCUMENT) as vscode.Diagnostic[]).filter(
       (diagnostic) => diagnostic.code !== 'stale-reference-path',
     );
-    const action = actions().find((action) => action.command.command === 'phrase.fixReferencePath');
-    expect(action?.title).toContain('two.phrase.md#bbbbbbbbbb');
-    const handler = world.commandHandlers.get('phrase.fixReferencePath') as unknown as Handler;
+    const action = actions().find((action) => action.command.command === 'stanza.fixReferencePath');
+    expect(action?.title).toContain('two.stanza.md#bbbbbbbbbb');
+    const handler = world.commandHandlers.get('stanza.fixReferencePath') as unknown as Handler;
     await handler(...(action?.command.arguments ?? []));
     expect(world.text).toBe(after);
     expect(world.files.get(DOCUMENT)).toBe(MARKED);
@@ -89,13 +89,13 @@ describe('the quick fix', () => {
 
   it('refuses to canonicalize unrelated source as part of a path quick fix', async () => {
     world.files.set(
-      '/w/p/documents/two.phrase.md',
-      `${FRONT}<!-- phrase: #bbbbbbbbbb -->\n# Target\n`,
+      '/w/p/documents/two.stanza.md',
+      `${FRONT}<!-- stanza: #bbbbbbbbbb -->\n# Target\n`,
     );
-    const before = `${FRONT}[See](old.phrase.md#bbbbbbbbbb)\n\n\n`;
+    const before = `${FRONT}[See](old.stanza.md#bbbbbbbbbb)\n\n\n`;
     changeDocument(before);
-    const handler = world.commandHandlers.get('phrase.fixReferencePath') as unknown as Handler;
-    await handler(world.document?.uri, 'old.phrase.md#bbbbbbbbbb');
+    const handler = world.commandHandlers.get('stanza.fixReferencePath') as unknown as Handler;
+    await handler(world.document?.uri, 'old.stanza.md#bbbbbbbbbb');
     expect(world.errors.at(-1)).toContain('format this document');
     expect(world.text).toBe(before);
   });
@@ -105,7 +105,7 @@ describe('the quick fix', () => {
     expect(rest).toEqual([]);
     expect(action?.title).toBe('Allow strong in the style "body"');
     expect(action?.command).toMatchObject({
-      command: 'phrase.declareVariant',
+      command: 'stanza.declareVariant',
       arguments: [world.document?.uri, 'body', 'strong'],
     });
   });
@@ -149,7 +149,7 @@ describe('the quick fix for a color that is not a token (ADR 0074)', () => {
   beforeEach(async () => {
     reset(
       {
-        '/w/p/phrase.yaml': "phrase-format: 1\ntitle: 'P'\nstylesheet: 'styles/default.yaml'\n",
+        '/w/p/stanza.yaml': "stanza-format: 1\ntitle: 'P'\nstylesheet: 'styles/default.yaml'\n",
         [SHEET]: RAW,
         [DOCUMENT]: MARKED,
       },
@@ -168,12 +168,12 @@ describe('the quick fix for a color that is not a token (ADR 0074)', () => {
   it('is offered on the diagnostic in the stylesheet', () => {
     const [action, ...rest] = sheetActions();
     expect(rest).toEqual([]);
-    expect(action?.command.command).toBe('phrase.useTokens');
+    expect(action?.command.command).toBe('stanza.useTokens');
   });
 
   it('moves the value into a token in the open stylesheet, and clears the problem', async () => {
     const [action] = sheetActions();
-    const handler = world.commandHandlers.get('phrase.useTokens');
+    const handler = world.commandHandlers.get('stanza.useTokens');
     await (handler as unknown as Handler)(...(action?.command.arguments ?? []));
     expect(world.open.get(SHEET)?.text).toContain('color: color-112233');
     expect(world.open.get(SHEET)?.text).toContain("color-112233: '#112233'");

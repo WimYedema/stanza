@@ -1,4 +1,4 @@
-import type { Block, ListItemBlock, Paragraph, Text } from '@phrase/core';
+import type { Block, ListItemBlock, Paragraph, Text } from '@stanza/core';
 import type { ImportContext } from './context.js';
 import type { ListKind } from './numbering.js';
 import { childOf, type XmlElement } from './xml.js';

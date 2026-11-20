@@ -5,7 +5,7 @@ import {
   type Paragraph,
   type TableCell,
   type Text,
-} from '@phrase/core';
+} from '@stanza/core';
 import { BlockWriter, paragraphNumbering } from './block-writer.js';
 import type { ImportContext } from './context.js';
 import { readParagraph } from './paragraph.js';

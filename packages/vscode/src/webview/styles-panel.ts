@@ -13,8 +13,8 @@ import {
   type TableStyle,
   type Tokens,
   type VariantMark,
-} from '@phrase/core';
-import { DEFAULT_VARIANTS } from '@phrase/format';
+} from '@stanza/core';
+import { DEFAULT_VARIANTS } from '@stanza/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
 import type { Entry, Family } from './styles-families.js';
 import { el } from './styles-dom.js';

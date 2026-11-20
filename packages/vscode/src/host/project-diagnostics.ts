@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import type { Fix } from '@phrase/core';
+import type { Fix } from '@stanza/core';
 import {
   loadProject,
   loadProjectConfiguration,
   type LoadedProject,
   type ProjectConfiguration,
-} from '@phrase/project';
+} from '@stanza/project';
 import { groupByFile, type DiagnosticEntry } from './diagnostics.js';
 import { storageOf, uriInProject } from './project-files.js';
 
@@ -22,7 +22,7 @@ export const toDiagnostic = (entry: DiagnosticEntry): vscode.Diagnostic => {
       : vscode.DiagnosticSeverity.Warning,
   );
   diagnostic.code = entry.code;
-  diagnostic.source = 'phrase';
+  diagnostic.source = 'stanza';
   return diagnostic;
 };
 
@@ -41,7 +41,7 @@ interface ProjectState {
 
 /** The Problems panel for the projects that are open: everything `loadProject` checks (ADR 0025). */
 export class ProjectDiagnostics implements vscode.Disposable {
-  private readonly collection = vscode.languages.createDiagnosticCollection('phrase');
+  private readonly collection = vscode.languages.createDiagnosticCollection('stanza');
   /** The files that each project has diagnostics for, to clear those that are in order again. */
   private readonly owned = new Map<string, vscode.Uri[]>();
   private readonly fixes = new Map<string, ReadonlyMap<string, Fix>>();
@@ -59,7 +59,7 @@ export class ProjectDiagnostics implements vscode.Disposable {
   ];
 
   private bufferChanged(document: vscode.TextDocument): void {
-    if (!/\.(?:phrase\.md|ya?ml)$/.test(document.fileName)) return;
+    if (!/\.(?:stanza\.md|ya?ml)$/.test(document.fileName)) return;
     const path = vscode.Uri.file(document.fileName).path;
     for (const state of this.projects.values()) {
       if (path.startsWith(`${state.root.path}/`)) this.invalidate(state.root);
@@ -70,7 +70,7 @@ export class ProjectDiagnostics implements vscode.Disposable {
     const known = this.projects.get(root.toString());
     if (known !== undefined) return known;
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(root, '**/*.{yaml,yml,phrase.md}'),
+      new vscode.RelativePattern(root, '**/*.{yaml,yml,stanza.md}'),
     );
     const invalidate = (): void => {
       this.invalidate(root);

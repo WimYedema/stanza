@@ -13,7 +13,7 @@ const STYLESHEET = readFileSync(
   ),
   'utf8',
 );
-const SOURCE = '---\nphrase-format: 1\n---\n\n<!-- phrase: #aaaaaaaaaa -->\n# Heading\n';
+const SOURCE = '---\nstanza-format: 1\n---\n\n<!-- stanza: #aaaaaaaaaa -->\n# Heading\n';
 
 afterEach(() => {
   vi.unstubAllGlobals();

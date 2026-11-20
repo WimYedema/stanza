@@ -1,11 +1,11 @@
 {
-  "name": "phrase-vscode",
-  "displayName": "Phrase",
-  "description": "A visual editor for Phrase documents (.phrase.md), bound to the Markdown file.",
+  "name": "stanza-vscode",
+  "displayName": "Stanza",
+  "description": "A visual editor for Stanza documents (.stanza.md), bound to the Markdown file.",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "publisher": "phrase-local",
+  "publisher": "stanza-local",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -15,9 +15,9 @@
   ],
   "contributes": {
     "configuration": {
-      "title": "Phrase",
+      "title": "Stanza",
       "properties": {
-        "phrase.exportOnSave": {
+        "stanza.exportOnSave": {
           "type": "boolean",
           "default": true,
           "description": "Write the DOCX of a document into the build folder of its project when the document is saved."
@@ -26,18 +26,18 @@
     },
     "customEditors": [
       {
-        "viewType": "phrase.editor",
-        "displayName": "Phrase Editor",
+        "viewType": "stanza.editor",
+        "displayName": "Stanza Editor",
         "selector": [
           {
-            "filenamePattern": "*.phrase.md"
+            "filenamePattern": "*.stanza.md"
           }
         ],
         "priority": "default"
       },
       {
-        "viewType": "phrase.styles",
-        "displayName": "Phrase Styles",
+        "viewType": "stanza.styles",
+        "displayName": "Stanza Styles",
         "selector": [
           {
             "filenamePattern": "*.yaml"
@@ -49,148 +49,148 @@
     "views": {
       "explorer": [
         {
-          "id": "phrase.outline",
-          "name": "Phrase",
+          "id": "stanza.outline",
+          "name": "Stanza",
           "when": "workspaceFolderCount > 0"
         }
       ]
     },
     "commands": [
       {
-        "command": "phrase.editStyles",
-        "title": "Phrase: Edit Styles"
+        "command": "stanza.editStyles",
+        "title": "Stanza: Edit Styles"
       },
       {
-        "command": "phrase.newProject",
-        "title": "Phrase: New Project"
+        "command": "stanza.newProject",
+        "title": "Stanza: New Project"
       },
       {
-        "command": "phrase.newDocument",
-        "title": "Phrase: New Document"
+        "command": "stanza.newDocument",
+        "title": "Stanza: New Document"
       },
       {
-        "command": "phrase.initializeDocumentList",
-        "title": "Phrase: Initialize Document List"
+        "command": "stanza.initializeDocumentList",
+        "title": "Stanza: Initialize Document List"
       },
       {
-        "command": "phrase.moveDocumentUp",
-        "title": "Phrase: Move Document Up"
+        "command": "stanza.moveDocumentUp",
+        "title": "Stanza: Move Document Up"
       },
       {
-        "command": "phrase.moveDocumentDown",
-        "title": "Phrase: Move Document Down"
+        "command": "stanza.moveDocumentDown",
+        "title": "Stanza: Move Document Down"
       },
       {
-        "command": "phrase.regroupDocument",
-        "title": "Phrase: Move Document to Group"
+        "command": "stanza.regroupDocument",
+        "title": "Stanza: Move Document to Group"
       },
       {
-        "command": "phrase.importWord",
-        "title": "Phrase: Import Word Document"
+        "command": "stanza.importWord",
+        "title": "Stanza: Import Word Document"
       },
       {
-        "command": "phrase.adoptMarkdown",
-        "title": "Phrase: Adopt Markdown File"
+        "command": "stanza.adoptMarkdown",
+        "title": "Stanza: Adopt Markdown File"
       },
       {
-        "command": "phrase.addAgentInstructions",
-        "title": "Phrase: Add Agent Instructions"
+        "command": "stanza.addAgentInstructions",
+        "title": "Stanza: Add Agent Instructions"
       },
       {
-        "command": "phrase.goToHeading",
-        "title": "Phrase: Go to Heading"
+        "command": "stanza.goToHeading",
+        "title": "Stanza: Go to Heading"
       },
       {
-        "command": "phrase.goToLine",
-        "title": "Phrase: Go to Line"
+        "command": "stanza.goToLine",
+        "title": "Stanza: Go to Line"
       },
       {
-        "command": "phrase.makeReference",
-        "title": "Phrase: Make Reference"
+        "command": "stanza.makeReference",
+        "title": "Stanza: Make Reference"
       },
       {
-        "command": "phrase.openInWord",
-        "title": "Phrase: Open in Word",
+        "command": "stanza.openInWord",
+        "title": "Stanza: Open in Word",
         "icon": "$(link-external)"
       }
     ],
     "keybindings": [
       {
-        "command": "phrase.goToHeading",
+        "command": "stanza.goToHeading",
         "key": "ctrl+shift+o",
         "mac": "cmd+shift+o",
-        "when": "activeCustomEditorId == phrase.editor"
+        "when": "activeCustomEditorId == stanza.editor"
       },
       {
-        "command": "phrase.goToLine",
+        "command": "stanza.goToLine",
         "key": "ctrl+g",
-        "when": "activeCustomEditorId == phrase.editor"
+        "when": "activeCustomEditorId == stanza.editor"
       },
       {
-        "command": "phrase.makeReference",
+        "command": "stanza.makeReference",
         "key": "ctrl+shift+k",
-        "when": "activeCustomEditorId == phrase.editor"
+        "when": "activeCustomEditorId == stanza.editor"
       }
     ],
     "menus": {
       "view/item/context": [
         {
-          "command": "phrase.initializeDocumentList",
-          "when": "view == phrase.outline && viewItem == phraseProject",
-          "group": "phrase@1"
+          "command": "stanza.initializeDocumentList",
+          "when": "view == stanza.outline && viewItem == stanzaProject",
+          "group": "stanza@1"
         },
         {
-          "command": "phrase.moveDocumentUp",
-          "when": "view == phrase.outline && viewItem == phraseDocument",
-          "group": "phrase@2"
+          "command": "stanza.moveDocumentUp",
+          "when": "view == stanza.outline && viewItem == stanzaDocument",
+          "group": "stanza@2"
         },
         {
-          "command": "phrase.moveDocumentDown",
-          "when": "view == phrase.outline && viewItem == phraseDocument",
-          "group": "phrase@3"
+          "command": "stanza.moveDocumentDown",
+          "when": "view == stanza.outline && viewItem == stanzaDocument",
+          "group": "stanza@3"
         },
         {
-          "command": "phrase.regroupDocument",
-          "when": "view == phrase.outline && viewItem == phraseDocument",
-          "group": "phrase@4"
+          "command": "stanza.regroupDocument",
+          "when": "view == stanza.outline && viewItem == stanzaDocument",
+          "group": "stanza@4"
         }
       ],
       "commandPalette": [
         {
-          "command": "phrase.moveDocumentUp",
+          "command": "stanza.moveDocumentUp",
           "when": "false"
         },
         {
-          "command": "phrase.moveDocumentDown",
+          "command": "stanza.moveDocumentDown",
           "when": "false"
         },
         {
-          "command": "phrase.regroupDocument",
+          "command": "stanza.regroupDocument",
           "when": "false"
         }
       ],
       "webview/context": [
         {
-          "command": "phrase.makeReference",
-          "when": "webviewId == 'phrase.editor' && webviewSection == 'editor'",
-          "group": "phrase@1"
+          "command": "stanza.makeReference",
+          "when": "webviewId == 'stanza.editor' && webviewSection == 'editor'",
+          "group": "stanza@1"
         }
       ],
       "editor/title": [
         {
-          "command": "phrase.openInWord",
-          "when": "activeCustomEditorId == phrase.editor && !isWeb && !remoteName",
+          "command": "stanza.openInWord",
+          "when": "activeCustomEditorId == stanza.editor && !isWeb && !remoteName",
           "group": "navigation"
         }
       ]
     }
   },
   "dependencies": {
-    "@phrase/core": "*",
-    "@phrase/css": "*",
-    "@phrase/editor": "*",
-    "@phrase/format": "*",
-    "@phrase/project": "*"
+    "@stanza/core": "*",
+    "@stanza/css": "*",
+    "@stanza/editor": "*",
+    "@stanza/format": "*",
+    "@stanza/project": "*"
   },
   "devDependencies": {
     "@types/vscode": "1.90.0",
@@ -198,7 +198,7 @@
   },
   "scripts": {
     "build": "node build.mjs && tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
-    "package": "npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license --out ../../phrase.vsix",
+    "package": "npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license --out ../../stanza.vsix",
     "typecheck:tests": "tsc -p tsconfig.test.json"
   }
 }

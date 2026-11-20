@@ -1,5 +1,5 @@
-import type { Fix } from '@phrase/core';
-import type { ProjectDiagnostic } from '@phrase/project';
+import type { Fix } from '@stanza/core';
+import type { ProjectDiagnostic } from '@stanza/project';
 
 /** A diagnostic of the project as the Problems panel needs it, with plain data only. */
 export interface DiagnosticEntry {

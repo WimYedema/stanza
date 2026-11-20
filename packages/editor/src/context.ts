@@ -6,7 +6,7 @@ import {
   type StyleName,
   type Stylesheet,
   type VariantMark,
-} from '@phrase/core';
+} from '@stanza/core';
 import type { Mark } from '@tiptap/pm/model';
 import type { EditorState } from '@tiptap/pm/state';
 import { styleOf, textStyle } from './block-styles.js';

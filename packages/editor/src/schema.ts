@@ -1,7 +1,7 @@
 import { Mark, Node, mergeAttributes, type Attributes, type Extensions } from '@tiptap/core';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
-import { LIST_CLASS, characterClass, markClass } from '@phrase/css';
-import { isStyleName, resolveLink, type LinkSchemes } from '@phrase/core';
+import { LIST_CLASS, characterClass, markClass } from '@stanza/css';
+import { isStyleName, resolveLink, type LinkSchemes } from '@stanza/core';
 import { Plugin } from '@tiptap/pm/state';
 
 /**
@@ -19,10 +19,10 @@ const id: Attributes[string] = {
 };
 
 /**
- * The name of a style. It travels in the HTML of the clipboard as `data-phrase-style`, never as the
+ * The name of a style. It travels in the HTML of the clipboard as `data-stanza-style`, never as the
  * HTML `style` attribute. A pasted name is only kept if the stylesheet declares it (ADR 0023).
  */
-export const STYLE_ATTRIBUTE = 'data-phrase-style';
+export const STYLE_ATTRIBUTE = 'data-stanza-style';
 
 const style: Attributes[string] = {
   default: null,
@@ -120,12 +120,12 @@ const CodeBlock = Node.create({
   renderHTML: ({ HTMLAttributes }) => ['pre', HTMLAttributes, 0],
 });
 
-/** A `phrase-<kind>` block, kept as it is and shown as a labelled box. */
-export const PHRASE_BLOCK_CLASS = 'phrase-block';
+/** A `stanza-<kind>` block, kept as it is and shown as a labelled box. */
+export const STANZA_BLOCK_CLASS = 'stanza-block';
 
-/** The kind and the body of a phrase block, as they travel in the clipboard HTML. */
-export const KIND_ATTRIBUTE = 'data-phrase-kind';
-export const TEXT_ATTRIBUTE = 'data-phrase-text';
+/** The kind and the body of a stanza block, as they travel in the clipboard HTML. */
+export const KIND_ATTRIBUTE = 'data-stanza-kind';
+export const TEXT_ATTRIBUTE = 'data-stanza-text';
 
 const fromHtml = (attribute: string): Attributes[string] => ({
   default: '',
@@ -133,8 +133,8 @@ const fromHtml = (attribute: string): Attributes[string] => ({
   parseHTML: (element) => element.getAttribute(attribute) ?? '',
 });
 
-const PhraseBlock = Node.create({
-  name: 'phraseBlock',
+const StanzaBlock = Node.create({
+  name: 'stanzaBlock',
   group: 'block listItemBlock',
   atom: true,
   addAttributes: () => ({
@@ -148,13 +148,13 @@ const PhraseBlock = Node.create({
     'div',
     mergeAttributes(
       {
-        class: PHRASE_BLOCK_CLASS,
+        class: STANZA_BLOCK_CLASS,
         [KIND_ATTRIBUTE]: String(node.attrs['kind']),
         [TEXT_ATTRIBUTE]: String(node.attrs['text']),
       },
       HTMLAttributes,
     ),
-    `phrase-${String(node.attrs['kind'])}`,
+    `stanza-${String(node.attrs['kind'])}`,
   ],
 });
 
@@ -189,7 +189,7 @@ const HeaderCell = TableHeader.extend({
 });
 
 // The marks are declared in canonical order (ADR 0005), which is also their order in a run.
-export const LINK_SOURCE_ATTRIBUTE = 'data-phrase-href';
+export const LINK_SOURCE_ATTRIBUTE = 'data-stanza-href';
 
 const linkAttributes = (href: string, schemes: LinkSchemes): Record<string, string> => {
   const target = resolveLink(href, schemes);
@@ -307,7 +307,7 @@ export function schemaExtensions(schemes: () => LinkSchemes = () => ({})): Exten
     OrderedList,
     ListItem,
     CodeBlock,
-    PhraseBlock,
+    StanzaBlock,
     TableNode,
     TableRow,
     Cell,

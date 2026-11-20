@@ -3,7 +3,7 @@ import {
   type AssignIdsOptions,
   type Diagnostic,
   type NodeId,
-} from '@phrase/core';
+} from '@stanza/core';
 import { parseDocument } from './parse.js';
 import { serializeDocument } from './serialize.js';
 

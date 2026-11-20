@@ -3,7 +3,7 @@ import {
   CODE_STYLE,
   LIST_STYLES,
   RESERVED_TABLE_STYLE,
-  TOC_PHRASE_KIND,
+  TOC_STANZA_KIND,
   defaultHeadingStyle,
   readTocOptions,
   resolveTableStyle,
@@ -16,7 +16,7 @@ import {
   type NodeId,
   type StyleName,
   type Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import type { LoadedDocument } from './load.js';
 
 /**
@@ -167,8 +167,8 @@ export function styleUsage(
         case 'code':
           paragraphs.add(block.style ?? CODE_STYLE, { kind, ...place(path, id) });
           break;
-        case 'phrase':
-          if (block.kind === TOC_PHRASE_KIND) {
+        case 'stanza':
+          if (block.kind === TOC_STANZA_KIND) {
             const { depth } = readTocOptions(block.text).options;
             for (let level = 1; level <= depth; level += 1) {
               paragraphs.add(tocStyleName(level), { kind: 'default', ...place(path, id) });

@@ -6,13 +6,13 @@ import {
   type LinkSchemes,
   type StyleName,
   type Stylesheet,
-} from '@phrase/core';
+} from '@stanza/core';
 import { textStyle } from './block-styles.js';
 import type { Notice } from './notice.js';
 import { normalizePastedHtml } from './paste-html.js';
 import { cellPlace } from './selection.js';
 
-export interface PhrasePasteOptions {
+export interface StanzaPasteOptions {
   readonly schemes: () => LinkSchemes;
   /** The stylesheet in force, read whenever something is pasted. */
   readonly stylesheet: () => Stylesheet;
@@ -24,12 +24,12 @@ export interface PhrasePasteOptions {
  * that the style of the text where it landed does not allow are taken off the pasted text, with a
  * notice. Nothing of what was already there is touched.
  */
-export const PhrasePaste = Extension.create<PhrasePasteOptions>({
-  name: 'phrasePaste',
+export const StanzaPaste = Extension.create<StanzaPasteOptions>({
+  name: 'stanzaPaste',
   addOptions: () => ({
     schemes: () => ({}),
     stylesheet: () => {
-      throw new Error('PhrasePaste needs a stylesheet.');
+      throw new Error('StanzaPaste needs a stylesheet.');
     },
     notice: () => undefined,
   }),
@@ -37,7 +37,7 @@ export const PhrasePaste = Extension.create<PhrasePasteOptions>({
     const { stylesheet, notice, schemes } = this.options;
     return [
       new Plugin({
-        key: new PluginKey('phrase-paste'),
+        key: new PluginKey('stanza-paste'),
         props: {
           transformPastedHTML: (html, view) =>
             normalizePastedHtml(
