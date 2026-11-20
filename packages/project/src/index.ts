@@ -45,6 +45,14 @@ export {
   type NewProjectResult,
 } from './new-project.js';
 export { DOCUMENT_SUFFIX, PROJECT_FILE } from './files.js';
+export {
+  LEGACY_DOCUMENT_SUFFIX,
+  LEGACY_PROJECT_FILE,
+  applyMigration,
+  planMigration,
+  type MigrationPlan,
+  type MigrationStep,
+} from './migrate.js';
 export { initializeDocumentList } from './document-list.js';
 export {
   loadProject,

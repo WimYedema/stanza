@@ -20,6 +20,7 @@ import {
 import MarkdownIt, { type Token } from 'markdown-it';
 import { parseAnnotation, type Annotation } from './annotation.js';
 import { FORMAT_VERSION, parseFrontMatter, splitFrontMatter } from './front-matter.js';
+import { LEGACY_FORMAT_CODE } from './legacy.js';
 
 export interface ParseResult {
   readonly document: Document;
@@ -81,7 +82,7 @@ export function parseDocument(source: string): ParseResult {
     formatVersion = front.formatVersion;
     if (
       formatVersion === undefined &&
-      !diagnostics.some((d) => d.code.startsWith('front-matter'))
+      !diagnostics.some((d) => d.code.startsWith('front-matter') || d.code === LEGACY_FORMAT_CODE)
     ) {
       diagnostics.push({
         severity: 'error',

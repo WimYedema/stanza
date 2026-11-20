@@ -1,6 +1,6 @@
 # @stanza/cli
 
-`stanza` command: validate (`--file`, `--max-diagnostics`), build, format (`--file`, `--check`, `--assign-ids`, `--fix-stylesheet`, `--fix-references`), import, adopt (Markdown, ADR 0060). `main.ts` wires the process; `run.ts` is the testable entry with injected cwd and output; `node-storage.ts` implements `ProjectStorage` on the file system.
+`stanza` command: validate (`--file`, `--max-diagnostics`), build, format (`--file`, `--check`, `--assign-ids`, `--fix-stylesheet`, `--fix-references`), import, adopt (Markdown, ADR 0060), migrate (`--check`; a Phrase project to Stanza, ADR 0083). `main.ts` wires the process; `run.ts` is the testable entry with injected cwd and output; `node-storage.ts` implements `ProjectStorage` on the file system, and `nodeRemove` deletes the files that `migrate` renames.
 
 ## Local invocation
 

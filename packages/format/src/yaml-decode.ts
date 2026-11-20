@@ -1,6 +1,7 @@
 import { isStyleName, type Diagnostic, type StyleName } from '@stanza/core';
 import { parseDocument } from 'yaml';
 import { FORMAT_VERSION } from './front-matter.js';
+import { LEGACY_FORMAT_CODE, LEGACY_FORMAT_KEY, LEGACY_FORMAT_MESSAGE } from './legacy.js';
 
 /** Shared helpers for reading the YAML files of a project (stylesheet, project file). */
 
@@ -120,6 +121,16 @@ export function readYamlRoot(source: string, diagnostics: Diagnostic[]): Data | 
     diagnostics.push({ severity: 'error', code, message, path });
   };
   return asMap(document.toJS(), '', report);
+}
+
+/**
+ * Reports a file from before the rename to Stanza (ADR 0083), which has `phrase-format` and no
+ * `stanza-format`. Such a file is not read further, so its other keys give no diagnostics.
+ */
+export function reportLegacyFormat(data: Data, report: Report): boolean {
+  if (data['stanza-format'] !== undefined || data[LEGACY_FORMAT_KEY] === undefined) return false;
+  report(LEGACY_FORMAT_CODE, LEGACY_FORMAT_MESSAGE, LEGACY_FORMAT_KEY);
+  return true;
 }
 
 /** Reads and checks the `stanza-format` property. */

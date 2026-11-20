@@ -17,6 +17,7 @@ import {
   join,
   readBoolean,
   readFormatVersion,
+  reportLegacyFormat,
   readString,
   readYamlRoot,
   type Data,
@@ -157,6 +158,9 @@ export function parseProject(source: string): ProjectParseResult {
 
   const data = readYamlRoot(source, diagnostics);
   if (data === undefined) return { settings: EMPTY, diagnostics, formatVersion: undefined };
+  if (reportLegacyFormat(data, report)) {
+    return { settings: EMPTY, diagnostics, formatVersion: undefined };
+  }
 
   checkKeys(
     data,

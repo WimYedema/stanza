@@ -11,14 +11,16 @@ import {
   formatProject,
   hasErrors,
   adoptMarkdownDocument,
+  applyMigration,
   importWordDocument,
   describeImport,
   loadProject,
+  planMigration,
   useTokensInStylesheet,
   type ProjectDiagnostic,
   type ProjectStorage,
 } from '@stanza/project';
-import { nodeStorage } from './node-storage.js';
+import { nodeRemove, nodeStorage } from './node-storage.js';
 import { cliVersion, docxVersion } from './versions.js';
 
 export interface Io {
@@ -50,14 +52,21 @@ Commands:
                        Add an ordinary Markdown file to the project as a new ${DOCUMENT_SUFFIX}
                        document, in the same way as import. The original is not changed. What
                        the dialect cannot hold is listed.
+  migrate [project]    Turn a project from before Phrase was renamed to Stanza into a Stanza
+                       project: phrase.yaml becomes stanza.yaml, *.phrase.md becomes
+                       *.stanza.md, and the markup in them uses the new names. IDs do not
+                       change. Nothing is written when a new name is taken.
 
 Options for build:
   --out <dir>          Output directory, relative to the project (default: build).
   --date <date>        The date written into the files, as YYYY-MM-DD or with a time and
                        zone. The default is 1980-01-01, so that output is always the same.
 
+Options for format and migrate:
+  --check              Write nothing; list the documents that are not canonical, or the files
+                       that migrate would change.
+
 Options for format:
-  --check              Write nothing; list the documents that are not canonical.
   --assign-ids         Also give every heading and table without an ID a new one, unique in
                        the project. With --check, a missing ID counts as not canonical.
                        Needs a project, not a single file.
@@ -84,7 +93,7 @@ Other options:
 
 The project is a directory with a stanza.yaml file; the default is the current directory.
 Exit codes: 0 no errors, 1 errors in the project (or, with --check, documents that are not
-canonical), 2 wrong usage or a file that cannot be read.
+canonical or a project to migrate), 2 wrong usage or a file that cannot be read.
 `;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2}))?$/;
@@ -177,7 +186,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     command !== 'build' &&
     command !== 'format' &&
     command !== 'import' &&
-    command !== 'adopt'
+    command !== 'adopt' &&
+    command !== 'migrate'
   ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
   }
@@ -254,8 +264,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (command !== 'build' && (values.out !== undefined || values.date !== undefined)) {
     return usage('--out and --date apply to build only.');
   }
-  if (command !== 'format' && values.check === true) {
-    return usage('--check applies to format only.');
+  if (command !== 'format' && command !== 'migrate' && values.check === true) {
+    return usage('--check applies to format and migrate only.');
   }
   const assignIds = values['assign-ids'] === true;
   if (command !== 'format' && assignIds) return usage('--assign-ids applies to format only.');
@@ -337,7 +347,37 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       : 0;
   }
 
-  const storage = open(resolve(io.cwd, project));
+  const root = resolve(io.cwd, project);
+  const storage = open(root);
+
+  if (command === 'migrate') {
+    const plan = await planMigration(storage);
+    io.stdout(plan.diagnostics.map(formatDiagnostic).join(''));
+    if (plan.alreadyMigrated) {
+      io.stdout('This is a Stanza project already; there is nothing to migrate.\n');
+      return 0;
+    }
+    if (plan.steps.length === 0) {
+      io.stdout('Nothing was written.\n');
+      return exitCode(plan.diagnostics);
+    }
+    const check = values.check === true;
+    for (const step of plan.steps) {
+      const what = step.from === step.to ? step.to : `${step.from} -> ${step.to}`;
+      io.stdout(
+        `${check ? 'to migrate' : 'migrated'} ${what} (${plural(step.changes, 'change')})\n`,
+      );
+    }
+    if (!check) await applyMigration(storage, plan, nodeRemove(root));
+    for (const note of plan.notes) io.stdout(`Note: ${note}\n`);
+    const total = plural(plan.steps.length, 'file');
+    io.stdout(
+      check
+        ? `${total} to migrate; run without --check to write them.\n`
+        : `Migrated ${total}; IDs are unchanged. Run "stanza validate" and commit: Git shows the renames.\n`,
+    );
+    return check ? 1 : 0;
+  }
 
   if (command === 'validate') {
     const loaded = await loadProject(storage);

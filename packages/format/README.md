@@ -7,6 +7,7 @@ Text adapter: the Markdown dialect and the YAML files, to and from `core` types.
 - Project format 1 accepts optional `link-schemes`, mapping lowercase scheme names to HTTP(S) templates containing one `{id}` after the authority (ADR 0082). Document checks use these settings without changing authored links.
 - `edit-document-list.ts`: initialize, append, remove, reorder and regroup document entries (ADR 0079). Only the `documents` pair is serialized; comments and unrelated project settings are preserved, unsupported layouts are refused.
 - Comment-preserving stylesheet edits: `edit-stylesheet.ts` (`setProperty`, `unsetProperty`), `declare-variant.ts`, `slot-source.ts`.
+- `legacy.ts` (ADR 0083): the `legacy-format` diagnostic for files with `phrase-format`, and the text rewrites of `stanza migrate`. The only place that knows the old names.
 - `fixtures.test.ts` round-trips `fixtures/format/*.stanza.md`; add a fixture there for a new dialect feature.
 
 ADRs: `docs/INDEX.md` (format and domain, stylesheet and pages).

@@ -37,6 +37,7 @@ import {
   readBoolean,
   readString,
   readFormatVersion,
+  reportLegacyFormat,
   readName,
   readNumber,
   readYamlRoot,
@@ -396,6 +397,9 @@ export function parseStylesheet(source: string): StylesheetParseResult {
 
   const data = readYamlRoot(source, diagnostics);
   if (data === undefined) return { stylesheet: EMPTY, diagnostics, formatVersion: undefined };
+  if (reportLegacyFormat(data, report)) {
+    return { stylesheet: EMPTY, diagnostics, formatVersion: undefined };
+  }
 
   checkKeys(
     data,

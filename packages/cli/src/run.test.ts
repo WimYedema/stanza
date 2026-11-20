@@ -353,8 +353,8 @@ describe('stanza usage', () => {
     [['validate', '--nope'], 'nope'],
     [['validate', '--out', 'x'], '--out and --date apply to build only'],
     [['format', '--date', '2026-03-04'], '--out and --date apply to build only'],
-    [['build', '--check'], '--check applies to format only'],
-    [['validate', '--check'], '--check applies to format only'],
+    [['build', '--check'], '--check applies to format and migrate only'],
+    [['validate', '--check'], '--check applies to format and migrate only'],
     [['build', '--file', 'a.stanza.md'], '--file applies to validate and format only'],
     [['validate', '--file', '../a.stanza.md'], '--file must name a relative'],
     [['validate', '--file', 'styles/default.yaml'], '--file must name a relative'],
@@ -664,5 +664,62 @@ describe('stanza format --fix-stylesheet', () => {
     const other = await stanza('validate', 'project', '--fix-stylesheet');
     expect(other.code).toBe(2);
     expect(other.err).toContain('--fix-stylesheet applies to format only');
+  });
+});
+
+describe('stanza migrate', () => {
+  /** Turns the copied example project back into a Phrase project, as it was before the rename. */
+  function makeLegacy(): void {
+    const project = join(work, 'project');
+    const files = [
+      ['stanza.yaml', 'phrase.yaml'],
+      ['styles/default.yaml', 'styles/default.yaml'],
+      ['documents/introduction.stanza.md', 'documents/introduction.phrase.md'],
+      ['documents/reference.stanza.md', 'documents/reference.phrase.md'],
+    ];
+    for (const [from = '', to = ''] of files) {
+      const text = readFileSync(join(project, ...from.split('/')), 'utf8')
+        .replace(/^stanza-format:/gm, 'phrase-format:')
+        .replace(/^<!-- stanza:/gm, '<!-- phrase:')
+        .replace(/\(stanza:/g, '(phrase:');
+      rmSync(join(project, ...from.split('/')));
+      writeFileSync(join(project, ...to.split('/')), text);
+    }
+  }
+
+  it('reports a Phrase project in validate and names the fix', async () => {
+    makeLegacy();
+    const result = await stanza('validate', 'project');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('phrase.yaml: error legacy-format:');
+    expect(result.out).toContain('stanza migrate');
+  });
+
+  it('lists the files with --check and writes nothing', async () => {
+    makeLegacy();
+    const result = await stanza('migrate', 'project', '--check');
+    expect(result.code).toBe(1);
+    expect(result.out).toContain('to migrate phrase.yaml -> stanza.yaml');
+    expect(result.out).toContain(
+      'to migrate documents/introduction.phrase.md -> documents/introduction.stanza.md',
+    );
+    expect(existsSync(join(work, 'project', 'phrase.yaml'))).toBe(true);
+    expect(existsSync(join(work, 'project', 'stanza.yaml'))).toBe(false);
+  });
+
+  it('migrates the files, after which the project validates and a second run does nothing', async () => {
+    makeLegacy();
+    const result = await stanza('migrate', 'project');
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('Migrated 4 files; IDs are unchanged.');
+    for (const file of ['phrase.yaml', 'documents/introduction.phrase.md']) {
+      expect(existsSync(join(work, 'project', ...file.split('/')))).toBe(false);
+    }
+    expect(readFileSync(join(work, 'project', 'stanza.yaml'), 'utf8')).toContain(
+      'stanza-format: 1',
+    );
+    expect((await stanza('validate', 'project')).code).toBe(0);
+    const again = await stanza('migrate', 'project');
+    expect(again).toMatchObject({ code: 0, out: expect.stringContaining('nothing to migrate') });
   });
 });

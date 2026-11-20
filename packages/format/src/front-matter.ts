@@ -1,5 +1,6 @@
 import type { Diagnostic, DocumentMeta, MetaValue } from '@stanza/core';
 import { parseDocument } from 'yaml';
+import { LEGACY_FORMAT_CODE, LEGACY_FORMAT_KEY, LEGACY_FORMAT_MESSAGE } from './legacy.js';
 
 export const FORMAT_VERSION = 1;
 
@@ -61,6 +62,9 @@ export function parseFrontMatter(
       case 'stanza-format':
         if (typeof value === 'string' && /^\d+$/.test(value)) formatVersion = Number(value);
         else report('front-matter-invalid', '"stanza-format" must be a whole number.');
+        break;
+      case LEGACY_FORMAT_KEY:
+        report(LEGACY_FORMAT_CODE, LEGACY_FORMAT_MESSAGE);
         break;
       case 'title':
         if (typeof value === 'string') title = value;

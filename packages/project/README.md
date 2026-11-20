@@ -7,5 +7,6 @@ Use cases over a `ProjectStorage` port (`storage.ts`); no direct file access. `m
 - Creating: `new-project.ts` with `default-stylesheet.ts`, `new-document.ts`, `import-word.ts`, `adopt-markdown.ts`, `agent-instructions.ts` (the AGENTS.md text with CLI setup, batch workflow and embedded syntax reference, ADRs 0061, 0076); `store-document.ts` is what the last two share (free name, IDs, writing, checking).
 - `document-list.ts` (ADR 0079): explicitly initialize the outline from discovery; preflight and append new/imported/adopted documents to an existing list. No implicit outline creation. A failed list write reports that the new file may already exist; there is no multi-file transaction.
 - `style-usage.ts`: which documents and blocks use each style.
+- `migrate.ts` (ADR 0083): `planMigration` and `applyMigration` turn a Phrase project into a Stanza project; new texts are written before old files are removed. `load.ts` reports a folder with only `phrase.yaml` as `legacy-format`.
 
 ADRs: `docs/INDEX.md` (project and CLI).
