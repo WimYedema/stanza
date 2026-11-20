@@ -3,9 +3,9 @@ import { readDocx, type ReadFailure } from './docx-package.js';
 import { descendantsOf, elementsOf, type XmlElement } from './xml.js';
 
 /**
- * Where a comment is, by the bookmarks of the export (ADR 0009, ADR 0084): `inside` the bookmark
- * of a block, or `after` one when it starts between blocks or in a block without an ID, or
- * `unplaced` when no Stanza bookmark comes before it.
+ * Where a comment is, by the bookmarks of the export (ADR 0009, ADR 0084): `inside` when its
+ * selection holds part of a block with an ID, `after` one when it covers only text without an
+ * ID, or `unplaced` when no Stanza bookmark comes before it.
  */
 export type CommentPlacement = 'inside' | 'after' | 'unplaced';
 
@@ -18,8 +18,13 @@ export interface ReviewComment {
   /** The text of the comment, one line per paragraph. */
   readonly text: string;
   readonly placement: CommentPlacement;
-  /** The block whose bookmark holds the comment, or the last one before it. */
+  /**
+   * The main block: the one whose bookmark holds the start of the comment, else the first one
+   * that starts inside its selection, else the last one before it.
+   */
   readonly block?: NodeId;
+  /** Every block the selection covers, the main block first; just `block` when it is `after`. */
+  readonly blocks: readonly NodeId[];
 }
 
 export interface ReviewReading {
@@ -56,23 +61,41 @@ function commentText(comment: XmlElement): string {
 }
 
 interface Anchor {
-  readonly placement: CommentPlacement;
-  readonly block?: NodeId;
+  /** The last block whose bookmark started before the comment. */
+  readonly before: NodeId | undefined;
+  /**
+   * The blocks the selection covers: the one whose bookmark is open where it starts, then each
+   * one whose bookmark starts within it.
+   */
+  readonly covered: NodeId[];
 }
 
-/** Walks the body in document order and finds the bookmarks and where each comment starts. */
+const UNPLACED = { placement: 'unplaced', blocks: [] } as const;
+
+function placementOf(
+  at: Anchor | undefined,
+): Pick<ReviewComment, 'placement' | 'block' | 'blocks'> {
+  if (at === undefined) return UNPLACED;
+  const [block] = at.covered;
+  if (block !== undefined) return { placement: 'inside', block, blocks: at.covered };
+  if (at.before !== undefined) return { placement: 'after', block: at.before, blocks: [at.before] };
+  return UNPLACED;
+}
+
+/** Walks the body in document order and finds the bookmarks and what each comment covers. */
 function walk(document: XmlElement): { bookmarks: NodeId[]; anchors: Map<string, Anchor> } {
   const bookmarks: NodeId[] = [];
   const seen = new Set<NodeId>();
   const open = new Map<string, NodeId>();
   const anchors = new Map<string, Anchor>();
+  /** Comments whose range has started and not yet ended. */
+  const active = new Set<string>();
   let last: NodeId | undefined;
-  const anchor = (commentId: string | undefined): void => {
+  const start = (commentId: string | undefined, ranged: boolean): void => {
     if (commentId === undefined || anchors.has(commentId)) return;
     const inside = [...open.values()].at(-1);
-    if (inside !== undefined) anchors.set(commentId, { placement: 'inside', block: inside });
-    else if (last !== undefined) anchors.set(commentId, { placement: 'after', block: last });
-    else anchors.set(commentId, { placement: 'unplaced' });
+    anchors.set(commentId, { before: last, covered: inside === undefined ? [] : [inside] });
+    if (ranged) active.add(commentId);
   };
   const visit = (element: XmlElement): void => {
     for (const child of element.children) {
@@ -86,6 +109,10 @@ function walk(document: XmlElement): { bookmarks: NodeId[]; anchors: Map<string,
             seen.add(block);
             bookmarks.push(block);
           }
+          for (const commentId of active) {
+            const covered = anchors.get(commentId)?.covered;
+            if (covered !== undefined && !covered.includes(block)) covered.push(block);
+          }
           open.set(id, block);
           last = block;
           break;
@@ -93,10 +120,15 @@ function walk(document: XmlElement): { bookmarks: NodeId[]; anchors: Map<string,
         case 'bookmarkEnd':
           if (child.attrs['id'] !== undefined) open.delete(child.attrs['id']);
           break;
-        // A comment on a range starts at its range; a comment on a point has only its reference.
         case 'commentRangeStart':
+          start(child.attrs['id'], true);
+          break;
+        case 'commentRangeEnd':
+          if (child.attrs['id'] !== undefined) active.delete(child.attrs['id']);
+          break;
+        // A comment on a point has only its reference.
         case 'commentReference':
-          anchor(child.attrs['id']);
+          start(child.attrs['id'], false);
           break;
         default:
           visit(child);
@@ -118,14 +150,15 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
   const comments = elementsOf(read.parts.comments, 'comment').map((comment): ReviewComment => {
     const id = comment.attrs['id'] ?? '';
     const date = comment.attrs['date'];
-    const at = anchors.get(id) ?? { placement: 'unplaced' };
+    const { placement, block, blocks } = placementOf(anchors.get(id));
     return {
       id,
       author: comment.attrs['author'] ?? '',
       ...(date !== undefined ? { date } : {}),
       text: commentText(comment),
-      placement: at.placement,
-      ...(at.block !== undefined ? { block: at.block } : {}),
+      placement,
+      ...(block !== undefined ? { block } : {}),
+      blocks,
     };
   });
   return { ok: true, review: { bookmarks, comments } };

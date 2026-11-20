@@ -156,7 +156,9 @@ function exitCode(diagnostics: readonly ProjectDiagnostic[]): number {
 
 const commentLine = (c: ReviewComment): string => {
   const when = c.date === undefined ? '' : `, ${c.date.slice(0, 10)}`;
-  return `    ${c.author || 'Unknown'}${when}: ${c.text.replace(/\n/g, ' / ')}\n`;
+  const also = c.blocks.slice(1).map((id) => `#${id}`);
+  const covers = also.length === 0 ? '' : ` (also covers ${also.join(', ')})`;
+  return `    ${c.author || 'Unknown'}${when}: ${c.text.replace(/\n/g, ' / ')}${covers}\n`;
 };
 
 /** Prints the comments of a review by document and heading (ADR 0084). */

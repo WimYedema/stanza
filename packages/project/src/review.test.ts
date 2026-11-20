@@ -24,6 +24,7 @@ const comment = (id: string, block?: NodeId): ReviewReading['comments'][number] 
   text: `Comment ${id}`,
   placement: block === undefined ? 'unplaced' : 'inside',
   ...(block !== undefined ? { block } : {}),
+  blocks: block === undefined ? [] : [block],
 });
 
 describe('inspectReview', () => {

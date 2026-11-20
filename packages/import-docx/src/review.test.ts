@@ -44,6 +44,7 @@ describe('readReview', () => {
         text: 'Why this control?\nSecond line.',
         placement: 'inside',
         block: A,
+        blocks: [A],
       },
       {
         id: '1',
@@ -52,8 +53,41 @@ describe('readReview', () => {
         text: 'Add a diagram.',
         placement: 'after',
         block: A,
+        blocks: [A],
       },
     ]);
+  });
+
+  it('takes the first block inside a selection that starts in text without an ID', () => {
+    const C = 'cccccccccc';
+    const bytes = buildDocx({
+      body:
+        block(1, A, run('Heading A')) +
+        para('<w:commentRangeStart w:id="0"/>' + run('Text without an ID.')) +
+        block(2, B, run('Heading B')) +
+        block(3, C, run('Heading C') + '<w:commentRangeEnd w:id="0"/>') +
+        block(4, 'dddddddddd', run('After the selection')),
+      comments: comment(0, 'Spans three paragraphs.'),
+    });
+    const read = readReview(bytes);
+    expect(read.ok && read.review.comments[0]).toMatchObject({
+      placement: 'inside',
+      block: B,
+      blocks: [B, C],
+    });
+  });
+
+  it('keeps the block where a selection starts, and adds the blocks it runs into', () => {
+    const bytes = buildDocx({
+      body:
+        para(
+          `<w:bookmarkStart w:id="1" w:name="stanza_${A}"/><w:commentRangeStart w:id="0"/>` +
+            `${run('Start')}<w:bookmarkEnd w:id="1"/>`,
+        ) + block(2, B, run('End') + '<w:commentRangeEnd w:id="0"/>'),
+      comments: comment(0, 'Across a heading.'),
+    });
+    const read = readReview(bytes);
+    expect(read.ok && read.review.comments[0]).toMatchObject({ block: A, blocks: [A, B] });
   });
 
   it('reads phrase_ bookmarks of files exported before the rename', () => {
