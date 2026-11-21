@@ -88,7 +88,7 @@ Cover layout table, page breaks, merged cells, original column widths, and the m
 <!-- stanza: #7w867tqhz7 -->
 ## Review round trip in Word
 
-Backlog item 203, 2026-11-21. One generated document (ADR 0002: 12 bookmarks, headings on three levels, paragraphs, numbered lists and a table) was commented in Word desktop, and a copy without the protection was commented in Word for the web on SharePoint. Both used a personal Microsoft account. The web copy was shared through SharePoint to make mentions work, and some of the package changes below may come from that sharing rather than from Word for the web. In a second round, the web copy was opened in Word desktop from the synced OneDrive folder, and a reply, a resolve and a reaction were added there.
+Backlog item 203, 2026-11-21. One generated document (ADR 0002: 12 bookmarks, headings on three levels, paragraphs, numbered lists and a table) was commented in Word desktop, and a copy without the protection was commented in Word for the web on SharePoint. Both used a personal Microsoft account. The web copy was shared through SharePoint to make mentions work, and some of the package changes below may come from that sharing rather than from Word for the web. In a second round, the web copy was opened in Word desktop from the synced OneDrive folder, and a reply, a resolve and a reaction were added there. In a third round, the same was done to the same file in Word for the web, and the file was read from the synced folder.
 
 <!-- stanza: #d5tskrncnm -->
 ### Protection
@@ -129,11 +129,11 @@ The protection that is always on therefore rules out review in Word for the web.
 <!-- stanza: #rd2bqmzvq1 -->
 ### Replies, resolving and reactions
 
-Seen in the second round, in Word desktop:
+Seen in the second round, in Word desktop, and the same in the third, in Word for the web:
 
 - **A reply** is a comment of its own, with its own `durableId`, `dateUtc` and comment range around the same text as the comment it answers. It is linked to that comment by `w15:paraIdParent` in `commentsExtended.xml`, which holds the paragraph ID of the parent. A thread is therefore one comment and the replies that name it as their parent.
 - **Resolving** sets `w15:done="1"` on the comment. Nothing else changes, and the comment stays in the file.
-- **A reaction** (thumbs up) is stored in `commentsExtensible.xml`, in an extension of the comment it is on: `cr:reaction` with a `reactionType` (1 for thumbs up), the time in UTC, and the user by ID, account provider and display name.
+- **A reaction** (thumbs up) is stored in `commentsExtensible.xml`, in an extension of the comment it is on: `cr:reaction` with a `reactionType` (1 for thumbs up), the time in UTC, and the user by ID, account provider and display name. A reply can have a reaction of its own.
 
 <!-- stanza: #fqvfvsjcyb -->
 ### Mentions
@@ -155,6 +155,8 @@ Seen in the second round, in Word desktop:
 
 While the document was open in Word desktop from the OneDrive folder, AutoSave sent the changes to the cloud, and the file in the local folder stayed as it was. It was only updated after the document was closed and the OneDrive client had synced it. A pull from the synced folder can therefore read an older version than the reviewers see, without any sign of it.
 
+Changes made in Word for the web reached the local folder in about a minute, with nothing to close. That file looked like a save by Word desktop (small `w:id` values, `w:date` marked with `Z`, times to the minute, the empty parts present), while the copy from "Download a copy" in the first round had random `w:id` values and milliseconds. The form of the file depends on how it leaves the cloud, not on the Word that was used, so a pull must read both forms.
+
 <!-- stanza: #4ggxk18qv1 -->
 ### Found on the way
 
@@ -171,7 +173,6 @@ While the document was open in Word desktop from the OneDrive folder, AutoSave s
 <!-- stanza: #931ks3q31x -->
 ### Not yet tested
 
-- Replies, resolving and reactions saved by Word for the web itself: the second round was saved by Word desktop.
-- How long the synced folder lags behind while a document stays open.
+- How long the synced folder lags behind while a document stays open in Word desktop.
 - Updating the table of contents under the protection: the document had no table of contents.
 - A work tenant: sharing for review only, mentions, and whether sharing changes the package.
