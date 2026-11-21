@@ -14,14 +14,26 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       # Build, test typecheck, tests, lint, format check and docs check, as locally.
       - run: npm run check
+      - name: Package
+        if: runner.os == 'Linux'
+        run: npm run package -w stanza
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Linux'
+        with:
+          name: stanza-vsix
+          path: packages/vscode/stanza.vsix

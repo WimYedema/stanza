@@ -1,11 +1,31 @@
 {
-  "name": "stanza-vscode",
-  "displayName": "Stanza",
+  "name": "stanza",
+  "displayName": "Stanza Docs",
   "description": "A visual editor for Stanza documents (.stanza.md), bound to the Markdown file.",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
+  "publisher": "ienfald",
+  "preview": true,
+  "icon": "media/icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WimYedema/stanza.git",
+    "directory": "packages/vscode"
+  },
+  "homepage": "https://github.com/WimYedema/stanza#readme",
+  "bugs": {
+    "url": "https://github.com/WimYedema/stanza/issues"
+  },
+  "keywords": [
+    "markdown",
+    "docx",
+    "word",
+    "documentation",
+    "technical writing",
+    "editor"
+  ],
   "type": "module",
-  "publisher": "stanza-local",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -193,12 +213,13 @@
     "@stanza/project": "*"
   },
   "devDependencies": {
-    "@types/vscode": "1.90.0",
+    "@types/vscode": "~1.90.0",
+    "@vscode/vsce": "^4.1.1",
     "fflate": "^0.8.3"
   },
   "scripts": {
     "build": "node build.mjs && tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
-    "package": "npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license --out ../../stanza.vsix",
+    "package": "vsce package --no-dependencies --out stanza.vsix",
     "typecheck:tests": "tsc -p tsconfig.test.json"
   }
 }
