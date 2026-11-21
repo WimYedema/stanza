@@ -103,7 +103,7 @@ packages/
   project/       project storage port, loading, validation, formatting and building (ADR 0014, 0015)
   cli/           validate, build, format, import and adopt commands (Node)
   editor/        Tiptap schema, conversion to and from the domain model, the editor, its commands and paste (ADR 0022, 0023, 0024)
-  vscode/        VS Code extension, called stanza (ienfald.stanza): custom text editor and diagnostics (ADR 0025)
+  vscode/        VS Code extension, called stanza-docs (ienfald.stanza-docs): custom text editor and diagnostics (ADR 0025)
 ```
 
 `core`, `format`, `export-docx`, `import-docx`, `css`, and `project` use no Node built-ins and no DOM. A PDF adapter would be a further package. A lint rule enforces the boundaries.

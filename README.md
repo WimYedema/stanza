@@ -29,7 +29,7 @@ On Windows, run the tests from a path with an uppercase drive letter (`C:\...`).
 Stanza is available as an **alpha pre-release** on the Marketplace: search for "Stanza" in the Extensions view and install the pre-release, or run:
 
 ```sh
-code --install-extension ienfald.stanza --pre-release
+code --install-extension ienfald.stanza-docs --pre-release
 ```
 
 To publish a new version, bump `version` in `packages/vscode/package.json`, add it to `packages/vscode/CHANGELOG.md` and push a matching tag (`v0.1.1`); the release workflow checks and publishes it.

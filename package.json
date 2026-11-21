@@ -11,8 +11,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b && npm run build --workspace stanza",
-    "package": "npm run build && npm run package -w stanza",
+    "build": "tsc -b && npm run build --workspace stanza-docs",
+    "package": "npm run build && npm run package -w stanza-docs",
     "typecheck:tests": "npm run typecheck:tests --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint .",

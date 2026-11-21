@@ -1,5 +1,5 @@
 {
-  "name": "stanza",
+  "name": "stanza-docs",
   "displayName": "Stanza Docs",
   "description": "A visual editor for Stanza documents (.stanza.md), bound to the Markdown file.",
   "version": "0.1.0",
