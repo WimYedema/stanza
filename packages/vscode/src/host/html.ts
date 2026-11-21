@@ -168,7 +168,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   </div>
 </div>
 <div id="refused" hidden></div>
-<script nonce="${nonce}" src="${scriptUri}"></script>
+<script type="module" nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>
 `;

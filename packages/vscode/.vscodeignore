@@ -5,5 +5,4 @@
 !LICENSE
 !media/icon.png
 !dist/extension.cjs
-!dist/webview.js
-!dist/styles.js
+!dist/*.js
