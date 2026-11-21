@@ -84,3 +84,94 @@ Relevant to the Pandoc decision (ADR 0002):
 ## Not reproduced
 
 Cover layout table, page breaks, merged cells, original column widths, and the metadata block (the title block must be generated from metadata).
+
+<!-- stanza: #7w867tqhz7 -->
+## Review round trip in Word
+
+Backlog item 203, 2026-11-21. One generated document (ADR 0002: 12 bookmarks, headings on three levels, paragraphs, numbered lists and a table) was commented in Word desktop, and a copy without the protection was commented in Word for the web on SharePoint. Both used a personal Microsoft account. The web copy was shared through SharePoint to make mentions work, and some of the package changes below may come from that sharing rather than from Word for the web. In a second round, the web copy was opened in Word desktop from the synced OneDrive folder, and a reply, a resolve and a reaction were added there.
+
+<!-- stanza: #d5tskrncnm -->
+### Protection
+
+- **Word desktop:** the protection for comments (ADR 0030) holds. Typing in the text is refused, and the protection is saved back unchanged.
+- **Word for the web:** a protected document opens read-only. Existing comments are visible, but new comments and replies cannot be added, and editing the document is refused with a message that it only works in the desktop app. The copy without the protection can be commented on as usual.
+
+The protection that is always on therefore rules out review in Word for the web.
+
+<!-- stanza: #9kgxc4tr86 -->
+### Bookmarks and anchors
+
+- All 12 `stanza_<id>` bookmarks survive in both, with the same names and positions. Word desktop only reorders their attributes.
+- A bookmark covers only the heading paragraph, or the first cell of a table. Paragraphs and list items have no ID and so no bookmark.
+- A comment can therefore be mapped by where its range starts: in a heading to that heading, in a paragraph or list item to the section of the heading before it, and in a table cell to the table plus the row and column, counted in the table.
+- A comment across sections is normal, not an edge case: both such comments started in one section and ended two or three headings further on.
+
+<!-- stanza: #at3hfy096q -->
+| Comment on | Word desktop | Word for the web |
+| --- | --- | --- |
+| The title | Inside the bookmark of the heading | Starts inside the bookmark, ends just after it |
+| Several sections | From the paragraph after the title to a list item under Decision, Host, past three heading bookmarks | From the heading Context to a paragraph under Decision, Host |
+| A list item | In the list item, with no bookmark of its own | The same |
+| A table cell | Row 4, column 2, counting the header row; the table bookmark covers only the first cell | Row 2, column 2, the same |
+
+<!-- stanza: #fmh9vzd4xh -->
+### Identity and time of a comment
+
+<!-- stanza: #3t18m8a6rh -->
+| Field | Word desktop | Word for the web | Use for a pull |
+| --- | --- | --- | --- |
+| `w:id` | Small, with gaps (1, 2, 6, 9); renumbered on every save | Large and random | No |
+| `durableId` in `commentsIds.xml`, keyed by the paragraph ID of the comment | Present, and kept when Word desktop saved the web copy | Present | The identity of a comment |
+| `w:date` | Local time marked with `Z` | Local time without a zone | No |
+| `dateUtc` in `commentsExtensible.xml` | Correct, to the minute; the milliseconds of the web copy are dropped on saving | Correct, to the millisecond | The time of a comment |
+| `w15:done` in `commentsExtended.xml` | 0, and 1 once resolved | 0 | The resolved state |
+
+<!-- stanza: #rd2bqmzvq1 -->
+### Replies, resolving and reactions
+
+Seen in the second round, in Word desktop:
+
+- **A reply** is a comment of its own, with its own `durableId`, `dateUtc` and comment range around the same text as the comment it answers. It is linked to that comment by `w15:paraIdParent` in `commentsExtended.xml`, which holds the paragraph ID of the parent. A thread is therefore one comment and the replies that name it as their parent.
+- **Resolving** sets `w15:done="1"` on the comment. Nothing else changes, and the comment stays in the file.
+- **A reaction** (thumbs up) is stored in `commentsExtensible.xml`, in an extension of the comment it is on: `cr:reaction` with a `reactionType` (1 for thumbs up), the time in UTC, and the user by ID, account provider and display name.
+
+<!-- stanza: #fqvfvsjcyb -->
+### Mentions
+
+- In Word desktop with a personal account, typing `@` does nothing.
+- In Word for the web, after sharing the document through SharePoint, a mention works. It is stored in the text of the comment as a `HYPERLINK` field to `mailto:` and the email address of the person, with a bookmark named `_@_<guid>`. `people.xml` lists each author with the account provider and a user ID.
+- With a work account the address is probably the work address; this was not checked. Either way, a pull that keeps comments as written would put email addresses and account IDs into Git.
+
+<!-- stanza: #0z40q3cz65 -->
+### Other changes on the way back
+
+- The text is unchanged in both. Word for the web only wrote one apostrophe as a character instead of `&apos;`. There are no tracked changes; Word for the web wrote tracking as explicitly off. The fields in the header and footer are unchanged.
+- The web copy gained an empty `docProps/custom.xml`, revision IDs and an explicit `Normal` style, and lost the empty footnote, endnote and web settings parts.
+- When Word desktop saved the web copy, the text and all 12 bookmarks were still unchanged, and the mention kept its `mailto:` address. Word desktop removed the empty `docProps/custom.xml` again, restored the empty footnote, endnote and web settings parts, and dropped the setting for tracking.
+- The author in the file properties is "Un-named": the exporter does not set it. The last author is set by Word to the display name of whoever saved the file.
+
+<!-- stanza: #z0e00yn7tq -->
+### The synced folder
+
+While the document was open in Word desktop from the OneDrive folder, AutoSave sent the changes to the cloud, and the file in the local folder stayed as it was. It was only updated after the document was closed and the OneDrive client had synced it. A pull from the synced folder can therefore read an older version than the reviewers see, without any sign of it.
+
+<!-- stanza: #4ggxk18qv1 -->
+### Found on the way
+
+`stanza build` stops with an unhandled `EBUSY` error when one of the output files is open in Word, which is the normal state during a review. It should report the file and write the others.
+
+<!-- stanza: #qp4dcscect -->
+### Consequences
+
+- ADR 0030 needs revising: the protection cannot be on for a document that goes to SharePoint. The pull of item 140 then has to be the guard, since it already reports changed text and tracked changes.
+- Item 138: whether custom properties written by Stanza survive SharePoint is still open; only an empty part was seen.
+- Item 140: a comment is identified by its `durableId` and timed by `dateUtc`; it is mapped by the start of its range, with the sections it crosses reported; a table cell is given by row and column; a mention keeps the display name only, never the address. Replies are grouped under their comment by `w15:paraIdParent`, and the resolved state comes from `w15:done`. A reaction keeps at most its type and display name, never the user ID. Whether paragraphs and list items need finer anchors than their section, for example by storing the commented text, is for the ADR of item 140.
+- Items 134 and 140: a file in the synced folder can be older than the copy in the cloud. The pull should at least show the time the file was last saved (from the file properties), so that the author can see when it is behind.
+
+<!-- stanza: #931ks3q31x -->
+### Not yet tested
+
+- Replies, resolving and reactions saved by Word for the web itself: the second round was saved by Word desktop.
+- How long the synced folder lags behind while a document stays open.
+- Updating the table of contents under the protection: the document had no table of contents.
+- A work tenant: sharing for review only, mentions, and whether sharing changes the package.
