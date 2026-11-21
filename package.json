@@ -1,7 +1,8 @@
 {
-  "name": "stanza",
+  "name": "stanza-workspace",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -10,7 +11,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b && npm run build --workspace stanza-vscode",
+    "build": "tsc -b && npm run build --workspace stanza-docs",
+    "package": "npm run build && npm run package -w stanza-docs",
     "typecheck:tests": "npm run typecheck:tests --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint .",

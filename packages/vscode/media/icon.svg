@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Stanza: a stack of documents, the front one with two stanzas. Source of icon.png (256 x 256). -->
+  <rect width="256" height="256" rx="52" fill="#c4661b"/>
+  <path d="M100 40a14 14 0 0 1 14-14h68l30 30v122a14 14 0 0 1-14 14h-84a14 14 0 0 1-14-14z" fill="#e7a66f"/>
+  <path d="M182 26v20a10 10 0 0 0 10 10h20z" fill="#f3d2b5"/>
+  <path d="M78 58a14 14 0 0 1 14-14h68l30 30v122a14 14 0 0 1-14 14h-84a14 14 0 0 1-14-14z" fill="#f3d2b5"/>
+  <path d="M160 44v20a10 10 0 0 0 10 10h20z" fill="#ffffff"/>
+  <path d="M54 76a14 14 0 0 1 14-14h68l30 30v122a14 14 0 0 1-14 14h-84a14 14 0 0 1-14-14z" fill="#ffffff"/>
+  <path d="M136 62v20a10 10 0 0 0 10 10h20z" fill="#f3d2b5"/>
+  <path d="M76 118h66M76 138h44M76 158h56M76 188h68M76 208h32" stroke="#c4661b" stroke-width="11" stroke-linecap="round" fill="none"/>
+</svg>

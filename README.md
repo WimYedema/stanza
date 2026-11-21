@@ -11,7 +11,7 @@
 
 ## Development
 
-Requires Node 22 or later.
+Requires Node 22 or later; CI uses Node 24.
 
 ```text
 npm install
@@ -22,15 +22,27 @@ npm run docs:fix canonical form and IDs for the documents in docs/documents/
 
 Packages live in `packages/`. Architecture decisions are recorded in `docs/documents/`.
 
+On Windows, run the tests from a path with an uppercase drive letter (`C:\...`). The VS Code terminal can start in `c:\...`, and Vitest then loads itself twice and every test file fails with `Cannot read properties of undefined (reading 'config')`. `cd C:\path\to\stanza` first.
+
 ## Install the VS Code extension
 
-```text
-npm run build
-npm run package --workspace stanza-vscode
-code --install-extension stanza.vsix --force
+Stanza is available as an **alpha pre-release** on the Marketplace: search for "Stanza" in the Extensions view and install the pre-release, or run:
+
+```sh
+code --install-extension ienfald.stanza-docs --pre-release
 ```
 
-This writes `stanza.vsix` at the root (ignored by Git) and installs it. `*.stanza.md` files then open in the Stanza editor, and "Open With" on a project's stylesheet offers Stanza Styles. Reload the window after installing a new version. The packaging tool is fetched by `npx` when it runs and is not a dependency of the project.
+To publish a new version, bump `version` in `packages/vscode/package.json`, add it to `packages/vscode/CHANGELOG.md` and push a matching tag (`v0.1.1`); the release workflow checks and publishes it.
+
+### From source
+
+```sh
+npm install
+npm run package
+code --install-extension packages/vscode/stanza.vsix --force
+```
+
+This builds everything and writes `packages/vscode/stanza.vsix` (ignored by Git). `*.stanza.md` files then open in the Stanza editor, and "Open With" on a project's stylesheet offers Stanza Styles. Reload the window after installing a new version.
 
 To start a project, run "Stanza: New Project" from the Command Palette, pick a folder and give a title. It writes `stanza.yaml`, a default stylesheet in `styles/default.yaml` and a first document in `documents/`, and opens the document. The folder should be open as a workspace folder, so that the editor finds the project.
 
