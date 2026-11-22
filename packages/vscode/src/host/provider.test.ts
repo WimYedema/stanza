@@ -1256,3 +1256,66 @@ describe('following a reference', () => {
     expect(world.commands).toEqual([]);
   });
 });
+
+describe('review threads (ADR 0086)', () => {
+  const REVIEW = `---
+stanza-format: 1
+title: "Review of T"
+reviews: "documents/one.stanza.md"
+---
+
+<!-- stanza: #r1r1r1r1r1 -->
+# Review of T
+
+<!-- stanza: #r2r2r2r2r2 -->
+## Why this?
+
+On [One](../documents/one.stanza.md#k7m2q9x4zb), at "One".
+
+Status: open. Word comment 2E3C8848.
+
+**Ada Reviewer, 2026-11-21 15:05 UTC:** Why this?
+`;
+
+  it('sends the threads of the review documents of the document, and none for a document without', async () => {
+    open(CANONICAL, '\n', files({ '/w/p/reviews/one-2026-11-21.stanza.md': REVIEW }));
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'review-threads' }));
+    });
+    const message = (world.posted as HostMessage[]).find((m) => m.type === 'review-threads');
+    expect(message).toEqual({
+      type: 'review-threads',
+      threads: [
+        {
+          key: 'reviews/one-2026-11-21.stanza.md#r2r2r2r2r2',
+          review: 'reviews/one-2026-11-21.stanza.md',
+          headingId: 'r2r2r2r2r2',
+          title: 'Why this?',
+          anchor: 'k7m2q9x4zb',
+          quote: { start: 'One' },
+          status: 'open',
+          wordComment: '2E3C8848',
+          comments: [
+            {
+              author: 'Ada Reviewer',
+              time: '2026-11-21 15:05 UTC',
+              text: 'Why this?',
+              reactions: [],
+            },
+          ],
+          notes: [],
+        },
+      ],
+    });
+  });
+
+  it('sends nothing for a document that has no review', async () => {
+    open();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'project-ready' }));
+    });
+    expect((world.posted as HostMessage[]).some((m) => m.type === 'review-threads')).toBe(false);
+  });
+});

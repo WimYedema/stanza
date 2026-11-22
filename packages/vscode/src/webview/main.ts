@@ -13,6 +13,7 @@ import {
   type HostMessage,
   type MetadataField,
   type Reason,
+  type ReviewThreadView,
   type WebviewMessage,
 } from '../shared/protocol.js';
 import { createChangesBar } from './changes.js';
@@ -58,6 +59,29 @@ let editor: StanzaEditor | undefined;
 let usedIds = new Set<string>();
 /** What the checks of the project say about this document, shown on the blocks. */
 let inline: readonly Diagnostic[] = [];
+/** The threads of the review documents of this document (ADR 0086), as the host sent them. */
+let threads: readonly ReviewThreadView[] = [];
+
+/** Places the open threads in the text and highlights them; resolved ones come with the cards. */
+function showThreads(): void {
+  if (editor === undefined) return;
+  editor.setReviewThreads(
+    threads
+      .filter((thread) => thread.status === 'open')
+      .map((thread) => {
+        const [first, ...replies] = thread.comments;
+        const more = replies.length === 0 ? '' : ` (${String(replies.length)} more)`;
+        const label = first === undefined ? thread.title : `${first.author}: ${first.text}${more}`;
+        return {
+          key: thread.key,
+          ...(thread.anchor !== undefined ? { anchor: thread.anchor } : {}),
+          ...(thread.position !== undefined ? { position: thread.position } : {}),
+          ...(thread.quote !== undefined ? { quote: thread.quote } : {}),
+          label,
+        };
+      }),
+  );
+}
 /** What the editor holds, as text. What was sent last is the same, unless a send is waiting. */
 let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
@@ -305,6 +329,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
   });
   info.setStylesheet(sheet.stylesheet);
   editor.setDiagnostics(inline);
+  showThreads();
   toolbar.refresh();
   info.refresh();
   measurePaint('visible');
@@ -414,6 +439,10 @@ function handle(message: HostMessage): void {
         ...(entry.nodeId !== undefined && isNodeId(entry.nodeId) ? { nodeId: entry.nodeId } : {}),
       }));
       editor?.setDiagnostics(inline);
+      return;
+    case 'review-threads':
+      threads = message.threads;
+      showThreads();
       return;
     case 'declared':
       declared(message.ok, message.message);

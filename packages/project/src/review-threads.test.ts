@@ -1,0 +1,108 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { parseDocument } from '@stanza/format';
+import { memoryStorage } from './memory-storage.testing.js';
+import { pullReview } from './review-pull.js';
+import { positionOf, quoteOf, reviewThreads } from './review-threads.js';
+
+const FIXTURES = new URL('../../import-docx/fixtures/review-round-trip/', import.meta.url);
+const SOURCE = readFileSync(new URL('0002-host-and-dependencies.stanza.md', FIXTURES), 'utf8');
+const REVIEWED = 'documents/0002-host-and-dependencies.stanza.md';
+
+let counter = 0;
+/** A review document as `review pull` writes it for a fixture (ADR 0084). */
+async function pulled(name: string): Promise<{ path: string; text: string }> {
+  const storage = memoryStorage({
+    'stanza.yaml': "stanza-format: 1\ntitle: 'Review test'\nstylesheet: 'styles/default.yaml'\n",
+    'styles/default.yaml': readFileSync(
+      new URL('../../../docs/styles/default.yaml', import.meta.url),
+      'utf8',
+    ),
+    [REVIEWED]: SOURCE,
+  });
+  const result = await pullReview(storage, readFileSync(new URL(name, FIXTURES)), {
+    fileName: name,
+    randomBytes: () => Uint8Array.from({ length: 10 }, (_v, i) => (counter++ * 7 + i * 13) % 256),
+  });
+  if (!result.ok) throw new Error(result.message);
+  return { path: result.document, text: storage.texts.get(result.document) ?? '' };
+}
+
+describe('reviewThreads (ADR 0086)', () => {
+  it('reads back every thread that review pull wrote, with its anchor and hints', async () => {
+    const { path, text } = await pulled('web-replies-resolved-reaction.docx');
+    const threads = reviewThreads(path, parseDocument(text).document);
+    expect(threads.map((t) => [t.title, t.anchor, t.status])).toEqual([
+      ['Comment in heading', '6jps6cyntz', 'open'],
+      ['Comment on several sections', 'b2qjj8ze19', 'open'],
+      ['Comment in a list', 'vkpazyqv7x', 'resolved'],
+      ['Comment in a table', 'x6gmjy7p23', 'resolved'],
+      ['@Ada Reviewer', 'x6gmjy7p23', 'open'],
+    ]);
+    const [heading, across, list, cell, after] = threads;
+    expect(heading?.review).toBe(path);
+    expect(heading?.headingId).toBeDefined();
+    expect(heading?.wordComment).toBe('78989E62');
+    expect(heading?.comments).toEqual([
+      {
+        author: 'Ada Reviewer',
+        time: '2026-11-21 15:25 UTC',
+        text: 'Comment in heading',
+        reactions: ['thumbs up (Ada Reviewer)'],
+      },
+      { author: 'Ada Reviewer', time: '2026-11-21 16:08 UTC', text: 'Replying', reactions: [] },
+    ]);
+    expect(across?.quote?.end).toBeDefined();
+    expect(list).toMatchObject({
+      position: { kind: 'under', paragraph: 4 },
+      quote: { start: 'host' },
+    });
+    expect(cell).toMatchObject({
+      position: { kind: 'cell', row: 2, column: 2 },
+      quote: { start: 'Domain' },
+    });
+    expect(after).toMatchObject({
+      position: { kind: 'after', paragraph: 1 },
+      quote: { start: 'Node' },
+    });
+  });
+
+  it('reads the notes of a change found in the file', async () => {
+    const { path, text } = await pulled('stamped-desktop-then-web.docx');
+    const threads = reviewThreads(path, parseDocument(text).document);
+    expect(threads.every((t) => t.comments.length > 0)).toBe(true);
+    const edited = `${text}\n<!-- stanza: #zzzzzzzzzz -->\n## Changed text\n\nUnder [Host](../${REVIEWED}#vkpazyqv7x).\n\nStatus: open. Changed in the file, not applied.\n\n**Was:** One.\n\n**Is now:** Two.\n`;
+    const change = reviewThreads(path, parseDocument(edited).document).at(-1);
+    expect(change).toMatchObject({ title: 'Changed text', anchor: 'vkpazyqv7x', status: 'open' });
+    expect(change?.comments).toEqual([]);
+    expect(change?.notes).toEqual(['Was: One.', 'Is now: Two.']);
+  });
+
+  it('keeps what it can read of a thread the author rewrote', () => {
+    const text =
+      '---\nstanza-format: 1\nreviews: "documents/a.stanza.md"\n---\n\n<!-- stanza: #k7m2q9x4zb -->\n## Something\n\nI rewrote this sentence by hand.\n';
+    expect(reviewThreads('reviews/a.stanza.md', parseDocument(text).document)).toEqual([
+      {
+        review: 'reviews/a.stanza.md',
+        headingId: 'k7m2q9x4zb',
+        title: 'Something',
+        status: 'open',
+        comments: [],
+        notes: [],
+      },
+    ]);
+  });
+});
+
+describe('the hints of a place', () => {
+  it('reads positions and quotes, also a long quote by its two ends', () => {
+    expect(positionOf('In the 12th paragraph under [Host](x#a), at "y".')).toEqual({
+      kind: 'under',
+      paragraph: 12,
+    });
+    expect(positionOf('On [Context](x#a), at "y".')).toBeUndefined();
+    expect(quoteOf('On [x](y), at "He said "no" here".')).toEqual({ start: 'He said "no" here' });
+    expect(quoteOf('On x, at "start…end".')).toEqual({ start: 'start', end: 'end' });
+    expect(quoteOf('On x.')).toBeUndefined();
+  });
+});

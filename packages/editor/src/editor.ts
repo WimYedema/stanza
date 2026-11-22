@@ -48,6 +48,19 @@ import {
   type EditorPosition,
 } from './position.js';
 import { STANZA_BLOCK_CLASS, schemaExtensions } from './schema.js';
+import {
+  ReviewHighlights,
+  highlightThreads,
+  placeThread,
+  type Placement,
+  type ThreadPlace,
+} from './review-threads.js';
+
+/** Where a review thread is in the text of the editor. */
+export interface PlacedThread {
+  readonly key: string;
+  readonly placement: Placement;
+}
 
 /**
  * What the editor needs beyond the generated stylesheet: the look of its own parts, which are not
@@ -196,6 +209,12 @@ export interface StanzaEditor {
    * path, with the messages as a tooltip (ADR 0057). Replaces the diagnostics shown before.
    */
   setDiagnostics(diagnostics: readonly Diagnostic[]): void;
+  /**
+   * Places the threads of the review documents in the text and highlights their ranges (ADR 0086),
+   * in place of the ones before, and gives where each one is. They are placed again when the
+   * document is replaced; while editing, the highlights move with the text.
+   */
+  setReviewThreads(threads: readonly ThreadPlace[]): readonly PlacedThread[];
   /** Does what a command says, or refuses it and changes nothing (ADR 0023). */
   run(command: EditorCommand): CommandResult;
   /** What `run` would answer, with nothing changed. A refusal can carry a fix (ADR 0026). */
@@ -241,6 +260,7 @@ export function stanzaExtensions(
     GapCursor,
     Annotations.configure({ stylesheet }),
     ChangeMarks,
+    ReviewHighlights,
     BlockIds.configure({ ...ids, notice }),
     ContextClasses.configure({ stylesheet }),
     StanzaBlockView.configure({ stylesheet }),
@@ -252,6 +272,7 @@ export function stanzaExtensions(
 
 /** Starts an editor for a document and stylesheet (ADR 0022). */
 export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
+  let threads: readonly ThreadPlace[] = [];
   let stylesheet = options.stylesheet;
   let linkSchemes = options.linkSchemes ?? {};
   let meta = options.document.meta;
@@ -302,6 +323,23 @@ export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
     },
   });
 
+  /** Places the review threads in the current text and highlights the ranges found (ADR 0086). */
+  const placeThreads = (): readonly PlacedThread[] => {
+    const placed = threads.map((thread) => ({
+      key: thread.key,
+      placement: placeThread(editor.state.doc, thread),
+    }));
+    const ranges = placed.flatMap(({ key, placement }) => {
+      if (placement.kind !== 'range') return [];
+      const label = threads.find((t) => t.key === key)?.label;
+      return [
+        { key, from: placement.from, to: placement.to, ...(label !== undefined ? { label } : {}) },
+      ];
+    });
+    editor.view.dispatch(highlightThreads(editor.state, ranges));
+    return placed;
+  };
+
   /** Marks the blocks that differ from the content before, and keeps the marks of blocks that stayed. */
   const markDifferences = (
     before: EditorNode,
@@ -345,6 +383,7 @@ export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
         replacing = false;
       }
       const change = markDifferences(before, oldMarked, options?.markChanges === true);
+      if (threads.length > 0) placeThreads();
       if (options?.cursor !== 'at-change') return change;
       const end = changeEnd(before, editor.state.doc);
       editor.view.dispatch(
@@ -370,6 +409,10 @@ export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
     },
     setDiagnostics(diagnostics) {
       editor.view.dispatch(editor.state.tr.setMeta(annotationsKey, { diagnostics }));
+    },
+    setReviewThreads(next) {
+      threads = next;
+      return placeThreads();
     },
     destroy() {
       editor.destroy();

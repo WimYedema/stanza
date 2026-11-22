@@ -42,6 +42,34 @@ export interface InlineDiagnostic {
   readonly nodeId?: string;
 }
 
+/**
+ * A thread of a review document of the open document (ADR 0086), as the host read it back from the
+ * layout of ADR 0084: what the editor needs to place it, and what a card shows.
+ */
+export interface ReviewThreadView {
+  /** Unique among the threads sent: the review document and the heading of the thread. */
+  readonly key: string;
+  /** The review document, relative to the project root. */
+  readonly review: string;
+  readonly headingId?: string;
+  readonly title: string;
+  readonly anchor?: string;
+  readonly position?:
+    | { readonly kind: 'under' | 'after'; readonly paragraph: number }
+    | { readonly kind: 'cell'; readonly row: number; readonly column: number };
+  readonly quote?: { readonly start: string; readonly end?: string };
+  readonly status: 'open' | 'resolved';
+  /** The durable ID of the Word comment that starts the thread. */
+  readonly wordComment?: string;
+  readonly comments: readonly {
+    readonly author: string;
+    readonly time: string;
+    readonly text: string;
+    readonly reactions: readonly string[];
+  }[];
+  readonly notes: readonly string[];
+}
+
 /** Where the styles of a project are used, by style name. A style that is not used is left out. */
 export interface UsageSummary {
   /** The document of this editor, relative to the project root. */
@@ -92,6 +120,7 @@ export type HostMessage =
   | { readonly type: 'usage'; readonly usage: UsageSummary }
   /** What the checks say about this document, sent after `init` and again when it changes. */
   | { readonly type: 'diagnostics'; readonly diagnostics: readonly InlineDiagnostic[] }
+  | { readonly type: 'review-threads'; readonly threads: readonly ReviewThreadView[] }
   /**
    * The answer to `declare-variant`. On success the stylesheet message with the change came before
    * it, so the command that was refused can be tried again.
@@ -298,6 +327,70 @@ function parseLinkSchemes(value: unknown): Readonly<Record<string, string>> | un
 }
 
 /** The message from the host, or undefined for anything else, such as a message of a page. */
+const isString = (value: unknown): value is string => typeof value === 'string';
+const isStrings = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) && value.every(isString);
+const isPositive = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0;
+
+function parsePosition(value: unknown): ReviewThreadView['position'] | 'invalid' {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) return 'invalid';
+  const { kind, paragraph, row, column } = value;
+  if ((kind === 'under' || kind === 'after') && isPositive(paragraph)) return { kind, paragraph };
+  if (kind === 'cell' && isPositive(row) && isPositive(column)) return { kind, row, column };
+  return 'invalid';
+}
+
+/** A thread as the host sent it, or undefined when it is not one. */
+export function parseReviewThread(value: unknown): ReviewThreadView | undefined {
+  if (!isRecord(value)) return undefined;
+  const { key, review, headingId, title, anchor, quote, status, comments, notes, wordComment } =
+    value;
+  if (wordComment !== undefined && !isString(wordComment)) return undefined;
+  if (!isString(key) || !isString(review) || !isString(title)) return undefined;
+  if (status !== 'open' && status !== 'resolved') return undefined;
+  if (headingId !== undefined && !isString(headingId)) return undefined;
+  if (anchor !== undefined && !isString(anchor)) return undefined;
+  const position = parsePosition(value['position']);
+  if (position === 'invalid') return undefined;
+  if (quote !== undefined) {
+    if (!isRecord(quote) || !isString(quote['start'])) return undefined;
+    if (quote['end'] !== undefined && !isString(quote['end'])) return undefined;
+  }
+  if (!Array.isArray(comments) || !isStrings(notes)) return undefined;
+  const read = comments.map((c: unknown) =>
+    isRecord(c) &&
+    isString(c['author']) &&
+    isString(c['time']) &&
+    isString(c['text']) &&
+    isStrings(c['reactions'])
+      ? { author: c['author'], time: c['time'], text: c['text'], reactions: c['reactions'] }
+      : undefined,
+  );
+  if (read.some((c) => c === undefined)) return undefined;
+  return {
+    key,
+    review,
+    ...(headingId !== undefined ? { headingId } : {}),
+    title,
+    ...(anchor !== undefined ? { anchor } : {}),
+    ...(position !== undefined ? { position } : {}),
+    ...(isRecord(quote) && isString(quote['start'])
+      ? {
+          quote: {
+            start: quote['start'],
+            ...(isString(quote['end']) ? { end: quote['end'] } : {}),
+          },
+        }
+      : {}),
+    status,
+    ...(wordComment !== undefined ? { wordComment } : {}),
+    comments: read.filter((c) => c !== undefined),
+    notes,
+  };
+}
+
 export function parseHostMessage(value: unknown): HostMessage | undefined {
   if (!isRecord(value)) return undefined;
   switch (value['type']) {
@@ -387,6 +480,14 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
         diagnostics.push(parsed);
       }
       return { type: 'diagnostics', diagnostics };
+    }
+    case 'review-threads': {
+      const list = value['threads'];
+      if (!Array.isArray(list)) return undefined;
+      const threads = list.map(parseReviewThread);
+      return threads.some((t) => t === undefined)
+        ? undefined
+        : { type: 'review-threads', threads: threads.filter((t) => t !== undefined) };
     }
     case 'declared': {
       const { ok, message } = value;

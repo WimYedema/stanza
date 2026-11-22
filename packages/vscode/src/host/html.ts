@@ -119,6 +119,9 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   }
   #desk { padding: 12px 0 48px; overflow-x: auto; }
   #editor .reference-hover { text-decoration: underline dotted; text-underline-offset: 3px; }
+  /* The text a review comment is about (ADR 0086). */
+  #editor .stanza-review-highlight { background: rgba(255, 196, 0, 0.28); border-bottom: 2px solid rgba(214, 150, 0, 0.9); cursor: help; }
+  #editor .stanza-review-highlight-selected { background: rgba(255, 196, 0, 0.55); }
   #editor.reference-mode .reference-hover { cursor: pointer; text-decoration: underline; }
   #editor.reference-opening, #editor.reference-opening a { cursor: progress; }
   .sheet { box-sizing: border-box; position: relative; margin: 12px auto; background: #ffffff; }

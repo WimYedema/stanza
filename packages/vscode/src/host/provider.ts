@@ -16,7 +16,7 @@ import {
   type ProjectSettings,
 } from '@stanza/core';
 import { parseDocument, serializeDocument } from '@stanza/format';
-import { styleUsage, type LoadedProject } from '@stanza/project';
+import { reviewThreads, styleUsage, type LoadedProject } from '@stanza/project';
 import {
   parseWebviewMessage,
   type HostMessage,
@@ -32,6 +32,7 @@ import { findRoot, storageOf, uriInProject } from './project-files.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { normalized, reviewText } from './review.js';
 import { summarizeUsage } from './usage-summary.js';
+import type { ReviewThreadView } from '../shared/protocol.js';
 
 /** After a change, the project is checked again when nothing has changed for this long. */
 const REFRESH_DELAY_MS = 300;
@@ -227,6 +228,8 @@ class EditorSession {
   private fieldsKey: string | undefined;
   private schemesKey: string | undefined;
   private usageKey: string | undefined;
+  /** The review threads sent last, to send them only when they change. */
+  private threadsKey: string | undefined;
   private diagnosticsKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
@@ -573,6 +576,7 @@ class EditorSession {
     }
     await this.postUsage(loaded, root, true);
     await this.postDiagnostics(loaded, root, true);
+    await this.postReviewThreads(loaded, root, true);
     if (this.revealing !== undefined) {
       await this.post({ type: 'reveal', block: this.revealing });
       this.revealing = undefined;
@@ -610,6 +614,33 @@ class EditorSession {
     if (!force && key === this.usageKey) return;
     this.usageKey = key;
     await this.post({ type: 'usage', usage });
+  }
+
+  /**
+   * Sends the threads of the review documents of this document (ADR 0086): every document of the
+   * project whose `reviews` field names it, read back by the layout of ADR 0084.
+   */
+  private async postReviewThreads(
+    loaded: LoadedProject,
+    root: vscode.Uri,
+    force: boolean,
+  ): Promise<void> {
+    const own = posix.relative(root.path, this.document.uri.path);
+    const threads: ReviewThreadView[] = loaded.documents
+      .filter((entry) => entry.document.meta.reviews === own)
+      .flatMap((entry) =>
+        reviewThreads(entry.path, entry.document).map((thread, index) => ({
+          ...thread,
+          key: `${thread.review}#${thread.headingId ?? String(index)}`,
+        })),
+      );
+    const key = JSON.stringify(threads);
+    if (!force && key === this.threadsKey) return;
+    // A webview that was never sent threads has none, so an empty list need not be sent.
+    const unchangedEmpty = threads.length === 0 && (this.threadsKey ?? '[]') === '[]';
+    this.threadsKey = key;
+    if (unchangedEmpty) return;
+    await this.post({ type: 'review-threads', threads });
   }
 
   /** Watches the files of the project, which can change without this document changing. */
@@ -681,5 +712,6 @@ class EditorSession {
     }
     await this.postUsage(loaded, root, false);
     await this.postDiagnostics(loaded, root, false);
+    await this.postReviewThreads(loaded, root, false);
   }
 }
