@@ -162,11 +162,21 @@ Changes made in Word for the web reached the local folder in about a minute, wit
 
 `stanza build` stops with an unhandled `EBUSY` error when one of the output files is open in Word, which is the normal state during a review. It should report the file and write the others.
 
+<!-- stanza: #58taz2p4xz -->
+### Stamp and embedded source
+
+Checked on 2026-11-22 for item 138 and ADR 0084. The same document was built with a trial stamp added by hand: four custom file properties (`stanza-document`, `stanza-commit`, `stanza-dirty`, `stanza-content-hash`) and a custom XML part in the namespace `urn:stanza:source:1` holding the source text, linked from the main document. It was commented and saved in Word desktop, then uploaded to OneDrive, commented in Word for the web and read from the synced folder.
+
+- **Custom file properties** survive both, with the same names and values.
+- **The custom XML part** survives both, with its relationship, its attributes and its text.
+- **Line endings:** Word desktop wrote every line break in the text of the part as `\r\n`. Word for the web kept the part as it was. With line endings normalised to `\n`, the text is identical to the source.
+- The upload got a new name in OneDrive ("0002-stamp-test 1.docx"), which again shows that the file name says nothing about the document.
+
 <!-- stanza: #qp4dcscect -->
 ### Consequences
 
 - ADR 0030 needs revising: the protection cannot be on for a document that goes to SharePoint. The pull of item 140 then has to be the guard, since it already reports changed text and tracked changes.
-- Item 138: whether custom properties written by Stanza survive SharePoint is still open; only an empty part was seen.
+- Item 138: custom file properties and a custom XML part written by Stanza survive Word desktop, Word for the web and OneDrive, so the stamp and the embedded source of ADR 0084 work. The content hash is computed over the text with line endings normalised to `\n`, and the text read back is normalised the same way.
 - Item 140: a comment is identified by its `durableId` and timed by `dateUtc`; it is mapped by the start of its range, with the sections it crosses reported; a table cell is given by row and column; a mention keeps the display name only, never the address. Replies are grouped under their comment by `w15:paraIdParent`, and the resolved state comes from `w15:done`. A reaction keeps at most its type and display name, never the user ID. Whether paragraphs and list items need finer anchors than their section, for example by storing the commented text, is for the ADR of item 140.
 - Items 134 and 140: a file in the synced folder can be older than the copy in the cloud. The pull should at least show the time the file was last saved (from the file properties), so that the author can see when it is behind.
 

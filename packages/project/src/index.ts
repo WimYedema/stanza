@@ -17,6 +17,7 @@ export {
   type BuildResult,
 } from './build.js';
 export { exportDocument, type ExportDocumentResult } from './export-document.js';
+export type { SourceRevisions } from './revisions.js';
 export {
   formatDocuments,
   formatProject,

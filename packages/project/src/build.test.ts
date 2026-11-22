@@ -203,3 +203,52 @@ describe('buildProject', () => {
     expect(storage.written.size).toBe(0);
   });
 });
+
+describe('the revision stamp (ADR 0084)', () => {
+  const propertiesOf = (bytes: Uint8Array | undefined): Record<string, string> => {
+    const xml = strFromU8(
+      unzipSync(bytes ?? new Uint8Array())['docProps/custom.xml'] ?? new Uint8Array(),
+    );
+    return Object.fromEntries(
+      [...xml.matchAll(/name="([^"]+)"><vt:lpwstr>([^<]*)</g)].map((m): [string, string] => [
+        m[1] ?? '',
+        m[2] ?? '',
+      ]),
+    );
+  };
+  const introduction = 'build/documents/introduction.docx';
+
+  it('stamps each package with its document and the revision the host gives', async () => {
+    const storage = memoryStorage(exampleProject());
+    const asked: string[][] = [];
+    await buildProject(storage, {
+      ...options,
+      revisions: (paths) => {
+        asked.push([...paths]);
+        return Promise.resolve(
+          new Map([['documents/introduction.stanza.md', { commit: 'abc123', dirty: true }]]),
+        );
+      },
+    });
+    expect(asked).toEqual([['documents/introduction.stanza.md', 'documents/reference.stanza.md']]);
+    expect(propertiesOf(storage.written.get(introduction))).toMatchObject({
+      'stanza-document': 'documents/introduction.stanza.md',
+      'stanza-commit': 'abc123',
+      'stanza-dirty': 'true',
+    });
+    expect(propertiesOf(storage.written.get('build/documents/reference.docx'))).not.toHaveProperty(
+      'stanza-commit',
+    );
+  });
+
+  it('still builds when the host cannot tell the revisions', async () => {
+    const storage = memoryStorage(exampleProject());
+    const result = await buildProject(storage, {
+      ...options,
+      revisions: () => Promise.reject(new Error('git not found')),
+    });
+    expect(result.written).toHaveLength(2);
+    expect(propertiesOf(storage.written.get(introduction))).not.toHaveProperty('stanza-commit');
+    expect(propertiesOf(storage.written.get(introduction))).toHaveProperty('stanza-content-hash');
+  });
+});

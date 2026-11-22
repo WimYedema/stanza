@@ -10,6 +10,7 @@ import {
   type Document as StanzaDocument,
   type Stylesheet,
   type LinkSchemes,
+  type SourceStamp,
 } from '@stanza/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext, type ReferenceFile } from './content.js';
@@ -18,6 +19,7 @@ import { ListNumbering } from './list-numbering.js';
 import { pageGeometry } from './page.js';
 import { finishPackage } from './package.js';
 import { RunStyles } from './run-styles.js';
+import { finishedStamp, stampProperties } from './stamp.js';
 import { wordStyleId } from './style-ids.js';
 import { checkStyleIds, declaredStyles, pageBreakStyles } from './styles.js';
 import { tableStylesXml } from './table-styles.js';
@@ -33,6 +35,11 @@ export interface ExportOptions {
    * File-only Stanza links are keyed by their complete source href instead of an ID.
    */
   readonly otherTargets?: ReadonlyMap<string, ReferenceFile>;
+  /**
+   * The source of the document and its revision, stamped into the package so that a pull of review
+   * comments finds the reviewed version (ADR 0084). Without it the package has no stamp.
+   */
+  readonly source?: SourceStamp;
 }
 
 export interface ExportResult {
@@ -113,10 +120,14 @@ export async function exportDocx(
       footer: page.footerTwips,
     },
   };
+  const stamp = options.source === undefined ? undefined : finishedStamp(options.source);
   const file = new Document({
     ...(title !== undefined ? { title } : {}),
     ...(authors !== undefined
       ? { creator: authors.join('; '), lastModifiedBy: authors.join('; ') }
+      : {}),
+    ...(options.source !== undefined && stamp !== undefined
+      ? { customProperties: stampProperties(options.source, stamp) }
       : {}),
     externalStyles: tableStylesXml(stylesheet),
     styles: {
@@ -143,6 +154,7 @@ export async function exportDocx(
       timestamp: options.timestamp,
       pageBreaks: pageBreakStyles(stylesheet),
       textWidthTwips: page.textWidthTwips,
+      ...(stamp !== undefined ? { source: stamp } : {}),
     }),
     diagnostics,
   };

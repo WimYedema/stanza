@@ -4,6 +4,7 @@ import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './dia
 import { PROJECT_FILE } from './files.js';
 import type { LoadedProject } from './load.js';
 import { referenceTargets } from './reference-links.js';
+import { sourceStamps } from './revisions.js';
 import type { ProjectStorage } from './storage.js';
 import { outDirProblem, outputPath, type BuildOptions } from './build.js';
 
@@ -63,8 +64,10 @@ export async function exportDocument(
   if (problem !== undefined) return { written: undefined, diagnostics: [problem], blocked: false };
 
   const effective = { ...found.document, meta: applyDefaults(settings, found.document.meta) };
+  const source = (await sourceStamps(storage, [documentPath], options.revisions)).get(documentPath);
   const result = await exportDocx(effective, stylesheet, {
     timestamp: options.timestamp,
+    ...(source !== undefined ? { source } : {}),
     otherTargets: referenceTargets(loaded.documents)(documentPath),
     ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
   });

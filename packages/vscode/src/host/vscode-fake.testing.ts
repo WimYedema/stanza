@@ -305,6 +305,8 @@ export function createFakeVscode(): Record<string, unknown> {
         readonly pattern: string,
       ) {}
     },
+    // No extensions are installed, so there is no Git: documents are stamped without a revision.
+    extensions: { getExtension: () => undefined },
     workspace: {
       fs: {
         stat: (uri: FakeUri) =>

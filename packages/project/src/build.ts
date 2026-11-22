@@ -4,6 +4,7 @@ import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './dia
 import { DOCUMENT_SUFFIX } from './files.js';
 import { loadProject } from './load.js';
 import { referenceTargets } from './reference-links.js';
+import { sourceStamps, type SourceRevisions } from './revisions.js';
 import type { ProjectStorage } from './storage.js';
 
 export interface BuildOptions {
@@ -11,6 +12,11 @@ export interface BuildOptions {
   readonly outDir: string;
   /** Written into every package, so the same project gives the same bytes. */
   readonly timestamp: Date;
+  /**
+   * Where the documents stand in version control, for the revision stamp of each package
+   * (ADR 0084). Without it the packages are stamped with their path and source only.
+   */
+  readonly revisions?: SourceRevisions;
 }
 
 export interface BuildResult {
@@ -63,12 +69,19 @@ export async function buildProject(
   const diagnostics: ProjectDiagnostic[] = [...loaded.diagnostics];
   const outputs: { path: string; bytes: Uint8Array }[] = [];
   const targetsFor = referenceTargets(loaded.documents);
+  const stamps = await sourceStamps(
+    storage,
+    built.map((entry) => entry.path),
+    options.revisions,
+  );
   for (const { path, document } of built) {
+    const source = stamps.get(path);
     // The effective metadata has the project's defaults filled in.
     const effective = { ...document, meta: applyDefaults(settings, document.meta) };
     const result = await exportDocx(effective, stylesheet, {
       timestamp: options.timestamp,
       otherTargets: targetsFor(path),
+      ...(source !== undefined ? { source } : {}),
       ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
     });
     diagnostics.push(...inFile(path, result.diagnostics));
