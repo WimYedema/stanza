@@ -23,6 +23,7 @@ import { createLinkPrompt } from './link-prompt.js';
 import { createReferencePicker } from './reference-picker.js';
 import { installReferenceNavigation } from './reference-navigation.js';
 import { revealBlock } from './reveal.js';
+import { createReviewCards } from './review-cards.js';
 import { createSheet } from './sheet.js';
 import { createStyleInfo } from './style-info.js';
 import { buildToolbar } from './toolbar.js';
@@ -62,25 +63,32 @@ let inline: readonly Diagnostic[] = [];
 /** The threads of the review documents of this document (ADR 0086), as the host sent them. */
 let threads: readonly ReviewThreadView[] = [];
 
-/** Places the open threads in the text and highlights them; resolved ones come with the cards. */
+/** Whether the resolved threads are shown as well as the open ones (ADR 0086). */
+let showResolved = false;
+
+/** Places the threads that are shown in the text, highlights them, and shows their cards. */
 function showThreads(): void {
-  if (editor === undefined) return;
-  editor.setReviewThreads(
-    threads
-      .filter((thread) => thread.status === 'open')
-      .map((thread) => {
-        const [first, ...replies] = thread.comments;
-        const more = replies.length === 0 ? '' : ` (${String(replies.length)} more)`;
-        const label = first === undefined ? thread.title : `${first.author}: ${first.text}${more}`;
-        return {
-          key: thread.key,
-          ...(thread.anchor !== undefined ? { anchor: thread.anchor } : {}),
-          ...(thread.position !== undefined ? { position: thread.position } : {}),
-          ...(thread.quote !== undefined ? { quote: thread.quote } : {}),
-          label,
-        };
-      }),
+  resolvedButton.hidden = !threads.some((thread) => thread.status === 'resolved');
+  if (editor === undefined) {
+    reviewCards.show([], []);
+    return;
+  }
+  const shown = threads.filter((thread) => showResolved || thread.status === 'open');
+  const placed = editor.setReviewThreads(
+    shown.map((thread) => {
+      const [first, ...replies] = thread.comments;
+      const more = replies.length === 0 ? '' : ` (${String(replies.length)} more)`;
+      const label = first === undefined ? thread.title : `${first.author}: ${first.text}${more}`;
+      return {
+        key: thread.key,
+        ...(thread.anchor !== undefined ? { anchor: thread.anchor } : {}),
+        ...(thread.position !== undefined ? { position: thread.position } : {}),
+        ...(thread.quote !== undefined ? { quote: thread.quote } : {}),
+        label,
+      };
+    }),
   );
+  reviewCards.show(shown, placed);
 }
 /** What the editor holds, as text. What was sent last is the same, unless a send is waiting. */
 let lastText = '';
@@ -188,7 +196,17 @@ propertiesButton.title = 'Show document properties';
 propertiesButton.addEventListener('click', () => {
   metadata.open();
 });
-element('toolbar').append(propertiesButton);
+const resolvedButton = document.createElement('button');
+resolvedButton.textContent = 'Resolved';
+resolvedButton.title = 'Show the resolved review comments as well';
+resolvedButton.setAttribute('aria-pressed', 'false');
+resolvedButton.hidden = true;
+resolvedButton.addEventListener('click', () => {
+  showResolved = !showResolved;
+  resolvedButton.setAttribute('aria-pressed', String(showResolved));
+  showThreads();
+});
+element('toolbar').append(propertiesButton, resolvedButton);
 const info = createStyleInfo({
   root: element('info'),
   editor: () => editor,
@@ -216,8 +234,24 @@ const pages = createSheet({
   footer: element('footer'),
   ...(nonce !== undefined ? { nonce } : {}),
 });
-buildViewControls(element('view'), element('desk'), parseViewState(api.getState()), (state) => {
+const initialView = parseViewState(api.getState());
+/** The zoom of the desk, 1 for 100%, which the cards need to be put at the height of their text. */
+let zoom = initialView.zoom / 100;
+buildViewControls(element('view'), element('desk'), initialView, (state) => {
   api.setState(state);
+  zoom = state.zoom / 100;
+});
+const reviewCards = createReviewCards({
+  desk: element('desk'),
+  page: element('page'),
+  column: element('comments'),
+  markers: element('markers'),
+  orphans: element('review-orphans'),
+  content: element('editor'),
+  bar: element('top'),
+  editor: () => editor,
+  zoom: () => zoom,
+  send,
 });
 
 const reasonOf = (diagnostic: Diagnostic): Reason => ({
@@ -244,6 +278,7 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
   ready = false;
   editor?.destroy();
   editor = undefined;
+  showThreads();
   references.close();
   links.close();
   removedFromOutside = 0;
@@ -318,6 +353,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     onContextChange: () => {
       toolbar.schedule();
       info.schedule();
+      reviewCards.schedule();
       showChanges();
     },
     ...(nonce !== undefined ? { styleNonce: nonce } : {}),
@@ -365,6 +401,7 @@ function handle(message: HostMessage): void {
       });
       removedFromOutside += change.removed;
       showChanges();
+      showThreads();
       lastText = serializeDocument(parsed.document);
       pages.update({ document: parsed.document });
       metadata.update({ meta: parsed.document.meta }, true);
@@ -443,6 +480,9 @@ function handle(message: HostMessage): void {
     case 'review-threads':
       threads = message.threads;
       showThreads();
+      return;
+    case 'thread-status-done':
+      reviewCards.done(message.key);
       return;
     case 'declared':
       declared(message.ok, message.message);

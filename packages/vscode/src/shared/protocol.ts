@@ -121,6 +121,8 @@ export type HostMessage =
   /** What the checks say about this document, sent after `init` and again when it changes. */
   | { readonly type: 'diagnostics'; readonly diagnostics: readonly InlineDiagnostic[] }
   | { readonly type: 'review-threads'; readonly threads: readonly ReviewThreadView[] }
+  /** A resolve or reopen of the thread is over, whether it was made or not. */
+  | { readonly type: 'thread-status-done'; readonly key: string }
   /**
    * The answer to `declare-variant`. On success the stylesheet message with the change came before
    * it, so the command that was refused can be tried again.
@@ -152,7 +154,15 @@ export type WebviewMessage =
       readonly type: 'edit-styles';
       readonly style?: { readonly kind: 'paragraph-style' | 'table-style'; readonly name: string };
     }
-  | { readonly type: 'open-as-text' };
+  | { readonly type: 'open-as-text' }
+  /** Opens the review document of a thread at its heading (ADR 0086). */
+  | { readonly type: 'open-review'; readonly key: string }
+  /** Resolves or reopens a thread in its review document (ADR 0086). */
+  | {
+      readonly type: 'set-thread-status';
+      readonly key: string;
+      readonly status: 'open' | 'resolved';
+    };
 
 /** A style or mark name is short, whatever it is. */
 const MAX_NAME_LENGTH = 200;
@@ -214,6 +224,21 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
       )
         return undefined;
       return { type: 'startup-timing', visibleMs, editableMs };
+    }
+    case 'open-review': {
+      const key = value['key'];
+      return typeof key === 'string' && key.length > 0 && key.length <= MAX_NAME_LENGTH * 10
+        ? { type: 'open-review', key }
+        : undefined;
+    }
+    case 'set-thread-status': {
+      const { key, status } = value;
+      if (typeof key !== 'string' || key.length === 0 || key.length > MAX_NAME_LENGTH * 10) {
+        return undefined;
+      }
+      return status === 'open' || status === 'resolved'
+        ? { type: 'set-thread-status', key, status }
+        : undefined;
     }
     case 'declare-variant': {
       const { style, mark } = value;
@@ -326,7 +351,6 @@ function parseLinkSchemes(value: unknown): Readonly<Record<string, string>> | un
   return Object.fromEntries(entries);
 }
 
-/** The message from the host, or undefined for anything else, such as a message of a page. */
 const isString = (value: unknown): value is string => typeof value === 'string';
 const isStrings = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every(isString);
@@ -391,6 +415,7 @@ export function parseReviewThread(value: unknown): ReviewThreadView | undefined 
   };
 }
 
+/** The message from the host, or undefined for anything else, such as a message of a page. */
 export function parseHostMessage(value: unknown): HostMessage | undefined {
   if (!isRecord(value)) return undefined;
   switch (value['type']) {
@@ -488,6 +513,10 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
       return threads.some((t) => t === undefined)
         ? undefined
         : { type: 'review-threads', threads: threads.filter((t) => t !== undefined) };
+    }
+    case 'thread-status-done': {
+      const key = value['key'];
+      return typeof key === 'string' ? { type: 'thread-status-done', key } : undefined;
     }
     case 'declared': {
       const { ok, message } = value;

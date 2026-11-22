@@ -58,6 +58,11 @@ function blockWithId(doc: EditorNode, id: string): { node: EditorNode; pos: numb
   return found;
 }
 
+/** Where the block of a thread's anchor starts now, if the document has it. */
+export function anchorPosition(doc: EditorNode, anchor: string | undefined): number | undefined {
+  return anchor === undefined ? undefined : blockWithId(doc, anchor)?.pos;
+}
+
 /**
  * The text of some textblocks with the document position of each character, whitespace collapsed
  * to one space, so that a quote, which the review document wrote on one line, can be looked for.

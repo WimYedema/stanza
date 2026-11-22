@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDocument } from '@stanza/format';
 import { memoryStorage } from './memory-storage.testing.js';
 import { pullReview } from './review-pull.js';
-import { positionOf, quoteOf, reviewThreads } from './review-threads.js';
+import { positionOf, quoteOf, reviewThreads, threadStatusEdit } from './review-threads.js';
 
 const FIXTURES = new URL('../../import-docx/fixtures/review-round-trip/', import.meta.url);
 const SOURCE = readFileSync(new URL('0002-host-and-dependencies.stanza.md', FIXTURES), 'utf8');
@@ -91,6 +91,46 @@ describe('reviewThreads (ADR 0086)', () => {
         notes: [],
       },
     ]);
+  });
+});
+
+describe('threadStatusEdit (ADR 0086)', () => {
+  const apply = (
+    text: string,
+    change: { line: number; start: number; end: number; text: string },
+  ) =>
+    text
+      .split('\n')
+      .map((line, i) =>
+        i === change.line
+          ? line.slice(0, change.start) + change.text + line.slice(change.end)
+          : line,
+      )
+      .join('\n');
+
+  it('changes only the word of the status, and back', async () => {
+    const { path, text } = await pulled('web-replies-resolved-reaction.docx');
+    const [first, second] = reviewThreads(path, parseDocument(text).document);
+    if (first?.headingId === undefined || second?.headingId === undefined)
+      throw new Error('no IDs');
+    const change = threadStatusEdit(text, first.headingId, 'resolved');
+    if (change === undefined) throw new Error('no change');
+    const resolved = apply(text, change);
+    const after = reviewThreads(path, parseDocument(resolved).document);
+    expect(after.map((t) => t.status).slice(0, 2)).toEqual(['resolved', 'open']);
+    expect(after[0]).toEqual({ ...first, status: 'resolved' });
+    expect(resolved.split('\n').filter((l, i) => l !== text.split('\n')[i])).toHaveLength(1);
+    const back = threadStatusEdit(resolved, first.headingId, 'open');
+    expect(back === undefined ? '' : apply(resolved, back)).toBe(text);
+  });
+
+  it('gives nothing for a status that is that already, or a thread it cannot find', async () => {
+    const { text } = await pulled('web-replies-resolved-reaction.docx');
+    const [first] = reviewThreads('r', parseDocument(text).document);
+    expect(threadStatusEdit(text, first?.headingId ?? ('' as never), 'open')).toBeUndefined();
+    expect(threadStatusEdit(text, 'zzzzzzzzzz' as never, 'resolved')).toBeUndefined();
+    const withoutStatus = '<!-- stanza: #k7m2q9x4zb -->\n## A\n\nText.\n\n## B\n\nStatus: open.\n';
+    expect(threadStatusEdit(withoutStatus, 'k7m2q9x4zb' as never, 'resolved')).toBeUndefined();
   });
 });
 

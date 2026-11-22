@@ -105,6 +105,43 @@ function commentStart(block: Block): ThreadComment | undefined {
   };
 }
 
+/** A change of one line of a text: the characters from `start` to `end` of line `line` (from 0). */
+export interface LineChange {
+  readonly line: number;
+  readonly start: number;
+  readonly end: number;
+  readonly text: string;
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The edit that resolves or reopens a thread of a review document (ADR 0086): the word after
+ * `Status:` in the status paragraph under the heading with the ID, and nothing else. Undefined when
+ * the text has no such heading or status, or the status is that already.
+ */
+export function threadStatusEdit(
+  text: string,
+  headingId: NodeId,
+  status: ReviewThread['status'],
+): LineChange | undefined {
+  const lines = text.split(/\r?\n/);
+  const annotation = new RegExp(
+    `^<!--\\s*stanza:.*#${escapeRegExp(headingId)}(?![a-z0-9]).*-->\\s*$`,
+  );
+  const at = lines.findIndex((line) => annotation.test(line));
+  if (at < 0 || !/^##\s/.test(lines[at + 1] ?? '')) return undefined;
+  for (let i = at + 2; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    if (/^#{1,6}\s/.test(line)) return undefined;
+    const found = /^Status: (open|resolved)\b/.exec(line);
+    if (found === null) continue;
+    if (found[1] === status) return undefined;
+    return { line: i, start: 'Status: '.length, end: found[0].length, text: status };
+  }
+  return undefined;
+}
+
 /**
  * The threads of a review document (ADR 0086): one per level-2 heading, read by the layout that
  * `review pull` writes (ADR 0084). What cannot be read is left out of the thread rather than

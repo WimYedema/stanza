@@ -50,8 +50,11 @@ import {
 import { STANZA_BLOCK_CLASS, schemaExtensions } from './schema.js';
 import {
   ReviewHighlights,
+  anchorPosition,
   highlightThreads,
+  highlightedThreads,
   placeThread,
+  selectThread,
   type Placement,
   type ThreadPlace,
 } from './review-threads.js';
@@ -60,6 +63,14 @@ import {
 export interface PlacedThread {
   readonly key: string;
   readonly placement: Placement;
+}
+
+/** Where the text of a thread is on the screen now, in the coordinates of the window. */
+export interface ThreadBox {
+  readonly key: string;
+  readonly top: number;
+  readonly bottom: number;
+  readonly left: number;
 }
 
 /**
@@ -215,6 +226,13 @@ export interface StanzaEditor {
    * document is replaced; while editing, the highlights move with the text.
    */
   setReviewThreads(threads: readonly ThreadPlace[]): readonly PlacedThread[];
+  /**
+   * Where the text of each placed thread is now, in the order of the document: the start of its
+   * range, as it moved while editing, or else its block. An orphaned thread has none.
+   */
+  reviewThreadBoxes(): readonly ThreadBox[];
+  /** Marks the range of one thread as selected, or none, and gives its box to scroll to. */
+  selectReviewThread(key: string | undefined): ThreadBox | undefined;
   /** Does what a command says, or refuses it and changes nothing (ADR 0023). */
   run(command: EditorCommand): CommandResult;
   /** What `run` would answer, with nothing changed. A refusal can carry a fix (ADR 0026). */
@@ -324,8 +342,9 @@ export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
   });
 
   /** Places the review threads in the current text and highlights the ranges found (ADR 0086). */
+  let placed: readonly PlacedThread[] = [];
   const placeThreads = (): readonly PlacedThread[] => {
-    const placed = threads.map((thread) => ({
+    placed = threads.map((thread) => ({
       key: thread.key,
       placement: placeThread(editor.state.doc, thread),
     }));
@@ -338,6 +357,40 @@ export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
     });
     editor.view.dispatch(highlightThreads(editor.state, ranges));
     return placed;
+  };
+
+  /** The position of the text of each placed thread now, in the order of the document. */
+  const threadPositions = (): { key: string; pos: number; block: boolean }[] => {
+    const { doc } = editor.state;
+    const ranges = new Map(highlightedThreads(editor.state).map((r) => [r.key, r.from]));
+    const found: { key: string; pos: number; block: boolean }[] = [];
+    for (const { key, placement } of placed) {
+      if (placement.kind === 'orphan') continue;
+      const from = placement.kind === 'range' ? ranges.get(key) : undefined;
+      if (from !== undefined) {
+        found.push({ key, pos: from, block: false });
+        continue;
+      }
+      const anchor = threads.find((t) => t.key === key)?.anchor;
+      const pos = anchorPosition(doc, anchor);
+      if (pos !== undefined) found.push({ key, pos, block: true });
+    }
+    return found.sort((a, b) => a.pos - b.pos);
+  };
+
+  const boxOf = (key: string, pos: number, block: boolean): ThreadBox | undefined => {
+    try {
+      const dom = block ? editor.view.nodeDOM(pos) : null;
+      if (dom instanceof HTMLElement) {
+        const rect = dom.getBoundingClientRect();
+        return { key, top: rect.top, bottom: rect.bottom, left: rect.left };
+      }
+      const coords = editor.view.coordsAtPos(block ? pos + 1 : pos, 1);
+      return { key, top: coords.top, bottom: coords.bottom, left: coords.left };
+    } catch {
+      // A view without layout, as in a test, has no coordinates.
+      return undefined;
+    }
   };
 
   /** Marks the blocks that differ from the content before, and keeps the marks of blocks that stayed. */
@@ -413,6 +466,13 @@ export function createStanzaEditor(options: StanzaEditorOptions): StanzaEditor {
     setReviewThreads(next) {
       threads = next;
       return placeThreads();
+    },
+    reviewThreadBoxes: () =>
+      threadPositions().flatMap(({ key, pos, block }) => boxOf(key, pos, block) ?? []),
+    selectReviewThread(key) {
+      editor.view.dispatch(selectThread(editor.state, key));
+      const found = threadPositions().find((t) => t.key === key);
+      return found === undefined ? undefined : boxOf(found.key, found.pos, found.block);
     },
     destroy() {
       editor.destroy();

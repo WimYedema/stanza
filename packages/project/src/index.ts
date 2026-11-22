@@ -84,6 +84,8 @@ export {
   positionOf,
   quoteOf,
   reviewThreads,
+  threadStatusEdit,
+  type LineChange,
   type ReviewThread,
   type ThreadComment,
   type ThreadPosition,

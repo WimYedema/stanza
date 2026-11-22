@@ -1310,6 +1310,85 @@ Status: open. Word comment 2E3C8848.
     });
   });
 
+  const REVIEW_PATH = '/w/p/reviews/one-2026-11-21.stanza.md';
+  const KEY = 'reviews/one-2026-11-21.stanza.md#r2r2r2r2r2';
+  const withReview = async (): Promise<void> => {
+    open(CANONICAL, '\n', files({ [REVIEW_PATH]: REVIEW }));
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'review-threads' }));
+    });
+  };
+  const done = (): boolean =>
+    (world.posted as HostMessage[]).some((m) => m.type === 'thread-status-done');
+  /** The review document as an open buffer, as when it is open in an editor. */
+  const buffer = async () =>
+    (await vscode.workspace.openTextDocument(
+      new FakeUri(REVIEW_PATH) as unknown as vscode.Uri,
+    )) as unknown as { text: string; isDirty: boolean };
+
+  it('opens the review document of a thread at its heading', async () => {
+    await withReview();
+    fromWebview({ type: 'open-review', key: KEY });
+    await settled(() => {
+      expect(world.commands).toContain('vscode.openWith');
+    });
+    const args = world.commandArgs[world.commands.indexOf('vscode.openWith')];
+    expect((args?.[0] as FakeUri).path).toBe(REVIEW_PATH);
+  });
+
+  it('resolves a thread by changing its status line, and saves the review document', async () => {
+    await withReview();
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.saved).toEqual([REVIEW_PATH]);
+    expect(world.files.get(REVIEW_PATH)).toBe(REVIEW.replace('Status: open.', 'Status: resolved.'));
+    expect(world.warnings).toEqual([]);
+  });
+
+  it('asks before saving a review document with unsaved changes of its own', async () => {
+    await withReview();
+    const file = await buffer();
+    // A change above the threads, so that the thread itself is as it was shown.
+    file.text = file.text.replace('# Review of T\n', '# Review of T\n\nA note of the author.\n');
+    file.isDirty = true;
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.warnings).toEqual([
+      'reviews/one-2026-11-21.stanza.md has unsaved changes. Save it and resolve the thread?',
+    ]);
+    expect(world.saved).toEqual([]);
+    expect(file.text).toContain('Status: open.');
+
+    world.posted = [];
+    world.warningChoice = 'Save and Resolve';
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.saved).toEqual([REVIEW_PATH]);
+    expect(world.files.get(REVIEW_PATH)).toContain('Status: resolved.');
+    expect(world.files.get(REVIEW_PATH)).toContain('A note of the author.');
+    world.warningChoice = undefined;
+  });
+
+  it('refuses a thread that changed in the review document since it was shown', async () => {
+    await withReview();
+    const file = await buffer();
+    file.text = file.text.replace('Why this?\n', 'Why this, really?\n');
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.warnings[0]).toContain('changed since it was shown');
+    expect(world.saved).toEqual([]);
+    expect(file.text).toContain('Status: open.');
+  });
+
   it('sends nothing for a document that has no review', async () => {
     open();
     fromWebview({ type: 'ready' });

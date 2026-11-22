@@ -14,6 +14,7 @@ export {
   stanzaExtensions,
   type DocumentChange,
   type PlacedThread,
+  type ThreadBox,
   type StanzaEditor,
   type StanzaEditorOptions,
 } from './editor.js';
@@ -26,6 +27,7 @@ export { BlockIds, type IdSource } from './block-ids.js';
 export {
   REVIEW_HIGHLIGHT_CLASS,
   REVIEW_HIGHLIGHT_SELECTED_CLASS,
+  anchorPosition,
   placeThread,
   type Placement,
   type ThreadPlace,

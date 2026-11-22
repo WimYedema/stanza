@@ -122,6 +122,40 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   /* The text a review comment is about (ADR 0086). */
   #editor .stanza-review-highlight { background: rgba(255, 196, 0, 0.28); border-bottom: 2px solid rgba(214, 150, 0, 0.9); cursor: help; }
   #editor .stanza-review-highlight-selected { background: rgba(255, 196, 0, 0.55); }
+  #desk.with-reviews { display: flex; justify-content: center; align-items: flex-start; gap: 16px; }
+  #desk.with-reviews #sheets { flex: none; }
+  #comments { position: relative; flex: none; width: 260px; margin: 12px 0; }
+  #comments .review-card { position: absolute; left: 0; }
+  .review-card { box-sizing: border-box; width: 260px; padding: 6px 8px; background: #252526; color: #cccccc;
+    border: 1px solid #454545; border-left: 3px solid #d69600; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    font: 12px/1.4 sans-serif; text-align: left; cursor: default; }
+  .review-card.hovered { border-color: #8a8a8a; border-left-color: #ffc400; }
+  .review-card.selected { border-color: #75beff; border-left-color: #ffc400; }
+  .review-card.resolved { border-left-color: #6a9955; }
+  .review-card.resolved .first, .review-card.resolved .reply { opacity: 0.7; }
+  .review-card:focus-visible { outline: 2px solid #75beff; outline-offset: 1px; }
+  .review-card header { display: flex; gap: 6px; align-items: baseline; }
+  .review-card .number { color: #1f1f1f; background: #d69600; border-radius: 8px; padding: 0 5px; font-size: 11px; font-weight: 600; }
+  .review-card .author { font-weight: 600; color: #ffffff; overflow-wrap: anywhere; }
+  .review-card time { color: #9d9d9d; font-size: 11px; white-space: nowrap; }
+  .review-card .text { margin: 2px 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .review-card .reply { margin-top: 4px; padding-top: 4px; border-top: 1px solid #3a3a3a; }
+  .review-card .reactions, .review-card .note { margin: 2px 0; color: #9d9d9d; font-size: 11px; overflow-wrap: anywhere; }
+  .review-card .changed { margin: 2px 0; color: #ffcc66; font-size: 11px; overflow-wrap: anywhere; }
+  .review-card .more { padding: 0; border: 0; background: none; color: #75beff; font: 11px sans-serif; cursor: pointer; }
+  .review-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; color: #9d9d9d; font-size: 11px; }
+  .review-card footer .source { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .review-card footer .status { margin-right: auto; }
+  .review-card footer button { font: 11px sans-serif; padding: 1px 6px; }
+  .review-leader { position: absolute; border: 0 dashed rgba(214, 150, 0, 0.9); pointer-events: none; }
+  #markers { position: absolute; top: 0; right: 0; bottom: 0; width: 0; z-index: 3; }
+  .review-marker { position: absolute; right: 6px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 10px;
+    background: #d69600; color: #1f1f1f; font: 600 11px/20px sans-serif; cursor: pointer; }
+  .review-marker.selected { background: #ffc400; outline: 2px solid #0e639c; }
+  .review-popover { position: absolute; right: 6px; z-index: 4; }
+  #review-orphans { box-sizing: border-box; width: min(850px, calc(100% - 24px)); margin: 12px auto 0; color: #cccccc; font: 13px sans-serif; }
+  #review-orphans h2 { margin: 0 0 6px; font-size: 13px; color: #ffcc66; }
+  #review-orphans .review-card { width: auto; margin-bottom: 6px; }
   #editor.reference-mode .reference-hover { cursor: pointer; text-decoration: underline; }
   #editor.reference-opening, #editor.reference-opening a { cursor: progress; }
   .sheet { box-sizing: border-box; position: relative; margin: 12px auto; background: #ffffff; }
@@ -161,13 +195,18 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   <div id="references" hidden></div>
   <div id="links" hidden></div>
   <section id="metadata"></section>
+  <section id="review-orphans" aria-label="Review comments not on the text" hidden></section>
   <div id="desk" class="paper" data-vscode-context='{"webviewSection": "editor"}'>
-    <div id="cover" class="sheet" hidden></div>
-    <div id="page" class="sheet">
-      <div id="header" class="band" hidden></div>
-      <div id="editor"></div>
-      <div id="footer" class="band" hidden></div>
+    <div id="sheets">
+      <div id="cover" class="sheet" hidden></div>
+      <div id="page" class="sheet">
+        <div id="header" class="band" hidden></div>
+        <div id="editor"></div>
+        <div id="footer" class="band" hidden></div>
+        <div id="markers" hidden></div>
+      </div>
     </div>
+    <aside id="comments" aria-label="Review comments" hidden></aside>
   </div>
 </div>
 <div id="refused" hidden></div>

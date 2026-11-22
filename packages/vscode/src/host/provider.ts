@@ -16,7 +16,7 @@ import {
   type ProjectSettings,
 } from '@stanza/core';
 import { parseDocument, serializeDocument } from '@stanza/format';
-import { reviewThreads, styleUsage, type LoadedProject } from '@stanza/project';
+import { reviewThreads, styleUsage, threadStatusEdit, type LoadedProject } from '@stanza/project';
 import {
   parseWebviewMessage,
   type HostMessage,
@@ -230,6 +230,8 @@ class EditorSession {
   private usageKey: string | undefined;
   /** The review threads sent last, to send them only when they change. */
   private threadsKey: string | undefined;
+  /** Those threads by key, to open or resolve one that the webview names. */
+  private sentThreads = new Map<string, ReviewThreadView>();
   private diagnosticsKey: string | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
@@ -355,6 +357,16 @@ class EditorSession {
         return;
       case 'declare-variant':
         await this.declareVariant(message.style, message.mark);
+        return;
+      case 'open-review':
+        await this.openReview(message.key);
+        return;
+      case 'set-thread-status':
+        try {
+          await this.setThreadStatus(message.key, message.status);
+        } finally {
+          await this.post({ type: 'thread-status-done', key: message.key });
+        }
         return;
       case undefined:
         return;
@@ -639,8 +651,93 @@ class EditorSession {
     // A webview that was never sent threads has none, so an empty list need not be sent.
     const unchangedEmpty = threads.length === 0 && (this.threadsKey ?? '[]') === '[]';
     this.threadsKey = key;
+    this.sentThreads = new Map(threads.map((thread) => [thread.key, thread]));
     if (unchangedEmpty) return;
     await this.post({ type: 'review-threads', threads });
+  }
+
+  /** Opens the review document of a thread in the Stanza editor, at the heading of the thread. */
+  private async openReview(key: string): Promise<void> {
+    const thread = this.sentThreads.get(key);
+    const root = this.root;
+    if (thread === undefined || root === undefined) {
+      await vscode.window.showErrorMessage('Stanza: that review thread is not known any more.');
+      return;
+    }
+    const own = posix.relative(root.path, this.document.uri.path);
+    const file = posix.relative(posix.dirname(own), thread.review);
+    await this.followReference(
+      thread.headingId === undefined ? file : `${file}#${thread.headingId}`,
+    );
+  }
+
+  /**
+   * Resolves or reopens a thread (ADR 0086): changes the word of its status line in the buffer of
+   * the review document, as an edit that can be undone, and saves it. A thread that is not as it
+   * was sent is refused; a review document with unsaved changes of its own is saved only when the
+   * author says so.
+   */
+  private async setThreadStatus(key: string, status: 'open' | 'resolved'): Promise<void> {
+    const sent = this.sentThreads.get(key);
+    const root = this.root;
+    if (sent === undefined || root === undefined) {
+      await vscode.window.showErrorMessage('Stanza: that review thread is not known any more.');
+      return;
+    }
+    const verb = status === 'resolved' ? 'resolve' : 'reopen';
+    const headingId = sent.headingId;
+    if (headingId === undefined || !isNodeId(headingId)) {
+      await vscode.window.showErrorMessage(
+        `Stanza: the thread "${sent.title}" has no ID in ${sent.review}, so it cannot be ${verb}d from here. Change its status in the review document.`,
+      );
+      return;
+    }
+    const uri = uriInProject(root, sent.review);
+    const review = await vscode.workspace.openTextDocument(uri);
+    const text = normalized(review.getText());
+    const parsed = parseDocument(text);
+    const now = reviewThreads(sent.review, parsed.document).find(
+      (thread) => thread.headingId === headingId,
+    );
+    if (now === undefined || JSON.stringify({ ...now, key }) !== JSON.stringify(sent)) {
+      await vscode.window.showWarningMessage(
+        `Stanza: the thread "${sent.title}" in ${sent.review} changed since it was shown, so it was not ${verb}d. Look at it again.`,
+      );
+      this.scheduleRefresh();
+      return;
+    }
+    const change = threadStatusEdit(text, headingId, status);
+    if (change === undefined) {
+      if (now.status !== status) {
+        await vscode.window.showErrorMessage(
+          `Stanza: the status line of "${sent.title}" was not found in ${sent.review}.`,
+        );
+      }
+      return;
+    }
+    if (review.isDirty) {
+      const button = status === 'resolved' ? 'Save and Resolve' : 'Save and Reopen';
+      const choice = await vscode.window.showWarningMessage(
+        `${sent.review} has unsaved changes. Save it and ${verb} the thread?`,
+        { modal: true },
+        button,
+      );
+      if (choice !== button) return;
+    }
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(
+      uri,
+      new vscode.Range(change.line, change.start, change.line, change.end),
+      change.text,
+    );
+    if (!(await vscode.workspace.applyEdit(edit))) {
+      await vscode.window.showErrorMessage(`Stanza: ${sent.review} could not be changed.`);
+      return;
+    }
+    if (!(await review.save())) {
+      await vscode.window.showErrorMessage(`Stanza: ${sent.review} could not be saved.`);
+    }
+    this.scheduleRefresh();
   }
 
   /** Watches the files of the project, which can change without this document changing. */
