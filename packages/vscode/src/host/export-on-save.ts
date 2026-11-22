@@ -7,6 +7,7 @@ import {
   type ExportDocumentResult,
 } from '@stanza/project';
 import { groupByFile } from './diagnostics.js';
+import { vscodeGitRevisions } from './git-revisions.js';
 import { toDiagnostic, type ProjectDiagnostics } from './project-diagnostics.js';
 import { findRoot, storageOf, uriInProject } from './project-files.js';
 
@@ -70,6 +71,7 @@ export class ExportOnSave implements vscode.Disposable {
       result = await exportDocument(storageOf(root), loaded, path, {
         outDir: OUT_DIR,
         timestamp: DEFAULT_BUILD_DATE,
+        revisions: vscodeGitRevisions(root),
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);

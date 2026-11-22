@@ -42,11 +42,21 @@ As for import (ADR 0047), `pullReview` in the `project` package takes the storag
 A file with no stamp and no known bookmark is not a document of this project: nothing is written, and the command line exits with 2.
 
 <!-- stanza: #7n26fb5rrn -->
+### The stamp
+
+Every exported DOCX is stamped (backlog item 138), by `stanza build` and by export on save alike:
+
+- **Custom file properties**, as text: `stanza-document` (the path of the document in the project), `stanza-commit` and `stanza-dirty` (`true` or `false`) when the host knows the revision, and `stanza-content-hash` (`sha256:` and the hex digest of the UTF-8 of the source with line endings normalised to  ).
+- **A custom XML part**, `customXml/item1.xml`, related from the main document: a `source` element in the namespace `urn:stanza:source:1` with `path` and `hash` attributes and the normalised source as its text.
+- **The revision** comes from the host through a port of the `project` package: the command line asks `git` (`HEAD`, and whether the file is untracked or changed in the index or the working tree), VS Code asks its built-in Git, after refreshing the status. Without Git there is no commit and no dirty flag; the path, the hash and the source are always there.
+- **The hash and the names** are in `core`, so that the pull checks a source with the same function. The output stays a pure function of its input: the same source at the same revision gives the same bytes.
+
+<!-- stanza: #ysdyhrg0h9 -->
 ### The reviewed version
 
 The DOCX is generated deterministically from its source, so the source of the reviewed version gives an exact map from the DOCX back to the blocks. The pull gets that source in this order:
 
-1. **Embedded in the DOCX.** Item 138 also writes the source text of the document into the DOCX, as a custom XML part that Word does not show. It holds no more than the DOCX already shows, and it needs no Git. Whether Word desktop, Word for the web and SharePoint keep such a part is checked first (item 203); if they do not, this step falls away.
+1. **Embedded in the DOCX.** Item 138 also writes the source text of the document into the DOCX, as a custom XML part that Word does not show. It holds no more than the DOCX already shows, and it needs no Git. Word desktop, Word for the web and OneDrive keep such a part (item 203, `spike-findings`); Word desktop writes its line breaks as `\r\n`, so the text is read back with line endings normalised to `\n`.
 1. **From Git**, by the commit and path of the stamp, when the stamp is not `dirty`. Git is reached through an adapter in the hosts, never in `core`. The content hash checks that the source found is the one that was built; a commit that no longer exists (a squashed and deleted branch, a shallow clone) gives nothing.
 1. **Otherwise none.** The pull still works, with the anchors of the bookmarks alone, and says so.
 

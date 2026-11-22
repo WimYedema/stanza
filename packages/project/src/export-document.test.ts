@@ -109,3 +109,25 @@ describe('exportDocument', () => {
     expect(storage.written.size).toBe(0);
   });
 });
+
+describe('exportDocument, the revision stamp (ADR 0084)', () => {
+  it('embeds the source of the document and the revision the host gives', async () => {
+    const files = exampleProject();
+    const storage = memoryStorage(files);
+    const result = await exportDocument(storage, await loadProject(storage), INTRODUCTION, {
+      ...options,
+      revisions: (paths) =>
+        Promise.resolve(new Map(paths.map((path) => [path, { commit: 'abc123', dirty: false }]))),
+    });
+    expect(result.written).toBe('build/documents/introduction.docx');
+    const parts = unzipSync(
+      storage.written.get('build/documents/introduction.docx') ?? new Uint8Array(),
+    );
+    const custom = strFromU8(parts['docProps/custom.xml'] ?? new Uint8Array());
+    expect(custom).toContain('name="stanza-commit"><vt:lpwstr>abc123<');
+    expect(custom).toContain('name="stanza-dirty"><vt:lpwstr>false<');
+    const item = strFromU8(parts['customXml/item1.xml'] ?? new Uint8Array());
+    expect(item).toContain(`path="${INTRODUCTION}"`);
+    expect(item).toContain('stanza-format: 1');
+  });
+});

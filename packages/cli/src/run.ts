@@ -19,7 +19,9 @@ import {
   useTokensInStylesheet,
   type ProjectDiagnostic,
   type ProjectStorage,
+  type SourceRevisions,
 } from '@stanza/project';
+import { gitRevisions } from './git-revisions.js';
 import { nodeRemove, nodeStorage } from './node-storage.js';
 import { cliVersion, docxVersion } from './versions.js';
 
@@ -33,6 +35,8 @@ export interface Io {
   readonly generateId?: () => string;
   /** The bytes of a Word file; read from the filesystem unless a test replaces it. */
   readonly readBytes?: (path: string) => Promise<Uint8Array>;
+  /** Where the documents of a project stand in Git; from `git` unless a test replaces it. */
+  readonly revisions?: (root: string) => SourceRevisions;
 }
 
 const USAGE = `Usage: stanza <command> [project] [options]
@@ -436,7 +440,11 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (!isSafeRelativePath(outDir)) {
     return usage('--out must be a relative path with "/" separators and no "..".');
   }
-  const result = await buildProject(storage, { outDir, timestamp });
+  const result = await buildProject(storage, {
+    outDir,
+    timestamp,
+    revisions: (io.revisions ?? gitRevisions)(root),
+  });
   io.stdout(result.diagnostics.map(formatDiagnostic).join(''));
   io.stdout(summary(result.documents, result.diagnostics));
   const code = exitCode(result.diagnostics);

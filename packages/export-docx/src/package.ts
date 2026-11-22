@@ -1,4 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import { addSourcePart, type FinishedStamp } from './stamp.js';
 
 type Files = Record<string, Uint8Array>;
 
@@ -90,6 +91,8 @@ export interface FinishOptions {
   readonly pageBreaks: ReadonlyMap<string, boolean>;
   /** The width of the text on the page, where the page numbers of a table of contents align. */
   readonly textWidthTwips: number;
+  /** The source to embed as a custom XML part (ADR 0084), if any. */
+  readonly source?: FinishedStamp;
 }
 
 /**
@@ -135,6 +138,7 @@ export function finishPackage(bytes: Uint8Array, options: FinishOptions): Uint8A
   addPageBreaks(files, options.pageBreaks);
   alignTocPageNumbers(files, options.textWidthTwips);
   addReviewProtection(files);
+  if (options.source !== undefined) addSourcePart(files, options.source);
   const core = files['docProps/core.xml'];
   if (core !== undefined) {
     const iso = timestamp.toISOString();

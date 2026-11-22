@@ -36,6 +36,15 @@ export type {
 } from './document.js';
 export { normalizeDocument, normalizeInlines } from './normalize.js';
 export {
+  SOURCE_PART_NAMESPACE,
+  SOURCE_STAMP_PROPERTIES,
+  contentHash,
+  normalizeLineEndings,
+  sha256Hex,
+  type SourceRevision,
+  type SourceStamp,
+} from './source-stamp.js';
+export {
   resolveLink,
   validateLinkSchemes,
   type LinkSchemes,
