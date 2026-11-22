@@ -8,3 +8,4 @@ export {
   type ReviewComment,
   type ReviewReading,
 } from './review.js';
+export type { EmbeddedSource, Reaction, ReviewStamp } from './review-parts.js';

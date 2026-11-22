@@ -20,7 +20,11 @@ function idsOf(loaded: LoadedProject, path: string): NodeId[] {
 
 const comment = (id: string, block?: NodeId): ReviewReading['comments'][number] => ({
   id,
+  resolved: false,
   author: 'Reviewer',
+  dateIsUtc: false,
+  reactions: [],
+  quote: '',
   text: `Comment ${id}`,
   placement: block === undefined ? 'unplaced' : 'inside',
   ...(block !== undefined ? { block } : {}),
@@ -38,14 +42,47 @@ describe('inspectReview', () => {
     expect(read.ok).toBe(true);
     if (!read.ok) return;
     expect(read.review.bookmarks).toEqual(idsOf(loaded, INTRODUCTION));
-    expect(inspectReview(loaded, read.review)).toEqual({
+    const current = await storage.readText(INTRODUCTION);
+    expect(inspectReview(loaded, read.review, () => current)).toEqual({
       document: INTRODUCTION,
       placed: [],
       unplaced: [],
       missing: [],
       unknown: [],
       bookmarks: idsOf(loaded, INTRODUCTION).length,
+      // The export is stamped (ADR 0084), so the file names its document and carries its source.
+      stamp: { document: INTRODUCTION, contentHash: read.review.stamp?.contentHash },
+      savedAt: '2026-03-04T05:06:07.000Z',
+      sourceChanged: false,
+      lost: [],
+      added: [],
     });
+    expect(read.review.source?.text).toBe(current);
+  });
+
+  it('tells a bookmark lost in review from a block added since the build, by the embedded source', async () => {
+    const storage = memoryStorage(exampleProject());
+    const loaded = await loadProject(storage);
+    const options = { outDir: 'build', timestamp: new Date('2026-03-04T05:06:07Z') };
+    const exported = await exportDocument(storage, loaded, INTRODUCTION, options);
+    const read = readReview(storage.written.get(exported.written ?? '') ?? new Uint8Array());
+    if (!read.ok) throw new Error(read.message);
+    const lostInReview = read.review.bookmarks[1];
+    if (lostInReview === undefined) throw new Error('The example needs two blocks with an ID.');
+    // The review lost one bookmark, and the document has gained a block since the build.
+    const reviewed = {
+      ...read.review,
+      bookmarks: read.review.bookmarks.filter((id) => id !== lostInReview),
+    };
+    const added = 'zzzzzzzzzz' as NodeId;
+    const files = exampleProject();
+    const changedText = `${files[INTRODUCTION] ?? ''}\n<!-- stanza: #${added} -->\n## New\n`;
+    files[INTRODUCTION] = changedText;
+    const changed = await loadProject(memoryStorage(files));
+    const inspection = inspectReview(changed, reviewed, () => changedText);
+    expect(inspection.sourceChanged).toBe(true);
+    expect(inspection.lost).toEqual([lostInReview]);
+    expect(inspection.added).toEqual([added]);
   });
 
   it('places comments by block with document and heading, and reports what it cannot place', async () => {

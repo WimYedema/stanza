@@ -1,5 +1,11 @@
-import { indexReferences, type Document, type NodeId } from '@stanza/core';
-import { readReview, type ReviewComment, type ReviewReading } from '@stanza/import-docx';
+import { contentHash, indexReferences, type Document, type NodeId } from '@stanza/core';
+import { parseDocument } from '@stanza/format';
+import {
+  readReview,
+  type ReviewComment,
+  type ReviewReading,
+  type ReviewStamp,
+} from '@stanza/import-docx';
 import type { LoadedProject } from './load.js';
 
 /** Where a block of the project is: its document and the heading of its section. */
@@ -26,6 +32,22 @@ export interface ReviewInspection {
   /** Bookmarks of the file whose block the project does not have. */
   readonly unknown: readonly NodeId[];
   readonly bookmarks: number;
+  /** The revision stamp of the file (ADR 0084), when it has one. */
+  readonly stamp?: ReviewStamp;
+  /** When the file was last saved, in UTC. */
+  readonly savedAt?: string;
+  /**
+   * Whether the document has changed since the file was built: its content hash against the stamp.
+   * Undefined when the file has no hash or the current text was not given.
+   */
+  readonly sourceChanged?: boolean;
+  /**
+   * With the source embedded in the file, `missing` is told apart: blocks of the reviewed version
+   * whose bookmark the review lost, and blocks added to the document since the build. Undefined
+   * without an embedded source.
+   */
+  readonly lost?: readonly NodeId[];
+  readonly added?: readonly NodeId[];
 }
 
 const TOP_LEVEL = /^blocks\[(\d+)\]/;
@@ -70,14 +92,23 @@ function locate(loaded: LoadedProject): Map<NodeId, BlockLocation> {
  * build, or its bookmark was lost in review; the two cannot be told apart without the revision
  * the file was built from (item 138).
  */
-export function inspectReview(loaded: LoadedProject, review: ReviewReading): ReviewInspection {
+export function inspectReview(
+  loaded: LoadedProject,
+  review: ReviewReading,
+  currentText?: (document: string) => string | undefined,
+): ReviewInspection {
   const locations = locate(loaded);
   const counts = new Map<string, number>();
   for (const id of review.bookmarks) {
     const document = locations.get(id)?.document;
     if (document !== undefined) counts.set(document, (counts.get(document) ?? 0) + 1);
   }
-  const document = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
+  // The stamp names the document; without one, the document that holds most of the bookmarks.
+  const stamped = review.stamp?.document;
+  const document =
+    stamped !== undefined && loaded.documents.some((entry) => entry.path === stamped)
+      ? stamped
+      : [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
 
   const placed: PlacedComment[] = [];
   const unplaced: ReviewComment[] = [];
@@ -95,6 +126,21 @@ export function inspectReview(loaded: LoadedProject, review: ReviewReading): Rev
           .filter(([id, location]) => location.document === document && !inFile.has(id))
           .map(([id]) => id);
   const unknown = review.bookmarks.filter((id) => !locations.has(id));
+
+  const hash = review.stamp?.contentHash;
+  const current = document === undefined ? undefined : currentText?.(document);
+  const sourceChanged =
+    hash === undefined || current === undefined ? undefined : contentHash(current) !== hash;
+  let split: { lost: NodeId[]; added: NodeId[] } | undefined;
+  if (review.source !== undefined && document !== undefined) {
+    const reviewed = new Set(
+      indexReferences(parseDocument(review.source.text).document).targets.keys(),
+    );
+    split = {
+      lost: [...reviewed].filter((id) => !inFile.has(id)),
+      added: missing.filter((id) => !reviewed.has(id)),
+    };
+  }
   return {
     ...(document !== undefined ? { document } : {}),
     placed,
@@ -102,6 +148,10 @@ export function inspectReview(loaded: LoadedProject, review: ReviewReading): Rev
     missing,
     unknown,
     bookmarks: review.bookmarks.length,
+    ...(review.stamp !== undefined ? { stamp: review.stamp } : {}),
+    ...(review.savedAt !== undefined ? { savedAt: review.savedAt } : {}),
+    ...(sourceChanged !== undefined ? { sourceChanged } : {}),
+    ...(split ?? {}),
   };
 }
 
@@ -109,10 +159,25 @@ export type ReviewFileResult =
   | { readonly ok: true; readonly inspection: ReviewInspection }
   | { readonly ok: false; readonly message: string };
 
-/** Reads a reviewed DOCX and inspects it against a loaded project. */
-export function inspectReviewFile(loaded: LoadedProject, bytes: Uint8Array): ReviewFileResult {
+/**
+ * Reads a reviewed DOCX and inspects it against a loaded project. With `readText`, the current
+ * text of the document is compared with the stamp of the file.
+ */
+export async function inspectReviewFile(
+  loaded: LoadedProject,
+  bytes: Uint8Array,
+  readText?: (path: string) => Promise<string>,
+): Promise<ReviewFileResult> {
   const read = readReview(bytes);
-  return read.ok
-    ? { ok: true, inspection: inspectReview(loaded, read.review) }
-    : { ok: false, message: read.message };
+  if (!read.ok) return { ok: false, message: read.message };
+  const texts = new Map<string, string>();
+  const stamped = read.review.stamp?.document;
+  if (readText !== undefined && stamped !== undefined) {
+    try {
+      texts.set(stamped, await readText(stamped));
+    } catch {
+      // A document that cannot be read is not compared.
+    }
+  }
+  return { ok: true, inspection: inspectReview(loaded, read.review, (path) => texts.get(path)) };
 }

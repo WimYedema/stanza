@@ -753,7 +753,10 @@ describe('stanza review inspect', () => {
       'reviewed.docx: 1 bookmark, 2 comments, built from documents/introduction.stanza.md.',
     );
     expect(result.out).toContain('documents/introduction.stanza.md: ');
-    expect(result.out).toContain('(#k7m2q9x4zb)\n    Manager, 2026-11-21: Why?\n');
+    // Without commentsExtensible.xml, `w:date` is local time whatever its `Z` says (ADR 0084).
+    expect(result.out).toContain(
+      '(#k7m2q9x4zb)\n    Manager, 2026-11-21 10:00 (time zone unknown): Why?',
+    );
     expect(result.out).toContain('Not placed: 1 comment without a block of the project.');
     expect(result.out).toContain('    Manager: On the title.');
     expect(result.out).toContain(

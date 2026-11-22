@@ -1,5 +1,15 @@
 import { isNodeId, type NodeId } from '@stanza/core';
 import { readDocx, type ReadFailure } from './docx-package.js';
+import {
+  commentDetails,
+  embeddedSourceOf,
+  paragraphIdOf,
+  savedAtOf,
+  stampOf,
+  type EmbeddedSource,
+  type Reaction,
+  type ReviewStamp,
+} from './review-parts.js';
 import { descendantsOf, elementsOf, type XmlElement } from './xml.js';
 
 /**
@@ -10,11 +20,24 @@ import { descendantsOf, elementsOf, type XmlElement } from './xml.js';
 export type CommentPlacement = 'inside' | 'after' | 'unplaced';
 
 export interface ReviewComment {
-  /** The `w:id` of the comment in the file. */
+  /** The `w:id` of the comment in the file. Word renumbers it on every save. */
   readonly id: string;
+  /** The identity of the comment, which survives saves (`commentsIds.xml`, ADR 0084). */
+  readonly durableId?: string;
+  /** The durable ID of the comment this one answers, for a reply. */
+  readonly replyTo?: string;
+  readonly resolved: boolean;
+  /** The display name of the author only; initials and accounts are not read (ADR 0084). */
   readonly author: string;
-  /** As Word wrote it, such as `2026-11-21T10:15:00Z`, when it is there. */
+  /**
+   * The time of the comment: in UTC from `commentsExtensible.xml` when the file has it, else
+   * `w:date`, which is local time whatever its zone says, and `dateIsUtc` is false.
+   */
   readonly date?: string;
+  readonly dateIsUtc: boolean;
+  readonly reactions: readonly Reaction[];
+  /** The text the selection covers, paragraphs separated by `\n`; empty for a comment on a point. */
+  readonly quote: string;
   /** The text of the comment, one line per paragraph. */
   readonly text: string;
   readonly placement: CommentPlacement;
@@ -32,6 +55,12 @@ export interface ReviewReading {
   readonly bookmarks: readonly NodeId[];
   /** In the order of the file's comments part. */
   readonly comments: readonly ReviewComment[];
+  /** The revision stamp (ADR 0084), for a file exported since item 138. */
+  readonly stamp?: ReviewStamp;
+  /** The source the file was built from, when it was embedded. */
+  readonly source?: EmbeddedSource;
+  /** When the file was last saved, in UTC, so that a file that is behind can be seen. */
+  readonly savedAt?: string;
 }
 
 export type ReadReviewResult =
@@ -83,7 +112,15 @@ function placementOf(
 }
 
 /** Walks the body in document order and finds the bookmarks and what each comment covers. */
-function walk(document: XmlElement): { bookmarks: NodeId[]; anchors: Map<string, Anchor> } {
+function walk(document: XmlElement): {
+  bookmarks: NodeId[];
+  anchors: Map<string, Anchor>;
+  quotes: Map<string, string>;
+} {
+  const quotes = new Map<string, string>();
+  const quote = (text: string): void => {
+    for (const commentId of active) quotes.set(commentId, (quotes.get(commentId) ?? '') + text);
+  };
   const bookmarks: NodeId[] = [];
   const seen = new Set<NodeId>();
   const open = new Map<string, NodeId>();
@@ -126,6 +163,22 @@ function walk(document: XmlElement): { bookmarks: NodeId[]; anchors: Map<string,
         case 'commentRangeEnd':
           if (child.attrs['id'] !== undefined) active.delete(child.attrs['id']);
           break;
+        case 't':
+          quote(child.children.filter((c): c is string => typeof c === 'string').join(''));
+          break;
+        case 'tab':
+          quote('\t');
+          break;
+        case 'br':
+          quote('\n');
+          break;
+        // Deleted text of a tracked change is not what the reviewer saw.
+        case 'del':
+          break;
+        case 'p':
+          visit(child);
+          quote('\n');
+          break;
         // A comment on a point has only its reference.
         case 'commentReference':
           start(child.attrs['id'], false);
@@ -136,7 +189,7 @@ function walk(document: XmlElement): { bookmarks: NodeId[]; anchors: Map<string,
     }
   };
   visit(document);
-  return { bookmarks, anchors };
+  return { bookmarks, anchors, quotes };
 }
 
 /**
@@ -146,20 +199,46 @@ function walk(document: XmlElement): { bookmarks: NodeId[]; anchors: Map<string,
 export function readReview(bytes: Uint8Array): ReadReviewResult {
   const read = readDocx(bytes);
   if (!read.ok) return read;
-  const { bookmarks, anchors } = walk(read.parts.document);
-  const comments = elementsOf(read.parts.comments, 'comment').map((comment): ReviewComment => {
+  const { parts } = read;
+  const { bookmarks, anchors, quotes } = walk(parts.document);
+  const details = commentDetails(parts);
+  const durableOf = (paragraph: string | undefined): string | undefined =>
+    paragraph === undefined ? undefined : details.get(paragraph)?.durableId;
+  const comments = elementsOf(parts.comments, 'comment').map((comment): ReviewComment => {
     const id = comment.attrs['id'] ?? '';
-    const date = comment.attrs['date'];
+    const more = details.get(paragraphIdOf(comment) ?? '');
+    // `w:date` holds local time; Word desktop marks it with a `Z` all the same.
+    const local = comment.attrs['date']?.replace(/Z$/, '');
+    const date = more?.dateUtc ?? local;
+    const replyTo = durableOf(more?.parentParagraph);
     const { placement, block, blocks } = placementOf(anchors.get(id));
     return {
       id,
+      ...(more?.durableId !== undefined ? { durableId: more.durableId } : {}),
+      ...(replyTo !== undefined ? { replyTo } : {}),
+      resolved: more?.resolved ?? false,
       author: comment.attrs['author'] ?? '',
       ...(date !== undefined ? { date } : {}),
+      dateIsUtc: more?.dateUtc !== undefined,
+      reactions: more?.reactions ?? [],
       text: commentText(comment),
+      quote: (quotes.get(id) ?? '').replace(/\n+$/, ''),
       placement,
       ...(block !== undefined ? { block } : {}),
       blocks,
     };
   });
-  return { ok: true, review: { bookmarks, comments } };
+  const stamp = stampOf(parts);
+  const source = embeddedSourceOf(parts);
+  const savedAt = savedAtOf(parts);
+  return {
+    ok: true,
+    review: {
+      bookmarks,
+      comments,
+      ...(stamp !== undefined ? { stamp } : {}),
+      ...(source !== undefined ? { source } : {}),
+      ...(savedAt !== undefined ? { savedAt } : {}),
+    },
+  };
 }

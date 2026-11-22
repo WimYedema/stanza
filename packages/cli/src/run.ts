@@ -154,22 +154,88 @@ function exitCode(diagnostics: readonly ProjectDiagnostic[]): number {
   return hasErrors(diagnostics) ? 1 : 0;
 }
 
-const commentLine = (c: ReviewComment): string => {
-  const when = c.date === undefined ? '' : `, ${c.date.slice(0, 10)}`;
+/** The time of a comment, to the minute, in UTC when the file says so (ADR 0084, "Times"). */
+const timeOf = (c: ReviewComment): string => {
+  if (c.date === undefined) return '';
+  const minute = c.date.replace('T', ' ').slice(0, 16);
+  return c.dateIsUtc ? `, ${minute} UTC` : `, ${minute} (time zone unknown)`;
+};
+
+const REACTIONS: Readonly<Record<number, string>> = { 1: 'thumbs up' };
+
+/** The quoted text of a comment, on one line and cut short. */
+const quoteOf = (c: ReviewComment): string => {
+  const text = c.quote.replace(/\s+/g, ' ').trim();
+  if (text === '') return '';
+  return ` at "${text.length > 60 ? `${text.slice(0, 57)}...` : text}"`;
+};
+
+/** A comment as one line, with its replies on lines of their own below it. */
+const commentLines = (c: ReviewComment, replies: readonly ReviewComment[]): string => {
+  const line = (comment: ReviewComment, indent: string, extra: string): string => {
+    const reactions = comment.reactions.map(
+      (r) => `${REACTIONS[r.type] ?? `reaction ${String(r.type)}`} (${r.name || 'Unknown'})`,
+    );
+    const reacted = reactions.length === 0 ? '' : ` [${reactions.join(', ')}]`;
+    const text = comment.text.replace(/\n/g, ' / ');
+    return `${indent}${comment.author || 'Unknown'}${timeOf(comment)}: ${text}${extra}${reacted}\n`;
+  };
   const also = c.blocks.slice(1).map((id) => `#${id}`);
   const covers = also.length === 0 ? '' : ` (also covers ${also.join(', ')})`;
-  return `    ${c.author || 'Unknown'}${when}: ${c.text.replace(/\n/g, ' / ')}${covers}\n`;
+  const status = c.resolved ? ' [resolved]' : '';
+  return (
+    line(c, '    ', `${quoteOf(c)}${covers}${status}`) +
+    replies.map((reply) => line(reply, '      reply: ', '')).join('')
+  );
 };
+
+/**
+ * The comments with their replies, in order of time. A reply whose comment is not in the list
+ * stands on its own.
+ */
+function threads<T extends ReviewComment>(comments: readonly T[]): [T, T[]][] {
+  const known = new Set(comments.flatMap((c) => (c.durableId === undefined ? [] : [c.durableId])));
+  const replies = new Map<string, T[]>();
+  const tops: T[] = [];
+  for (const comment of comments) {
+    if (comment.replyTo !== undefined && known.has(comment.replyTo)) {
+      replies.set(comment.replyTo, [...(replies.get(comment.replyTo) ?? []), comment]);
+    } else {
+      tops.push(comment);
+    }
+  }
+  const byTime = (a: T, b: T): number => (a.date ?? '').localeCompare(b.date ?? '');
+  return tops.map((top): [T, T[]] => [
+    top,
+    [...(replies.get(top.durableId ?? '') ?? [])].sort(byTime),
+  ]);
+}
+
+const idList = (ids: readonly string[]): string =>
+  ids
+    .slice(0, 10)
+    .map((id) => `#${id}`)
+    .join(', ') + (ids.length > 10 ? ', ...' : '');
 
 /** Prints the comments of a review by document and heading (ADR 0084). */
 function reportReview(io: Io, file: string, inspection: ReviewInspection): number {
-  const { placed, unplaced, missing, unknown, bookmarks } = inspection;
+  const { placed, unplaced, missing, unknown, bookmarks, stamp, lost, added } = inspection;
+  const total = placed.length + unplaced.length;
+  const built = inspection.document === undefined ? '' : `, built from ${inspection.document}`;
+  const dirty = stamp?.dirty === true ? ' with uncommitted changes' : '';
+  const commit = stamp?.commit === undefined ? '' : ` at ${stamp.commit.slice(0, 7)}${dirty}`;
+  const saved =
+    inspection.savedAt === undefined
+      ? ''
+      : `, saved ${inspection.savedAt.replace('T', ' ').slice(0, 16)} UTC`;
   io.stdout(
-    `${file}: ${plural(bookmarks, 'bookmark')}, ${plural(placed.length + unplaced.length, 'comment')}` +
-      (inspection.document === undefined ? '.\n' : `, built from ${inspection.document}.\n`),
+    `${file}: ${plural(bookmarks, 'bookmark')}, ${plural(total, 'comment')}${built}${commit}${saved}.\n`,
   );
+  if (inspection.sourceChanged === true) {
+    io.stdout(`${inspection.document ?? 'The document'} has changed since the file was built.\n`);
+  }
   let section: string | undefined;
-  for (const comment of placed) {
+  for (const [comment, replies] of threads(placed)) {
     const { document, heading, headingId } = comment.location;
     const key = `${document}#${headingId ?? ''}`;
     if (key !== section) {
@@ -177,13 +243,13 @@ function reportReview(io: Io, file: string, inspection: ReviewInspection): numbe
       const title = heading === undefined ? '(before the first heading)' : heading;
       io.stdout(`${document}: ${title}${headingId === undefined ? '' : ` (#${headingId})`}\n`);
     }
-    io.stdout(commentLine(comment));
+    io.stdout(commentLines(comment, replies));
   }
   if (unplaced.length > 0) {
     io.stdout(
       `Not placed: ${plural(unplaced.length, 'comment')} without a block of the project.\n`,
     );
-    for (const comment of unplaced) io.stdout(commentLine(comment));
+    for (const [comment, replies] of threads(unplaced)) io.stdout(commentLines(comment, replies));
   }
   if (bookmarks === 0) {
     io.stdout(
@@ -195,13 +261,24 @@ function reportReview(io: Io, file: string, inspection: ReviewInspection): numbe
       `${plural(unknown.length, 'bookmark')} of the file name blocks the project no longer has.\n`,
     );
   }
-  if (missing.length > 0) {
-    const shown = missing
-      .slice(0, 10)
-      .map((id) => `#${id}`)
-      .join(', ');
+  if (lost !== undefined && added !== undefined) {
+    // The source in the file tells a lost bookmark from a block added since (ADR 0084).
+    if (lost.length > 0) {
+      const were = lost.length === 1 ? 'was' : 'were';
+      io.stdout(
+        `${plural(lost.length, 'bookmark')} of the reviewed version ${were} lost in review: ${idList(lost)}\n`,
+      );
+    }
+    if (added.length > 0) {
+      const were = added.length === 1 ? 'was' : 'were';
+      io.stdout(
+        `${plural(added.length, 'block')} with an ID ${were} added since the build: ${idList(added)}\n`,
+      );
+    }
+  } else if (missing.length > 0) {
+    const have = missing.length === 1 ? 'has' : 'have';
     io.stdout(
-      `${plural(missing.length, 'block')} of ${inspection.document ?? ''} with an ID ${missing.length === 1 ? 'has' : 'have'} no bookmark in the file (added since the build, or lost in review): ${shown}${missing.length > 10 ? ', ...' : ''}\n`,
+      `${plural(missing.length, 'block')} of ${inspection.document ?? ''} with an ID ${have} no bookmark in the file (added since the build, or lost in review): ${idList(missing)}\n`,
     );
   }
   return unplaced.length > 0 || bookmarks === 0 ? 1 : 0;
@@ -276,13 +353,16 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
       return 2;
     }
-    const loaded = await loadProject((io.openStorage ?? nodeStorage)(resolve(io.cwd, folder)));
+    const reviewStorage = (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder));
+    const loaded = await loadProject(reviewStorage);
     if (loaded.settings === undefined || loaded.stylesheet === undefined) {
       io.stdout(loaded.diagnostics.map(formatDiagnostic).join(''));
       io.stdout('The project cannot be read, so the comments cannot be placed.\n');
       return exitCode(loaded.diagnostics);
     }
-    const inspected = inspectReviewFile(loaded, bytes);
+    const inspected = await inspectReviewFile(loaded, bytes, (path) =>
+      reviewStorage.readText(path),
+    );
     if (!inspected.ok) {
       io.stderr(`stanza: ${inspected.message}\n`);
       return 2;

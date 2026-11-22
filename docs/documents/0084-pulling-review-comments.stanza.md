@@ -67,7 +67,7 @@ The commit is also written into the review document as the readable revision.
 
 The aim is that the editor can mark the commented text and show the comment beside it, as Word does in its margin (item 141). A comment is placed by where its range starts and ends, in two steps.
 
-**In the reviewed version.** With the source of the reviewed version, the pull exports it again in memory and matches the paragraphs of the DOCX one to one, which gives the block and the characters where the range starts and ends. Without it, the bookmarks give the place: a range that starts inside a bookmark is on that block; in a table cell, on the table with the row and column counted from 1, the header row included; otherwise on the nearest bookmark before it, which is in practice the heading of the section, together with the position of the block under that heading (the third paragraph, the second list item), counted in the DOCX.
+**In the reviewed version.** With the source of the reviewed version, the pull exports it again in memory and matches the paragraphs of the DOCX one to one, which gives the block and the characters where the range starts and ends. Without it, the bookmarks give the place: a range that starts inside a bookmark is on that block; in a table cell, on the table with the row and column counted from 1, the header row included. A range that starts in text without an ID is on the first block with an ID inside it, since a test in Word showed that a selection starting just before a heading is meant for that heading; it lists every block it covers. A range that covers no bookmark at all is after the nearest bookmark before it, which is in practice the heading of the section, together with the position of the block under that heading (the third paragraph, the second list item), counted in the DOCX.
 
 **In the current source.** The place is then carried over to the source as it is now. A block with an ID is found by its ID. A block without one is found by comparing the blocks of the reviewed version with the current ones, and with the bookmarks alone, by its position under its heading. The quoted text confirms the place, and the characters within the block are found by it.
 
@@ -121,6 +121,11 @@ A pull never applies a change. It reports two kinds, each as a thread of its own
 A pull is a snapshot. It never changes an earlier review document, and it writes every comment it finds, also those pulled before, so each review document is complete on its own. When the `Word comment` ID of a thread is already in another review document of the same document, the command says so ("3 of 5 threads are also in reviews/0002-host-and-dependencies-2026-11-20.stanza.md"), so that the author can compare or delete the older one.
 
 <!-- stanza: #t0qws4yamf -->
+### Inspecting first
+
+`stanza review inspect <file.docx> [project]` reads a reviewed DOCX and prints, without writing anything, where each comment lands: by document and heading, with its replies, resolved state, time in UTC, reactions and quote, then what cannot be placed and how the bookmarks compare with the document. It names the commit of the stamp and says when the document has changed since the build. With an embedded source it tells a bookmark that the review lost from a block added since the build; without one, it lists both as blocks without a bookmark. It exits with 1 when a comment cannot be placed or the file has no Stanza bookmarks. The pull uses the same reading (`readReview` in `import-docx`, `inspectReview` in `project`), so inspecting a file shows what a pull would write.
+
+<!-- stanza: #dv0de72jv4 -->
 ### Reporting
 
 The command line prints the document it wrote, then a line each for orphans, comments spread over several documents, changes to the text, threads pulled before, and whether edits were checked. Then the project's diagnostics for the new document, as for import. Exit codes follow ADR 0014 and ADR 0047. VS Code writes the same lines to the Stanza output and shows a message with a button that opens it.
