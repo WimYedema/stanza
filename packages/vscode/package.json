@@ -109,6 +109,10 @@
         "title": "Stanza: Import Word Document"
       },
       {
+        "command": "stanza.pullReview",
+        "title": "Stanza: Pull Review Comments"
+      },
+      {
         "command": "stanza.adoptMarkdown",
         "title": "Stanza: Adopt Markdown File"
       },

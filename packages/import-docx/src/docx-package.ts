@@ -15,6 +15,18 @@ export interface DocxParts {
   readonly numbering: XmlElement | undefined;
   readonly footnotes: XmlElement | undefined;
   readonly endnotes: XmlElement | undefined;
+  /** The comments of reviewers (`word/comments.xml`), read by `review.ts`. */
+  readonly comments: XmlElement | undefined;
+  /** Threads and resolved state of comments (`word/commentsExtended.xml`). */
+  readonly commentsExtended: XmlElement | undefined;
+  /** The durable IDs of comments (`word/commentsIds.xml`). */
+  readonly commentsIds: XmlElement | undefined;
+  /** The UTC times and reactions of comments (`word/commentsExtensible.xml`). */
+  readonly commentsExtensible: XmlElement | undefined;
+  /** The custom file properties (`docProps/custom.xml`), where the revision stamp is (ADR 0084). */
+  readonly customProperties: XmlElement | undefined;
+  /** The custom XML parts related from the main document, such as the embedded source. */
+  readonly customXml: readonly XmlElement[];
   /** The properties of the document (`docProps/core.xml`). */
   readonly properties: XmlElement | undefined;
   /** The relationships of the main document, by ID. */
@@ -113,13 +125,24 @@ export function readDocx(bytes: Uint8Array): ReadResult {
     }
     const relations = relationshipsOf(files, relationshipsPath(documentPath));
     const partOf = (suffix: string, fallback?: string): XmlElement | undefined => {
-      const entry = [...relations.values()].find((r) => r.type === `${RELATIONSHIP_BASE}${suffix}`);
+      const type = suffix.includes('://') ? suffix : `${RELATIONSHIP_BASE}${suffix}`;
+      const entry = [...relations.values()].find((r) => r.type === type);
       const path = entry === undefined ? fallback : resolveTarget(documentPath, entry.target);
       const data = path === undefined ? undefined : files[path];
       return data === undefined ? undefined : parseXml(strFromU8(data));
     };
     const propertiesEntry = [...rootRelations.values()].find((r) => r.type === PROPERTIES_TYPE);
     const propertiesData = files[propertiesEntry?.target ?? 'docProps/core.xml'];
+    const customEntry = [...rootRelations.values()].find(
+      (r) => r.type === `${RELATIONSHIP_BASE}custom-properties`,
+    );
+    const customData = files[resolveTarget('', customEntry?.target ?? 'docProps/custom.xml')];
+    const customXml = [...relations.values()]
+      .filter((r) => r.type === `${RELATIONSHIP_BASE}customXml` && !r.external)
+      .flatMap((r) => {
+        const data = files[resolveTarget(documentPath, r.target)];
+        return data === undefined ? [] : [parseXml(strFromU8(data))];
+      });
     return {
       ok: true,
       parts: {
@@ -128,6 +151,21 @@ export function readDocx(bytes: Uint8Array): ReadResult {
         numbering: partOf('numbering'),
         footnotes: partOf('footnotes'),
         endnotes: partOf('endnotes'),
+        comments: partOf('comments', 'word/comments.xml'),
+        commentsExtended: partOf(
+          'http://schemas.microsoft.com/office/2011/relationships/commentsExtended',
+          'word/commentsExtended.xml',
+        ),
+        commentsIds: partOf(
+          'http://schemas.microsoft.com/office/2016/09/relationships/commentsIds',
+          'word/commentsIds.xml',
+        ),
+        commentsExtensible: partOf(
+          'http://schemas.microsoft.com/office/2018/08/relationships/commentsExtensible',
+          'word/commentsExtensible.xml',
+        ),
+        customProperties: customData === undefined ? undefined : parseXml(strFromU8(customData)),
+        customXml,
         properties: propertiesData === undefined ? undefined : parseXml(strFromU8(propertiesData)),
         relationships: new Map(
           [...relations].map(([id, entry]) => [

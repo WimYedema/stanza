@@ -45,6 +45,16 @@ function freeName(base: string, taken: ReadonlySet<string>): string {
   }
 }
 
+/** Where a new document goes: a folder of the project, and whether the document list gets it. */
+export interface StorePlacement {
+  /** The default is `documents`. */
+  readonly directory?: string;
+  /** False leaves the document list as it is; the default appends to an explicit one. */
+  readonly list?: boolean;
+  /** True takes `name` as the file name as it is, instead of making one from a title. */
+  readonly verbatimName?: boolean;
+}
+
 export type StoredDocument =
   | {
       readonly ok: true;
@@ -68,7 +78,9 @@ export async function storeNewDocument(
   content: Document,
   name: string,
   randomBytes: () => Uint8Array,
+  placement: StorePlacement = {},
 ): Promise<StoredDocument> {
+  const directory = placement.directory ?? DOCUMENTS_DIR;
   const used = new Set<string>(
     project.documents.flatMap(({ document }) => collectBlockIds(document).map((b) => b.id)),
   );
@@ -80,12 +92,13 @@ export async function storeNewDocument(
     return { ok: false, reason: 'no-ids', message: 'No unused ID could be made for a heading.' };
   }
 
-  const taken = new Set(await names(storage, DOCUMENTS_DIR));
-  const path = `${DOCUMENTS_DIR}/${freeName(slugOf(name), taken)}${DOCUMENT_SUFFIX}`;
-  const plan = await planDocumentAppend(storage, path);
+  const taken = new Set(await names(storage, directory));
+  const slug = placement.verbatimName === true ? name : slugOf(name);
+  const path = `${directory}/${freeName(slug, taken)}${DOCUMENT_SUFFIX}`;
+  const plan = placement.list === false ? undefined : await planDocumentAppend(storage, path);
   const text = serializeDocument(withIds.document);
   await storage.writeText(path, text);
-  await applyDocumentListPlan(storage, plan);
+  if (plan !== undefined) await applyDocumentListPlan(storage, plan);
   return {
     ok: true,
     document: path,

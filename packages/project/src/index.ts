@@ -64,3 +64,19 @@ export {
 } from './load.js';
 export { styleUsage, type StyleUse, type StyleUsage, type UseKind } from './style-usage.js';
 export type { DirectoryEntry, ProjectStorage } from './storage.js';
+export type { ReviewComment } from '@stanza/import-docx';
+export {
+  inspectReview,
+  inspectReviewFile,
+  type BlockLocation,
+  type ReviewFileResult,
+  type PlacedComment,
+  type ReviewInspection,
+} from './review.js';
+export {
+  REVIEWS_DIR,
+  pullReview,
+  quoteText,
+  type PullReviewOptions,
+  type PullReviewResult,
+} from './review-pull.js';

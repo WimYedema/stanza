@@ -5,7 +5,7 @@ import { LEGACY_FORMAT_CODE, LEGACY_FORMAT_KEY, LEGACY_FORMAT_MESSAGE } from './
 export const FORMAT_VERSION = 1;
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
-const HARDCODED_KEYS = new Set(['stanza-format', 'title', 'authors', 'classification']);
+const HARDCODED_KEYS = new Set(['stanza-format', 'title', 'authors', 'classification', 'reviews']);
 
 export interface FrontMatter {
   readonly formatVersion: number | undefined;
@@ -53,6 +53,7 @@ export function parseFrontMatter(
   let formatVersion: number | undefined;
   let title: string | undefined;
   let classification: string | undefined;
+  let reviews: string | undefined;
   let authors: string[] | undefined;
   const fields: Record<string, MetaValue> = {};
 
@@ -73,6 +74,10 @@ export function parseFrontMatter(
       case 'classification':
         if (typeof value === 'string') classification = value;
         else report('front-matter-invalid', '"classification" must be a string.');
+        break;
+      case 'reviews':
+        if (typeof value === 'string') reviews = value;
+        else report('front-matter-invalid', '"reviews" must be a string.');
         break;
       case 'authors':
         if (isStringList(value)) authors = value;
@@ -95,6 +100,7 @@ export function parseFrontMatter(
       ...(title !== undefined ? { title } : {}),
       ...(authors !== undefined ? { authors } : {}),
       ...(classification !== undefined ? { classification } : {}),
+      ...(reviews !== undefined ? { reviews } : {}),
       fields,
     },
   };
@@ -118,6 +124,7 @@ export function serializeFrontMatter(meta: DocumentMeta): string[] {
   if (meta.classification !== undefined) {
     lines.push(...entry('classification', meta.classification));
   }
+  if (meta.reviews !== undefined) lines.push(...entry('reviews', meta.reviews));
   for (const key of Object.keys(meta.fields).sort()) {
     const value = meta.fields[key];
     if (value !== undefined && !HARDCODED_KEYS.has(key)) lines.push(...entry(key, value));

@@ -13,15 +13,19 @@ import {
   adoptMarkdownDocument,
   applyMigration,
   importWordDocument,
+  inspectReviewFile,
+  pullReview,
   describeImport,
   loadProject,
   planMigration,
   useTokensInStylesheet,
   type ProjectDiagnostic,
   type ProjectStorage,
+  type ReviewComment,
+  type ReviewInspection,
   type SourceRevisions,
 } from '@stanza/project';
-import { gitRevisions } from './git-revisions.js';
+import { gitRevisions, gitSource } from './git-revisions.js';
 import { nodeRemove, nodeStorage } from './node-storage.js';
 import { cliVersion, docxVersion } from './versions.js';
 
@@ -37,6 +41,10 @@ export interface Io {
   readonly readBytes?: (path: string) => Promise<Uint8Array>;
   /** Where the documents of a project stand in Git; from `git` unless a test replaces it. */
   readonly revisions?: (root: string) => SourceRevisions;
+  /** The source of a document at a commit; from `git` unless a test replaces it. */
+  readonly sourceAt?: (
+    root: string,
+  ) => (commit: string, path: string) => Promise<string | undefined>;
 }
 
 const USAGE = `Usage: stanza <command> [project] [options]
@@ -56,6 +64,16 @@ Commands:
                        Add an ordinary Markdown file to the project as a new ${DOCUMENT_SUFFIX}
                        document, in the same way as import. The original is not changed. What
                        the dialect cannot hold is listed.
+  review inspect <file.docx> [project]
+                       Read the comments of a reviewed DOCX that the project exported, and
+                       list each one by document and heading, through the bookmarks of the
+                       block IDs. Comments that cannot be placed and blocks without a bookmark
+                       are reported. Nothing is changed.
+  review pull <file.docx> [project]
+                       Write the comments of a reviewed DOCX into a new review document in
+                       reviews/: one heading per thread, linked to its block, with replies,
+                       status and reactions. Changes to the text found in the file are listed,
+                       never applied. The reviewed document and earlier reviews do not change.
   migrate [project]    Turn a project from before Phrase was renamed to Stanza into a Stanza
                        project: phrase.yaml becomes stanza.yaml, *.phrase.md becomes
                        *.stanza.md, and the markup in them uses the new names. IDs do not
@@ -146,6 +164,136 @@ function exitCode(diagnostics: readonly ProjectDiagnostic[]): number {
   return hasErrors(diagnostics) ? 1 : 0;
 }
 
+/** The time of a comment, to the minute, in UTC when the file says so (ADR 0084, "Times"). */
+const timeOf = (c: ReviewComment): string => {
+  if (c.date === undefined) return '';
+  const minute = c.date.replace('T', ' ').slice(0, 16);
+  return c.dateIsUtc ? `, ${minute} UTC` : `, ${minute} (time zone unknown)`;
+};
+
+const REACTIONS: Readonly<Record<number, string>> = { 1: 'thumbs up' };
+
+/** The quoted text of a comment, on one line and cut short. */
+const quoteOf = (c: ReviewComment): string => {
+  const text = c.quote.replace(/\s+/g, ' ').trim();
+  if (text === '') return '';
+  return ` at "${text.length > 60 ? `${text.slice(0, 57)}...` : text}"`;
+};
+
+/** A comment as one line, with its replies on lines of their own below it. */
+const commentLines = (c: ReviewComment, replies: readonly ReviewComment[]): string => {
+  const line = (comment: ReviewComment, indent: string, extra: string): string => {
+    const reactions = comment.reactions.map(
+      (r) => `${REACTIONS[r.type] ?? `reaction ${String(r.type)}`} (${r.name || 'Unknown'})`,
+    );
+    const reacted = reactions.length === 0 ? '' : ` [${reactions.join(', ')}]`;
+    const text = comment.text.replace(/\n/g, ' / ');
+    return `${indent}${comment.author || 'Unknown'}${timeOf(comment)}: ${text}${extra}${reacted}\n`;
+  };
+  const also = c.blocks.slice(1).map((id) => `#${id}`);
+  const covers = also.length === 0 ? '' : ` (also covers ${also.join(', ')})`;
+  const status = c.resolved ? ' [resolved]' : '';
+  return (
+    line(c, '    ', `${quoteOf(c)}${covers}${status}`) +
+    replies.map((reply) => line(reply, '      reply: ', '')).join('')
+  );
+};
+
+/**
+ * The comments with their replies, in order of time. A reply whose comment is not in the list
+ * stands on its own.
+ */
+function threads<T extends ReviewComment>(comments: readonly T[]): [T, T[]][] {
+  const known = new Set(comments.flatMap((c) => (c.durableId === undefined ? [] : [c.durableId])));
+  const replies = new Map<string, T[]>();
+  const tops: T[] = [];
+  for (const comment of comments) {
+    if (comment.replyTo !== undefined && known.has(comment.replyTo)) {
+      replies.set(comment.replyTo, [...(replies.get(comment.replyTo) ?? []), comment]);
+    } else {
+      tops.push(comment);
+    }
+  }
+  const byTime = (a: T, b: T): number => (a.date ?? '').localeCompare(b.date ?? '');
+  return tops.map((top): [T, T[]] => [
+    top,
+    [...(replies.get(top.durableId ?? '') ?? [])].sort(byTime),
+  ]);
+}
+
+const idList = (ids: readonly string[]): string =>
+  ids
+    .slice(0, 10)
+    .map((id) => `#${id}`)
+    .join(', ') + (ids.length > 10 ? ', ...' : '');
+
+/** Prints the comments of a review by document and heading (ADR 0084). */
+function reportReview(io: Io, file: string, inspection: ReviewInspection): number {
+  const { placed, unplaced, missing, unknown, bookmarks, stamp, lost, added } = inspection;
+  const total = placed.length + unplaced.length;
+  const built = inspection.document === undefined ? '' : `, built from ${inspection.document}`;
+  const dirty = stamp?.dirty === true ? ' with uncommitted changes' : '';
+  const commit = stamp?.commit === undefined ? '' : ` at ${stamp.commit.slice(0, 7)}${dirty}`;
+  const saved =
+    inspection.savedAt === undefined
+      ? ''
+      : `, saved ${inspection.savedAt.replace('T', ' ').slice(0, 16)} UTC`;
+  io.stdout(
+    `${file}: ${plural(bookmarks, 'bookmark')}, ${plural(total, 'comment')}${built}${commit}${saved}.\n`,
+  );
+  if (inspection.sourceChanged === true) {
+    io.stdout(`${inspection.document ?? 'The document'} has changed since the file was built.\n`);
+  }
+  let section: string | undefined;
+  for (const [comment, replies] of threads(placed)) {
+    const { document, heading, headingId } = comment.location;
+    const key = `${document}#${headingId ?? ''}`;
+    if (key !== section) {
+      section = key;
+      const title = heading === undefined ? '(before the first heading)' : heading;
+      io.stdout(`${document}: ${title}${headingId === undefined ? '' : ` (#${headingId})`}\n`);
+    }
+    io.stdout(commentLines(comment, replies));
+  }
+  if (unplaced.length > 0) {
+    io.stdout(
+      `Not placed: ${plural(unplaced.length, 'comment')} without a block of the project.\n`,
+    );
+    for (const [comment, replies] of threads(unplaced)) io.stdout(commentLines(comment, replies));
+  }
+  if (bookmarks === 0) {
+    io.stdout(
+      'The file has no Stanza bookmarks: it was not exported by Stanza, or the review removed them.\n',
+    );
+  }
+  if (unknown.length > 0) {
+    io.stdout(
+      `${plural(unknown.length, 'bookmark')} of the file name blocks the project no longer has.\n`,
+    );
+  }
+  if (lost !== undefined && added !== undefined) {
+    // The source in the file tells a lost bookmark from a block added since (ADR 0084).
+    if (lost.length > 0) {
+      const were = lost.length === 1 ? 'was' : 'were';
+      io.stdout(
+        `${plural(lost.length, 'bookmark')} of the reviewed version ${were} lost in review: ${idList(lost)}\n`,
+      );
+    }
+    if (added.length > 0) {
+      const were = added.length === 1 ? 'was' : 'were';
+      io.stdout(
+        `${plural(added.length, 'block')} with an ID ${were} added since the build: ${idList(added)}\n`,
+      );
+    }
+  } else if (missing.length > 0) {
+    const have = missing.length === 1 ? 'has' : 'have';
+    io.stdout(
+      `${plural(missing.length, 'block')} of ${inspection.document ?? ''} with an ID ${have} no bookmark in the file (added since the build, or lost in review): ${idList(missing)}\n`,
+    );
+  }
+  return unplaced.length > 0 || bookmarks === 0 ? 1 : 0;
+}
+
 /** Runs the command line and returns the exit code. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   const usage = (message: string): number => {
@@ -191,9 +339,65 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     command !== 'format' &&
     command !== 'import' &&
     command !== 'adopt' &&
-    command !== 'migrate'
+    command !== 'migrate' &&
+    command !== 'review'
   ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
+  }
+  if (command === 'review') {
+    const [action, file, folder = '.', ...more] = positionals.slice(1);
+    if ((action !== 'inspect' && action !== 'pull') || file === undefined || !isWordFile(file)) {
+      return usage(
+        'review needs inspect or pull and a Word file, as in: stanza review pull reviewed.docx [project].',
+      );
+    }
+    if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
+    if (Object.keys(values).length > 0) {
+      return usage(`review ${action} takes no options.`);
+    }
+    let bytes: Uint8Array;
+    try {
+      bytes = await (io.readBytes ?? readFile)(resolve(io.cwd, file));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
+      return 2;
+    }
+    const reviewRoot = resolve(io.cwd, folder);
+    const reviewStorage = (io.openStorage ?? nodeStorage)(reviewRoot);
+    if (action === 'pull') {
+      const pulled = await pullReview(reviewStorage, bytes, {
+        fileName: basename(file),
+        randomBytes: () => randomBytes(10),
+        sourceAt: (io.sourceAt ?? gitSource)(reviewRoot),
+      });
+      if (!pulled.ok) {
+        if (pulled.reason === 'no-project') {
+          io.stdout(`${pulled.message}\n`);
+          return 1;
+        }
+        io.stderr(`stanza: ${pulled.message}\n`);
+        return 2;
+      }
+      io.stdout(`Wrote ${pulled.document}, the review of ${pulled.reviewed}.\n`);
+      for (const line of pulled.lines) io.stdout(`  ${line}\n`);
+      io.stdout(pulled.diagnostics.map(formatDiagnostic).join(''));
+      return hasErrors(pulled.diagnostics) ? 1 : 0;
+    }
+    const loaded = await loadProject(reviewStorage);
+    if (loaded.settings === undefined || loaded.stylesheet === undefined) {
+      io.stdout(loaded.diagnostics.map(formatDiagnostic).join(''));
+      io.stdout('The project cannot be read, so the comments cannot be placed.\n');
+      return exitCode(loaded.diagnostics);
+    }
+    const inspected = await inspectReviewFile(loaded, bytes, (path) =>
+      reviewStorage.readText(path),
+    );
+    if (!inspected.ok) {
+      io.stderr(`stanza: ${inspected.message}\n`);
+      return 2;
+    }
+    return reportReview(io, file, inspected.inspection);
   }
   if (command === 'import' || command === 'adopt') {
     if (
