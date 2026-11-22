@@ -68,6 +68,7 @@ export async function exportDocument(
   const result = await exportDocx(effective, stylesheet, {
     timestamp: options.timestamp,
     ...(source !== undefined ? { source } : {}),
+    protection: options.protection ?? settings.reviewProtection ?? 'comments',
     otherTargets: referenceTargets(loaded.documents)(documentPath),
     ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
   });

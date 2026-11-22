@@ -83,6 +83,8 @@ Options for build:
   --out <dir>          Output directory, relative to the project (default: build).
   --date <date>        The date written into the files, as YYYY-MM-DD or with a time and
                        zone. The default is 1980-01-01, so that output is always the same.
+  --protection <kind>  comments (reviewers can only comment) or none (Word for the web can
+                       comment), in place of review-protection in the project file.
 
 Options for format and migrate:
   --check              Write nothing; list the documents that are not canonical, or the files
@@ -309,6 +311,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       options: {
         out: { type: 'string' },
         date: { type: 'string' },
+        protection: { type: 'string' },
         check: { type: 'boolean' },
         'assign-ids': { type: 'boolean' },
         'fix-stylesheet': { type: 'boolean' },
@@ -402,6 +405,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (command === 'import' || command === 'adopt') {
     if (
       values.out !== undefined ||
+      values.protection !== undefined ||
       values.date !== undefined ||
       values.check === true ||
       values.file !== undefined ||
@@ -469,8 +473,11 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       return usage('--max-diagnostics must be a positive safe integer.');
     }
   }
-  if (command !== 'build' && (values.out !== undefined || values.date !== undefined)) {
-    return usage('--out and --date apply to build only.');
+  if (
+    command !== 'build' &&
+    (values.out !== undefined || values.date !== undefined || values.protection !== undefined)
+  ) {
+    return usage('--out, --date and --protection apply to build only.');
   }
   if (command !== 'format' && command !== 'migrate' && values.check === true) {
     return usage('--check applies to format and migrate only.');
@@ -644,18 +651,27 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (!isSafeRelativePath(outDir)) {
     return usage('--out must be a relative path with "/" separators and no "..".');
   }
+  const protection = values.protection;
+  if (protection !== undefined && protection !== 'comments' && protection !== 'none') {
+    return usage('--protection must be comments or none.');
+  }
   const result = await buildProject(storage, {
     outDir,
     timestamp,
+    ...(protection !== undefined ? { protection } : {}),
     revisions: (io.revisions ?? gitRevisions)(root),
   });
   io.stdout(result.diagnostics.map(formatDiagnostic).join(''));
   io.stdout(summary(result.documents, result.diagnostics));
   const code = exitCode(result.diagnostics);
-  if (code === 0) {
+  const failed = result.diagnostics.filter((d) => d.code === 'output-not-written').length;
+  if (result.written.length > 0) {
     io.stdout(`Wrote ${plural(result.written.length, 'file')} to ${outDir}/.\n`);
     io.stdout(`stanza ${cliVersion()}, docx ${docxVersion()}, date ${timestamp.toISOString()}.\n`);
-  } else {
+  }
+  if (failed > 0) {
+    io.stdout(`${plural(failed, 'file')} could not be written; the others were.\n`);
+  } else if (result.written.length === 0 && code !== 0) {
     io.stdout('Nothing was written.\n');
   }
   return code;

@@ -252,3 +252,53 @@ describe('the revision stamp (ADR 0084)', () => {
     expect(propertiesOf(storage.written.get(introduction))).toHaveProperty('stanza-content-hash');
   });
 });
+
+describe('buildProject, a file that cannot be written', () => {
+  it('reports a file that is open in Word, and still writes the others', async () => {
+    const storage = memoryStorage(exampleProject());
+    const locked = 'build/documents/introduction.docx';
+    const writeFile = storage.writeFile.bind(storage);
+    storage.writeFile = (path, content) =>
+      path === locked
+        ? Promise.reject(
+            Object.assign(new Error(`EBUSY: resource busy or locked, open '${path}'`), {
+              code: 'EBUSY',
+            }),
+          )
+        : writeFile(path, content);
+    const result = await buildProject(storage, options);
+    expect(result.written).toEqual(['build/documents/reference.docx']);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        file: locked,
+        severity: 'error',
+        code: 'output-not-written',
+        message: expect.stringContaining('open in another program, such as Word') as string,
+      }),
+    ]);
+  });
+});
+
+describe('buildProject, the protection of the packages (ADR 0085)', () => {
+  const settingsOf = (bytes: Uint8Array | undefined): string =>
+    strFromU8(unzipSync(bytes ?? new Uint8Array())['word/settings.xml'] ?? new Uint8Array());
+  const introduction = 'build/documents/introduction.docx';
+
+  it('protects for comments by default, and follows review-protection in the project file', async () => {
+    const protectedStorage = memoryStorage(exampleProject());
+    await buildProject(protectedStorage, options);
+    expect(settingsOf(protectedStorage.written.get(introduction))).toContain('documentProtection');
+
+    const files = exampleProject();
+    files['stanza.yaml'] = `${files['stanza.yaml'] ?? ''}review-protection: none\n`;
+    const open = memoryStorage(files);
+    await buildProject(open, options);
+    expect(settingsOf(open.written.get(introduction))).not.toContain('documentProtection');
+  });
+
+  it('takes the protection of the build in place of the project file', async () => {
+    const storage = memoryStorage(exampleProject());
+    await buildProject(storage, { ...options, protection: 'none' });
+    expect(settingsOf(storage.written.get(introduction))).not.toContain('documentProtection');
+  });
+});

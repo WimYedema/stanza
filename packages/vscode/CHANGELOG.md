@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `review-protection: none` in `stanza.yaml` exports documents without the protection for comments, so that reviewers in Word for the web can comment.
+- Building no longer stops when one of the files is open in Word: that file is reported and the others are written.
 - Every exported DOCX records the document, the Git commit and whether it had uncommitted changes, and carries its own source, hidden in the file.
 - **Stanza: Pull Review Comments** writes the comments of a reviewed DOCX into a review document in `reviews/`: one heading per thread, linked to the commented text, with replies, resolved state and reactions, and the changes reviewers made to the text, which are never applied.
 

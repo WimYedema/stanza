@@ -1,4 +1,4 @@
-import { applyDefaults, isSafeRelativePath } from '@stanza/core';
+import { applyDefaults, isSafeRelativePath, type ReviewProtection } from '@stanza/core';
 import { exportDocx } from '@stanza/export-docx';
 import { hasErrors, inFile, withoutRepeats, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX } from './files.js';
@@ -17,6 +17,11 @@ export interface BuildOptions {
    * (ADR 0084). Without it the packages are stamped with their path and source only.
    */
   readonly revisions?: SourceRevisions;
+  /**
+   * The protection of the packages for this build, in place of the project's `review-protection`
+   * (ADR 0085), such as `none` for a copy that goes to SharePoint.
+   */
+  readonly protection?: ReviewProtection;
 }
 
 export interface BuildResult {
@@ -82,6 +87,7 @@ export async function buildProject(
       timestamp: options.timestamp,
       otherTargets: targetsFor(path),
       ...(source !== undefined ? { source } : {}),
+      protection: options.protection ?? settings.reviewProtection ?? 'comments',
       ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
     });
     diagnostics.push(...inFile(path, result.diagnostics));
@@ -91,8 +97,39 @@ export async function buildProject(
   }
 
   // The exporter checks the document again, so its findings repeat those of loading.
-  const unique = withoutRepeats(diagnostics);
+  const unique = [...withoutRepeats(diagnostics)];
   if (hasErrors(unique)) return { written: [], documents, diagnostics: unique };
-  for (const { path, bytes } of outputs) await storage.writeFile(path, bytes);
-  return { written: outputs.map((output) => output.path), documents, diagnostics: unique };
+  // A file that cannot be written, such as one that is open in Word during a review, is reported,
+  // and the other files are still written.
+  const written: string[] = [];
+  for (const { path, bytes } of outputs) {
+    try {
+      await storage.writeFile(path, bytes);
+      written.push(path);
+    } catch (error) {
+      unique.push(notWritten(path, error));
+    }
+  }
+  return { written, documents, diagnostics: unique };
+}
+
+/** The error code of a file system error, such as `EBUSY`, when it has one. */
+const errorCode = (error: unknown): string | undefined =>
+  typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : undefined;
+
+/** Why an output file could not be written, in words that say what to do. */
+export function notWritten(path: string, error: unknown): ProjectDiagnostic {
+  const code = errorCode(error);
+  const locked = code === 'EBUSY' || code === 'EPERM' || code === 'EACCES';
+  const reason = error instanceof Error ? error.message : String(error);
+  return {
+    file: path,
+    severity: 'error',
+    code: 'output-not-written',
+    message: locked
+      ? 'The file is open in another program, such as Word, so it was not written. Close it and build again.'
+      : `The file could not be written: ${reason}`,
+  };
 }
