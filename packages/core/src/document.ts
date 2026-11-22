@@ -7,6 +7,11 @@ export interface DocumentMeta {
   readonly title?: string;
   readonly authors?: readonly string[];
   readonly classification?: string;
+  /**
+   * For a review document (ADR 0084): the path of the document it reviews, relative to the
+   * project root. Such a document is not reported as unlisted and is not built.
+   */
+  readonly reviews?: string;
   /** Project-specific entries with kebab-case keys. */
   readonly fields: Readonly<Record<string, MetaValue>>;
 }

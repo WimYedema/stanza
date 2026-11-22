@@ -90,6 +90,8 @@ describe('inspectReview', () => {
     const [first = '' as NodeId, ...rest] = idsOf(loaded, INTRODUCTION);
     const gone = 'zzzzzzzzzz' as NodeId;
     const inspection = inspectReview(loaded, {
+      paragraphs: [],
+      trackedChanges: [],
       bookmarks: [first, gone],
       comments: [comment('0', first), comment('1', gone), comment('2')],
     });
@@ -103,7 +105,12 @@ describe('inspectReview', () => {
   });
 
   it('knows no document when no bookmark belongs to the project', async () => {
-    const inspection = inspectReview(await example(), { bookmarks: [], comments: [] });
+    const inspection = inspectReview(await example(), {
+      bookmarks: [],
+      comments: [],
+      paragraphs: [],
+      trackedChanges: [],
+    });
     expect(inspection).toEqual({
       placed: [],
       unplaced: [],

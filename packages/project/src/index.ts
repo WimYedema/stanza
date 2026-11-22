@@ -73,3 +73,10 @@ export {
   type PlacedComment,
   type ReviewInspection,
 } from './review.js';
+export {
+  REVIEWS_DIR,
+  pullReview,
+  quoteText,
+  type PullReviewOptions,
+  type PullReviewResult,
+} from './review-pull.js';

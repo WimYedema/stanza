@@ -27,11 +27,13 @@ export interface MetadataPanel {
 }
 
 type Values = Readonly<Record<string, MetaValue>>;
-const BUILTINS = ['title', 'authors', 'classification', 'page-template'];
+const BUILTINS = ['title', 'authors', 'classification', 'reviews', 'page-template'];
 const LABELS = new Map([
   ['title', 'Title'],
   ['authors', 'Authors'],
   ['classification', 'Classification'],
+  // The document a review document reviews (ADR 0084).
+  ['reviews', 'Reviews'],
   ['page-template', 'Page template'],
 ]);
 const valuesOf = (meta: DocumentMeta): Values => ({
@@ -39,21 +41,20 @@ const valuesOf = (meta: DocumentMeta): Values => ({
   ...(meta.title !== undefined ? { title: meta.title } : {}),
   ...(meta.authors !== undefined ? { authors: meta.authors } : {}),
   ...(meta.classification !== undefined ? { classification: meta.classification } : {}),
+  ...(meta.reviews !== undefined ? { reviews: meta.reviews } : {}),
 });
 const keyOf = (values: Values): string =>
   JSON.stringify(Object.entries(values).sort(([a], [b]) => a.localeCompare(b)));
 
 function metaOf(values: Values): DocumentMeta {
-  const { title, authors, classification } = values;
+  const { title, authors, classification, reviews } = values;
+  const own = new Set(['title', 'authors', 'classification', 'reviews']);
   return {
     ...(typeof title === 'string' ? { title } : {}),
     ...(authors !== undefined && typeof authors !== 'string' ? { authors } : {}),
     ...(typeof classification === 'string' ? { classification } : {}),
-    fields: Object.fromEntries(
-      Object.entries(values).filter(
-        ([name]) => name !== 'title' && name !== 'authors' && name !== 'classification',
-      ),
-    ),
+    ...(typeof reviews === 'string' ? { reviews } : {}),
+    fields: Object.fromEntries(Object.entries(values).filter(([name]) => !own.has(name))),
   };
 }
 

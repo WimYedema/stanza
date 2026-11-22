@@ -9,3 +9,10 @@ export {
   type ReviewReading,
 } from './review.js';
 export type { EmbeddedSource, Reaction, ReviewStamp } from './review-parts.js';
+export {
+  readBodyText,
+  type BodyText,
+  type DocxParagraph,
+  type ReadBodyResult,
+  type TrackedChange,
+} from './review-text.js';

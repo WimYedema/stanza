@@ -14,6 +14,7 @@ import {
   applyMigration,
   importWordDocument,
   inspectReviewFile,
+  pullReview,
   describeImport,
   loadProject,
   planMigration,
@@ -24,7 +25,7 @@ import {
   type ReviewInspection,
   type SourceRevisions,
 } from '@stanza/project';
-import { gitRevisions } from './git-revisions.js';
+import { gitRevisions, gitSource } from './git-revisions.js';
 import { nodeRemove, nodeStorage } from './node-storage.js';
 import { cliVersion, docxVersion } from './versions.js';
 
@@ -40,6 +41,10 @@ export interface Io {
   readonly readBytes?: (path: string) => Promise<Uint8Array>;
   /** Where the documents of a project stand in Git; from `git` unless a test replaces it. */
   readonly revisions?: (root: string) => SourceRevisions;
+  /** The source of a document at a commit; from `git` unless a test replaces it. */
+  readonly sourceAt?: (
+    root: string,
+  ) => (commit: string, path: string) => Promise<string | undefined>;
 }
 
 const USAGE = `Usage: stanza <command> [project] [options]
@@ -64,6 +69,11 @@ Commands:
                        list each one by document and heading, through the bookmarks of the
                        block IDs. Comments that cannot be placed and blocks without a bookmark
                        are reported. Nothing is changed.
+  review pull <file.docx> [project]
+                       Write the comments of a reviewed DOCX into a new review document in
+                       reviews/: one heading per thread, linked to its block, with replies,
+                       status and reactions. Changes to the text found in the file are listed,
+                       never applied. The reviewed document and earlier reviews do not change.
   migrate [project]    Turn a project from before Phrase was renamed to Stanza into a Stanza
                        project: phrase.yaml becomes stanza.yaml, *.phrase.md becomes
                        *.stanza.md, and the markup in them uses the new names. IDs do not
@@ -336,14 +346,14 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   }
   if (command === 'review') {
     const [action, file, folder = '.', ...more] = positionals.slice(1);
-    if (action !== 'inspect' || file === undefined || !isWordFile(file)) {
+    if ((action !== 'inspect' && action !== 'pull') || file === undefined || !isWordFile(file)) {
       return usage(
-        'review needs inspect and a Word file, as in: stanza review inspect reviewed.docx [project].',
+        'review needs inspect or pull and a Word file, as in: stanza review pull reviewed.docx [project].',
       );
     }
     if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
     if (Object.keys(values).length > 0) {
-      return usage('review inspect takes no options.');
+      return usage(`review ${action} takes no options.`);
     }
     let bytes: Uint8Array;
     try {
@@ -353,7 +363,27 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
       return 2;
     }
-    const reviewStorage = (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder));
+    const reviewRoot = resolve(io.cwd, folder);
+    const reviewStorage = (io.openStorage ?? nodeStorage)(reviewRoot);
+    if (action === 'pull') {
+      const pulled = await pullReview(reviewStorage, bytes, {
+        fileName: basename(file),
+        randomBytes: () => randomBytes(10),
+        sourceAt: (io.sourceAt ?? gitSource)(reviewRoot),
+      });
+      if (!pulled.ok) {
+        if (pulled.reason === 'no-project') {
+          io.stdout(`${pulled.message}\n`);
+          return 1;
+        }
+        io.stderr(`stanza: ${pulled.message}\n`);
+        return 2;
+      }
+      io.stdout(`Wrote ${pulled.document}, the review of ${pulled.reviewed}.\n`);
+      for (const line of pulled.lines) io.stdout(`  ${line}\n`);
+      io.stdout(pulled.diagnostics.map(formatDiagnostic).join(''));
+      return hasErrors(pulled.diagnostics) ? 1 : 0;
+    }
     const loaded = await loadProject(reviewStorage);
     if (loaded.settings === undefined || loaded.stylesheet === undefined) {
       io.stdout(loaded.diagnostics.map(formatDiagnostic).join(''));

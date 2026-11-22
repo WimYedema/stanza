@@ -40,6 +40,23 @@ export function changedPaths(output: string): Set<string> {
 }
 
 /**
+ * The text of a document of the project at a commit, from Git, for a reviewed file that has a stamp
+ * and no embedded source (ADR 0084, "The reviewed version"). Undefined when Git, the repository or
+ * the commit is missing, as after a squash merge whose branch was deleted, or in a shallow clone.
+ */
+export function gitSource(
+  root: string,
+  git: RunGit = runGit,
+): (commit: string, path: string) => Promise<string | undefined> {
+  return async (commit, path) => {
+    if (!/^[0-9a-f]{7,64}$/i.test(commit)) return undefined;
+    const prefix = await git(root, ['rev-parse', '--show-prefix']);
+    if (prefix === undefined) return undefined;
+    return git(root, ['show', `${commit}:${prefix.trim()}${path}`]);
+  };
+}
+
+/**
  * The revisions of documents from Git, for the revision stamp (ADR 0084): the commit of `HEAD`,
  * and a document is dirty when it is not in that commit or differs from it, in the index or in the
  * working tree. A project outside a repository, a repository without commits, or no Git at all

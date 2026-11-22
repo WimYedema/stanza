@@ -50,6 +50,7 @@ export const HARDCODED_FIELD_NAMES: readonly string[] = [
   'title',
   'authors',
   'classification',
+  'reviews',
   'page-template',
 ];
 
@@ -96,7 +97,8 @@ export function validateMetadata(
   for (const [name, declaration] of declared) {
     const value = Object.hasOwn(meta.fields, name) ? meta.fields[name] : undefined;
     if (value === undefined || isEmpty(value)) {
-      if (declaration.required) {
+      // A review document is never built, so the fields a publication needs do not apply (ADR 0084).
+      if (declaration.required && meta.reviews === undefined) {
         report('error', 'missing-field', `The field "${name}" is required.`, name);
       }
       continue;

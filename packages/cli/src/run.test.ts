@@ -764,9 +764,27 @@ describe('stanza review inspect', () => {
     );
   });
 
-  it('needs inspect and a Word file', async () => {
+  it('needs inspect or pull and a Word file', async () => {
     const result = await stanza('review', 'reviewed.docx');
     expect(result.code).toBe(2);
-    expect(result.err).toContain('review needs inspect and a Word file');
+    expect(result.err).toContain('review needs inspect or pull and a Word file');
+  });
+
+  it('pulls the comments into a new review document, and keeps it out of the build', async () => {
+    writeReviewed();
+    const result = await stanza('review', 'pull', 'reviewed.docx', 'project');
+    expect(result.code).toBe(0);
+    expect(result.out).toContain(
+      'Wrote reviews/introduction-undated.stanza.md, the review of documents/introduction.stanza.md.',
+    );
+    expect(result.out).toContain('Edits not checked: the file has no revision stamp.');
+    const written = readFileSync(
+      join(work, 'project', 'reviews', 'introduction-undated.stanza.md'),
+      'utf8',
+    );
+    expect(written).toContain('reviews: "documents/introduction.stanza.md"');
+    expect(written).toContain('Status: open.');
+    const built = await stanza('build', 'project');
+    expect(built.out).toContain('Wrote 2 files to build/.');
   });
 });

@@ -181,8 +181,19 @@ export async function loadProject(
   }
   // A reference may point at a block of any document, so every document is read before checking.
   const ids = projectIds(texts.map(({ parsed }) => ({ document: parsed.document })));
+  const allPaths = new Set(texts.map(({ path }) => path));
   for (const { path, parsed } of texts) {
-    if (!listed.has(path)) {
+    // A review document (ADR 0084) is checked like any other, and never listed or built.
+    const reviews = parsed.document.meta.reviews;
+    if (reviews !== undefined && !allPaths.has(reviews)) {
+      diagnostics.push({
+        file: path,
+        severity: 'warning',
+        code: 'unknown-reviewed-document',
+        message: `This review document reviews "${reviews}", which is not a document of the project.`,
+      });
+    }
+    if (!listed.has(path) && reviews === undefined) {
       diagnostics.push({
         file: path,
         severity: 'warning',
@@ -193,7 +204,11 @@ export async function loadProject(
     }
     const checked = checkParsedDocument(parsed, stylesheet, settings, { projectIds: ids });
     diagnostics.push(...inFile(path, checked.diagnostics));
-    documents.push({ path, document: checked.document, listed: listed.has(path) });
+    documents.push({
+      path,
+      document: checked.document,
+      listed: listed.has(path) && reviews === undefined,
+    });
   }
   diagnostics.push(...duplicateIds(documents));
   const references = indexProjectReferences(

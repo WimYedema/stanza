@@ -16,6 +16,8 @@ interface GitRepository {
     readonly untrackedChanges?: readonly GitChange[];
   };
   status(): Promise<void>;
+  /** The text of a file at a commit. */
+  show(ref: string, path: string): Promise<string>;
 }
 interface GitApi {
   getRepository(uri: vscode.Uri): GitRepository | null;
@@ -58,5 +60,25 @@ export function vscodeGitRevisions(root: vscode.Uri): SourceRevisions {
       revisions.set(path, { commit, dirty: changed.has(uriInProject(root, path).toString()) });
     }
     return revisions;
+  };
+}
+
+/**
+ * The text of a document at a commit, from VS Code's Git, for a reviewed file that has a stamp and
+ * no embedded source (ADR 0084, "The reviewed version"). Undefined without Git, a repository or
+ * the commit.
+ */
+export function vscodeGitSource(
+  root: vscode.Uri,
+): (commit: string, path: string) => Promise<string | undefined> {
+  return async (commit, path) => {
+    if (!/^[0-9a-f]{7,64}$/i.test(commit)) return undefined;
+    const repository = (await gitApi())?.getRepository(root) ?? undefined;
+    if (repository === undefined) return undefined;
+    try {
+      return await repository.show(commit, uriInProject(root, path).fsPath);
+    } catch {
+      return undefined;
+    }
   };
 }

@@ -10,6 +10,7 @@ import {
   type Reaction,
   type ReviewStamp,
 } from './review-parts.js';
+import { bodyText, type DocxParagraph, type TrackedChange } from './review-text.js';
 import { descendantsOf, elementsOf, type XmlElement } from './xml.js';
 
 /**
@@ -48,6 +49,11 @@ export interface ReviewComment {
   readonly block?: NodeId;
   /** Every block the selection covers, the main block first; just `block` when it is `after`. */
   readonly blocks: readonly NodeId[];
+  /**
+   * The index in `paragraphs` of the paragraph where the comment starts; undefined when the file
+   * does not show where.
+   */
+  readonly paragraph?: number;
 }
 
 export interface ReviewReading {
@@ -61,6 +67,10 @@ export interface ReviewReading {
   readonly source?: EmbeddedSource;
   /** When the file was last saved, in UTC, so that a file that is behind can be seen. */
   readonly savedAt?: string;
+  /** The paragraphs of the body as built, to compare with the reviewed version (ADR 0084). */
+  readonly paragraphs: readonly DocxParagraph[];
+  /** Tracked changes in the body, which are reported and never applied. */
+  readonly trackedChanges: readonly TrackedChange[];
 }
 
 export type ReadReviewResult =
@@ -97,6 +107,8 @@ interface Anchor {
    * one whose bookmark starts within it.
    */
   readonly covered: NodeId[];
+  /** The index of the body paragraph where the comment starts, as `bodyText` counts them. */
+  readonly paragraph: number;
 }
 
 const UNPLACED = { placement: 'unplaced', blocks: [] } as const;
@@ -128,10 +140,16 @@ function walk(document: XmlElement): {
   /** Comments whose range has started and not yet ended. */
   const active = new Set<string>();
   let last: NodeId | undefined;
+  /** How many body paragraphs have started so far. */
+  let paragraphs = 0;
   const start = (commentId: string | undefined, ranged: boolean): void => {
     if (commentId === undefined || anchors.has(commentId)) return;
     const inside = [...open.values()].at(-1);
-    anchors.set(commentId, { before: last, covered: inside === undefined ? [] : [inside] });
+    anchors.set(commentId, {
+      before: last,
+      covered: inside === undefined ? [] : [inside],
+      paragraph: Math.max(0, paragraphs - 1),
+    });
     if (ranged) active.add(commentId);
   };
   const visit = (element: XmlElement): void => {
@@ -176,6 +194,7 @@ function walk(document: XmlElement): {
         case 'del':
           break;
         case 'p':
+          paragraphs += 1;
           visit(child);
           quote('\n');
           break;
@@ -211,7 +230,8 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
     const local = comment.attrs['date']?.replace(/Z$/, '');
     const date = more?.dateUtc ?? local;
     const replyTo = durableOf(more?.parentParagraph);
-    const { placement, block, blocks } = placementOf(anchors.get(id));
+    const anchor = anchors.get(id);
+    const { placement, block, blocks } = placementOf(anchor);
     return {
       id,
       ...(more?.durableId !== undefined ? { durableId: more.durableId } : {}),
@@ -226,16 +246,20 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
       placement,
       ...(block !== undefined ? { block } : {}),
       blocks,
+      ...(anchor !== undefined ? { paragraph: anchor.paragraph } : {}),
     };
   });
   const stamp = stampOf(parts);
   const source = embeddedSourceOf(parts);
   const savedAt = savedAtOf(parts);
+  const body = bodyText(parts.document);
   return {
     ok: true,
     review: {
       bookmarks,
       comments,
+      paragraphs: body.paragraphs,
+      trackedChanges: body.trackedChanges,
       ...(stamp !== undefined ? { stamp } : {}),
       ...(source !== undefined ? { source } : {}),
       ...(savedAt !== undefined ? { savedAt } : {}),

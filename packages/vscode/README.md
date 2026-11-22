@@ -24,6 +24,7 @@ Already have content? Use **Stanza: Import Word Document** for a `.docx`, or **S
 | Stanza: New Document               |                        |
 | Stanza: Import Word Document       |                        |
 | Stanza: Adopt Markdown File        |                        |
+| Stanza: Pull Review Comments       |                        |
 | Stanza: Edit Styles                |                        |
 | Stanza: Initialize Document List   |                        |
 | Stanza: Add Agent Instructions     |                        |
@@ -81,12 +82,18 @@ Problems offers quick fixes to add an unlisted document or, after you confirm, t
 
 A large project opens in two steps: the document is shown read-only at once, and becomes editable when the project-wide checks are done. Opening a document never reformats or rewrites it. The **Stanza** output channel reports how long both steps took; the timings stay on your machine.
 
+## Reviewing in Word
+
+Send the DOCX from `build/` to your reviewers; they comment in Word as usual. Every DOCX records which document and Git revision it was built from, and carries its own source, so the comments can be traced back. Run **Stanza: Pull Review Comments** with the commented file: it writes a review document in `reviews/`, with one heading per comment thread, linked to the commented text, and with replies, resolved state and reactions. Changes that reviewers made to the text are listed, never applied. Only display names are written, never email addresses. Review documents are checked like other documents and are not built.
+
 ## Known limitations
 
 - GitHub's own anchors for block IDs are not supported yet.
 - Links to outside addresses are not checked for existence.
 - Version, date and revision from Git are shown as unavailable in the document properties until they are generated.
 - **Open in Word** is not available in remote or web sessions.
+- Exported documents are protected so that reviewers can only comment. Word for the web opens such a document read-only, so reviewing in SharePoint or OneDrive in the browser needs Word desktop for now.
+- The text of a pulled comment is plain text; its bold, italic and links are not kept yet.
 
 ## License
 

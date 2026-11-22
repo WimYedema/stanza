@@ -50,6 +50,7 @@ describe('readReview', () => {
         placement: 'inside',
         block: A,
         blocks: [A],
+        paragraph: 0,
       },
       {
         id: '1',
@@ -63,6 +64,7 @@ describe('readReview', () => {
         placement: 'after',
         block: A,
         blocks: [A],
+        paragraph: 1,
       },
     ]);
   });
@@ -124,7 +126,12 @@ describe('readReview', () => {
 
   it('reads a file without comments', () => {
     const read = readReview(buildDocx({ body: block(1, A, run('Text')) }));
-    expect(read.ok && read.review).toEqual({ bookmarks: [A], comments: [] });
+    expect(read.ok && read.review).toEqual({
+      bookmarks: [A],
+      comments: [],
+      paragraphs: [{ text: 'Text', block: A }],
+      trackedChanges: [],
+    });
   });
 
   it('refuses what is not a DOCX', () => {
