@@ -32,8 +32,17 @@ export function outlinePaths(entries: readonly OutlineEntry[]): readonly string[
   );
 }
 
+/**
+ * How an exported DOCX is protected (ADR 0085, refining ADR 0030): `comments` lets a reviewer only
+ * comment, `none` lets Word for the web open it for comments at all.
+ */
+export type ReviewProtection = 'comments' | 'none';
+export const REVIEW_PROTECTIONS: readonly ReviewProtection[] = ['comments', 'none'];
+
 export interface ProjectSettings {
   readonly linkSchemes?: LinkSchemes;
+  /** Absent means `comments`, as before ADR 0085. */
+  readonly reviewProtection?: ReviewProtection;
   readonly title?: string;
   /** Path of the stylesheet, relative to the project root. */
   readonly stylesheet: string;

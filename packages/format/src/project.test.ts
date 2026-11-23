@@ -11,6 +11,20 @@ const codes = (source: string): (string | undefined)[] =>
   parseProject(source).diagnostics.map((d) => `${d.code}@${d.path ?? ''}`);
 
 describe('parseProject', () => {
+  it('reads review-protection, comments or none (ADR 0085)', () => {
+    const base = 'stanza-format: 1\nstylesheet: s.yaml\n';
+    expect(parseProject(base).settings.reviewProtection).toBeUndefined();
+    const none = parseProject(`${base}review-protection: none\n`);
+    expect(none.diagnostics).toEqual([]);
+    expect(none.settings.reviewProtection).toBe('none');
+    expect(parseProject(`${base}review-protection: comments\n`).settings.reviewProtection).toBe(
+      'comments',
+    );
+    expect(codes(`${base}review-protection: read-only\n`)).toEqual([
+      'invalid-review-protection@review-protection',
+    ]);
+  });
+
   it('reads link templates without changing the existing format version', () => {
     const result = parseProject(
       'stanza-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: https://example.org/browse/{id}\n',

@@ -307,6 +307,18 @@ describe('exportDocx', () => {
     expect(settingsXml).not.toMatch(/w:(hash|salt|cryptProviderType|algorithmName|spinCount)/i);
   });
 
+  it('leaves the document open when asked, so that Word for the web can comment (ADR 0085)', async () => {
+    const result = await exportDocx(read('Text.\n'), stylesheet, {
+      timestamp: TIMESTAMP,
+      protection: 'none',
+    });
+    const settings = strFromU8(
+      unzipSync(result.bytes ?? new Uint8Array())['word/settings.xml'] ?? new Uint8Array(),
+    );
+    expect(settings).toContain('<w:defaultTabStop');
+    expect(settings).not.toContain('documentProtection');
+  });
+
   it('protects a document with a cover page in the same way', async () => {
     const { settingsXml } = await build('Text.\n', stylesheet, 'page-template: "page-letter"\n');
     expect(settingsXml).toContain('<w:documentProtection w:edit="comments" w:enforcement="1"/>');

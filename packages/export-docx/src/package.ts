@@ -91,6 +91,8 @@ export interface FinishOptions {
   readonly pageBreaks: ReadonlyMap<string, boolean>;
   /** The width of the text on the page, where the page numbers of a table of contents align. */
   readonly textWidthTwips: number;
+  /** Whether the package is protected for comments (ADR 0030) or not at all (ADR 0085). */
+  readonly protection: 'comments' | 'none';
   /** The source to embed as a custom XML part (ADR 0084), if any. */
   readonly source?: FinishedStamp;
 }
@@ -137,7 +139,7 @@ export function finishPackage(bytes: Uint8Array, options: FinishOptions): Uint8A
   const files = unzipSync(bytes);
   addPageBreaks(files, options.pageBreaks);
   alignTocPageNumbers(files, options.textWidthTwips);
-  addReviewProtection(files);
+  if (options.protection === 'comments') addReviewProtection(files);
   if (options.source !== undefined) addSourcePart(files, options.source);
   const core = files['docProps/core.xml'];
   if (core !== undefined) {

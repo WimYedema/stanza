@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { strToU8, zipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { createProject } from '@stanza/project';
 import { nodeStorage } from './node-storage.js';
 import { run } from './run.js';
@@ -170,6 +170,44 @@ describe('stanza validate', () => {
 });
 
 describe('stanza build', () => {
+  it('reports a file that is open in Word instead of stopping, and writes the others', async () => {
+    let out = '';
+    const code = await run(['build', 'project'], {
+      cwd: work,
+      stdout: (text) => (out += text),
+      stderr: () => undefined,
+      // Windows refuses to write a file that Word has open; the storage does the same here.
+      openStorage: (root) => {
+        const storage = nodeStorage(root);
+        return {
+          ...storage,
+          writeFile: (path, content) =>
+            path.endsWith('introduction.docx')
+              ? Promise.reject(Object.assign(new Error('EBUSY'), { code: 'EBUSY' }))
+              : storage.writeFile(path, content),
+        };
+      },
+    });
+    expect(code).toBe(1);
+    expect(out).toContain('output-not-written');
+    expect(out).toContain('Wrote 1 file to build/.');
+    expect(out).toContain('1 file could not be written; the others were.');
+    expect(existsSync(join(work, 'project', 'build', 'documents', 'reference.docx'))).toBe(true);
+  });
+
+  it('builds without the protection with --protection none, and refuses other values', async () => {
+    expect((await stanza('build', 'project', '--protection', 'none')).code).toBe(0);
+    const settings = strFromU8(
+      unzipSync(bytesOf('project', 'build', 'documents', 'introduction.docx'))[
+        'word/settings.xml'
+      ] ?? new Uint8Array(),
+    );
+    expect(settings).not.toContain('documentProtection');
+    const wrong = await stanza('build', 'project', '--protection', 'read-only');
+    expect(wrong.code).toBe(2);
+    expect(wrong.err).toContain('--protection must be comments or none.');
+  });
+
   it('writes one DOCX per document into build/ and says what it used', async () => {
     const result = await stanza('build', 'project');
     expect(result.code).toBe(0);
@@ -351,8 +389,8 @@ describe('stanza usage', () => {
     [['publish'], 'unknown command "publish"'],
     [['validate', 'a', 'b'], 'unexpected argument "b"'],
     [['validate', '--nope'], 'nope'],
-    [['validate', '--out', 'x'], '--out and --date apply to build only'],
-    [['format', '--date', '2026-03-04'], '--out and --date apply to build only'],
+    [['validate', '--out', 'x'], '--out, --date and --protection apply to build only'],
+    [['format', '--date', '2026-03-04'], '--out, --date and --protection apply to build only'],
     [['build', '--check'], '--check applies to format and migrate only'],
     [['validate', '--check'], '--check applies to format and migrate only'],
     [['build', '--file', 'a.stanza.md'], '--file applies to validate and format only'],

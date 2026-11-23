@@ -10,6 +10,7 @@ import {
   type Document as StanzaDocument,
   type Stylesheet,
   type LinkSchemes,
+  type ReviewProtection,
   type SourceStamp,
 } from '@stanza/core';
 import { Document, Packer } from 'docx';
@@ -40,6 +41,11 @@ export interface ExportOptions {
    * comments finds the reviewed version (ADR 0084). Without it the package has no stamp.
    */
   readonly source?: SourceStamp;
+  /**
+   * How the package is protected (ADR 0085): `comments`, the default, lets a reviewer only comment
+   * (ADR 0030); `none` leaves it open, so that Word for the web can comment on it at all.
+   */
+  readonly protection?: ReviewProtection;
 }
 
 export interface ExportResult {
@@ -154,6 +160,7 @@ export async function exportDocx(
       timestamp: options.timestamp,
       pageBreaks: pageBreakStyles(stylesheet),
       textWidthTwips: page.textWidthTwips,
+      protection: options.protection ?? 'comments',
       ...(stamp !== undefined ? { source: stamp } : {}),
     }),
     diagnostics,

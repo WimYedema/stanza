@@ -6,7 +6,7 @@ title: "ADR 0030: DOCX review protection"
 <!-- stanza: #bwaax9zdem -->
 # ADR 0030: DOCX review protection
 
-Status: Accepted
+Status: Accepted. Refined by ADR 0085: the protection is a setting, `review-protection`, since Word for the web cannot comment on a protected document.
 
 <!-- stanza: #sajvcdtymf -->
 ## Context

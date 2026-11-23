@@ -111,6 +111,7 @@ export { slotText, slotValue } from './slot-values.js';
 export { coverBlocks } from './cover.js';
 export {
   HARDCODED_FIELD_NAMES,
+  REVIEW_PROTECTIONS,
   applyDefaults,
   isSafeRelativePath,
   outlinePaths,
@@ -121,6 +122,7 @@ export {
   type OutlineEntry,
   type ProjectDefaults,
   type ProjectSettings,
+  type ReviewProtection,
 } from './project.js';
 export {
   BUILT_IN_PAGE_TEMPLATE,

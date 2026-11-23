@@ -22,7 +22,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 ## DOCX export (`export-docx`)
 
 - 0008: mapping (read first). 0009: bookmarks. 0010, 0013: lists, blocks in list items. 0012: tables.
-- 0030: review protection.
+- 0030, 0085: review protection; 0085 makes it the setting `review-protection` (`comments` or `none`), since Word for the web cannot comment on a protected file.
 
 ## Word import (`import-docx`, `project`)
 

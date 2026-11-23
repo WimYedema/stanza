@@ -1,4 +1,5 @@
 import {
+  REVIEW_PROTECTIONS,
   validateProjectSettings,
   type Diagnostic,
   type FieldDeclaration,
@@ -7,6 +8,7 @@ import {
   type ProjectDefaults,
   type ProjectSettings,
   type LinkSchemes,
+  type ReviewProtection,
 } from '@stanza/core';
 import {
   KEBAB_CASE,
@@ -149,6 +151,19 @@ function readLinkSchemes(data: Data, report: Report): LinkSchemes | undefined {
   return Object.fromEntries(entries);
 }
 
+/** The protection of exported files (ADR 0085): `comments` or `none`. */
+function readReviewProtection(data: Data, report: Report): ReviewProtection | undefined {
+  const value = readString(data, 'review-protection', '', report);
+  if (value === undefined) return undefined;
+  if ((REVIEW_PROTECTIONS as readonly string[]).includes(value)) return value as ReviewProtection;
+  report(
+    'invalid-review-protection',
+    '"review-protection" must be "comments" (reviewers can only comment) or "none" (for Word for the web).',
+    'review-protection',
+  );
+  return undefined;
+}
+
 /** Reads a project file. Problems in the file are reported and the rest is still read. */
 export function parseProject(source: string): ProjectParseResult {
   const diagnostics: Diagnostic[] = [];
@@ -172,6 +187,7 @@ export function parseProject(source: string): ProjectParseResult {
       'metadata-fields',
       'documents',
       'link-schemes',
+      'review-protection',
     ],
     '',
     report,
@@ -185,6 +201,7 @@ export function parseProject(source: string): ProjectParseResult {
   }
   const documents = readDocuments(data, report);
   const linkSchemes = readLinkSchemes(data, report);
+  const reviewProtection = readReviewProtection(data, report);
   const settings: ProjectSettings = {
     ...(title !== undefined ? { title } : {}),
     stylesheet: stylesheet ?? '',
@@ -192,6 +209,7 @@ export function parseProject(source: string): ProjectParseResult {
     fields: readFields(data, report),
     ...(documents !== undefined ? { documents } : {}),
     ...(linkSchemes !== undefined ? { linkSchemes } : {}),
+    ...(reviewProtection !== undefined ? { reviewProtection } : {}),
   };
 
   // The meaning of the settings is only checked once they have been read without errors.
