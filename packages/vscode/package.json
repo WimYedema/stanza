@@ -2,7 +2,7 @@
   "name": "stanza-docs",
   "displayName": "Stanza Docs",
   "description": "A visual editor for Stanza documents (.stanza.md), bound to the Markdown file.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "publisher": "ienfald",
   "preview": true,

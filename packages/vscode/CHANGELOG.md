@@ -1,17 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
-- A push says how many comments leave the file it replaces, and VS Code asks first, with a choice not to ask again.
-- Review buttons in the Stanza editor: **Push** to the document's review folder, **Pull** from the file pushed there, and a status that says which is due, such as new comments from reviewers.
+The review round in Word: push a document to a review folder, pull the comments back, and work through them beside the text.
+
 - **Stanza: Push for Review** and `stanza review push` build a document and write it to a review folder, replacing the file there unless it was saved in Word and not pulled, or writing a new one beside it.
-- Pulled review comments keep their bold, italic, code and links; a mention stays the reviewer's name, without the address.
-- Inline code and code blocks in the Stanza editor keep the colours of the stylesheet in a dark theme, as the rest of the page does.
+- **Stanza: Pull Review Comments** writes the comments of a reviewed DOCX into a review document in `reviews/`: one heading per thread, linked to the commented text, with replies, resolved state and reactions, and the changes reviewers made to the text, which are never applied.
 - Review comments in the editor: the comments of a document's reviews are shown beside the commented text, as cards or as markers in a narrow editor, and can be resolved, reopened and opened in their review document.
+- Review buttons in the Stanza editor: **Push** to the document's review folder, **Pull** from the file pushed there, and a status that says which is due, such as new comments from reviewers.
+- A push says how many comments leave the file it replaces, and VS Code asks first, with a choice not to ask again.
+- Pulled review comments keep their bold, italic, code and links; a mention stays the reviewer's name, without the address.
+- Every exported DOCX records the document, the Git commit and whether it had uncommitted changes, and carries its own source, hidden in the file.
 - `review-protection: none` in `stanza.yaml` exports documents without the protection for comments, so that reviewers in Word for the web can comment.
 - Building no longer stops when one of the files is open in Word: that file is reported and the others are written.
-- Every exported DOCX records the document, the Git commit and whether it had uncommitted changes, and carries its own source, hidden in the file.
-- **Stanza: Pull Review Comments** writes the comments of a reviewed DOCX into a review document in `reviews/`: one heading per thread, linked to the commented text, with replies, resolved state and reactions, and the changes reviewers made to the text, which are never applied.
+- Inline code and code blocks in the Stanza editor keep the colours of the stylesheet in a dark theme, as the rest of the page does.
 
 ## 0.1.0
 
