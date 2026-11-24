@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { parseDocument } from '@stanza/format';
 import { memoryStorage } from './memory-storage.testing.js';
 import { pullReview } from './review-pull.js';
-import { positionOf, quoteOf, reviewThreads, threadStatusEdit } from './review-threads.js';
+import {
+  latestThreads,
+  positionOf,
+  quoteOf,
+  reviewThreads,
+  threadStatusEdit,
+  type ReviewThread,
+} from './review-threads.js';
 
 const FIXTURES = new URL('../../import-docx/fixtures/review-round-trip/', import.meta.url);
 const SOURCE = readFileSync(new URL('0002-host-and-dependencies.stanza.md', FIXTURES), 'utf8');
@@ -144,5 +151,50 @@ describe('the hints of a place', () => {
     expect(quoteOf('On [x](y), at "He said "no" here".')).toEqual({ start: 'He said "no" here' });
     expect(quoteOf('On x, at "start…end".')).toEqual({ start: 'start', end: 'end' });
     expect(quoteOf('On x.')).toBeUndefined();
+  });
+});
+
+describe('latestThreads (ADR 0086)', () => {
+  const thread = (review: string, word: string | undefined, times: string[]): ReviewThread => ({
+    review,
+    title: word ?? 'by hand',
+    status: 'open',
+    ...(word !== undefined ? { wordComment: word } : {}),
+    comments: times.map((time) => ({ author: 'Ada', time, text: 'Hi', reactions: [] })),
+    notes: [],
+  });
+
+  it('shows a Word comment pulled twice once, from the later pull of the same file', async () => {
+    const first = await pulled('web-replies-resolved-reaction.docx');
+    const second = await pulled('web-replies-resolved-reaction.docx');
+    // In one project the second pull gets a number, as with `review pull` run twice.
+    const secondPath = second.path.replace(/\.stanza\.md$/, '-2.stanza.md');
+    const all = [
+      ...reviewThreads(first.path, parseDocument(first.text).document),
+      ...reviewThreads(secondPath, parseDocument(second.text).document),
+    ];
+    const shown = latestThreads(all);
+    expect(shown).toHaveLength(all.length / 2);
+    expect(new Set(shown.map((t) => t.review))).toEqual(new Set([secondPath]));
+  });
+
+  it('keeps the copy with the latest comment, in the place of the first copy', () => {
+    const old = thread('reviews/a-2026-11-20.stanza.md', 'AAAAAAAA', ['2026-11-20 10:00 UTC']);
+    const other = thread('reviews/a-2026-11-20.stanza.md', 'BBBBBBBB', ['2026-11-20 11:00 UTC']);
+    const replied = thread('reviews/a-2026-11-18.stanza.md', 'AAAAAAAA', [
+      '2026-11-20 10:00 UTC',
+      '2026-11-21 09:00 UTC',
+    ]);
+    const byHand = thread('reviews/a-2026-11-20.stanza.md', undefined, []);
+    expect(latestThreads([old, other, byHand, replied, byHand])).toEqual([
+      replied,
+      other,
+      byHand,
+      byHand,
+    ]);
+    // On the same time, the review written later: by date, then by number.
+    const numbered = { ...old, review: 'reviews/a-2026-11-20-10.stanza.md' };
+    const second = { ...old, review: 'reviews/a-2026-11-20-2.stanza.md' };
+    expect(latestThreads([second, old, numbered])).toEqual([numbered]);
   });
 });

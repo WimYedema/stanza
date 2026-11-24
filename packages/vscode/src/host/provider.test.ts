@@ -1310,6 +1310,29 @@ Status: open. Word comment 2E3C8848.
     });
   });
 
+  it('sends a Word comment that was pulled twice once, from the later review', async () => {
+    const again = REVIEW.replace('#r1r1r1r1r1', '#s1s1s1s1s1').replace(
+      '#r2r2r2r2r2',
+      '#s2s2s2s2s2',
+    );
+    open(
+      CANONICAL,
+      '\n',
+      files({
+        '/w/p/reviews/one-2026-11-21.stanza.md': REVIEW,
+        '/w/p/reviews/one-2026-11-21-2.stanza.md': again,
+      }),
+    );
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'review-threads' }));
+    });
+    const message = (world.posted as HostMessage[]).find((m) => m.type === 'review-threads');
+    expect(message?.type === 'review-threads' && message.threads.map((t) => t.key)).toEqual([
+      'reviews/one-2026-11-21-2.stanza.md#s2s2s2s2s2',
+    ]);
+  });
+
   const REVIEW_PATH = '/w/p/reviews/one-2026-11-21.stanza.md';
   const KEY = 'reviews/one-2026-11-21.stanza.md#r2r2r2r2r2';
   const withReview = async (): Promise<void> => {

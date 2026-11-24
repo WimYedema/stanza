@@ -108,6 +108,52 @@ describe('placeThread (ADR 0086)', () => {
     expect(text.endsWith('Build in this order:')).toBe(true);
   });
 
+  it('finds a quote that starts in the text without an ID just before its anchor', () => {
+    // As in ADR 0084 itself: the comment starts in the status line, which has no bookmark, so it
+    // is anchored on the next heading.
+    const lead = docOf(
+      [
+        '---',
+        'stanza-format: 1',
+        'title: "Lead"',
+        '---',
+        '',
+        '<!-- stanza: #aaaaaaaaaa -->',
+        '# Title',
+        '',
+        'Status: Accepted. Builds on ADR 0009.',
+        '',
+        '<!-- stanza: #bbbbbbbbbb -->',
+        '## Context',
+        '',
+        'Reviewers comment on a generated DOCX.',
+        '',
+        'Status: Accepted again, in the section.',
+        '',
+      ].join('\n'),
+    );
+    const at = (quote: ThreadPlace['quote']): string => {
+      const placed = placeThread(
+        lead,
+        thread({ anchor: 'bbbbbbbbbb', ...(quote ? { quote } : {}) }),
+      );
+      return placed.kind === 'range' ? lead.textBetween(placed.from, placed.to, ' ') : placed.kind;
+    };
+    expect(at({ start: 'Status: Accepted. Builds on', end: 'comment on a generated DOCX' })).toBe(
+      'Status: Accepted. Builds on ADR 0009. Context Reviewers comment on a generated DOCX',
+    );
+    // The section of the anchor comes first; the text before it only when the quote is not there.
+    expect(at({ start: 'Status: Accepted' })).toBe('Status: Accepted');
+    const inSection = placeThread(
+      lead,
+      thread({ anchor: 'bbbbbbbbbb', quote: { start: 'Status: Accepted' } }),
+    );
+    if (inSection.kind !== 'range') throw new Error('not placed');
+    expect(lead.resolve(inSection.from).parent.textContent).toContain('again');
+    // Not past the block with an ID before it.
+    expect(at({ start: 'Title' })).toBe('block');
+  });
+
   it('stays at its block when the text changed, and is orphaned without its block', () => {
     expect(
       placeThread(doc, thread({ anchor: 'vkpazyqv7x', quote: { start: 'words nobody wrote' } })),

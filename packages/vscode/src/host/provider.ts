@@ -16,7 +16,13 @@ import {
   type ProjectSettings,
 } from '@stanza/core';
 import { parseDocument, serializeDocument } from '@stanza/format';
-import { reviewThreads, styleUsage, threadStatusEdit, type LoadedProject } from '@stanza/project';
+import {
+  latestThreads,
+  reviewThreads,
+  styleUsage,
+  threadStatusEdit,
+  type LoadedProject,
+} from '@stanza/project';
 import {
   parseWebviewMessage,
   type HostMessage,
@@ -638,14 +644,17 @@ class EditorSession {
     force: boolean,
   ): Promise<void> {
     const own = posix.relative(root.path, this.document.uri.path);
-    const threads: ReviewThreadView[] = loaded.documents
-      .filter((entry) => entry.document.meta.reviews === own)
-      .flatMap((entry) =>
-        reviewThreads(entry.path, entry.document).map((thread, index) => ({
-          ...thread,
-          key: `${thread.review}#${thread.headingId ?? String(index)}`,
-        })),
-      );
+    // A Word comment pulled more than once is shown once, by its latest copy.
+    const threads: ReviewThreadView[] = latestThreads(
+      loaded.documents
+        .filter((entry) => entry.document.meta.reviews === own)
+        .flatMap((entry) =>
+          reviewThreads(entry.path, entry.document).map((thread, index) => ({
+            ...thread,
+            key: `${thread.review}#${thread.headingId ?? String(index)}`,
+          })),
+        ),
+    );
     const key = JSON.stringify(threads);
     if (!force && key === this.threadsKey) return;
     // A webview that was never sent threads has none, so an empty list need not be sent.

@@ -142,6 +142,46 @@ export function threadStatusEdit(
   return undefined;
 }
 
+/** The time of the last comment of a thread, as it sorts; empty when it has none or it is unknown. */
+const lastTime = (thread: ReviewThread): string =>
+  thread.comments
+    .map((comment) => (/^\d/.test(comment.time) ? comment.time : ''))
+    .reduce((latest, time) => (time > latest ? time : latest), '');
+
+/**
+ * Whether thread `a` is a later copy than `b` of the same Word comment: the one with the latest
+ * comment, else the one in the review document that was written after, which `review pull` names
+ * by date and then by number (`…-2026-11-24` before `…-2026-11-24-2`).
+ */
+function isLater(a: ReviewThread, b: ReviewThread): boolean {
+  const byTime = lastTime(a).localeCompare(lastTime(b));
+  if (byTime !== 0) return byTime > 0;
+  const name = (thread: ReviewThread): string => thread.review.replace(/\.stanza\.md$/, '');
+  return name(a).localeCompare(name(b), 'en', { numeric: true }) > 0;
+}
+
+/**
+ * The threads to show of all the review documents of one document (ADR 0086): a Word comment that
+ * was pulled more than once, since every pull is a snapshot (ADR 0084, "Pulling again"), is shown
+ * once, by its latest copy, in the place of the first. A thread without a Word comment is kept.
+ */
+export function latestThreads<T extends ReviewThread>(threads: readonly T[]): T[] {
+  const latest = new Map<string, T>();
+  for (const thread of threads) {
+    if (thread.wordComment === undefined) continue;
+    const known = latest.get(thread.wordComment);
+    if (known === undefined || isLater(thread, known)) latest.set(thread.wordComment, thread);
+  }
+  const shown = new Set<string>();
+  return threads.flatMap((thread) => {
+    const word = thread.wordComment;
+    if (word === undefined) return [thread];
+    if (shown.has(word)) return [];
+    shown.add(word);
+    return [latest.get(word) ?? thread];
+  });
+}
+
 /**
  * The threads of a review document (ADR 0086): one per level-2 heading, read by the layout that
  * `review pull` writes (ADR 0084). What cannot be read is left out of the thread rather than

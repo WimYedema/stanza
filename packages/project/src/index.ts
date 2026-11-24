@@ -83,6 +83,7 @@ export {
 export {
   positionOf,
   quoteOf,
+  latestThreads,
   reviewThreads,
   threadStatusEdit,
   type LineChange,

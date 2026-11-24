@@ -22,6 +22,7 @@ A review document is an ordinary Stanza document, so the editor can read it like
 ### What is shown
 
 - **The threads of the review documents of the open document:** every document of the project whose `reviews` field names it (ADR 0084).
+- **A Word comment once,** also when the same file was pulled more than once: each pull is a snapshot with every comment (ADR 0084, "Pulling again"), so threads with the same Word comment ID are one thread, shown by its latest copy (the one with the latest comment, else the review document written later).
 - **Open threads by default.** A toggle in the toolbar shows the resolved ones as well. Each card names its review (the file name and date of the review document), so that threads of several reviews can be told apart.
 - **Nothing is added to the document.** The comments are a view, like the page template (ADR 0028): not in the source, not in the DOCX, not in the undo history of the document.
 
@@ -42,7 +43,7 @@ A thread that the author has edited so that a part cannot be read is still shown
 The editor finds the text in its own model, in this order:
 
 1. **The block** by the ID of the anchor. A thread whose block the document no longer has goes into a list of orphaned threads at the top, with a link to its review document.
-1. **The quote** in the section of that block, and for a long quote its start and its end, which gives the range of characters.
+1. **The quote** in the section of that block, and for a long quote its start and its end, which gives the range of characters. A range that starts in text without an ID is on the first block with an ID inside it (ADR 0084), so a quote that is not in the section is looked for in the blocks without an ID just before the anchor, such as the status line before a heading. `review pull` checks the quote in the same text when it says whether the text has changed.
 1. **The position**, when the quote occurs more than once: the occurrence at the same count as in the DOCX, the paragraphs of headings, paragraphs and list items, and of table cells for a row and column, from the block (ADR 0084). Without a position, the first occurrence.
 
 A thread whose quote is not found is shown at its block with "text changed since the review", and its card has no highlighted range. A found range is highlighted with a decoration of the editor, which moves with the text while editing, as a highlight in Word does.

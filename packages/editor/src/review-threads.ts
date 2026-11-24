@@ -164,15 +164,24 @@ export function placeThread(doc: EditorNode, thread: ThreadPlace): Placement {
     pos += node.nodeSize;
   }
   const sectionStart = $anchor.posAtIndex(top, 0);
-  const first = blocks.findIndex((b) => b.pos >= sectionStart);
+  // A range that starts in text without an ID is on the first block with an ID inside it (ADR
+  // 0084), so the quote can start in the blocks without an ID just before the anchor.
+  let lead = top;
+  while (lead > 0 && doc.child(lead - 1).attrs['id'] == null) lead--;
+  const leadStart = $anchor.posAtIndex(lead, 0);
+  const first = blocks.findIndex((b) => b.pos >= leadStart);
   if (first < 0) return atBlock(true);
   const inSection = blocks.slice(first).filter((b) => b.pos < sectionEnd);
   // A long quote can run on past the section; its end is looked for in the rest of the text.
   const indexed = indexText(blocks.slice(first), first);
   const sectionLength = indexed.block.findIndex((b) => b >= first + inSection.length);
   const limit = sectionLength < 0 ? indexed.text.length : sectionLength;
+  const leadLength = indexed.at.findIndex((pos) => pos >= sectionStart);
 
-  const candidates = occurrences(indexed.text, start).filter((at) => at < limit);
+  // In the section of the anchor if the quote is there, else in the text before it.
+  const all = occurrences(indexed.text, start).filter((at) => at < limit);
+  const inOwn = all.filter((at) => leadLength < 0 || at >= leadLength);
+  const candidates = inOwn.length > 0 ? inOwn : all.slice(-1);
   if (candidates.length === 0) return atBlock(true);
   const hint =
     thread.position === undefined ? undefined : hintedBlock(blocks, anchor, thread.position);
