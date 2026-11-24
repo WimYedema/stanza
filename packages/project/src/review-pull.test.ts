@@ -7,6 +7,7 @@ import type { DocxParagraph } from '@stanza/import-docx';
 import { buildProject } from './build.js';
 import { loadProject } from './load.js';
 import { exampleProject, memoryStorage } from './memory-storage.testing.js';
+import { reviewThreads } from './review-threads.js';
 import {
   cellAt,
   editsBetween,
@@ -170,6 +171,33 @@ describe('pullReview (ADR 0084)', () => {
     const missing = await fromGit(undefined);
     expect(missing.lines).toContain('Edits not checked: commit 5f7f366 is not in the repository.');
     expect(storage.written.size).toBe(0);
+  });
+
+  it('keeps the bold, italic and links of a comment, and the editor reads it back (item 214)', async () => {
+    const files = unzipSync(fixture('web-replies-resolved-reaction.docx'));
+    let xml = strFromU8(files['word/comments.xml'] ?? new Uint8Array());
+    const original = '<w:r w:rsidRPr="451AF13A"><w:t>Comment in heading</w:t></w:r>';
+    if (!xml.includes(original)) throw new Error('The fixture has no such comment.');
+    // A paragraph before the last one, which keeps the ID that threads the comment.
+    const start = xml.lastIndexOf('<w:p ', xml.indexOf(original));
+    const first =
+      '<w:p><w:r><w:t xml:space="preserve">Comment </w:t></w:r><w:r><w:rPr><w:i/></w:rPr><w:t>in</w:t></w:r>' +
+      '<w:r><w:t xml:space="preserve"> </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>heading</w:t></w:r></w:p>';
+    xml = `${xml.slice(0, start)}${first}${xml.slice(start)}`.replace(
+      original,
+      // A paragraph of the comment that starts in bold, with a comma and a colon, as a label does.
+      '<w:r><w:rPr><w:b/></w:rPr><w:t>Note, later:</w:t></w:r><w:r><w:t xml:space="preserve"> see the list.</w:t></w:r>',
+    );
+    files['word/comments.xml'] = strToU8(xml);
+    const { result, text } = await pull('formatted.docx', zipSync(files));
+    expect(text).toContain(
+      '**Ada Reviewer, 2026-11-21 15:25 UTC:** Comment *in* **heading**\n\n**Note, later:** see the list.\n',
+    );
+    // The heading of the thread is still the plain first words of the comment.
+    expect(text).toContain('## Comment in heading Note, later: see the list.\n');
+    const threads = reviewThreads(result.document, parseDocument(text).document);
+    expect(threads[0]?.comments[0]?.text).toBe('Comment in heading\nNote, later: see the list.');
+    expect(threads[0]?.comments).toHaveLength(2);
   });
 
   it('makes a new document on every pull, and says which threads were pulled before', async () => {

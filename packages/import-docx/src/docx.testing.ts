@@ -29,6 +29,8 @@ export interface DocxParts {
   readonly comments?: string;
   /** Extra `<Relationship>` elements of the main document. */
   readonly relationships?: string;
+  /** `<Relationship>` elements of the comments part, such as the targets of its links. */
+  readonly commentRelationships?: string;
   readonly title?: string;
 }
 
@@ -83,6 +85,11 @@ export function buildDocx(parts: DocxParts): Uint8Array {
     files['word/endnotes.xml'] = strToU8(part('endnotes', parts.endnotes));
   if (parts.comments !== undefined)
     files['word/comments.xml'] = strToU8(part('comments', parts.comments));
+  if (parts.commentRelationships !== undefined) {
+    files['word/_rels/comments.xml.rels'] = strToU8(
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${parts.commentRelationships}</Relationships>`,
+    );
+  }
   return zipSync(files);
 }
 

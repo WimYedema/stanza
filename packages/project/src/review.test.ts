@@ -26,6 +26,7 @@ const comment = (id: string, block?: NodeId): ReviewReading['comments'][number] 
   reactions: [],
   quote: '',
   text: `Comment ${id}`,
+  content: [[{ type: 'text', text: `Comment ${id}`, marks: [] }]],
   placement: block === undefined ? 'unplaced' : 'inside',
   ...(block !== undefined ? { block } : {}),
   blocks: block === undefined ? [] : [block],

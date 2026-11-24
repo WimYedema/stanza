@@ -90,12 +90,19 @@ export function quoteOf(sentence: string): ThreadQuote | undefined {
     : { start: quote.slice(0, ellipsis), end: quote.slice(ellipsis + 1) };
 }
 
+/**
+ * The label of a comment as `review pull` writes it: the author, then the time in one of the forms
+ * of ADR 0084 ("Times"). Only those forms, so that a comment's own paragraph that starts in bold
+ * (item 214) is not taken for a new comment, and an author is never cut at a comma of the time.
+ */
+const LABEL = /^(.*), (time unknown|\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?: UTC|, time zone unknown)):$/;
+
 /** A paragraph that starts a comment: the author and the time in bold, ending with a colon. */
 function commentStart(block: Block): ThreadComment | undefined {
   if (block.type !== 'paragraph') return undefined;
   const [first, ...rest] = block.content;
   if (first === undefined || !first.marks.some((m) => m.type === 'strong')) return undefined;
-  const label = /^(.*), (.+):$/.exec(first.text.trim());
+  const label = LABEL.exec(first.text.trim());
   if (label === null) return undefined;
   return {
     author: label[1] ?? '',
