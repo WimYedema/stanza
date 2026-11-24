@@ -332,6 +332,8 @@ export function createFakeVscode(): Record<string, unknown> {
         writeFile: (uri: FakeUri, content: Uint8Array) => {
           if (world.failWrites) return Promise.reject(new Error('EBUSY: resource busy or locked'));
           world.files.set(uri.path, new TextDecoder().decode(content));
+          // The bytes too, so that a DOCX that is written can be read back as it was.
+          world.binary.set(uri.path, content);
           return Promise.resolve();
         },
         createDirectory: (uri: FakeUri) => {

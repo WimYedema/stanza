@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Stanza: Push for Review** and `stanza review push` build a document and write it to a review folder, replacing the file there unless it was saved in Word and not pulled, or writing a new one beside it.
 - Review comments in the editor: the comments of a document's reviews are shown beside the commented text, as cards or as markers in a narrow editor, and can be resolved, reopened and opened in their review document.
 - `review-protection: none` in `stanza.yaml` exports documents without the protection for comments, so that reviewers in Word for the web can comment.
 - Building no longer stops when one of the files is open in Word: that file is reported and the others are written.

@@ -4,6 +4,7 @@ import {
   commentDetails,
   embeddedSourceOf,
   paragraphIdOf,
+  createdAtOf,
   savedAtOf,
   stampOf,
   type EmbeddedSource,
@@ -67,6 +68,8 @@ export interface ReviewReading {
   readonly source?: EmbeddedSource;
   /** When the file was last saved, in UTC, so that a file that is behind can be seen. */
   readonly savedAt?: string;
+  /** When the file was made, which a save in Word leaves alone (ADR 0088). */
+  readonly createdAt?: string;
   /** The paragraphs of the body as built, to compare with the reviewed version (ADR 0084). */
   readonly paragraphs: readonly DocxParagraph[];
   /** Tracked changes in the body, which are reported and never applied. */
@@ -252,6 +255,7 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
   const stamp = stampOf(parts);
   const source = embeddedSourceOf(parts);
   const savedAt = savedAtOf(parts);
+  const createdAt = createdAtOf(parts);
   const body = bodyText(parts.document);
   return {
     ok: true,
@@ -263,6 +267,7 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
       ...(stamp !== undefined ? { stamp } : {}),
       ...(source !== undefined ? { source } : {}),
       ...(savedAt !== undefined ? { savedAt } : {}),
+      ...(createdAt !== undefined ? { createdAt } : {}),
     },
   };
 }

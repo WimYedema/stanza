@@ -16,7 +16,20 @@ export {
   type BuildOptions,
   type BuildResult,
 } from './build.js';
-export { exportDocument, type ExportDocumentResult } from './export-document.js';
+export {
+  documentBytes,
+  exportDocument,
+  type DocumentBytes,
+  type ExportDocumentResult,
+} from './export-document.js';
+export {
+  newPushFileName,
+  pushFileName,
+  pushReview,
+  type ExistingFile,
+  type PushOptions,
+  type PushResult,
+} from './review-push.js';
 export type { SourceRevisions } from './revisions.js';
 export {
   formatDocuments,

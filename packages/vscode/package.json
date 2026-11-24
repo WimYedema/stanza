@@ -113,6 +113,10 @@
         "title": "Stanza: Pull Review Comments"
       },
       {
+        "command": "stanza.pushReview",
+        "title": "Stanza: Push for Review"
+      },
+      {
         "command": "stanza.adoptMarkdown",
         "title": "Stanza: Adopt Markdown File"
       },

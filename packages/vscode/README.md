@@ -24,6 +24,7 @@ Already have content? Use **Stanza: Import Word Document** for a `.docx`, or **S
 | Stanza: New Document               |                        |
 | Stanza: Import Word Document       |                        |
 | Stanza: Adopt Markdown File        |                        |
+| Stanza: Push for Review            |                        |
 | Stanza: Pull Review Comments       |                        |
 | Stanza: Edit Styles                |                        |
 | Stanza: Initialize Document List   |                        |
@@ -84,7 +85,7 @@ A large project opens in two steps: the document is shown read-only at once, and
 
 ## Reviewing in Word
 
-Send the DOCX from `build/` to your reviewers; they comment in Word as usual. Every DOCX records which document and Git revision it was built from, and carries its own source, so the comments can be traced back. Run **Stanza: Pull Review Comments** with the commented file: it writes a review document in `reviews/`, with one heading per comment thread, linked to the commented text, and with replies, resolved state and reactions. Changes that reviewers made to the text are listed, never applied. Only display names are written, never email addresses. Review documents are checked like other documents and are not built.
+Run **Stanza: Push for Review** on a document to build it and write it to a review folder, such as one that OneDrive syncs with SharePoint (or `stanza review push <document> <folder>`). The next push replaces the file there, so its link and history stay, unless reviewers saved it since and you have not pulled that version yet; then you choose to replace it anyway or to write a new file beside it. You can also send the DOCX from `build/` yourself; reviewers comment in Word as usual. Every DOCX records which document and Git revision it was built from, and carries its own source, so the comments can be traced back. Run **Stanza: Pull Review Comments** with the commented file: it writes a review document in `reviews/`, with one heading per comment thread, linked to the commented text, and with replies, resolved state and reactions. Changes that reviewers made to the text are listed, never applied. Only display names are written, never email addresses. Review documents are checked like other documents and are not built.
 
 The editor shows the open comments of every review of a document beside the commented text, as cards next to the page, or as numbered markers in its margin when the editor is narrow. Click a highlight or a card to link the two. **Resolve** and **Reopen** change only the status line in the review document and save it; when the review document has unsaved changes of its own, Stanza asks first. **Open in review** goes to the thread in the review document, and the **Resolved** button in the toolbar shows the resolved comments too. A comment whose text was rewritten stays at its block, marked as changed; one whose block is gone is listed above the page.
 

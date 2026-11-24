@@ -1,4 +1,12 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -760,6 +768,73 @@ describe('stanza migrate', () => {
     const again = await stanza('migrate', 'project');
     expect(again.code).toBe(0);
     expect(again.out).toContain('nothing to migrate');
+  });
+});
+
+describe('stanza review push (ADR 0088)', () => {
+  const DOCUMENT = 'project/documents/introduction.stanza.md';
+  const pushed = (): string => join(work, 'review', 'introduction.docx');
+  /** The pushed file as Word leaves it after a save: only the modified time changes. */
+  const saveInWord = (): void => {
+    const files = unzipSync(readFileSync(pushed()));
+    const core = strFromU8(files['docProps/core.xml'] ?? new Uint8Array());
+    files['docProps/core.xml'] = strToU8(
+      core.replace(
+        /(<dcterms:modified\b[^>]*>)[^<]*/,
+        (_match, open: string) => `${open}2026-11-24T17:37:12.1234567Z`,
+      ),
+    );
+    writeFileSync(pushed(), zipSync(files));
+  };
+
+  it('writes the document to a folder, replaces it, and refuses a save that was not pulled', async () => {
+    mkdirSync(join(work, 'review'));
+    const first = await stanza('review', 'push', DOCUMENT, 'review', 'project');
+    expect(first.err).toBe('');
+    expect(first.code).toBe(0);
+    expect(first.out).toBe(
+      'Wrote review/introduction.docx, built from documents/introduction.stanza.md.\n',
+    );
+    const again = await stanza('review', 'push', DOCUMENT, 'review', 'project');
+    expect(again.out).toBe(
+      'Replaced review/introduction.docx, built from documents/introduction.stanza.md.\n',
+    );
+
+    saveInWord();
+    const saved = readFileSync(pushed());
+    const refused = await stanza('review', 'push', DOCUMENT, 'review', 'project');
+    expect(refused.code).toBe(2);
+    expect(refused.err).toContain(
+      'review/introduction.docx was saved in Word on 2026-11-24 17:37 UTC, after it was pushed, and that version has not been pulled.',
+    );
+    expect(readFileSync(pushed())).toEqual(saved);
+
+    const forced = await stanza('review', 'push', DOCUMENT, 'review', 'project', '--force');
+    expect(forced.out).toContain('Replaced review/introduction.docx');
+    expect(readFileSync(pushed())).not.toEqual(saved);
+  });
+
+  it('writes a new file beside it with --new, and to a path that is given', async () => {
+    mkdirSync(join(work, 'review'));
+    await stanza('review', 'push', DOCUMENT, 'review', 'project');
+    const fresh = await stanza('review', 'push', DOCUMENT, 'review', 'project', '--new');
+    expect(fresh.code).toBe(0);
+    expect(fresh.out).toMatch(/^Wrote review\/introduction-\d{4}-\d{2}-\d{2}\.docx, /);
+    const named = await stanza('review', 'push', DOCUMENT, 'review/for-anna.docx', 'project');
+    expect(named.out).toContain('Wrote review/for-anna.docx');
+    expect(existsSync(join(work, 'review', 'for-anna.docx'))).toBe(true);
+  });
+
+  it('says what is wrong with the arguments', async () => {
+    expect((await stanza('review', 'push', DOCUMENT, 'nowhere', 'project')).err).toContain(
+      'the destination nowhere must be a folder that exists, or a .docx file.',
+    );
+    expect((await stanza('review', 'push', 'elsewhere/a.stanza.md', '.', 'project')).err).toContain(
+      'elsewhere/a.stanza.md is not in the project project.',
+    );
+    expect((await stanza('build', 'project', '--new')).err).toContain(
+      '--new and --force apply to review push only.',
+    );
   });
 });
 

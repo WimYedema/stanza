@@ -138,7 +138,19 @@ export function embeddedSourceOf(parts: DocxParts): EmbeddedSource | undefined {
 
 /** When the file was last saved (`dcterms:modified`), as Word wrote it, in UTC. */
 export function savedAtOf(parts: DocxParts): string | undefined {
-  const modified = descendantsOf(parts.properties, 'modified')[0];
-  const value = modified?.children.find((child) => typeof child === 'string');
+  return coreTime(parts, 'modified');
+}
+
+/**
+ * When the file was made: the exporter writes the same time as created and as modified, and Word
+ * changes only the modified time when it saves (ADR 0088).
+ */
+export function createdAtOf(parts: DocxParts): string | undefined {
+  return coreTime(parts, 'created');
+}
+
+function coreTime(parts: DocxParts, name: 'created' | 'modified'): string | undefined {
+  const element = descendantsOf(parts.properties, name)[0];
+  const value = element?.children.find((child) => typeof child === 'string');
   return typeof value === 'string' ? value.trim() : undefined;
 }
