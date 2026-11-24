@@ -24,6 +24,7 @@ import { createReferencePicker } from './reference-picker.js';
 import { installReferenceNavigation } from './reference-navigation.js';
 import { revealBlock } from './reveal.js';
 import { createReviewCards } from './review-cards.js';
+import { createReviewRoundBar } from './review-round-bar.js';
 import { createSheet } from './sheet.js';
 import { createStyleInfo } from './style-info.js';
 import { buildToolbar } from './toolbar.js';
@@ -206,7 +207,9 @@ resolvedButton.addEventListener('click', () => {
   resolvedButton.setAttribute('aria-pressed', String(showResolved));
   showThreads();
 });
-element('toolbar').append(propertiesButton, resolvedButton);
+/** Push and Pull, and where the review round stands (ADR 0088). */
+const reviewRound = createReviewRoundBar(send);
+element('toolbar').append(propertiesButton, resolvedButton, reviewRound.element);
 const info = createStyleInfo({
   root: element('info'),
   editor: () => editor,
@@ -483,6 +486,12 @@ function handle(message: HostMessage): void {
       return;
     case 'thread-status-done':
       reviewCards.done(message.key);
+      return;
+    case 'review-round':
+      reviewRound.show(message.status, message.folder);
+      return;
+    case 'review-done':
+      reviewRound.done();
       return;
     case 'declared':
       declared(message.ok, message.message);

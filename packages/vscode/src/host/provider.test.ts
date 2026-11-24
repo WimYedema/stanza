@@ -1,3 +1,4 @@
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
 import type { HostMessage } from '../shared/protocol.js';
@@ -54,9 +55,24 @@ const DOCUMENT = '/w/p/documents/one.stanza.md';
 
 const log = { appendLine: () => undefined } as unknown as vscode.OutputChannel;
 
+/** The workspace state of the extension, in memory, where review folders are remembered. */
+const workspaceState = new Map<string, unknown>();
+const memento = {
+  keys: () => [...workspaceState.keys()],
+  get: (key: string, fallback?: unknown) =>
+    workspaceState.has(key) ? workspaceState.get(key) : fallback,
+  update: (key: string, value: unknown) => {
+    workspaceState.set(key, value);
+    return Promise.resolve();
+  },
+};
+
 function newProvider(diagnostics = new ProjectDiagnostics()): StanzaEditorProvider {
   return new StanzaEditorProvider(
-    { extensionUri: { path: '/ext' } } as unknown as vscode.ExtensionContext,
+    {
+      extensionUri: { path: '/ext' },
+      workspaceState: memento,
+    } as unknown as vscode.ExtensionContext,
     diagnostics,
     log,
     new StylesheetSaves(log),
@@ -71,13 +87,14 @@ function open(text = CANONICAL, eol = '\n', projectFiles = files()): void {
   );
 }
 
-/** What the host posted, without the usage of the styles, which has its own tests. */
+/** What the host posted, without the messages that have their own tests. */
 const posted = (): HostMessage[] =>
   (world.posted as HostMessage[]).filter(
     (message) =>
       message.type !== 'usage' &&
       message.type !== 'diagnostics' &&
-      message.type !== 'project-ready',
+      message.type !== 'project-ready' &&
+      message.type !== 'review-round',
   );
 const diagnosticsPosted = (): Extract<HostMessage, { type: 'diagnostics' }>[] =>
   (world.posted as HostMessage[]).filter(
@@ -93,6 +110,7 @@ const settled = async (check: () => void): Promise<void> => {
 };
 
 beforeEach(() => {
+  workspaceState.clear();
   open();
 });
 
@@ -1419,5 +1437,75 @@ Status: open. Word comment 2E3C8848.
       expect(world.posted).toContainEqual(expect.objectContaining({ type: 'project-ready' }));
     });
     expect((world.posted as HostMessage[]).some((m) => m.type === 'review-threads')).toBe(false);
+  });
+});
+
+describe('the review round (ADR 0088)', () => {
+  const FOLDER = '/w/review';
+  const PUSHED = `${FOLDER}/one.docx`;
+  const rounds = (): Extract<HostMessage, { type: 'review-round' }>[] =>
+    (world.posted as HostMessage[]).filter(
+      (message): message is Extract<HostMessage, { type: 'review-round' }> =>
+        message.type === 'review-round',
+    );
+  /** The pushed file as Word leaves it after a save: only the modified time changes. */
+  const saveInWord = (): void => {
+    const unpacked = unzipSync(world.binary.get(PUSHED) ?? new Uint8Array());
+    const core = strFromU8(unpacked['docProps/core.xml'] ?? new Uint8Array());
+    unpacked['docProps/core.xml'] = strToU8(
+      core.replace(
+        /(<dcterms:modified\b[^>]*>)[^<]*/,
+        (_match, start: string) => `${start}2026-11-24T17:37:00Z`,
+      ),
+    );
+    world.binary.set(PUSHED, zipSync(unpacked));
+  };
+
+  it('says that a document without a review folder is not pushed', async () => {
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(rounds().at(-1)).toEqual({ type: 'review-round', status: { kind: 'not-pushed' } });
+    });
+  });
+
+  it('pushes to the remembered folder, is current, and sees a save in Word through the watcher', async () => {
+    open(CANONICAL, '\n', files({ [`${FOLDER}/notes.txt`]: 'A folder that exists.' }));
+    workspaceState.set(`stanza.pushFolder:file://${DOCUMENT}`, `file://${FOLDER}`);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(rounds().at(-1)?.status).toEqual({ kind: 'not-pushed' });
+    });
+    expect(rounds().at(-1)?.folder).toBeDefined();
+
+    fromWebview({ type: 'review-push', mode: 'remembered' });
+    await settled(() => {
+      expect(world.posted).toContainEqual({ type: 'review-done' });
+      expect(rounds().at(-1)?.status).toEqual({ kind: 'current' });
+    });
+    expect(world.binary.has(PUSHED)).toBe(true);
+
+    // A reviewer saves it, OneDrive writes it, and the watcher of the file says so.
+    saveInWord();
+    const watcher = world.fileWatchers.find(
+      (entry) => (entry.pattern as { pattern?: string }).pattern === 'one.docx',
+    );
+    if (watcher === undefined) throw new Error('The pushed file is not watched.');
+    for (const listener of watcher.change) listener(new FakeUri(PUSHED));
+    await settled(() => {
+      expect(rounds().at(-1)?.status).toEqual({
+        kind: 'unpulled',
+        comments: 0,
+        savedAt: '2026-11-24 17:37',
+      });
+    });
+  });
+
+  it('shows the review folder of the document in the system', async () => {
+    workspaceState.set(`stanza.pushFolder:file://${DOCUMENT}`, `file://${FOLDER}`);
+    fromWebview({ type: 'ready' });
+    fromWebview({ type: 'open-review-folder' });
+    await settled(() => {
+      expect(world.commands).toContain('revealFileInOS');
+    });
   });
 });

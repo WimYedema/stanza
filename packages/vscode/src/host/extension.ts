@@ -13,6 +13,7 @@ import { registerNewDocument } from './new-document-command.js';
 import { registerDocumentListCommands } from './document-list-commands.js';
 import { registerNewProject } from './new-project-command.js';
 import { registerOpenInWord } from './open-in-word-command.js';
+import { registerPushReview } from './push-review-command.js';
 import { registerStanzaTree } from './stanza-tree.js';
 import { ProjectDiagnostics } from './project-diagnostics.js';
 import { StanzaEditorProvider } from './provider.js';
@@ -31,6 +32,7 @@ export function activate(context: vscode.ExtensionContext): void {
     saves,
     exporter,
     registerOpenInWord(exporter),
+    registerPushReview(context.workspaceState),
     ...registerDeclareVariant(diagnostics, saves),
     vscode.window.registerCustomEditorProvider(
       StanzaEditorProvider.viewType,
@@ -57,7 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerNewDocument(),
     ...registerDocumentListCommands(diagnostics),
     registerImportWord(log),
-    registerPullReview(log),
+    registerPullReview(log, context.workspaceState),
     registerAdoptMarkdown(log),
     registerAddAgentInstructions(),
     vscode.window.registerCustomEditorProvider(

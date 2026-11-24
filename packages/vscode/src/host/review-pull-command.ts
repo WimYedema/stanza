@@ -1,24 +1,26 @@
-import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
-import { pullReview } from '@stanza/project';
-import { documentListStorage } from './document-list-commands.js';
-import { vscodeGitSource } from './git-revisions.js';
-import { projectRoot, uriInProject } from './project-files.js';
+import { DOCUMENT_SUFFIX } from '@stanza/project';
+import { projectRoot } from './project-files.js';
+import { chooseReviewedFile, pullDocument, pullFile } from './review-round.js';
 
 export const PULL_REVIEW_COMMAND = 'stanza.pullReview';
 
-const SHOW_OUTPUT = 'Show details';
-
-const reasonOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
-
 /**
- * "Stanza: Pull Review Comments" asks for a reviewed DOCX, writes its comments into a new review
- * document in `reviews/`, and opens it in the Stanza editor (ADR 0084). What the pull found goes to
- * the Stanza output. Nothing in the file is applied to the source.
+ * "Stanza: Pull Review Comments" writes the comments of a reviewed DOCX into a new review document
+ * in `reviews/` (ADR 0084). From the palette it asks for the file and opens the review document in
+ * the Stanza editor. On a document, as the title bar of the editor gives it, it pulls from the file
+ * that was pushed to the review folder of that document (ADR 0088), and stays in the document,
+ * where the comments show beside their text. Nothing in the file is applied to the source.
  */
-export function registerPullReview(log: vscode.OutputChannel): vscode.Disposable {
-  return vscode.commands.registerCommand(PULL_REVIEW_COMMAND, async () => {
+export function registerPullReview(
+  log: vscode.OutputChannel,
+  state: vscode.Memento,
+): vscode.Disposable {
+  return vscode.commands.registerCommand(PULL_REVIEW_COMMAND, async (target?: unknown) => {
+    if (target instanceof vscode.Uri && target.path.endsWith(DOCUMENT_SUFFIX)) {
+      await pullDocument(state, target, log);
+      return;
+    }
     const root = await projectRoot();
     if (root === undefined) {
       void vscode.window.showErrorMessage(
@@ -26,47 +28,8 @@ export function registerPullReview(log: vscode.OutputChannel): vscode.Disposable
       );
       return;
     }
-    const picked = await vscode.window.showOpenDialog({
-      canSelectFiles: true,
-      canSelectFolders: false,
-      canSelectMany: false,
-      openLabel: 'Pull Comments',
-      title: 'Choose the reviewed Word document',
-      filters: { 'Word documents': ['docx'] },
-    });
-    const file = picked?.[0];
+    const file = await chooseReviewedFile();
     if (file === undefined) return;
-    const fileName = file.path.slice(file.path.lastIndexOf('/') + 1);
-
-    let result;
-    try {
-      const bytes = await vscode.workspace.fs.readFile(file);
-      result = await pullReview(await documentListStorage(root), bytes, {
-        fileName,
-        randomBytes: () => randomBytes(10),
-        sourceAt: vscodeGitSource(root),
-      });
-    } catch (error) {
-      void vscode.window.showErrorMessage(`Stanza: the pull failed. ${reasonOf(error)}`);
-      return;
-    }
-    if (!result.ok) {
-      void vscode.window.showErrorMessage(`Stanza: no comments were pulled. ${result.message}`);
-      return;
-    }
-
-    log.appendLine(`Pulled ${fileName} into ${result.document}, the review of ${result.reviewed}.`);
-    for (const line of result.lines) log.appendLine(`  ${line}`);
-    for (const d of result.diagnostics) log.appendLine(`  ${d.severity}: ${d.code}: ${d.message}`);
-    await vscode.commands.executeCommand(
-      'vscode.openWith',
-      uriInProject(root, result.document),
-      'stanza.editor',
-    );
-    const choice = await vscode.window.showInformationMessage(
-      `Stanza: pulled the comments of ${fileName} into ${result.document}.`,
-      SHOW_OUTPUT,
-    );
-    if (choice === SHOW_OUTPUT) log.show();
+    await pullFile(root, file, log, true);
   });
 }

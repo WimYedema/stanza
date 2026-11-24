@@ -342,6 +342,33 @@ describe('the messages of review threads (ADR 0086)', () => {
     expect(parseWebviewMessage({ type: 'open-review', key: 'x'.repeat(5000) })).toBeUndefined();
   });
 
+  it('takes the review round both ways (ADR 0088)', () => {
+    expect(parseWebviewMessage({ type: 'review-push', mode: 'new' })).toEqual({
+      type: 'review-push',
+      mode: 'new',
+    });
+    expect(parseWebviewMessage({ type: 'review-push', mode: 'elsewhere' })).toBeUndefined();
+    expect(parseWebviewMessage({ type: 'review-pull' })).toEqual({ type: 'review-pull' });
+    expect(parseWebviewMessage({ type: 'open-review-folder' })).toEqual({
+      type: 'open-review-folder',
+    });
+    const round = {
+      type: 'review-round',
+      status: { kind: 'unpulled', comments: 3, savedAt: '2026-11-24 17:37' },
+      folder: 'Review',
+    };
+    expect(parseHostMessage(round)).toEqual(round);
+    expect(parseHostMessage({ type: 'review-round', status: { kind: 'current' } })).toEqual({
+      type: 'review-round',
+      status: { kind: 'current' },
+    });
+    expect(
+      parseHostMessage({ type: 'review-round', status: { kind: 'unpulled', comments: -1 } }),
+    ).toBeUndefined();
+    expect(parseHostMessage({ type: 'review-round', status: { kind: 'gone' } })).toBeUndefined();
+    expect(parseHostMessage({ type: 'review-done' })).toEqual({ type: 'review-done' });
+  });
+
   it('takes the end of a resolve from the host', () => {
     expect(parseHostMessage({ type: 'thread-status-done', key: 'r#a' })).toEqual({
       type: 'thread-status-done',
