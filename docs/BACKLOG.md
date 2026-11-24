@@ -52,6 +52,7 @@ The references inside one document are done (items 116 to 118, 120; item 177 is 
 29. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
 53. [S] - VS Code commands in the Command Palette: build the project (one DOCX per document into `build/`), export the current document to DOCX, validate, format, and assign IDs, with their results in the Problems panel or an output channel. Export on save moved to item 65. The exporter and the command line exist already (items 16 and 26); this makes them available without a terminal. Low priority.
 213. [XS] - The author in the DOCX file properties: the exporter leaves `dc:creator` as "Un-named". Write the authors from the document metadata, joined, or nothing when there are none; deterministic, like the rest of the output. Found in the spike of item 203, 2026-11-21.
+215. [S] - DOCX sensitivity labels: allow configuring a Microsoft Purview label and write the standard `MSIP_Label_<label-GUID>_*` custom properties to `docProps/custom.xml`, including the label ID and tenant `SiteId`. Keep metadata deterministic; the encoding is generic Office/MIP, but label IDs and mandatory-label policy are organization-specific and enforced by Office/Purview, not by the document metadata.
 
 ## Theme: Remote areas and review
 
