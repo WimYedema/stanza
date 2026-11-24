@@ -81,6 +81,14 @@ export {
   type PullReviewResult,
 } from './review-pull.js';
 export {
+  compareLabel,
+  labelLine,
+  recordSensitivityLabelFromFile,
+  type LabelComparison,
+  type RecordLabelOptions,
+  type RecordLabelResult,
+} from './sensitivity-labels.js';
+export {
   positionOf,
   quoteOf,
   latestThreads,

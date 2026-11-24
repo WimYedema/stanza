@@ -25,6 +25,41 @@ describe('parseProject', () => {
     ]);
   });
 
+  it('reads sensitivity labels per classification, with GUIDs (ADR 0087)', () => {
+    const base = 'stanza-format: 1\nstylesheet: s.yaml\n';
+    const tenant = '9a2c1f0e-4b7d-4c3a-8e21-5f6b7c8d9e0a';
+    const id = '1b3d5f7a-2c4e-4a6b-8d0f-1a2b3c4d5e6f';
+    const read = parseProject(
+      `${base}sensitivity-labels:\n  tenant: ${tenant}\n  labels:\n    Company Confidential: { id: ${id}, name: Confidential }\n    Internal:\n      id: ${id.toUpperCase()}\n`,
+    );
+    expect(read.diagnostics).toEqual([]);
+    expect(read.settings.sensitivityLabels).toEqual({
+      tenant,
+      labels: {
+        'Company Confidential': { id, name: 'Confidential' },
+        Internal: { id: id.toUpperCase() },
+      },
+    });
+    expect(parseProject(base).settings.sensitivityLabels).toBeUndefined();
+    expect(
+      codes(
+        `${base}sensitivity-labels:\n  tenant: not-a-guid\n  labels:\n    Internal: { id: x }\n`,
+      ),
+    ).toEqual([
+      'invalid-sensitivity-label@sensitivity-labels.tenant',
+      'invalid-sensitivity-label@sensitivity-labels.labels.Internal.id',
+    ]);
+    expect(
+      codes(
+        `${base}sensitivity-labels:\n  labels:\n    Internal: { name: General, colour: red }\n`,
+      ),
+    ).toEqual([
+      'missing-property@sensitivity-labels',
+      'unknown-property@sensitivity-labels.labels.Internal.colour',
+      'missing-property@sensitivity-labels.labels.Internal',
+    ]);
+  });
+
   it('reads link templates without changing the existing format version', () => {
     const result = parseProject(
       'stanza-format: 1\nstylesheet: s.yaml\nlink-schemes:\n  jira: https://example.org/browse/{id}\n',

@@ -11,6 +11,7 @@ import {
   type ReviewStamp,
 } from './review-parts.js';
 import { bodyText, type DocxParagraph, type TrackedChange } from './review-text.js';
+import { sensitivityLabelsOf, type FileLabel } from './sensitivity-label.js';
 import { descendantsOf, elementsOf, type XmlElement } from './xml.js';
 
 /**
@@ -71,6 +72,8 @@ export interface ReviewReading {
   readonly paragraphs: readonly DocxParagraph[];
   /** Tracked changes in the body, which are reported and never applied. */
   readonly trackedChanges: readonly TrackedChange[];
+  /** The sensitivity labels of the file, at most one per tenant (ADR 0087). */
+  readonly sensitivityLabels: readonly FileLabel[];
 }
 
 export type ReadReviewResult =
@@ -260,6 +263,7 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
       comments,
       paragraphs: body.paragraphs,
       trackedChanges: body.trackedChanges,
+      sensitivityLabels: sensitivityLabelsOf(parts),
       ...(stamp !== undefined ? { stamp } : {}),
       ...(source !== undefined ? { source } : {}),
       ...(savedAt !== undefined ? { savedAt } : {}),

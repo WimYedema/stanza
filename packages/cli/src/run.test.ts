@@ -802,6 +802,54 @@ describe('stanza review inspect', () => {
     );
   });
 
+  it('records the sensitivity label of a file, and inspect reports it (ADR 0087)', async () => {
+    writeReviewed();
+    const files = unzipSync(readFileSync(join(work, 'reviewed.docx')));
+    const id = '7e9f0a1b-3c5d-4e7f-9a1b-2c3d4e5f6a7b';
+    const fields = {
+      Enabled: 'true',
+      SiteId: '9a2c1f0e-4b7d-4c3a-8e21-5f6b7c8d9e0a',
+      Name: 'General',
+    };
+    const properties = Object.entries(fields)
+      .map(
+        ([field, value], index) =>
+          `<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="${String(index + 2)}" name="MSIP_Label_${id}_${field}"><vt:lpwstr>${value}</vt:lpwstr></property>`,
+      )
+      .join('');
+    files['docProps/custom.xml'] = strToU8(
+      `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">${properties}</Properties>`,
+    );
+    writeFileSync(join(work, 'reviewed.docx'), zipSync(files));
+
+    const recorded = await stanza('label', 'record', 'reviewed.docx', 'project');
+    expect(recorded.err).toBe('');
+    expect(recorded.code).toBe(0);
+    expect(recorded.out).toBe(
+      'Recorded General for the classification "Internal" in stanza.yaml.\n',
+    );
+    expect(readFileSync(join(work, 'project', 'stanza.yaml'), 'utf8')).toContain(
+      `    Internal: { id: '${id}', name: General }\n`,
+    );
+    const inspected = await stanza('review', 'inspect', 'reviewed.docx', 'project');
+    expect(inspected.out).toContain(
+      'Sensitivity label: General, as recorded for the classification "Internal".',
+    );
+    const again = await stanza('label', 'record', 'reviewed.docx', 'project');
+    expect(again.out).toContain(
+      'General is already recorded for "Internal"; stanza.yaml did not change.',
+    );
+  });
+
+  it('keeps the options of label record to it', async () => {
+    expect((await stanza('build', 'project', '--replace')).err).toContain(
+      '--classification and --replace apply to label record only.',
+    );
+    expect((await stanza('label', 'reviewed.docx')).err).toContain(
+      'label needs record and a Word file',
+    );
+  });
+
   it('needs inspect or pull and a Word file', async () => {
     const result = await stanza('review', 'reviewed.docx');
     expect(result.code).toBe(2);

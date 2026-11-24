@@ -2,6 +2,7 @@ import { contentHash, indexReferences, type Document, type NodeId } from '@stanz
 import { parseDocument } from '@stanza/format';
 import {
   readReview,
+  type FileLabel,
   type ReviewComment,
   type ReviewReading,
   type ReviewStamp,
@@ -48,6 +49,8 @@ export interface ReviewInspection {
    */
   readonly lost?: readonly NodeId[];
   readonly added?: readonly NodeId[];
+  /** The sensitivity labels of the file (ADR 0087), at most one per tenant. */
+  readonly sensitivityLabels: readonly FileLabel[];
 }
 
 const TOP_LEVEL = /^blocks\[(\d+)\]/;
@@ -152,6 +155,7 @@ export function inspectReview(
     ...(review.savedAt !== undefined ? { savedAt: review.savedAt } : {}),
     ...(sourceChanged !== undefined ? { sourceChanged } : {}),
     ...(split ?? {}),
+    sensitivityLabels: review.sensitivityLabels,
   };
 }
 

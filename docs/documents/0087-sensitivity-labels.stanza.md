@@ -6,7 +6,7 @@ title: "ADR 0087: Sensitivity labels"
 <!-- stanza: #h6bkyq61x7 -->
 # ADR 0087: Sensitivity labels
 
-Status: Proposed. Backlog items 215 and 216. Builds on ADR 0007 (the project file and `classification`), ADR 0017 (header and footer tokens), ADR 0079 (edits of project files) and ADR 0084 (the stamp and the review commands). To be confirmed against a file labelled by Word in the work tenant before it is accepted.
+Status: Proposed. Backlog items 215 and 216. Builds on ADR 0007 (the project file and `classification`), ADR 0017 (header and footer tokens), ADR 0079 (edits of project files) and ADR 0084 (the stamp and the review commands). The way of working was agreed with the product owner on 2026-11-24; the details of the file format are to be confirmed against a file labelled by Word in the work tenant before it is accepted.
 
 <!-- stanza: #eyk5qp15at -->
 ## Context
@@ -31,25 +31,21 @@ The document model already has `classification` (ADR 0004), with a project defau
 
 - **A label is learned from a file, not typed.** `stanza label record <file.docx> [project]`, and the VS Code command **Stanza: Record Sensitivity Label**, read the label of a DOCX that Word labelled in the tenant and record it in the project file. A reviewed file is such a file, and so is any document of the tenant.
 
-- **For a classification.** The label is recorded for the effective `classification` of the document named by the stamp of the file (ADR 0084), or for `--classification <value>`. A file without a stamp, or a document without a classification, needs the flag; without it nothing is written and the command says why.
+- **For a classification.** The label is recorded for the effective `classification` of the document the file was built from, found as the review commands find it (the stamp, else the bookmarks, ADR 0084), or for `--classification <value>`. A file of no document of the project, or a document without a classification, needs the flag; without it nothing is written and the command says why. VS Code asks for the classification instead.
 
 - **In the project file,** as an edit that keeps the rest of its text, and from VS Code as an undoable edit of its buffer (ADR 0079):
 
   ```yaml
   sensitivity-labels:
-    tenant: 9a2c1f0e-4b7d-4c3a-8e21-5f6b7c8d9e0a
+    tenant: '9a2c1f0e-4b7d-4c3a-8e21-5f6b7c8d9e0a'
     labels:
-      Confidential:
-        id: 1b3d5f7a-2c4e-4a6b-8d0f-1a2b3c4d5e6f
-        name: Confidential
-      Internal:
-        id: 7e9f0a1b-3c5d-4e7f-9a1b-2c3d4e5f6a7b
-        name: General
+      Confidential: { id: '1b3d5f7a-2c4e-4a6b-8d0f-1a2b3c4d5e6f', name: Confidential }
+      'Company Internal': { id: '7e9f0a1b-3c5d-4e7f-9a1b-2c3d4e5f6a7b', name: General }
   ```
 
-  Keyed by the value of `classification`, which is what the author writes, so a document needs nothing new. `name` is the name in the tenant, kept for reading the project file and for the `Name` property; it is optional, since a file with only the part has none.
+  Keyed by the value of `classification`, which is what the author writes, so a document needs nothing new; a value that is not one word is quoted. The IDs are written lowercase, without braces, however the file wrote them. `name` is the name in the tenant, kept for reading the project file and for the `Name` property; it is optional, since a file with only the part has none.
 
-- **One tenant per project.** A file of another tenant than the recorded one is refused, as is a label different from the one recorded for that classification, unless `--replace` is given. Recording the same label again changes nothing.
+- **One tenant per project.** A file of another tenant than the recorded one is refused; changing the tenant is an edit of the project file by hand, since the labels recorded for it would no longer fit. A label different from the one recorded for the classification is refused unless `--replace` is given (in VS Code, after a question). Recording the same label again changes nothing.
 
 - **Checks:** a tenant or label ID that is not a GUID is an error (`invalid-sensitivity-label`); once any label is recorded, a document whose effective classification has no label is a warning (`unlabelled-classification`), since its file will go out unlabelled.
 

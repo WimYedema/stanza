@@ -25,6 +25,7 @@ Already have content? Use **Stanza: Import Word Document** for a `.docx`, or **S
 | Stanza: Import Word Document       |                        |
 | Stanza: Adopt Markdown File        |                        |
 | Stanza: Pull Review Comments       |                        |
+| Stanza: Record Sensitivity Label   |                        |
 | Stanza: Edit Styles                |                        |
 | Stanza: Initialize Document List   |                        |
 | Stanza: Add Agent Instructions     |                        |
@@ -89,6 +90,8 @@ Send the DOCX from `build/` to your reviewers; they comment in Word as usual. Ev
 The editor shows the open comments of every review of a document beside the commented text, as cards next to the page, or as numbered markers in its margin when the editor is narrow. Click a highlight or a card to link the two. **Resolve** and **Reopen** change only the status line in the review document and save it; when the review document has unsaved changes of its own, Stanza asks first. **Open in review** goes to the thread in the review document, and the **Resolved** button in the toolbar shows the resolved comments too. A comment whose text was rewritten stays at its block, marked as changed; one whose block is gone is listed above the page.
 
 Exported documents are protected so that reviewers can only comment. Word for the web cannot comment on a protected document, so for review in SharePoint or OneDrive in the browser, set `review-protection: none` in `stanza.yaml` (or build with `stanza build --protection none`). Changes that reviewers then make to the text are listed by the pull, never applied.
+
+In an organisation that requires sensitivity labels, label one exported document in Word, save it, and run **Stanza: Record Sensitivity Label** with it (or `stanza label record <file.docx>`). The label is recorded in `stanza.yaml` for the document's `classification`, so you never have to look up its ID. **Pull Review Comments** says whether a reviewed file has the label recorded for its classification. Writing the label into exported files follows (backlog item 216).
 
 ## Known limitations
 

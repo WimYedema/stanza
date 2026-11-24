@@ -13,8 +13,11 @@ import {
   adoptMarkdownDocument,
   applyMigration,
   importWordDocument,
+  compareLabel,
   inspectReviewFile,
+  labelLine,
   pullReview,
+  recordSensitivityLabelFromFile,
   describeImport,
   loadProject,
   planMigration,
@@ -74,6 +77,10 @@ Commands:
                        reviews/: one heading per thread, linked to its block, with replies,
                        status and reactions. Changes to the text found in the file are listed,
                        never applied. The reviewed document and earlier reviews do not change.
+  label record <file.docx> [project]
+                       Record the sensitivity label of a DOCX that Word labelled in the
+                       project file, for the classification of the document the file was
+                       built from, so that its exports can carry it. Nothing else changes.
   migrate [project]    Turn a project from before Phrase was renamed to Stanza into a Stanza
                        project: phrase.yaml becomes stanza.yaml, *.phrase.md becomes
                        *.stanza.md, and the markup in them uses the new names. IDs do not
@@ -85,6 +92,12 @@ Options for build:
                        zone. The default is 1980-01-01, so that output is always the same.
   --protection <kind>  comments (reviewers can only comment) or none (Word for the web can
                        comment), in place of review-protection in the project file.
+
+Options for label record:
+  --classification <value>
+                       The classification to record the label for, when the file was not
+                       built from a document of the project or the document has none.
+  --replace            Replace a different label that is recorded for the classification.
 
 Options for format and migrate:
   --check              Write nothing; list the documents that are not canonical, or the files
@@ -230,7 +243,12 @@ const idList = (ids: readonly string[]): string =>
     .join(', ') + (ids.length > 10 ? ', ...' : '');
 
 /** Prints the comments of a review by document and heading (ADR 0084). */
-function reportReview(io: Io, file: string, inspection: ReviewInspection): number {
+function reportReview(
+  io: Io,
+  file: string,
+  inspection: ReviewInspection,
+  label: string | undefined,
+): number {
   const { placed, unplaced, missing, unknown, bookmarks, stamp, lost, added } = inspection;
   const total = placed.length + unplaced.length;
   const built = inspection.document === undefined ? '' : `, built from ${inspection.document}`;
@@ -246,6 +264,7 @@ function reportReview(io: Io, file: string, inspection: ReviewInspection): numbe
   if (inspection.sourceChanged === true) {
     io.stdout(`${inspection.document ?? 'The document'} has changed since the file was built.\n`);
   }
+  if (label !== undefined) io.stdout(`${label}\n`);
   let section: string | undefined;
   for (const [comment, replies] of threads(placed)) {
     const { document, heading, headingId } = comment.location;
@@ -318,6 +337,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
         'fix-references': { type: 'boolean' },
         file: { type: 'string', multiple: true },
         'max-diagnostics': { type: 'string' },
+        classification: { type: 'string' },
+        replace: { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -343,9 +364,54 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     command !== 'import' &&
     command !== 'adopt' &&
     command !== 'migrate' &&
-    command !== 'review'
+    command !== 'review' &&
+    command !== 'label'
   ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
+  }
+  if (command !== 'label' && (values.classification !== undefined || values.replace === true)) {
+    return usage('--classification and --replace apply to label record only.');
+  }
+  if (command === 'label') {
+    const [action, file, folder = '.', ...more] = positionals.slice(1);
+    if (action !== 'record' || file === undefined || !isWordFile(file)) {
+      return usage(
+        'label needs record and a Word file, as in: stanza label record labelled.docx [project].',
+      );
+    }
+    if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
+    const others = Object.keys(values).filter(
+      (key) => key !== 'classification' && key !== 'replace',
+    );
+    if (others.length > 0) return usage('label record takes only --classification and --replace.');
+    let bytes: Uint8Array;
+    try {
+      bytes = await (io.readBytes ?? readFile)(resolve(io.cwd, file));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
+      return 2;
+    }
+    const storage = (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder));
+    const recorded = await recordSensitivityLabelFromFile(storage, bytes, {
+      ...(values.classification !== undefined ? { classification: values.classification } : {}),
+      ...(values.replace === true ? { replace: true } : {}),
+    });
+    if (!recorded.ok) {
+      if (recorded.reason === 'no-project') {
+        io.stdout(`${recorded.message}\n`);
+        return 1;
+      }
+      io.stderr(`stanza: ${recorded.message}\n`);
+      return 2;
+    }
+    const name = recorded.label.name ?? `label ${recorded.label.id}`;
+    io.stdout(
+      recorded.changed
+        ? `Recorded ${name} for the classification "${recorded.classification}" in stanza.yaml.\n`
+        : `${name} is already recorded for "${recorded.classification}"; stanza.yaml did not change.\n`,
+    );
+    return 0;
   }
   if (command === 'review') {
     const [action, file, folder = '.', ...more] = positionals.slice(1);
@@ -400,7 +466,13 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       io.stderr(`stanza: ${inspected.message}\n`);
       return 2;
     }
-    return reportReview(io, file, inspected.inspection);
+    const comparison = compareLabel(
+      loaded,
+      inspected.inspection.document,
+      inspected.inspection.sensitivityLabels,
+    );
+    const label = comparison === undefined ? undefined : labelLine(comparison, file);
+    return reportReview(io, file, inspected.inspection, label);
   }
   if (command === 'import' || command === 'adopt') {
     if (

@@ -14,6 +14,7 @@ export {
   type StylesheetEdit,
   type YamlValue,
 } from './edit-stylesheet.js';
+export { recordSensitivityLabel } from './edit-project.js';
 export { checkDocumentText, checkParsedDocument, type CheckResult } from './check.js';
 export { FORMAT_VERSION } from './front-matter.js';
 export {

@@ -9,6 +9,8 @@ import {
   type ProjectSettings,
   type LinkSchemes,
   type ReviewProtection,
+  type SensitivityLabel,
+  type SensitivityLabels,
 } from '@stanza/core';
 import {
   KEBAB_CASE,
@@ -164,6 +166,36 @@ function readReviewProtection(data: Data, report: Report): ReviewProtection | un
   return undefined;
 }
 
+/**
+ * The sensitivity labels (ADR 0087): the tenant ID once, and per value of `classification` the
+ * label ID and its name. Whether the IDs are GUIDs is checked with the rest of the meaning.
+ */
+function readSensitivityLabels(data: Data, report: Report): SensitivityLabels | undefined {
+  const at = 'sensitivity-labels';
+  if (data[at] === undefined) return undefined;
+  const map = asMap(data[at], at, report);
+  if (map === undefined) return undefined;
+  checkKeys(map, ['tenant', 'labels'], at, report);
+  const tenant = readString(map, 'tenant', at, report);
+  if (map['tenant'] === undefined) {
+    report('missing-property', 'The sensitivity labels need the "tenant" they belong to.', at);
+  }
+  const labels: Record<string, SensitivityLabel> = {};
+  const listed =
+    map['labels'] === undefined ? {} : asMap(map['labels'], join(at, 'labels'), report);
+  for (const [classification, value] of Object.entries(listed ?? {})) {
+    const path = join(join(at, 'labels'), classification);
+    const entry = asMap(value, path, report);
+    if (entry === undefined) continue;
+    checkKeys(entry, ['id', 'name'], path, report);
+    const id = readString(entry, 'id', path, report);
+    const name = readString(entry, 'name', path, report);
+    if (entry['id'] === undefined) report('missing-property', 'A label needs its "id".', path);
+    if (id !== undefined) labels[classification] = { id, ...(name !== undefined ? { name } : {}) };
+  }
+  return tenant === undefined ? undefined : { tenant, labels };
+}
+
 /** Reads a project file. Problems in the file are reported and the rest is still read. */
 export function parseProject(source: string): ProjectParseResult {
   const diagnostics: Diagnostic[] = [];
@@ -188,6 +220,7 @@ export function parseProject(source: string): ProjectParseResult {
       'documents',
       'link-schemes',
       'review-protection',
+      'sensitivity-labels',
     ],
     '',
     report,
@@ -202,6 +235,7 @@ export function parseProject(source: string): ProjectParseResult {
   const documents = readDocuments(data, report);
   const linkSchemes = readLinkSchemes(data, report);
   const reviewProtection = readReviewProtection(data, report);
+  const sensitivityLabels = readSensitivityLabels(data, report);
   const settings: ProjectSettings = {
     ...(title !== undefined ? { title } : {}),
     stylesheet: stylesheet ?? '',
@@ -210,6 +244,7 @@ export function parseProject(source: string): ProjectParseResult {
     ...(documents !== undefined ? { documents } : {}),
     ...(linkSchemes !== undefined ? { linkSchemes } : {}),
     ...(reviewProtection !== undefined ? { reviewProtection } : {}),
+    ...(sensitivityLabels !== undefined ? { sensitivityLabels } : {}),
   };
 
   // The meaning of the settings is only checked once they have been read without errors.

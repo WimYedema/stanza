@@ -20,6 +20,7 @@ import { DOCUMENT_SUFFIX } from './files.js';
 import { loadProject, type LoadedProject } from './load.js';
 import { referenceTargets } from './reference-links.js';
 import { inspectReview, type ReviewInspection } from './review.js';
+import { compareLabel, labelLine } from './sensitivity-labels.js';
 import type { ProjectStorage } from './storage.js';
 import { NO_PROJECT_MESSAGE, storeNewDocument } from './store-document.js';
 import { DEFAULT_BUILD_DATE } from './build.js';
@@ -684,6 +685,9 @@ export async function pullReview(
       );
     }
   }
+
+  const label = compareLabel(loaded, reviewed, review.sensitivityLabels);
+  if (label !== undefined) built.lines.push(labelLine(label, options.fileName));
 
   const name = reviewed.split('/').pop()?.slice(0, -DOCUMENT_SUFFIX.length) ?? 'review';
   const day = review.savedAt?.slice(0, 10) ?? 'undated';

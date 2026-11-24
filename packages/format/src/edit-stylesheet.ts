@@ -43,6 +43,14 @@ interface Edit {
 type Range = readonly [number, number, number];
 
 const KEY = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
+/**
+ * What a key may be in the file that is edited: a property name in kebab-case in a stylesheet; in
+ * the project file also a value that the author chose, such as a classification (ADR 0087). Set by
+ * `edit` for the length of one edit, which is synchronous.
+ */
+let keyAllowed: (key: string) => boolean = (key) => KEY.test(key);
+
 const PLAIN = /^[A-Za-z][A-Za-z0-9-]*$/;
 /** Words that YAML reads as something other than text, so they are quoted. */
 const YAML_WORDS = new Set(['true', 'false', 'null', 'yes', 'no', 'on', 'off', 'y', 'n']);
@@ -82,6 +90,10 @@ const quoted = (text: string): string => {
   return `'${text.replaceAll("'", "''")}'`;
 };
 
+/** A key as it is written: as it is when it is one word, such as a property name, else quoted. */
+const keyText = (key: string): string =>
+  PLAIN.test(key) && !YAML_WORDS.has(key.toLowerCase()) ? key : quoted(key);
+
 function scalarText(value: string | number | boolean): string {
   if (typeof value === 'boolean') return String(value);
   if (typeof value === 'number') {
@@ -98,8 +110,8 @@ function flowText(value: YamlValue): string {
   const entries = Object.entries(value as { readonly [key: string]: YamlValue });
   if (entries.length === 0) return '{}';
   const items = entries.map(([key, inner]) => {
-    if (!KEY.test(key)) throw new Refusal('invalid-value', `"${key}" is not a property name.`);
-    return `${key}: ${flowText(inner)}`;
+    if (!keyAllowed(key)) throw new Refusal('invalid-value', `"${key}" is not a property name.`);
+    return `${keyText(key)}: ${flowText(inner)}`;
   });
   return `{ ${items.join(', ')} }`;
 }
@@ -108,7 +120,7 @@ function flowText(value: YamlValue): string {
 function nestedFlow(keys: readonly string[], value: YamlValue): string {
   const [first = '', ...rest] = keys;
   const inner = rest.reduceRight<YamlValue>((deeper, key) => ({ [key]: deeper }), value);
-  return `${first}: ${flowText(inner)}`;
+  return `${keyText(first)}: ${flowText(inner)}`;
 }
 
 /** `a:` and the lines below it for the keys that do not exist yet, in a block mapping. */
@@ -116,7 +128,9 @@ function blockLines(indent: string, keys: readonly string[], value: YamlValue): 
   return keys
     .map((key, depth) => {
       const pad = `${indent}${'  '.repeat(depth)}`;
-      return depth === keys.length - 1 ? `${pad}${key}: ${flowText(value)}` : `${pad}${key}:`;
+      return depth === keys.length - 1
+        ? `${pad}${keyText(key)}: ${flowText(value)}`
+        : `${pad}${keyText(key)}:`;
     })
     .join('\n');
 }
@@ -304,22 +318,38 @@ const errorsOf = (text: string): { key: string; message: string; path: string | 
       path: diagnostic.path,
     }));
 
+/** The file that an edit is made in: what it is called, its errors, and what a key may be. */
+export interface EditTarget {
+  readonly noun: string;
+  readonly errorsOf: (text: string) => { key: string; message: string; path: string | undefined }[];
+  readonly keyAllowed: (key: string) => boolean;
+}
+
+const STYLESHEET: EditTarget = {
+  noun: 'stylesheet',
+  errorsOf,
+  keyAllowed: (key) => KEY.test(key),
+};
+
 function edit(
   source: string,
   path: readonly string[],
   plan: (text: string, root: YAMLMap) => readonly Edit[],
+  target: EditTarget = STYLESHEET,
 ): StylesheetEdit {
   const crlf = source.includes('\r\n');
   const text = crlf ? source.replaceAll('\r\n', '\n') : source;
+  const before = keyAllowed;
+  keyAllowed = target.keyAllowed;
   try {
-    if (path.length === 0 || !path.every((key) => KEY.test(key))) {
+    if (path.length === 0 || !path.every((key) => target.keyAllowed(key))) {
       throw new Refusal('invalid-path', 'A path is made of property names in kebab-case.');
     }
     const document = parseDocument(text);
     if (document.errors.length > 0) {
       throw new Refusal(
         'invalid-stylesheet',
-        'The stylesheet is not valid YAML, so it was not changed.',
+        `The ${target.noun} is not valid YAML, so it was not changed.`,
       );
     }
     const root = document.contents;
@@ -327,20 +357,38 @@ function edit(
     const edits = plan(text, root);
     if (edits.length === 0) return { ok: true, text: source };
     const next = applyEdits(text, edits);
-    const known = new Set(errorsOf(text).map((error) => error.key));
-    const added = errorsOf(next).find((error) => !known.has(error.key));
+    const known = new Set(target.errorsOf(text).map((error) => error.key));
+    const added = target.errorsOf(next).find((error) => !known.has(error.key));
     if (added !== undefined) {
       const where = added.path === undefined ? '' : ` [${added.path}]`;
       throw new Refusal(
         'invalid-result',
-        `The change would make the stylesheet invalid: ${added.message}${where}`,
+        `The change would make the ${target.noun} invalid: ${added.message}${where}`,
       );
     }
     return { ok: true, text: crlf ? next.replaceAll('\n', '\r\n') : next };
   } catch (error) {
-    if (error instanceof Refusal) return { ok: false, code: error.code, message: error.message };
+    if (error instanceof Refusal) {
+      const message =
+        error.code === 'unsupported-layout'
+          ? `The ${target.noun} is laid out in a way that cannot be edited here.`
+          : error.message;
+      return { ok: false, code: error.code, message };
+    }
     throw error;
+  } finally {
+    keyAllowed = before;
   }
+}
+
+/** Sets a property by its path in another YAML file of the project, such as the project file. */
+export function setYamlProperty(
+  source: string,
+  path: readonly string[],
+  value: YamlValue,
+  target: EditTarget,
+): StylesheetEdit {
+  return edit(source, path, (text, root) => planSet(text, root, path, value), target);
 }
 
 /**

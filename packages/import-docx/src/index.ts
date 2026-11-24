@@ -9,6 +9,7 @@ export {
   type ReviewReading,
 } from './review.js';
 export type { EmbeddedSource, Reaction, ReviewStamp } from './review-parts.js';
+export { isCompoundFile, normalGuid, type FileLabel } from './sensitivity-label.js';
 export {
   readBodyText,
   type BodyText,

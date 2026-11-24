@@ -8,6 +8,7 @@ import { registerGoToHeading } from './go-to-heading-command.js';
 import { registerGoToLine } from './go-to-line-command.js';
 import { registerImportWord } from './import-word-command.js';
 import { registerPullReview } from './review-pull-command.js';
+import { registerRecordLabel } from './record-label-command.js';
 import { registerMakeReference } from './make-reference-command.js';
 import { registerNewDocument } from './new-document-command.js';
 import { registerDocumentListCommands } from './document-list-commands.js';
@@ -58,6 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
     ...registerDocumentListCommands(diagnostics),
     registerImportWord(log),
     registerPullReview(log),
+    registerRecordLabel(),
     registerAdoptMarkdown(log),
     registerAddAgentInstructions(),
     vscode.window.registerCustomEditorProvider(

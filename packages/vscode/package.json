@@ -113,6 +113,10 @@
         "title": "Stanza: Pull Review Comments"
       },
       {
+        "command": "stanza.recordSensitivityLabel",
+        "title": "Stanza: Record Sensitivity Label"
+      },
+      {
         "command": "stanza.adoptMarkdown",
         "title": "Stanza: Adopt Markdown File"
       },

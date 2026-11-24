@@ -113,7 +113,9 @@ export {
   HARDCODED_FIELD_NAMES,
   REVIEW_PROTECTIONS,
   applyDefaults,
+  isGuid,
   isSafeRelativePath,
+  labelOf,
   outlinePaths,
   validateMetadata,
   validateProjectSettings,
@@ -123,6 +125,8 @@ export {
   type ProjectDefaults,
   type ProjectSettings,
   type ReviewProtection,
+  type SensitivityLabel,
+  type SensitivityLabels,
 } from './project.js';
 export {
   BUILT_IN_PAGE_TEMPLATE,

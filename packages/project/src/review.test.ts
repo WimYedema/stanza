@@ -50,6 +50,7 @@ describe('inspectReview', () => {
       missing: [],
       unknown: [],
       bookmarks: idsOf(loaded, INTRODUCTION).length,
+      sensitivityLabels: [],
       // The export is stamped (ADR 0084), so the file names its document and carries its source.
       stamp: { document: INTRODUCTION, contentHash: read.review.stamp?.contentHash },
       savedAt: '2026-03-04T05:06:07.000Z',
@@ -92,6 +93,7 @@ describe('inspectReview', () => {
     const inspection = inspectReview(loaded, {
       paragraphs: [],
       trackedChanges: [],
+      sensitivityLabels: [],
       bookmarks: [first, gone],
       comments: [comment('0', first), comment('1', gone), comment('2')],
     });
@@ -110,6 +112,7 @@ describe('inspectReview', () => {
       comments: [],
       paragraphs: [],
       trackedChanges: [],
+      sensitivityLabels: [],
     });
     expect(inspection).toEqual({
       placed: [],
@@ -117,6 +120,7 @@ describe('inspectReview', () => {
       missing: [],
       unknown: [],
       bookmarks: 0,
+      sensitivityLabels: [],
     });
   });
 });

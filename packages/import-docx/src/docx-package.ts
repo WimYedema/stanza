@@ -25,6 +25,8 @@ export interface DocxParts {
   readonly commentsExtensible: XmlElement | undefined;
   /** The custom file properties (`docProps/custom.xml`), where the revision stamp is (ADR 0084). */
   readonly customProperties: XmlElement | undefined;
+  /** The sensitivity labels (`docMetadata/LabelInfo.xml`), written by Office (ADR 0087). */
+  readonly labelInfo: XmlElement | undefined;
   /** The custom XML parts related from the main document, such as the embedded source. */
   readonly customXml: readonly XmlElement[];
   /** The properties of the document (`docProps/core.xml`). */
@@ -40,6 +42,8 @@ export type ReadResult =
   | { readonly ok: false; readonly reason: ReadFailure; readonly message: string };
 
 const RELATIONSHIP_BASE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
+const LABEL_INFO_TYPE =
+  'http://schemas.microsoft.com/office/2020/02/relationships/classificationlabels';
 const PROPERTIES_TYPE =
   'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties';
 
@@ -95,7 +99,7 @@ export function readDocx(bytes: Uint8Array): ReadResult {
   if (startsWith(bytes, [0xd0, 0xcf, 0x11, 0xe0])) {
     return fail(
       'not-a-docx',
-      'This is an old Word file (.doc) or an encrypted file, not a DOCX. Open it in Word and save it as a DOCX without a password.',
+      'This is an old Word file (.doc) or an encrypted file, not a DOCX. A file can be encrypted by a password or by its sensitivity label. Open it in Word and save it as a DOCX without a password, or with a label that does not encrypt.',
     );
   }
   let files: Record<string, Uint8Array>;
@@ -137,6 +141,8 @@ export function readDocx(bytes: Uint8Array): ReadResult {
       (r) => r.type === `${RELATIONSHIP_BASE}custom-properties`,
     );
     const customData = files[resolveTarget('', customEntry?.target ?? 'docProps/custom.xml')];
+    const labelEntry = [...rootRelations.values()].find((r) => r.type === LABEL_INFO_TYPE);
+    const labelData = files[resolveTarget('', labelEntry?.target ?? 'docMetadata/LabelInfo.xml')];
     const customXml = [...relations.values()]
       .filter((r) => r.type === `${RELATIONSHIP_BASE}customXml` && !r.external)
       .flatMap((r) => {
@@ -165,6 +171,7 @@ export function readDocx(bytes: Uint8Array): ReadResult {
           'word/commentsExtensible.xml',
         ),
         customProperties: customData === undefined ? undefined : parseXml(strFromU8(customData)),
+        labelInfo: labelData === undefined ? undefined : parseXml(strFromU8(labelData)),
         customXml,
         properties: propertiesData === undefined ? undefined : parseXml(strFromU8(propertiesData)),
         relationships: new Map(

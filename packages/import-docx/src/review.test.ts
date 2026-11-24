@@ -131,6 +131,7 @@ describe('readReview', () => {
       comments: [],
       paragraphs: [{ text: 'Text', block: A }],
       trackedChanges: [],
+      sensitivityLabels: [],
     });
   });
 

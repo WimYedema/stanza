@@ -39,8 +39,45 @@ export function outlinePaths(entries: readonly OutlineEntry[]): readonly string[
 export type ReviewProtection = 'comments' | 'none';
 export const REVIEW_PROTECTIONS: readonly ReviewProtection[] = ['comments', 'none'];
 
+/** A sensitivity label of the tenant (ADR 0087), recorded from a file that Word labelled. */
+export interface SensitivityLabel {
+  /** The label ID, a GUID. */
+  readonly id: string;
+  /** The name of the label in the tenant, when the file gave it. */
+  readonly name?: string;
+}
+
+/** The labels of a project (ADR 0087): one tenant, and a label per value of `classification`. */
+export interface SensitivityLabels {
+  /** The tenant ID (the `SiteId` of the label), a GUID. */
+  readonly tenant: string;
+  readonly labels: Readonly<Record<string, SensitivityLabel>>;
+}
+
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A GUID as the project file writes it: 36 characters, without braces. */
+export const isGuid = (value: string): boolean => GUID.test(value);
+
+/**
+ * The label of a classification, or undefined when there is none or the project records no labels.
+ * The classification is matched as written.
+ */
+export function labelOf(
+  settings: Pick<ProjectSettings, 'sensitivityLabels'>,
+  classification: string | undefined,
+): SensitivityLabel | undefined {
+  if (classification === undefined) return undefined;
+  const labels = settings.sensitivityLabels?.labels;
+  return labels !== undefined && Object.hasOwn(labels, classification)
+    ? labels[classification]
+    : undefined;
+}
+
 export interface ProjectSettings {
   readonly linkSchemes?: LinkSchemes;
+  /** Absent when the project records no sensitivity labels (ADR 0087). */
+  readonly sensitivityLabels?: SensitivityLabels;
   /** Absent means `comments`, as before ADR 0085. */
   readonly reviewProtection?: ReviewProtection;
   readonly title?: string;
@@ -86,14 +123,40 @@ function isEmpty(value: MetaValue): boolean {
   return typeof value === 'string' ? value === '' : value.length === 0;
 }
 
-/** Checks a document's custom metadata fields against the declarations of the project. */
+/**
+ * A warning when the project records sensitivity labels and the effective classification of a
+ * document has none, so that its file goes out unlabelled (ADR 0087). A review document is never
+ * built, so it is left out.
+ */
+function checkLabel(
+  meta: DocumentMeta,
+  settings: Pick<ProjectSettings, 'sensitivityLabels'>,
+): Diagnostic[] {
+  const recorded = settings.sensitivityLabels;
+  if (recorded === undefined || Object.keys(recorded.labels).length === 0) return [];
+  if (meta.reviews !== undefined || labelOf(settings, meta.classification) !== undefined) return [];
+  const message =
+    meta.classification === undefined
+      ? 'The document has no classification, so its DOCX has no sensitivity label.'
+      : `No sensitivity label is recorded for the classification "${meta.classification}", so its DOCX has none. Record one with "stanza label record".`;
+  return [
+    { severity: 'warning', code: 'unlabelled-classification', message, path: 'classification' },
+  ];
+}
+
+/**
+ * Checks a document's metadata against the project: its custom fields against the declarations,
+ * and its classification against the recorded sensitivity labels. `meta` is the effective
+ * metadata, with the project defaults applied.
+ */
 export function validateMetadata(
   meta: DocumentMeta,
-  settings: Pick<ProjectSettings, 'fields'>,
+  settings: Pick<ProjectSettings, 'fields'> & Partial<Pick<ProjectSettings, 'sensitivityLabels'>>,
 ): readonly Diagnostic[] {
+  const labels = checkLabel(meta, settings);
   const declared = settings.fields;
-  if (declared === undefined) return [];
-  const diagnostics: Diagnostic[] = [];
+  if (declared === undefined) return labels;
+  const diagnostics: Diagnostic[] = [...labels];
   const report = (
     severity: Diagnostic['severity'],
     code: string,
@@ -146,6 +209,22 @@ export function isSafeRelativePath(path: string): boolean {
 /** Checks everything about the project settings that does not depend on how they were written. */
 export function validateProjectSettings(settings: ProjectSettings): readonly Diagnostic[] {
   const diagnostics: Diagnostic[] = [...validateLinkSchemes(settings.linkSchemes ?? {})];
+  const recorded = settings.sensitivityLabels;
+  if (recorded !== undefined) {
+    const notGuid = (value: string, path: string, what: string): void => {
+      if (isGuid(value)) return;
+      diagnostics.push({
+        severity: 'error',
+        code: 'invalid-sensitivity-label',
+        message: `The ${what} "${value}" is not a GUID. Record the label from a file with "stanza label record".`,
+        path,
+      });
+    };
+    notGuid(recorded.tenant, 'sensitivity-labels.tenant', 'tenant ID');
+    for (const [classification, label] of Object.entries(recorded.labels)) {
+      notGuid(label.id, `sensitivity-labels.labels.${classification}.id`, 'label ID');
+    }
+  }
   if (!isSafeRelativePath(settings.stylesheet)) {
     diagnostics.push({
       severity: 'error',

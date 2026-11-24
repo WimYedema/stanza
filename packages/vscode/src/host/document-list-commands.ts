@@ -28,9 +28,10 @@ async function offerSave(document: vscode.TextDocument): Promise<void> {
 
 /**
  * Project-file changes are undoable buffer edits, as for stylesheet quick fixes. Other writes
- * (new/imported/adopted documents) still use the filesystem.
+ * (new/imported/adopted documents) still use the filesystem. With `offer` false, the caller offers
+ * to save the project file itself, in its own message.
  */
-export async function documentListStorage(root: vscode.Uri): Promise<ProjectStorage> {
+export async function documentListStorage(root: vscode.Uri, offer = true): Promise<ProjectStorage> {
   const storage = storageOf(root);
   const document = await vscode.workspace.openTextDocument(uriInProject(root, PROJECT_FILE));
   let seen = normalized(document.getText());
@@ -48,6 +49,7 @@ export async function documentListStorage(root: vscode.Uri): Promise<ProjectStor
       if (!(await replaceText(document, before, text))) {
         throw new Error('The document-list edit was not applied.');
       }
+      if (!offer) return;
       void offerSave(document).catch((error: unknown) => {
         void vscode.window.showErrorMessage(
           `Stanza: the project file is unsaved. ${reasonOf(error)}`,

@@ -91,7 +91,7 @@ export function commentDetails(parts: DocxParts): Map<string, CommentDetails> {
 }
 
 /** The custom file properties that are text, by name. */
-function textProperties(custom: XmlElement | undefined): Map<string, string> {
+export function textProperties(custom: XmlElement | undefined): Map<string, string> {
   const found = new Map<string, string>();
   for (const property of elementsOf(custom, 'property')) {
     const name = property.attrs['name'];

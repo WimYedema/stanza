@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Stanza: Record Sensitivity Label** and `stanza label record` record the sensitivity label of a DOCX that Word labelled in `stanza.yaml`, for the document's classification; `review inspect` and Pull Review Comments say whether a reviewed file has that label.
 - Review comments in the editor: the comments of a document's reviews are shown beside the commented text, as cards or as markers in a narrow editor, and can be resolved, reopened and opened in their review document.
 - `review-protection: none` in `stanza.yaml` exports documents without the protection for comments, so that reviewers in Word for the web can comment.
 - Building no longer stops when one of the files is open in Word: that file is reported and the others are written.
