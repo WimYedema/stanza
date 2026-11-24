@@ -31,6 +31,14 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
 <title>Stanza</title>
 <style nonce="${nonce}">
   html, body { margin: 0; min-height: 100%; background: #555555; font-family: sans-serif; }
+  /*
+   * VS Code gives code, pre, kbd and blockquote the colours of its theme in every webview. The page
+   * is the document, in the colours of its stylesheet whatever the theme, so inside it they inherit;
+   * a style that sets one of these is more specific and wins.
+   */
+  .stanza-document code, .stanza-document pre, .stanza-document kbd,
+  .stanza-document blockquote { color: inherit; background-color: transparent;
+    font-family: inherit; font-size: inherit; padding: 0; border: 0; border-radius: 0; }
   #top { position: sticky; top: 0; z-index: 2; background: #3c3c3c; }
   #bar { display: flex; align-items: flex-start; gap: 12px; }
   #toolbar { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 6px 12px; }
