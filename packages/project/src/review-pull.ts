@@ -110,6 +110,11 @@ interface Located {
   readonly kind: Block['type'];
   /** The plain text of the section the block is in, to look for the quote. */
   readonly section: string;
+  /**
+   * The plain text of the blocks without an ID just before the block, where a quote can start: a
+   * range that starts in text without an ID is on the first block with an ID inside it.
+   */
+  readonly lead: string;
 }
 
 /** How many paragraphs the exporter writes for a block in a table cell. */
@@ -188,6 +193,8 @@ function locateBlocks(loaded: LoadedProject): Map<NodeId, Located> {
   for (const { path, document } of loaded.documents) {
     let heading: string | undefined;
     let start = 0;
+    /** The index of the last block with an ID so far. */
+    let lastWithId = -1;
     const sectionText = (from: number): string => {
       const parts: string[] = [];
       for (let i = from; i < document.blocks.length; i++) {
@@ -212,8 +219,13 @@ function locateBlocks(loaded: LoadedProject): Map<NodeId, Located> {
           block,
           kind: block.type,
           section: sectionText(start),
+          lead: document.blocks
+            .slice(lastWithId + 1, index)
+            .map(blockText)
+            .join(' '),
         });
       }
+      if (block.id !== undefined) lastWithId = index;
     });
   }
   return found;
@@ -498,7 +510,7 @@ function reviewDocument(
     if (quote !== '') {
       parts.push(text(`, at "${quote}".`));
       const start = quote.split('…')[0]?.slice(0, 40) ?? '';
-      const section = where.section.replace(/\s+/g, ' ');
+      const section = `${where.lead} ${where.section}`.replace(/\s+/g, ' ');
       if (start !== '' && !section.includes(start)) {
         parts.push(text(' The text has changed since the review.'));
       }

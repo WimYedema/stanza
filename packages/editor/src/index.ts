@@ -13,6 +13,8 @@ export {
   createStanzaEditor,
   stanzaExtensions,
   type DocumentChange,
+  type PlacedThread,
+  type ThreadBox,
   type StanzaEditor,
   type StanzaEditorOptions,
 } from './editor.js';
@@ -22,3 +24,11 @@ export { normalizePastedHtml } from './paste-html.js';
 export { fromEditorContent, toEditorContent, type FromEditorResult } from './convert.js';
 export { schemaExtensions } from './schema.js';
 export { BlockIds, type IdSource } from './block-ids.js';
+export {
+  REVIEW_HIGHLIGHT_CLASS,
+  REVIEW_HIGHLIGHT_SELECTED_CLASS,
+  anchorPosition,
+  placeThread,
+  type Placement,
+  type ThreadPlace,
+} from './review-threads.js';

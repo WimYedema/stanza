@@ -325,3 +325,28 @@ describe('the diagnostics message', () => {
     expect(parseHostMessage(value)).toBeUndefined();
   });
 });
+
+describe('the messages of review threads (ADR 0086)', () => {
+  it('takes an open or a resolve of a thread by its key, and nothing else', () => {
+    expect(parseWebviewMessage({ type: 'open-review', key: 'r#a' })).toEqual({
+      type: 'open-review',
+      key: 'r#a',
+    });
+    expect(
+      parseWebviewMessage({ type: 'set-thread-status', key: 'r#a', status: 'resolved' }),
+    ).toEqual({ type: 'set-thread-status', key: 'r#a', status: 'resolved' });
+    expect(parseWebviewMessage({ type: 'set-thread-status', key: 'r#a', status: 'gone' })).toBe(
+      undefined,
+    );
+    expect(parseWebviewMessage({ type: 'open-review', key: '' })).toBeUndefined();
+    expect(parseWebviewMessage({ type: 'open-review', key: 'x'.repeat(5000) })).toBeUndefined();
+  });
+
+  it('takes the end of a resolve from the host', () => {
+    expect(parseHostMessage({ type: 'thread-status-done', key: 'r#a' })).toEqual({
+      type: 'thread-status-done',
+      key: 'r#a',
+    });
+    expect(parseHostMessage({ type: 'thread-status-done' })).toBeUndefined();
+  });
+});

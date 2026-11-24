@@ -1256,3 +1256,168 @@ describe('following a reference', () => {
     expect(world.commands).toEqual([]);
   });
 });
+
+describe('review threads (ADR 0086)', () => {
+  const REVIEW = `---
+stanza-format: 1
+title: "Review of T"
+reviews: "documents/one.stanza.md"
+---
+
+<!-- stanza: #r1r1r1r1r1 -->
+# Review of T
+
+<!-- stanza: #r2r2r2r2r2 -->
+## Why this?
+
+On [One](../documents/one.stanza.md#k7m2q9x4zb), at "One".
+
+Status: open. Word comment 2E3C8848.
+
+**Ada Reviewer, 2026-11-21 15:05 UTC:** Why this?
+`;
+
+  it('sends the threads of the review documents of the document, and none for a document without', async () => {
+    open(CANONICAL, '\n', files({ '/w/p/reviews/one-2026-11-21.stanza.md': REVIEW }));
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'review-threads' }));
+    });
+    const message = (world.posted as HostMessage[]).find((m) => m.type === 'review-threads');
+    expect(message).toEqual({
+      type: 'review-threads',
+      threads: [
+        {
+          key: 'reviews/one-2026-11-21.stanza.md#r2r2r2r2r2',
+          review: 'reviews/one-2026-11-21.stanza.md',
+          headingId: 'r2r2r2r2r2',
+          title: 'Why this?',
+          anchor: 'k7m2q9x4zb',
+          quote: { start: 'One' },
+          status: 'open',
+          wordComment: '2E3C8848',
+          comments: [
+            {
+              author: 'Ada Reviewer',
+              time: '2026-11-21 15:05 UTC',
+              text: 'Why this?',
+              reactions: [],
+            },
+          ],
+          notes: [],
+        },
+      ],
+    });
+  });
+
+  it('sends a Word comment that was pulled twice once, from the later review', async () => {
+    const again = REVIEW.replace('#r1r1r1r1r1', '#s1s1s1s1s1').replace(
+      '#r2r2r2r2r2',
+      '#s2s2s2s2s2',
+    );
+    open(
+      CANONICAL,
+      '\n',
+      files({
+        '/w/p/reviews/one-2026-11-21.stanza.md': REVIEW,
+        '/w/p/reviews/one-2026-11-21-2.stanza.md': again,
+      }),
+    );
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'review-threads' }));
+    });
+    const message = (world.posted as HostMessage[]).find((m) => m.type === 'review-threads');
+    expect(message?.type === 'review-threads' && message.threads.map((t) => t.key)).toEqual([
+      'reviews/one-2026-11-21-2.stanza.md#s2s2s2s2s2',
+    ]);
+  });
+
+  const REVIEW_PATH = '/w/p/reviews/one-2026-11-21.stanza.md';
+  const KEY = 'reviews/one-2026-11-21.stanza.md#r2r2r2r2r2';
+  const withReview = async (): Promise<void> => {
+    open(CANONICAL, '\n', files({ [REVIEW_PATH]: REVIEW }));
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'review-threads' }));
+    });
+  };
+  const done = (): boolean =>
+    (world.posted as HostMessage[]).some((m) => m.type === 'thread-status-done');
+  /** The review document as an open buffer, as when it is open in an editor. */
+  const buffer = async () =>
+    (await vscode.workspace.openTextDocument(
+      new FakeUri(REVIEW_PATH) as unknown as vscode.Uri,
+    )) as unknown as { text: string; isDirty: boolean };
+
+  it('opens the review document of a thread at its heading', async () => {
+    await withReview();
+    fromWebview({ type: 'open-review', key: KEY });
+    await settled(() => {
+      expect(world.commands).toContain('vscode.openWith');
+    });
+    const args = world.commandArgs[world.commands.indexOf('vscode.openWith')];
+    expect((args?.[0] as FakeUri).path).toBe(REVIEW_PATH);
+  });
+
+  it('resolves a thread by changing its status line, and saves the review document', async () => {
+    await withReview();
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.saved).toEqual([REVIEW_PATH]);
+    expect(world.files.get(REVIEW_PATH)).toBe(REVIEW.replace('Status: open.', 'Status: resolved.'));
+    expect(world.warnings).toEqual([]);
+  });
+
+  it('asks before saving a review document with unsaved changes of its own', async () => {
+    await withReview();
+    const file = await buffer();
+    // A change above the threads, so that the thread itself is as it was shown.
+    file.text = file.text.replace('# Review of T\n', '# Review of T\n\nA note of the author.\n');
+    file.isDirty = true;
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.warnings).toEqual([
+      'reviews/one-2026-11-21.stanza.md has unsaved changes. Save it and resolve the thread?',
+    ]);
+    expect(world.saved).toEqual([]);
+    expect(file.text).toContain('Status: open.');
+
+    world.posted = [];
+    world.warningChoice = 'Save and Resolve';
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.saved).toEqual([REVIEW_PATH]);
+    expect(world.files.get(REVIEW_PATH)).toContain('Status: resolved.');
+    expect(world.files.get(REVIEW_PATH)).toContain('A note of the author.');
+    world.warningChoice = undefined;
+  });
+
+  it('refuses a thread that changed in the review document since it was shown', async () => {
+    await withReview();
+    const file = await buffer();
+    file.text = file.text.replace('Why this?\n', 'Why this, really?\n');
+    fromWebview({ type: 'set-thread-status', key: KEY, status: 'resolved' });
+    await settled(() => {
+      expect(done()).toBe(true);
+    });
+    expect(world.warnings[0]).toContain('changed since it was shown');
+    expect(world.saved).toEqual([]);
+    expect(file.text).toContain('Status: open.');
+  });
+
+  it('sends nothing for a document that has no review', async () => {
+    open();
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual(expect.objectContaining({ type: 'project-ready' }));
+    });
+    expect((world.posted as HostMessage[]).some((m) => m.type === 'review-threads')).toBe(false);
+  });
+});
