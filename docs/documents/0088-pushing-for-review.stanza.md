@@ -30,6 +30,7 @@ Two ways are possible: replace the file that is there, or put a new file next to
 - **`--new` writes a new file** beside it, `<name>-<date>.docx` with a number when the name is taken, for a round whose file must stay as it was, such as one sent for approval. The date is the day of the push.
 - **A file that is open in Word,** and so cannot be written on Windows, is reported, as in a build.
 - **Nothing goes back into the file:** the open comments of the reviewers are not in the new file. They are in the review document and beside their text in the editor (ADR 0086).
+- **And the push says so,** since first users expected the open comments to stay (2026-11-24): replacing a file that holds comments tells how many leave it, and how many threads are still open in the review documents. VS Code asks first, with a choice not to ask again; the command line says it after the push. Whether to carry the open threads into the new file is backlog item 218.
 
 <!-- stanza: #wamybvzr04 -->
 ### In the editor

@@ -25,7 +25,9 @@ export {
 export {
   newPushFileName,
   pushFileName,
+  openThreads,
   pushReview,
+  removedCommentsNote,
   reviewRoundStatus,
   type ExistingFile,
   type ReviewRoundStatus,

@@ -6,6 +6,7 @@ import { hasErrors, type ProjectDiagnostic } from './diagnostics.js';
 import type { BuildOptions } from './build.js';
 import type { LoadedProject } from './load.js';
 import { inspectReview } from './review.js';
+import { latestThreads, reviewThreads } from './review-threads.js';
 import type { ProjectStorage } from './storage.js';
 
 /**
@@ -31,6 +32,12 @@ export type PushResult =
       readonly bytes: Uint8Array;
       /** Whether a file that was there is replaced. */
       readonly replaces: boolean;
+      /**
+       * What leaves the file with the push: the comments in the file it replaces, which are not
+       * carried into the new one (ADR 0088), and how many threads of the review documents of the
+       * document are still open, which is where those comments stay.
+       */
+      readonly removes: { readonly comments: number; readonly openThreads: number };
       readonly diagnostics: readonly ProjectDiagnostic[];
     }
   | {
@@ -224,6 +231,42 @@ export async function pushReview(
     ok: true,
     bytes: made.bytes,
     replaces: existing !== undefined,
+    removes: {
+      comments: existing === undefined ? 0 : commentsIn(existing.bytes),
+      openThreads: openThreads(loaded, documentPath),
+    },
     diagnostics: made.diagnostics,
   };
+}
+
+/** How many comments a file holds; none when it cannot be read. */
+function commentsIn(bytes: Uint8Array): number {
+  const read = readReview(bytes);
+  return read.ok ? read.review.comments.length : 0;
+}
+
+/** The open threads of the review documents of a document, a Word comment pulled twice once. */
+export function openThreads(loaded: LoadedProject, documentPath: string): number {
+  const threads = loaded.documents
+    .filter((entry) => entry.document.meta.reviews === documentPath)
+    .flatMap((entry) => reviewThreads(entry.path, entry.document));
+  return latestThreads(threads).filter((thread) => thread.status === 'open').length;
+}
+
+/**
+ * What a push says about the comments it takes out of the file (ADR 0088), or undefined when the
+ * file it replaces had none: they are not carried into the new file, and stay in the review
+ * documents.
+ */
+export function removedCommentsNote(
+  fileName: string,
+  removes: { readonly comments: number; readonly openThreads: number },
+): string | undefined {
+  if (removes.comments === 0) return undefined;
+  const comments = `${String(removes.comments)} ${removes.comments === 1 ? 'comment' : 'comments'}`;
+  const open =
+    removes.openThreads === 0
+      ? 'none of their threads is open'
+      : `${String(removes.openThreads)} ${removes.openThreads === 1 ? 'thread is' : 'threads are'} still open`;
+  return `${fileName} had ${comments}. The new file is a clean copy of the document, so they are no longer in it; they stay in the review documents, where ${open}.`;
 }

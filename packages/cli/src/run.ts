@@ -18,6 +18,7 @@ import {
   pullReview,
   pushFileName,
   pushReview,
+  removedCommentsNote,
   describeImport,
   loadProject,
   planMigration,
@@ -442,6 +443,9 @@ async function reviewPush(
     return 2;
   }
   io.stdout(`${result.replaces ? 'Replaced' : 'Wrote'} ${shown}, built from ${documentPath}.\n`);
+  // Nothing of the review goes into the new file (ADR 0088), which surprises when it is not said.
+  const note = removedCommentsNote(shown, result.removes);
+  if (note !== undefined) io.stdout(`  ${note}\n`);
   return 0;
 }
 

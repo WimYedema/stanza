@@ -8,6 +8,7 @@ import {
   pullReview,
   pushFileName,
   pushReview,
+  removedCommentsNote,
   reviewRoundStatus,
   type LoadedProject,
   type PushResult,
@@ -24,6 +25,10 @@ import { findRoot, storageOf, uriInProject } from './project-files.js';
  */
 
 const REPLACE = 'Replace Anyway';
+const PUSH = 'Push';
+const PUSH_ALWAYS = "Push, Don't Ask Again";
+/** Set once the person said that a push may leave the comments of a file out without asking. */
+const CLEAN_COPY_KNOWN = 'stanza.pushCleanCopyKnown';
 const NEW_FILE = 'Write a New File';
 const OPEN_REVIEW = 'Open Review';
 const SHOW_OUTPUT = 'Show details';
@@ -126,14 +131,13 @@ export async function pushDocument(
     };
     let file = mode === 'new' ? await newFile() : vscode.Uri.joinPath(folder, pushFileName(path));
     const existing = mode === 'new' ? undefined : await readIfThere(file);
+    const name = vscode.workspace.asRelativePath(file);
     let replaces = existing !== undefined;
     let result: PushResult = await pushReview(
       storage,
       loaded,
       path,
-      existing === undefined
-        ? undefined
-        : { name: vscode.workspace.asRelativePath(file), bytes: existing },
+      existing === undefined ? undefined : { name, bytes: existing },
       options,
     );
     if (!result.ok && result.reason !== 'blocked' && result.reason !== 'errors') {
@@ -155,6 +159,24 @@ export async function pushDocument(
     if (!result.ok) {
       void vscode.window.showErrorMessage(`Stanza: not pushed. ${result.message} See Problems.`);
       return false;
+    }
+    // A push leaves the comments of the file it replaces out of the new one (ADR 0088), which
+    // surprises when it is not said; once the person knows, they can say not to ask again.
+    const note = replaces ? removedCommentsNote(name, result.removes) : undefined;
+    if (note !== undefined && state.get<boolean>(CLEAN_COPY_KNOWN) !== true) {
+      const choice = await vscode.window.showWarningMessage(
+        `Stanza: ${note} Push anyway?`,
+        { modal: true },
+        PUSH,
+        PUSH_ALWAYS,
+        NEW_FILE,
+      );
+      if (choice === undefined) return false;
+      if (choice === PUSH_ALWAYS) await state.update(CLEAN_COPY_KNOWN, true);
+      if (choice === NEW_FILE) {
+        file = await newFile();
+        replaces = false;
+      }
     }
     try {
       await vscode.workspace.fs.writeFile(file, result.bytes);

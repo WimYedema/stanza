@@ -10,6 +10,7 @@ import {
   newPushFileName,
   pushFileName,
   pushReview,
+  removedCommentsNote,
   reviewRoundStatus,
   type PushResult,
 } from './review-push.js';
@@ -91,7 +92,18 @@ describe('pushReview (ADR 0088)', () => {
     });
     if (!pulled.ok) throw new Error(pulled.message);
     const withReview = project({ [pulled.document]: storage.texts.get(pulled.document) ?? '' });
-    expect(reasonOf(await push(withReview, REVIEWED, fixture(REVIEWED_FILE)))).toBe('ok');
+    const replaced = await push(withReview, REVIEWED, fixture(REVIEWED_FILE));
+    expect(reasonOf(replaced)).toBe('ok');
+    // The comments leave the file, and the push says so: 7 comments, 3 threads still open.
+    if (!replaced.ok) throw new Error(replaced.message);
+    expect(replaced.removes).toEqual({ comments: 7, openThreads: 3 });
+    expect(removedCommentsNote('review/file.docx', replaced.removes)).toBe(
+      'review/file.docx had 7 comments. The new file is a clean copy of the document, so they are no longer in it; they stay in the review documents, where 3 threads are still open.',
+    );
+    expect(removedCommentsNote('a.docx', { comments: 0, openThreads: 2 })).toBeUndefined();
+    expect(removedCommentsNote('a.docx', { comments: 1, openThreads: 0 })).toContain(
+      'had 1 comment.',
+    );
     // A pull of an earlier save does not count for a later one.
     const older =
       withReview[pulled.document]?.replace(

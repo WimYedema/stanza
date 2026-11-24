@@ -121,6 +121,37 @@ describe('Stanza: Push for Review (ADR 0088)', () => {
     expect(world.errors).toEqual([]);
   });
 
+  it('says that the comments of the file leave it, and does not ask again once told not to', async () => {
+    await run();
+    // The pushed file with a comment of a reviewer, which was pulled: nothing else is in the way.
+    const files = unzipSync(world.binary.get(PUSHED) ?? new Uint8Array());
+    files['word/comments.xml'] = strToU8(
+      '<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+        '<w:comment w:id="0" w:author="Ada"><w:p><w:r><w:t>Why?</w:t></w:r></w:p></w:comment>' +
+        '</w:comments>',
+    );
+    world.binary.set(PUSHED, zipSync(files));
+    const withComment = world.binary.get(PUSHED);
+
+    world.warningChoice = undefined;
+    await run();
+    expect(world.warnings.at(-1)).toMatch(
+      /had 1 comment\. The new file is a clean copy of the document, so they are no longer in it; .* Push anyway\?$/,
+    );
+    expect(world.binary.get(PUSHED)).toBe(withComment);
+
+    world.warningChoice = "Push, Don't Ask Again";
+    await run();
+    expect(world.binary.get(PUSHED)).not.toBe(withComment);
+    expect(state.values.get('stanza.pushCleanCopyKnown')).toBe(true);
+
+    world.binary.set(PUSHED, withComment ?? new Uint8Array());
+    const asked = world.warnings.length;
+    await run();
+    expect(world.warnings).toHaveLength(asked);
+    expect(world.binary.get(PUSHED)).not.toBe(withComment);
+  });
+
   it('pushes nothing when the folder is not chosen', async () => {
     world.dialogFolder = undefined;
     await run();

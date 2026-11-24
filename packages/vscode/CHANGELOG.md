@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A push says how many comments leave the file it replaces, and VS Code asks first, with a choice not to ask again.
 - Review buttons in the Stanza editor: **Push** to the document's review folder, **Pull** from the file pushed there, and a status that says which is due, such as new comments from reviewers.
 - **Stanza: Push for Review** and `stanza review push` build a document and write it to a review folder, replacing the file there unless it was saved in Word and not pulled, or writing a new one beside it.
 - Review comments in the editor: the comments of a document's reviews are shown beside the commented text, as cards or as markers in a narrow editor, and can be resolved, reopened and opened in their review document.

@@ -814,6 +814,22 @@ describe('stanza review push (ADR 0088)', () => {
     expect(readFileSync(pushed())).not.toEqual(saved);
   });
 
+  it('says that the comments of a file it replaces are no longer in it', async () => {
+    mkdirSync(join(work, 'review'));
+    await stanza('review', 'push', DOCUMENT, 'review', 'project');
+    const files = unzipSync(readFileSync(pushed()));
+    files['word/comments.xml'] = strToU8(
+      '<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+        '<w:comment w:id="0" w:author="Ada"><w:p><w:r><w:t>Why?</w:t></w:r></w:p></w:comment>' +
+        '</w:comments>',
+    );
+    writeFileSync(pushed(), zipSync(files));
+    const again = await stanza('review', 'push', DOCUMENT, 'review', 'project');
+    expect(again.out).toContain(
+      '  review/introduction.docx had 1 comment. The new file is a clean copy of the document, so they are no longer in it; they stay in the review documents, where none of their threads is open.\n',
+    );
+  });
+
   it('writes a new file beside it with --new, and to a path that is given', async () => {
     mkdirSync(join(work, 'review'));
     await stanza('review', 'push', DOCUMENT, 'review', 'project');
