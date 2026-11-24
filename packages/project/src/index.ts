@@ -26,7 +26,9 @@ export {
   newPushFileName,
   pushFileName,
   pushReview,
+  reviewRoundStatus,
   type ExistingFile,
+  type ReviewRoundStatus,
   type PushOptions,
   type PushResult,
 } from './review-push.js';

@@ -11,7 +11,11 @@ import { applyLineEdit, lineEdit } from './line-diff.js';
 export class FakeUri {
   constructor(readonly path: string) {}
   static parse(value: string): FakeUri {
-    return new FakeUri(value);
+    // A file URI, as `toString` writes it, comes back as the path; other addresses stay whole.
+    return new FakeUri(value.startsWith('file://') ? value.slice('file://'.length) : value);
+  }
+  with(change: { readonly path?: string }): FakeUri {
+    return new FakeUri(change.path ?? this.path);
   }
   static file(path: string): FakeUri {
     return new FakeUri(path);
@@ -304,6 +308,19 @@ export function createFakeVscode(): Record<string, unknown> {
         readonly base: FakeUri,
         readonly pattern: string,
       ) {}
+    },
+    Disposable: class {
+      constructor(private readonly done: () => void) {}
+      static from(...items: readonly { dispose(): unknown }[]): { dispose(): void } {
+        return {
+          dispose: () => {
+            for (const item of items) item.dispose();
+          },
+        };
+      }
+      dispose(): void {
+        this.done();
+      }
     },
     // No extensions are installed, so there is no Git: documents are stamped without a revision.
     extensions: { getExtension: () => undefined },

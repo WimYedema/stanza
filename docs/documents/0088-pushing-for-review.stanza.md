@@ -31,6 +31,17 @@ Two ways are possible: replace the file that is there, or put a new file next to
 - **A file that is open in Word,** and so cannot be written on Windows, is reported, as in a build.
 - **Nothing goes back into the file:** the open comments of the reviewers are not in the new file. They are in the review document and beside their text in the editor (ADR 0086).
 
+<!-- stanza: #wamybvzr04 -->
+### In the editor
+
+Added on 2026-11-24 at the request of the product owner, so that a round is two buttons where the document is edited.
+
+- **A review group in the toolbar** of the Stanza editor: **Push**, with a menu to push to another folder, to push as a new file and to open the review folder; and **Pull**.
+- **Push** goes to the remembered folder without a dialog; only the first push asks for one. The question when the file there may not be replaced is the same as for the command.
+- **Pull** takes the file that was pushed to the review folder, so push and pull always work on the same file, and asks for a file only when there is none. It stays in the document, where the comments show beside their text, and offers to open the review document.
+- **Where the round stands**, beside the buttons: not pushed; pushed, with no changes; changed since the push, when the document is not the one the file was built from, by the content hash of its stamp; a number of new comments, when the file was saved since and that save was not pulled, which comes before the rest; or that the file there is of another document. The button that is due is drawn as the primary action. The host works this out (`reviewRoundStatus` in `project`) when the editor opens, when the document or the project changes, after a push or a pull, and when the file in the folder changes, which it watches, since OneDrive writes it when reviewers save.
+- **The commands stay:** Push for Review and Pull Review Comments are in the palette and in the menu of the editor's title bar. From the palette, Pull asks for a file and opens the review document, as before.
+
 <!-- stanza: #dbcykzn66e -->
 ## Consequences
 

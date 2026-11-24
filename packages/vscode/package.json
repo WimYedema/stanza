@@ -209,6 +209,16 @@
           "command": "stanza.openInWord",
           "when": "activeCustomEditorId == stanza.editor && !isWeb && !remoteName",
           "group": "navigation"
+        },
+        {
+          "command": "stanza.pushReview",
+          "when": "activeCustomEditorId == stanza.editor",
+          "group": "1_review@1"
+        },
+        {
+          "command": "stanza.pullReview",
+          "when": "activeCustomEditorId == stanza.editor",
+          "group": "1_review@2"
         }
       ]
     }

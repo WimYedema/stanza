@@ -6,7 +6,13 @@ import { DEFAULT_BUILD_DATE } from './build.js';
 import { loadProject } from './load.js';
 import { memoryStorage } from './memory-storage.testing.js';
 import { pullReview } from './review-pull.js';
-import { newPushFileName, pushFileName, pushReview, type PushResult } from './review-push.js';
+import {
+  newPushFileName,
+  pushFileName,
+  pushReview,
+  reviewRoundStatus,
+  type PushResult,
+} from './review-push.js';
 
 const FIXTURES = new URL('../../import-docx/fixtures/review-round-trip/', import.meta.url);
 const fixture = (name: string): Uint8Array => readFileSync(new URL(name, FIXTURES));
@@ -135,5 +141,37 @@ describe('pushReview (ADR 0088)', () => {
     expect(newPushFileName('documents/a.stanza.md', '2026-11-25', (name) => taken.has(name))).toBe(
       'a-2026-11-25.docx',
     );
+  });
+});
+
+describe('reviewRoundStatus (ADR 0088)', () => {
+  const status = async (files: Record<string, string>, existing?: Uint8Array, source = SOURCE) => {
+    const loaded = await loadProject(memoryStorage(files));
+    return reviewRoundStatus(
+      loaded,
+      REVIEWED,
+      existing === undefined ? undefined : { name: 'review/file.docx', bytes: existing },
+      source,
+    );
+  };
+
+  it('tells a pushed file that is current from one whose document changed since', async () => {
+    expect(await status(project())).toEqual({ kind: 'not-pushed' });
+    const pushed = await push(project(), REVIEWED);
+    if (!pushed.ok) throw new Error(pushed.message);
+    expect(await status(project(), pushed.bytes)).toEqual({ kind: 'current' });
+    expect(await status(project(), pushed.bytes, `${SOURCE}\nMore text.\n`)).toEqual({
+      kind: 'changed',
+    });
+  });
+
+  it('says how many comments came back that were not pulled, before anything else', async () => {
+    expect(await status(project(), fixture(REVIEWED_FILE), 'changed')).toEqual({
+      kind: 'unpulled',
+      comments: 7,
+      savedAt: '2026-11-21 16:09',
+    });
+    const other = await status(project(), new Uint8Array([1, 2, 3]));
+    expect(other.kind).toBe('not-this-document');
   });
 });

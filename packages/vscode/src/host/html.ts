@@ -44,6 +44,22 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
   #bar button.look-mono { font-family: monospace; }
   #bar button[aria-pressed="true"] { background: #0e639c; color: #ffffff; }
   #bar button.needs-variant { border-style: dashed; }
+  /* The review buttons (ADR 0088): the one that is due is drawn as the primary action. */
+  .review-round-push { position: relative; display: inline-flex; gap: 1px; }
+  .review-round-push > button:nth-child(2) { min-width: 18px; padding: 2px 4px; }
+  #bar .review-round button.due { background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #ffffff); }
+  .review-round-status { font: 12px sans-serif; padding-left: 6px; white-space: nowrap; }
+  .review-round-status.due { font-weight: 600; }
+  .review-round-menu { position: absolute; top: 100%; left: 0; z-index: 20; display: flex;
+    flex-direction: column; min-width: 200px; padding: 4px 0; margin-top: 2px;
+    background: var(--vscode-menu-background, #252526); color: var(--vscode-menu-foreground, #cccccc);
+    border: 1px solid var(--vscode-menu-border, #454545); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36); }
+  .review-round-menu[hidden] { display: none; }
+  #bar .review-round-menu button { text-align: left; border: 0; background: transparent;
+    color: inherit; padding: 4px 12px; }
+  #bar .review-round-menu button:hover, #bar .review-round-menu button:focus {
+    background: var(--vscode-menu-selectionBackground, #04395e); }
   #changes { display: flex; gap: 8px; align-items: center; padding: 4px 12px; background: #264f78; border-top: 1px solid #4a4a4a; color: #ffffff; font: 12px sans-serif; }
   #changes button { font: 12px sans-serif; padding: 2px 8px; }
   #notices { padding: 4px 12px; color: #ffcc66; font: 13px monospace; }

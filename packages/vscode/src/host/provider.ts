@@ -37,6 +37,13 @@ import { lineEdit } from './line-diff.js';
 import { findRoot, storageOf, uriInProject } from './project-files.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { normalized, reviewText } from './review.js';
+import {
+  pullDocument,
+  pushDocument,
+  pushedFile,
+  rememberedFolder,
+  roundStatus,
+} from './review-round.js';
 import { summarizeUsage } from './usage-summary.js';
 import type { ReviewThreadView } from '../shared/protocol.js';
 
@@ -239,6 +246,12 @@ class EditorSession {
   /** Those threads by key, to open or resolve one that the webview names. */
   private sentThreads = new Map<string, ReviewThreadView>();
   private diagnosticsKey: string | undefined;
+  /** The project as last loaded, for the status of the review round between refreshes. */
+  private loaded: LoadedProject | undefined;
+  /** The status of the review round sent last (ADR 0088). */
+  private roundKey: string | undefined;
+  /** The watcher of the file in the review folder, by that file. */
+  private pushedWatch: { readonly key: string; readonly disposable: vscode.Disposable } | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
 
@@ -280,6 +293,7 @@ class EditorSession {
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.refreshTimer);
+    this.pushedWatch?.disposable.dispose();
     for (const disposable of this.disposables) disposable.dispose();
   }
 
@@ -329,6 +343,7 @@ class EditorSession {
         return;
       case 'change':
         await this.apply(message.text);
+        await this.postRound(undefined, false);
         return;
       case 'metadata-change':
         await this.applyMetadata(message.before, message.text);
@@ -374,9 +389,108 @@ class EditorSession {
           await this.post({ type: 'thread-status-done', key: message.key });
         }
         return;
+      case 'review-push':
+      case 'review-pull':
+      case 'open-review-folder':
+        // Outside the queue: the dialogs of a push or a pull wait for the person, and edits that
+        // come meanwhile go on.
+        void this.reviewAction(message);
+        return;
       case undefined:
         return;
     }
+  }
+
+  /** Pushes, pulls or shows the review folder for the review buttons (ADR 0088). */
+  private async reviewAction(
+    message: Extract<
+      WebviewMessage,
+      { type: 'review-push' | 'review-pull' | 'open-review-folder' }
+    >,
+  ): Promise<void> {
+    const state = this.context.workspaceState;
+    const uri = this.document.uri;
+    try {
+      if (message.type === 'review-push') {
+        await pushDocument(state, uri, message.mode);
+      } else if (message.type === 'review-pull') {
+        await pullDocument(state, uri, this.log);
+      } else {
+        const target = pushedFile(state, uri);
+        const folder = rememberedFolder(state, uri);
+        if (folder === undefined) {
+          void vscode.window.showInformationMessage(
+            'Stanza: this document has no review folder yet. Push it first.',
+          );
+        } else {
+          const exists = await vscode.workspace.fs.stat(target ?? folder).then(
+            () => true,
+            () => false,
+          );
+          await vscode.commands.executeCommand('revealFileInOS', exists ? target : folder);
+        }
+      }
+    } catch (error) {
+      this.log.appendLine(error instanceof Error ? (error.stack ?? error.message) : String(error));
+    } finally {
+      if (!this.isDisposed()) {
+        await this.post({ type: 'review-done' });
+        this.enqueue(() => this.postRound(undefined, true));
+      }
+    }
+  }
+
+  /**
+   * Tells the webview where the review round stands (ADR 0088), when that is new or asked for, and
+   * watches the file in the review folder, which OneDrive changes when reviewers save it.
+   */
+  private async postRound(loaded: LoadedProject | undefined, force: boolean): Promise<void> {
+    const root = this.root;
+    if (root === undefined || this.shown !== 'editor') return;
+    const project = loaded ?? this.loaded ?? (await this.diagnostics.load(root));
+    this.loaded = project;
+    const state = this.context.workspaceState;
+    const path = posix.relative(root.path, this.document.uri.path);
+    const status = await roundStatus(state, this.document.uri, project, path, this.text());
+    const folder = rememberedFolder(state, this.document.uri);
+    const message: HostMessage = {
+      type: 'review-round',
+      status,
+      ...(folder !== undefined ? { folder: folderName(folder) } : {}),
+    };
+    this.watchPushed(pushedFile(state, this.document.uri));
+    const key = JSON.stringify(message);
+    if (!force && key === this.roundKey) return;
+    this.roundKey = key;
+    await this.post(message);
+  }
+
+  /** Watches the pushed file of the document, and no other, for the status of the round. */
+  private watchPushed(file: vscode.Uri | undefined): void {
+    const key = file?.toString();
+    if (key === this.pushedWatch?.key) return;
+    this.pushedWatch?.disposable.dispose();
+    this.pushedWatch = undefined;
+    if (file === undefined || key === undefined) return;
+    const slash = file.path.lastIndexOf('/');
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(
+        file.with({ path: file.path.slice(0, slash) }),
+        file.path.slice(slash + 1),
+      ),
+    );
+    const changed = (): void => {
+      this.enqueue(() => this.postRound(undefined, false));
+    };
+    this.pushedWatch = {
+      key,
+      disposable: vscode.Disposable.from(
+        watcher,
+        watcher.onDidChange(changed),
+        watcher.onDidCreate(changed),
+        watcher.onDidDelete(changed),
+      ),
+    };
   }
 
   /** Applies only the lines that differ, so the cursor, the history and Git stay sensible. */
@@ -459,6 +573,7 @@ class EditorSession {
         text: review.text,
         ...(this.undoing ? { mark: false } : {}),
       });
+      await this.postRound(undefined, false);
     } else await this.sendInit();
   }
 
@@ -595,6 +710,7 @@ class EditorSession {
     await this.postUsage(loaded, root, true);
     await this.postDiagnostics(loaded, root, true);
     await this.postReviewThreads(loaded, root, true);
+    await this.postRound(loaded, true);
     if (this.revealing !== undefined) {
       await this.post({ type: 'reveal', block: this.revealing });
       this.revealing = undefined;
@@ -819,5 +935,9 @@ class EditorSession {
     await this.postUsage(loaded, root, false);
     await this.postDiagnostics(loaded, root, false);
     await this.postReviewThreads(loaded, root, false);
+    await this.postRound(loaded, false);
   }
 }
+
+/** A folder as the person reads it: relative to the workspace when it is in it. */
+const folderName = (folder: vscode.Uri): string => vscode.workspace.asRelativePath(folder);

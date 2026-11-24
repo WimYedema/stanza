@@ -1,4 +1,4 @@
-import type { Block } from '@stanza/core';
+import { contentHash, type Block } from '@stanza/core';
 import { readReview } from '@stanza/import-docx';
 import { DOCUMENT_SUFFIX } from './files.js';
 import { documentBytes } from './export-document.js';
@@ -88,50 +88,102 @@ function latestPull(loaded: LoadedProject, documentPath: string): string | undef
 
 type Refusal = Extract<PushResult, { ok: false }>;
 
-/** Why the file that is there may not be replaced, or undefined when it may. */
+/** What the file that is there is, against the document. */
+interface FileCheck {
+  /** Why it may not be replaced, or undefined when it may. */
+  readonly refusal?: Omit<Refusal, 'ok' | 'diagnostics'>;
+  /** For a file of the document that was saved and not pulled: its comments and when. */
+  readonly unpulled?: { readonly comments: number; readonly savedAt: string };
+  /** The content hash of the source the file was built from, by its stamp. */
+  readonly contentHash?: string;
+}
+
 function checkExisting(
   loaded: LoadedProject,
   documentPath: string,
   existing: ExistingFile,
-): Omit<Refusal, 'ok' | 'diagnostics'> | undefined {
+): FileCheck {
   const force = 'or push with --force to replace it';
   const read = readReview(existing.bytes);
   if (!read.ok) {
     return {
-      reason: 'not-a-document',
-      message: `${existing.name} is there and is not a DOCX that can be read (${read.message}) Choose another destination, ${force}.`,
+      refusal: {
+        reason: 'not-a-document',
+        message: `${existing.name} is there and is not a DOCX that can be read (${read.message}) Choose another destination, ${force}.`,
+      },
     };
   }
   const review = read.review;
   const document = inspectReview(loaded, review, () => undefined).document;
   if (document === undefined) {
     return {
-      reason: 'not-of-project',
-      message: `${existing.name} is there and is not a document of this project. Choose another destination, ${force}.`,
+      refusal: {
+        reason: 'not-of-project',
+        message: `${existing.name} is there and is not a document of this project. Choose another destination, ${force}.`,
+      },
     };
   }
   if (document !== documentPath) {
     return {
-      reason: 'other-document',
-      message: `${existing.name} is there and was built from ${document}, not ${documentPath}. Choose another destination, ${force}.`,
+      refusal: {
+        reason: 'other-document',
+        message: `${existing.name} is there and was built from ${document}, not ${documentPath}. Choose another destination, ${force}.`,
+      },
     };
   }
+  const hash = review.stamp?.contentHash;
+  const ours: FileCheck = hash === undefined ? {} : { contentHash: hash };
   const created = review.createdAt === undefined ? undefined : Date.parse(review.createdAt);
   const saved = review.savedAt === undefined ? undefined : Date.parse(review.savedAt);
   // The exporter writes one time as both; a save in Word changes only the modified time.
-  if (created === undefined || saved === undefined || created === saved) return undefined;
+  if (created === undefined || saved === undefined || created === saved) return ours;
   const savedMinute = minuteOf(review.savedAt ?? '');
   const pulled = latestPull(loaded, documentPath);
-  if (savedMinute !== undefined && pulled !== undefined && pulled >= savedMinute) return undefined;
+  if (savedMinute !== undefined && pulled !== undefined && pulled >= savedMinute) return ours;
   const comments = review.comments.length;
   const holding =
     comments === 0
       ? 'It has no comments, but may have changes.'
       : `It has ${String(comments)} ${comments === 1 ? 'comment' : 'comments'}.`;
   return {
-    reason: 'unpulled',
-    message: `${existing.name} was saved in Word on ${savedMinute ?? 'an unknown time'} UTC, after it was pushed, and that version has not been pulled. ${holding} Pull it first (stanza review pull), ${force}.`,
+    ...ours,
+    refusal: {
+      reason: 'unpulled',
+      message: `${existing.name} was saved in Word on ${savedMinute ?? 'an unknown time'} UTC, after it was pushed, and that version has not been pulled. ${holding} Pull it first (stanza review pull), ${force}.`,
+    },
+    unpulled: { comments, savedAt: savedMinute ?? '' },
   };
+}
+
+/** Where the review round of a document stands, by the file in its review folder (ADR 0088). */
+export type ReviewRoundStatus =
+  /** There is no file in the folder. */
+  | { readonly kind: 'not-pushed' }
+  /** The file there is not of this document, or cannot be read. */
+  | { readonly kind: 'not-this-document'; readonly message: string }
+  /** Reviewers saved the file since it was pushed, and that save was not pulled. */
+  | { readonly kind: 'unpulled'; readonly comments: number; readonly savedAt: string }
+  /** The document changed since the version that the file was built from. */
+  | { readonly kind: 'changed' }
+  /** The file holds the document as it is, and nothing came back that was not pulled. */
+  | { readonly kind: 'current' };
+
+/**
+ * Where the review round of a document stands: the file in its review folder, if there is one,
+ * against the review documents of the project and the current source of the document.
+ */
+export function reviewRoundStatus(
+  loaded: LoadedProject,
+  documentPath: string,
+  existing: ExistingFile | undefined,
+  source: string,
+): ReviewRoundStatus {
+  if (existing === undefined) return { kind: 'not-pushed' };
+  const check = checkExisting(loaded, documentPath, existing);
+  if (check.unpulled !== undefined) return { kind: 'unpulled', ...check.unpulled };
+  if (check.refusal !== undefined)
+    return { kind: 'not-this-document', message: check.refusal.message };
+  return check.contentHash === contentHash(source) ? { kind: 'current' } : { kind: 'changed' };
 }
 
 /**
@@ -165,7 +217,7 @@ export async function pushReview(
     };
   }
   if (existing !== undefined && options.force !== true) {
-    const refusal = checkExisting(loaded, documentPath, existing);
+    const { refusal } = checkExisting(loaded, documentPath, existing);
     if (refusal !== undefined) return { ok: false, ...refusal, diagnostics: made.diagnostics };
   }
   return {

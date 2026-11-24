@@ -59,7 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerNewDocument(),
     ...registerDocumentListCommands(diagnostics),
     registerImportWord(log),
-    registerPullReview(log),
+    registerPullReview(log, context.workspaceState),
     registerAdoptMarkdown(log),
     registerAddAgentInstructions(),
     vscode.window.registerCustomEditorProvider(
