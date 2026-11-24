@@ -123,6 +123,15 @@ export type HostMessage =
   | { readonly type: 'review-threads'; readonly threads: readonly ReviewThreadView[] }
   /** A resolve or reopen of the thread is over, whether it was made or not. */
   | { readonly type: 'thread-status-done'; readonly key: string }
+  /** Where the review round of the document stands (ADR 0088), sent again when that changes. */
+  | {
+      readonly type: 'review-round';
+      readonly status: ReviewRoundView;
+      /** The review folder, as the person reads it; absent when none is remembered. */
+      readonly folder?: string;
+    }
+  /** A push or pull that the review buttons asked for is over, whether it was made or not. */
+  | { readonly type: 'review-done' }
   /**
    * The answer to `declare-variant`. On success the stylesheet message with the change came before
    * it, so the command that was refused can be tried again.
@@ -162,7 +171,46 @@ export type WebviewMessage =
       readonly type: 'set-thread-status';
       readonly key: string;
       readonly status: 'open' | 'resolved';
-    };
+    }
+  /** Push the document for review (ADR 0088): to the remembered folder, another, or as a new file. */
+  | { readonly type: 'review-push'; readonly mode: 'remembered' | 'choose' | 'new' }
+  /** Pull the comments from the file in the review folder (ADR 0088). */
+  | { readonly type: 'review-pull' }
+  /** Show the review folder in the system's file manager. */
+  | { readonly type: 'open-review-folder' };
+
+/** Where the review round of a document stands, as `reviewRoundStatus` in `project` gives it. */
+export type ReviewRoundView =
+  | { readonly kind: 'not-pushed' }
+  | { readonly kind: 'not-this-document'; readonly message: string }
+  | { readonly kind: 'unpulled'; readonly comments: number; readonly savedAt: string }
+  | { readonly kind: 'changed' }
+  | { readonly kind: 'current' };
+
+function parseReviewRound(value: unknown): ReviewRoundView | undefined {
+  if (!isRecord(value)) return undefined;
+  switch (value['kind']) {
+    case 'not-pushed':
+    case 'changed':
+    case 'current':
+      return { kind: value['kind'] };
+    case 'not-this-document': {
+      const message = value['message'];
+      return typeof message === 'string' ? { kind: 'not-this-document', message } : undefined;
+    }
+    case 'unpulled': {
+      const { comments, savedAt } = value;
+      return typeof comments === 'number' &&
+        Number.isInteger(comments) &&
+        comments >= 0 &&
+        typeof savedAt === 'string'
+        ? { kind: 'unpulled', comments, savedAt }
+        : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
 
 /** A style or mark name is short, whatever it is. */
 const MAX_NAME_LENGTH = 200;
@@ -181,7 +229,15 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
     case 'format':
     case 'open-as-text':
     case 'open-project':
+    case 'review-pull':
+    case 'open-review-folder':
       return { type: value['type'] };
+    case 'review-push': {
+      const mode = value['mode'];
+      return mode === 'remembered' || mode === 'choose' || mode === 'new'
+        ? { type: 'review-push', mode }
+        : undefined;
+    }
     case 'follow-reference': {
       const target = value['target'];
       return typeof target === 'string' &&
@@ -518,6 +574,16 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
       const key = value['key'];
       return typeof key === 'string' ? { type: 'thread-status-done', key } : undefined;
     }
+    case 'review-round': {
+      const status = parseReviewRound(value['status']);
+      const folder = value['folder'];
+      if (status === undefined || (folder !== undefined && typeof folder !== 'string')) {
+        return undefined;
+      }
+      return { type: 'review-round', status, ...(folder !== undefined ? { folder } : {}) };
+    }
+    case 'review-done':
+      return { type: 'review-done' };
     case 'declared': {
       const { ok, message } = value;
       if (typeof ok !== 'boolean' || typeof message !== 'string') return undefined;

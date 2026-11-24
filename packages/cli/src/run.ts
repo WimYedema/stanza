@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { basename, dirname, extname, resolve } from 'node:path';
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 import { isSafeRelativePath, nodeIdFromRandomBytes } from '@stanza/core';
 import {
@@ -14,7 +14,11 @@ import {
   applyMigration,
   importWordDocument,
   inspectReviewFile,
+  newPushFileName,
   pullReview,
+  pushFileName,
+  pushReview,
+  removedCommentsNote,
   describeImport,
   loadProject,
   planMigration,
@@ -74,6 +78,11 @@ Commands:
                        reviews/: one heading per thread, linked to its block, with replies,
                        status and reactions. Changes to the text found in the file are listed,
                        never applied. The reviewed document and earlier reviews do not change.
+  review push <document> <destination> [project]
+                       Build one document and write it for review to a folder, as
+                       <name>.docx, or to a .docx file, outside the project. A file that is
+                       there is replaced, unless it was saved in Word since it was pushed and
+                       that version was not pulled, or it is of another document.
   migrate [project]    Turn a project from before Phrase was renamed to Stanza into a Stanza
                        project: phrase.yaml becomes stanza.yaml, *.phrase.md becomes
                        *.stanza.md, and the markup in them uses the new names. IDs do not
@@ -85,6 +94,12 @@ Options for build:
                        zone. The default is 1980-01-01, so that output is always the same.
   --protection <kind>  comments (reviewers can only comment) or none (Word for the web can
                        comment), in place of review-protection in the project file.
+
+Options for review push:
+  --new                Write a new file beside the one that is there, named with the day,
+                       instead of replacing it.
+  --force              Replace the file that is there, whatever it holds.
+  --date, --protection As for build.
 
 Options for format and migrate:
   --check              Write nothing; list the documents that are not canonical, or the files
@@ -296,6 +311,144 @@ function reportReview(io: Io, file: string, inspection: ReviewInspection): numbe
   return unplaced.length > 0 || bookmarks === 0 ? 1 : 0;
 }
 
+const PUSH_OPTIONS = ['new', 'force', 'date', 'protection'];
+
+/** The day of the clock, for the name of a new file. */
+const today = (): string => {
+  const now = new Date();
+  const two = (n: number): string => String(n).padStart(2, '0');
+  return `${String(now.getFullYear())}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+};
+
+const isDirectory = async (path: string): Promise<boolean> => {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * `stanza review push <document> <destination> [project]` (ADR 0088): builds one document and
+ * writes it to a folder or a `.docx` outside the project, replacing a file that is there unless it
+ * was saved in Word and not pulled.
+ */
+async function reviewPush(
+  io: Io,
+  args: readonly string[],
+  values: Readonly<Record<string, unknown>>,
+): Promise<number> {
+  const usage = (message: string): number => {
+    io.stderr(`stanza: ${message}\n\n${USAGE}`);
+    return 2;
+  };
+  const [documentArg, destination, folder = '.', ...more] = args;
+  if (
+    documentArg === undefined ||
+    !documentArg.endsWith(DOCUMENT_SUFFIX) ||
+    destination === undefined
+  ) {
+    return usage(
+      `review push needs a document and a destination, as in: stanza review push documents/plan${DOCUMENT_SUFFIX} ../Review [project].`,
+    );
+  }
+  if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
+  const others = Object.keys(values).filter((key) => !PUSH_OPTIONS.includes(key));
+  if (others.length > 0)
+    return usage('review push takes only --new, --force, --date and --protection.');
+  const fresh = values['new'] === true;
+  const force = values['force'] === true;
+  if (fresh && force) return usage('--new writes a new file, so --force has nothing to replace.');
+  const dateText = values['date'];
+  const timestamp = typeof dateText === 'string' ? parseDate(dateText) : DEFAULT_BUILD_DATE;
+  if (timestamp === undefined) {
+    return usage('--date must be YYYY-MM-DD, or with a time and zone, in 1980 to 2099.');
+  }
+  const protection = values['protection'];
+  if (protection !== undefined && protection !== 'comments' && protection !== 'none') {
+    return usage('--protection must be comments or none.');
+  }
+
+  const root = resolve(io.cwd, folder);
+  const documentPath = relative(root, resolve(io.cwd, documentArg)).split(sep).join('/');
+  if (documentPath.startsWith('../') || isAbsolute(documentPath)) {
+    return usage(`${documentArg} is not in the project ${folder}.`);
+  }
+  const target = resolve(io.cwd, destination);
+  const toFolder = await isDirectory(target);
+  if (!toFolder && !isWordFile(destination)) {
+    return usage(`the destination ${destination} must be a folder that exists, or a .docx file.`);
+  }
+  if (!toFolder && fresh)
+    return usage('--new needs a folder as the destination, to name the file in.');
+  if (!toFolder && !(await isDirectory(dirname(target)))) {
+    io.stderr(`stanza: the folder of ${destination} does not exist.\n`);
+    return 2;
+  }
+  let file = target;
+  if (toFolder) {
+    const names = new Set(await readdir(target));
+    file = join(
+      target,
+      fresh
+        ? newPushFileName(documentPath, today(), (name) => names.has(name))
+        : pushFileName(documentPath),
+    );
+  }
+  // Relative to where the command runs, unless the file is outside it.
+  const near = relative(io.cwd, file);
+  const shown = (near.startsWith('..') || isAbsolute(near) ? file : near).split(sep).join('/');
+
+  const storage = (io.openStorage ?? nodeStorage)(root);
+  const loaded = await loadProject(storage);
+  if (loaded.settings === undefined || loaded.stylesheet === undefined) {
+    io.stdout(loaded.diagnostics.map(formatDiagnostic).join(''));
+    io.stdout('The project cannot be read, so nothing was pushed.\n');
+    return exitCode(loaded.diagnostics);
+  }
+  let existing: Uint8Array | undefined;
+  try {
+    existing = await (io.readBytes ?? readFile)(file);
+  } catch {
+    existing = undefined;
+  }
+  const result = await pushReview(
+    storage,
+    loaded,
+    documentPath,
+    existing === undefined ? undefined : { name: shown, bytes: existing },
+    {
+      timestamp,
+      ...(protection !== undefined ? { protection } : {}),
+      revisions: (io.revisions ?? gitRevisions)(root),
+      ...(force ? { force } : {}),
+    },
+  );
+  io.stdout(result.diagnostics.map(formatDiagnostic).join(''));
+  if (!result.ok) {
+    io.stderr(`stanza: ${result.message}\n`);
+    return result.reason === 'blocked' || result.reason === 'errors' ? 1 : 2;
+  }
+  try {
+    await writeFile(file, result.bytes);
+  } catch (error) {
+    const code = (error as { code?: unknown }).code;
+    const reason =
+      code === 'EBUSY' || code === 'EPERM'
+        ? 'it is open in Word or another program. Close it and push again.'
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    io.stderr(`stanza: ${shown} was not written: ${reason}\n`);
+    return 2;
+  }
+  io.stdout(`${result.replaces ? 'Replaced' : 'Wrote'} ${shown}, built from ${documentPath}.\n`);
+  // Nothing of the review goes into the new file (ADR 0088), which surprises when it is not said.
+  const note = removedCommentsNote(shown, result.removes);
+  if (note !== undefined) io.stdout(`  ${note}\n`);
+  return 0;
+}
+
 /** Runs the command line and returns the exit code. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   const usage = (message: string): number => {
@@ -318,6 +471,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
         'fix-references': { type: 'boolean' },
         file: { type: 'string', multiple: true },
         'max-diagnostics': { type: 'string' },
+        new: { type: 'boolean' },
+        force: { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -347,6 +502,11 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   ) {
     return usage(command === undefined ? 'no command given.' : `unknown command "${command}".`);
   }
+  const pushing = command === 'review' && positionals[1] === 'push';
+  if (!pushing && (values.new === true || values.force === true)) {
+    return usage('--new and --force apply to review push only.');
+  }
+  if (pushing) return reviewPush(io, positionals.slice(2), values);
   if (command === 'review') {
     const [action, file, folder = '.', ...more] = positionals.slice(1);
     if ((action !== 'inspect' && action !== 'pull') || file === undefined || !isWordFile(file)) {

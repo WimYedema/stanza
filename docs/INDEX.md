@@ -28,6 +28,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 - 0043: scope. 0045: reading. 0046: tables and TOC. 0047: command. 0049: line breaks. 0060: adopting a Markdown file (same pipeline, other source).
 - 0084: pulling review comments from a reviewed DOCX into a review document (`review pull`), the reviewed version and anchors for a margin view.
+- 0088: pushing a document for review (`stanza review push`): replace the file in the review folder unless it was saved and not pulled, or write a new one with `--new`.
 
 ## Project and CLI (`project`, `cli`)
 
