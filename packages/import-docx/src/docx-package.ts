@@ -31,6 +31,8 @@ export interface DocxParts {
   readonly properties: XmlElement | undefined;
   /** The relationships of the main document, by ID. */
   readonly relationships: ReadonlyMap<string, Relationship>;
+  /** The relationships of the comments part, by ID, for the links in comments (item 214). */
+  readonly commentRelationships: ReadonlyMap<string, Relationship>;
 }
 
 export type ReadFailure = 'not-a-docx' | 'unreadable';
@@ -131,6 +133,14 @@ export function readDocx(bytes: Uint8Array): ReadResult {
       const data = path === undefined ? undefined : files[path];
       return data === undefined ? undefined : parseXml(strFromU8(data));
     };
+    const commentsEntry = [...relations.values()].find(
+      (r) => r.type === `${RELATIONSHIP_BASE}comments`,
+    );
+    const commentsPath =
+      commentsEntry === undefined
+        ? 'word/comments.xml'
+        : resolveTarget(documentPath, commentsEntry.target);
+    const commentRelations = relationshipsOf(files, relationshipsPath(commentsPath));
     const propertiesEntry = [...rootRelations.values()].find((r) => r.type === PROPERTIES_TYPE);
     const propertiesData = files[propertiesEntry?.target ?? 'docProps/core.xml'];
     const customEntry = [...rootRelations.values()].find(
@@ -169,6 +179,12 @@ export function readDocx(bytes: Uint8Array): ReadResult {
         properties: propertiesData === undefined ? undefined : parseXml(strFromU8(propertiesData)),
         relationships: new Map(
           [...relations].map(([id, entry]) => [
+            id,
+            { target: entry.target, external: entry.external },
+          ]),
+        ),
+        commentRelationships: new Map(
+          [...commentRelations].map(([id, entry]) => [
             id,
             { target: entry.target, external: entry.external },
           ]),

@@ -1,5 +1,9 @@
-import { isNodeId, type NodeId } from '@stanza/core';
-import { readDocx, type ReadFailure } from './docx-package.js';
+import { isNodeId, normalizeInlines, type NodeId, type Text } from '@stanza/core';
+import { ImportContext } from './context.js';
+import { readDocx, type DocxParts, type ReadFailure } from './docx-package.js';
+import { DocxNumbering } from './numbering.js';
+import { readParagraph } from './paragraph.js';
+import { Reporter } from './report.js';
 import {
   commentDetails,
   embeddedSourceOf,
@@ -12,6 +16,7 @@ import {
   type ReviewStamp,
 } from './review-parts.js';
 import { bodyText, type DocxParagraph, type TrackedChange } from './review-text.js';
+import { DocxStyles } from './styles.js';
 import { descendantsOf, elementsOf, type XmlElement } from './xml.js';
 
 /**
@@ -42,6 +47,11 @@ export interface ReviewComment {
   readonly quote: string;
   /** The text of the comment, one line per paragraph. */
   readonly text: string;
+  /**
+   * The paragraphs of the comment with their bold, italic, code and links (item 214), without the
+   * empty ones. A `mailto:` link, as a mention is, keeps only its text (ADR 0084).
+   */
+  readonly content: readonly (readonly Text[])[];
   readonly placement: CommentPlacement;
   /**
    * The main block: the one whose bookmark holds the start of the comment, else the first one
@@ -100,6 +110,38 @@ function commentText(comment: XmlElement): string {
     )
     .join('\n')
     .trim();
+}
+
+/**
+ * The paragraphs of a comment as text with marks, read as the import reads a body paragraph. A
+ * `mailto:` link holds an email address, which the review document never has (ADR 0084), so only
+ * its text stays: a mention is `@` and the display name.
+ */
+function commentContent(
+  comment: XmlElement,
+  parts: DocxParts,
+  styles: DocxStyles,
+): (readonly Text[])[] {
+  const context = new ImportContext(
+    styles,
+    new DocxNumbering(parts.numbering, styles),
+    parts.commentRelationships,
+    new Map(),
+    new Map(),
+    new Reporter(),
+  );
+  return descendantsOf(comment, 'p')
+    .map((paragraph) =>
+      normalizeInlines(
+        readParagraph(paragraph, context).inlines.map((inline) => ({
+          ...inline,
+          marks: inline.marks.filter(
+            (mark) => mark.type !== 'link' || !/^mailto:/i.test(mark.href),
+          ),
+        })),
+      ),
+    )
+    .filter((inlines) => inlines.length > 0);
 }
 
 interface Anchor {
@@ -226,6 +268,7 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
   const details = commentDetails(parts);
   const durableOf = (paragraph: string | undefined): string | undefined =>
     paragraph === undefined ? undefined : details.get(paragraph)?.durableId;
+  const styles = new DocxStyles(parts.styles);
   const comments = elementsOf(parts.comments, 'comment').map((comment): ReviewComment => {
     const id = comment.attrs['id'] ?? '';
     const more = details.get(paragraphIdOf(comment) ?? '');
@@ -245,6 +288,7 @@ export function readReview(bytes: Uint8Array): ReadReviewResult {
       dateIsUtc: more?.dateUtc !== undefined,
       reactions: more?.reactions ?? [],
       text: commentText(comment),
+      content: commentContent(comment, parts, styles),
       quote: (quotes.get(id) ?? '').replace(/\n+$/, ''),
       placement,
       ...(block !== undefined ? { block } : {}),

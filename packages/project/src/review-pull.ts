@@ -521,10 +521,12 @@ function reviewDocument(
   };
 
   const commentParagraphs = (comment: ReviewComment): Block[] => {
-    const [first = '', ...more] = comment.text.split('\n');
+    // With its bold, italic, code and links (item 214); a mention is already plain text.
+    const [first = [], ...more] = comment.content;
+    const label = strong(`${comment.author || 'Unknown'}, ${timeOf(comment)}:`);
     const result: Block[] = [
-      paragraph(strong(`${comment.author || 'Unknown'}, ${timeOf(comment)}:`), text(` ${first}`)),
-      ...more.filter((line) => line.trim() !== '').map((line) => paragraph(text(line))),
+      paragraph(label, ...(first.length > 0 ? [text(' '), ...first] : [])),
+      ...more.map((inlines) => paragraph(...inlines)),
     ];
     if (comment.reactions.length > 0) {
       const reactions = comment.reactions.map(
