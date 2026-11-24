@@ -80,3 +80,15 @@ export {
   type PullReviewOptions,
   type PullReviewResult,
 } from './review-pull.js';
+export {
+  positionOf,
+  quoteOf,
+  latestThreads,
+  reviewThreads,
+  threadStatusEdit,
+  type LineChange,
+  type ReviewThread,
+  type ThreadComment,
+  type ThreadPosition,
+  type ThreadQuote,
+} from './review-threads.js';

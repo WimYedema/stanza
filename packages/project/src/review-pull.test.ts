@@ -126,6 +126,29 @@ describe('pullReview (ADR 0084)', () => {
     expect(await storage.readText(REVIEWED)).toBe(SOURCE);
   });
 
+  it('does not call text changed when the comment starts in the text before its heading', async () => {
+    // The range of "Comment on several sections" starts in the status line, which has no ID, so
+    // it is on the next heading, Context, and its quote starts before that heading.
+    const files = unzipSync(fixture('web-replies-resolved-reaction.docx'));
+    let xml = strFromU8(files['word/document.xml'] ?? new Uint8Array());
+    const starts = '<w:commentRangeStart w:id="4"/><w:commentRangeStart w:id="5"/>';
+    xml = xml
+      .replace('<w:commentRangeStart w:id="4"/>', '')
+      .replace('<w:commentRangeStart w:id="5"/>', '');
+    const status = xml.indexOf('Status: Accepted');
+    // The start of the run that holds the status line.
+    const run = [...xml.slice(0, status).matchAll(/<w:r[\s>]/g)].at(-1)?.index;
+    if (status < 0 || run === undefined) throw new Error('The fixture has no status line.');
+    xml = `${xml.slice(0, run)}${starts}${xml.slice(run)}`;
+    files['word/document.xml'] = strToU8(xml);
+    const { text } = await pull('lead.docx', zipSync(files));
+    const place = text
+      .split('\n')
+      .find((line) => line.startsWith('On [Context]') && line.includes('at "Status: Accepted.'));
+    expect(place).toBeDefined();
+    expect(place).not.toContain('The text has changed since the review.');
+  });
+
   it('takes the reviewed version from Git when it is not embedded, and checks its hash', async () => {
     // The same file without its embedded source: only the stamp is left.
     const files = Object.entries(unzipSync(fixture('stamped-desktop-then-web.docx')));

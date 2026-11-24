@@ -86,6 +86,8 @@ A large project opens in two steps: the document is shown read-only at once, and
 
 Send the DOCX from `build/` to your reviewers; they comment in Word as usual. Every DOCX records which document and Git revision it was built from, and carries its own source, so the comments can be traced back. Run **Stanza: Pull Review Comments** with the commented file: it writes a review document in `reviews/`, with one heading per comment thread, linked to the commented text, and with replies, resolved state and reactions. Changes that reviewers made to the text are listed, never applied. Only display names are written, never email addresses. Review documents are checked like other documents and are not built.
 
+The editor shows the open comments of every review of a document beside the commented text, as cards next to the page, or as numbered markers in its margin when the editor is narrow. Click a highlight or a card to link the two. **Resolve** and **Reopen** change only the status line in the review document and save it; when the review document has unsaved changes of its own, Stanza asks first. **Open in review** goes to the thread in the review document, and the **Resolved** button in the toolbar shows the resolved comments too. A comment whose text was rewritten stays at its block, marked as changed; one whose block is gone is listed above the page.
+
 Exported documents are protected so that reviewers can only comment. Word for the web cannot comment on a protected document, so for review in SharePoint or OneDrive in the browser, set `review-protection: none` in `stanza.yaml` (or build with `stanza build --protection none`). Changes that reviewers then make to the text are listed by the pull, never applied.
 
 ## Known limitations
