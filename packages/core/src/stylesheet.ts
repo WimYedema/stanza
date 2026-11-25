@@ -151,14 +151,74 @@ export interface HeaderFooter {
   readonly right: readonly SlotPart[];
 }
 
-/** One entry of a cover page: a paragraph, or a table of label and value rows (ADR 0019). */
+/**
+ * One entry of a cover page: a paragraph, a table of label and value rows (ADR 0019), or an image
+ * in a paragraph of its style (ADR 0089).
+ */
 export type CoverEntry =
   | { readonly kind: 'paragraph'; readonly style?: StyleName; readonly text: readonly SlotPart[] }
-  | { readonly kind: 'table'; readonly style: StyleName; readonly rows: readonly CoverRow[] };
+  | { readonly kind: 'table'; readonly style: StyleName; readonly rows: readonly CoverRow[] }
+  | CoverImage;
 
 export interface CoverRow {
   readonly label: string;
   readonly value: readonly SlotPart[];
+}
+
+/** An image on a cover: a PNG or JPEG of the project, with its aspect ratio kept (ADR 0089). */
+export interface CoverImage {
+  readonly kind: 'image';
+  /** Relative to the project root, with `/`. */
+  readonly path: string;
+  /** Absent means the size of the image in pixels at 96 per inch. */
+  readonly widthPt?: number;
+  /** The paragraph style that holds the image. Absent means `body`. */
+  readonly style?: StyleName;
+}
+
+/** The height of a cover row: in points, a share of what is left, or as tall as its content. */
+export type CoverRowHeight =
+  | { readonly kind: 'points'; readonly pt: number }
+  | { readonly kind: 'share'; readonly fr: number }
+  | { readonly kind: 'auto' };
+
+export const COVER_ALIGNMENTS = ['top', 'center', 'bottom'] as const;
+export type CoverAlignment = (typeof COVER_ALIGNMENTS)[number];
+
+/** One row of a cover that is divided into rows (ADR 0089). */
+export interface CoverLayoutRow {
+  readonly height: CoverRowHeight;
+  readonly valign: CoverAlignment;
+  readonly content: readonly CoverEntry[];
+}
+
+/**
+ * A cover page: a list of entries written from the top (ADR 0019), or rows that divide the page,
+ * with margins of its own (ADR 0089). A side the margins leave out takes the template's margin.
+ */
+export type Cover =
+  | { readonly kind: 'list'; readonly entries: readonly CoverEntry[] }
+  | {
+      readonly kind: 'rows';
+      readonly margins?: Partial<PageMargins>;
+      readonly rows: readonly CoverLayoutRow[];
+    };
+
+/** The entries of a cover, from top to bottom. */
+export function coverEntries(cover: Cover): readonly CoverEntry[] {
+  return cover.kind === 'list' ? cover.entries : cover.rows.flatMap((row) => row.content);
+}
+
+/** The images a page template's cover shows, by path, in order and without repeats. */
+export function coverImagePaths(templates: Iterable<PageTemplate>): readonly string[] {
+  const paths = new Set<string>();
+  for (const template of templates) {
+    if (template.cover === undefined) continue;
+    for (const entry of coverEntries(template.cover)) {
+      if (entry.kind === 'image') paths.add(entry.path);
+    }
+  }
+  return [...paths];
 }
 
 /** The pages of a document: size, margins, header and footer, and an optional cover page. */
@@ -167,7 +227,7 @@ export interface PageTemplate {
   readonly margins: PageMargins;
   readonly header?: HeaderFooter;
   readonly footer?: HeaderFooter;
-  readonly cover?: readonly CoverEntry[];
+  readonly cover?: Cover;
 }
 
 export interface Stylesheet {

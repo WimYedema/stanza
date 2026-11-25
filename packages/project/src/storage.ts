@@ -12,6 +12,8 @@ export interface DirectoryEntry {
 export interface ProjectStorage {
   /** The UTF-8 text of a file. Rejects when the file cannot be read. */
   readText(path: string): Promise<string>;
+  /** The bytes of a file, such as an image. Rejects when the file cannot be read. */
+  readBytes(path: string): Promise<Uint8Array>;
   /** The entries of one directory, in no particular order. */
   list(directory: string): Promise<readonly DirectoryEntry[]>;
   /** Writes a file, creating missing directories. */

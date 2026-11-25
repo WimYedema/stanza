@@ -6,6 +6,7 @@ import {
   projectIds,
   resolvePageTemplate,
   type Document,
+  type ImageAsset,
   type NodeId,
   type OutlineEntry,
   type ProjectSettings,
@@ -20,6 +21,7 @@ import {
   parseStylesheet,
   type ParseResult,
 } from '@stanza/format';
+import { loadCoverImages } from './cover-images.js';
 import { hasErrors, inFile, type ProjectDiagnostic } from './diagnostics.js';
 import { DOCUMENT_SUFFIX, PROJECT_FILE, findDocuments, readText } from './files.js';
 import { LEGACY_PROJECT_FILE } from './migrate.js';
@@ -42,6 +44,8 @@ export interface LoadedProject {
   readonly documents: readonly LoadedDocument[];
   /** The outline as the project file gives it, or all documents by path when it gives none. */
   readonly outline: readonly OutlineEntry[];
+  /** The images of the covers by path (ADR 0089); empty until the stylesheet is in order. */
+  readonly images: ReadonlyMap<string, ImageAsset>;
   readonly diagnostics: readonly ProjectDiagnostic[];
 }
 
@@ -49,6 +53,8 @@ export interface ProjectConfiguration {
   readonly settings: ProjectSettings | undefined;
   readonly stylesheet: Stylesheet | undefined;
   readonly stylesheetText: string | undefined;
+  /** The images of the covers by path (ADR 0089); empty until the stylesheet is in order. */
+  readonly images: ReadonlyMap<string, ImageAsset>;
   readonly diagnostics: readonly ProjectDiagnostic[];
 }
 
@@ -86,6 +92,7 @@ export async function loadProjectConfiguration(
     settings,
     stylesheet: undefined,
     stylesheetText: undefined,
+    images: new Map(),
     diagnostics,
   });
 
@@ -121,7 +128,8 @@ export async function loadProjectConfiguration(
     return stopped(settings);
   }
 
-  return { settings, stylesheet, stylesheetText, diagnostics };
+  const images = await loadCoverImages(storage, stylesheet, settings.stylesheet, diagnostics);
+  return { settings, stylesheet, stylesheetText, images, diagnostics };
 }
 
 /** Reads and checks every document against the configuration of this same project snapshot. */
@@ -133,7 +141,14 @@ export async function loadProject(
   const { settings, stylesheet } = config;
   const diagnostics = [...config.diagnostics];
   if (settings === undefined || stylesheet === undefined) {
-    return { settings, stylesheet, documents: [], outline: settings?.documents ?? [], diagnostics };
+    return {
+      settings,
+      stylesheet,
+      documents: [],
+      outline: settings?.documents ?? [],
+      images: config.images,
+      diagnostics,
+    };
   }
   const paths = await findDocuments(storage);
   if (paths.length === 0) {
@@ -222,7 +237,7 @@ export async function loadProject(
   }
   const outline =
     settings.documents ?? paths.map((path): OutlineEntry => ({ kind: 'document', path }));
-  return { settings, stylesheet, documents, outline, diagnostics };
+  return { settings, stylesheet, documents, outline, images: config.images, diagnostics };
 }
 
 /**

@@ -85,6 +85,7 @@ export async function buildProject(
     const effective = { ...document, meta: applyDefaults(settings, document.meta) };
     const result = await exportDocx(effective, stylesheet, {
       timestamp: options.timestamp,
+      images: loaded.images,
       otherTargets: targetsFor(path),
       ...(source !== undefined ? { source } : {}),
       protection: options.protection ?? settings.reviewProtection ?? 'comments',

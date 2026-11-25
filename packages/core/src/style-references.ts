@@ -2,7 +2,8 @@ import type { StyleName } from './style-name.js';
 import {
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
-  type CoverEntry,
+  coverEntries,
+  type Cover,
   type Stylesheet,
 } from './stylesheet.js';
 
@@ -14,11 +15,12 @@ export function isReservedStyle(family: StyleFamily, name: StyleName): boolean {
   return family === 'table' && name === RESERVED_TABLE_STYLE;
 }
 
-const coverUses = (cover: readonly CoverEntry[] | undefined, family: StyleFamily, name: string) =>
-  (cover ?? []).some((entry) =>
-    entry.kind === 'paragraph'
-      ? family === 'paragraph' && entry.style === name
-      : family === 'table' && entry.style === name,
+const coverUses = (cover: Cover | undefined, family: StyleFamily, name: string) =>
+  cover !== undefined &&
+  coverEntries(cover).some((entry) =>
+    entry.kind === 'table'
+      ? family === 'table' && entry.style === name
+      : family === 'paragraph' && entry.style === name,
   );
 
 /**

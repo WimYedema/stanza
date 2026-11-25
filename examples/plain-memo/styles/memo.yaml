@@ -1,0 +1,116 @@
+stanza-format: 1
+
+# A memo without a cover: the body starts on the first page, with the title in the header. A title
+# block at the top of the first page will come with backlog item 232.
+
+tokens:
+  colors:
+    ink: '#222222'
+    accent: '#8A3B12'
+    muted: '#777777'
+    rule: '#CCCCCC'
+    surface: '#F5F5F5'
+  fonts:
+    body: ['Aptos', 'Calibri', 'Arial']
+    mono: ['Consolas', 'Courier New']
+
+paragraph-styles:
+  body:
+    font: body
+    size: 11
+    color: ink
+    space-after: 6
+    line-spacing: { multiple: 1.15 }
+    variants:
+      strong: { bold: true }
+      emphasis: { italic: true }
+      code: { font: mono, size: 10 }
+      link: { color: accent, underline: true }
+
+  heading-1:
+    based-on: body
+    size: 15
+    bold: true
+    color: accent
+    space-before: 14
+    space-after: 6
+    keep-with-next: true
+    variants:
+      strong: false
+      emphasis: { italic: true }
+
+  heading-2:
+    based-on: heading-1
+    size: 12
+
+  heading-3:
+    based-on: heading-2
+    size: 11
+
+  heading-4:
+    based-on: heading-3
+    italic: true
+
+  heading-5:
+    based-on: heading-4
+
+  heading-6:
+    based-on: heading-5
+
+  code:
+    based-on: body
+    font: mono
+    size: 10
+    keep-together: true
+    background: surface
+    variants:
+      strong: false
+      emphasis: false
+      code: false
+      link: false
+
+  list-bulleted:
+    based-on: body
+    space-after: 3
+    indent-left: 36
+    first-line-indent: -18
+
+  list-numbered:
+    based-on: list-bulleted
+
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  header-footer:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+
+table-styles:
+  table:
+    cell-style: table-cell
+    border:
+      outer: { width: 0.75, color: rule }
+      inside-horizontal: { width: 0.5, color: rule }
+    header-row:
+      bold: true
+      background: surface
+    cell-padding: 4
+
+page-templates:
+  page:
+    size: A4
+    margins: { top: 64, right: 72, bottom: 64, left: 72 }
+    header:
+      style: header-footer
+      left: '[](stanza:title)'
+      right: '[](stanza:classification)'
+    footer:
+      style: header-footer
+      right: '[1](stanza:page) / [1](stanza:pages)'
+
+table-of-contents:
+  page-numbers: false

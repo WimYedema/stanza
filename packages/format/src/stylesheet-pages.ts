@@ -1,10 +1,14 @@
 import {
   BUILT_IN_PAGE_TEMPLATE,
+  COVER_ALIGNMENTS,
   PAGE_SIZE_NAMES,
   RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
+  type Cover,
   type CoverEntry,
+  type CoverLayoutRow,
   type CoverRow,
+  type CoverRowHeight,
   type HeaderFooter,
   type PageMargins,
   type PageSize,
@@ -62,10 +66,26 @@ function readSlotText(text: string, path: string, report: Report): SlotPart[] {
 function readCoverEntry(value: unknown, path: string, report: Report): CoverEntry | undefined {
   const map = asMap(value, path, report);
   if (map === undefined) return undefined;
-  checkKeys(map, ['style', 'text', 'table'], path, report);
-  if ((map['text'] === undefined) === (map['table'] === undefined)) {
-    report('invalid-value', 'An entry has either "text" or "table".', path);
+  checkKeys(map, ['style', 'text', 'table', 'image', 'width'], path, report);
+  const kinds = ['text', 'table', 'image'].filter((key) => map[key] !== undefined);
+  if (kinds.length !== 1) {
+    report('invalid-value', 'An entry has one of "text", "table" or "image".', path);
     return undefined;
+  }
+  if (map['width'] !== undefined && map['image'] === undefined) {
+    report('unknown-property', 'Only an image has a "width".', join(path, 'width'));
+  }
+  if (map['image'] !== undefined) {
+    const image = readString(map, 'image', path, report);
+    const widthPt = readNumber(map, 'width', path, report);
+    const style = readName(map, 'style', path, report);
+    if (image === undefined) return undefined;
+    return {
+      kind: 'image',
+      path: image,
+      ...(widthPt !== undefined ? { widthPt } : {}),
+      ...(style !== undefined ? { style } : {}),
+    };
   }
   if (map['table'] === undefined) {
     const text = readString(map, 'text', path, report);
@@ -111,7 +131,7 @@ function readCoverEntry(value: unknown, path: string, report: Report): CoverEntr
   return { kind: 'table', style, rows };
 }
 
-function readCover(value: unknown, path: string, report: Report): CoverEntry[] | undefined {
+function readEntries(value: unknown, path: string, report: Report): CoverEntry[] | undefined {
   if (!Array.isArray(value)) {
     report('invalid-type', `Expected a list, found ${describe(value)}.`, path);
     return undefined;
@@ -120,6 +140,88 @@ function readCover(value: unknown, path: string, report: Report): CoverEntry[] |
     const read = readCoverEntry(entry, `${path}[${String(index)}]`, report);
     return read === undefined ? [] : [read];
   });
+}
+
+/** A share of what is left, such as `1fr` or `0.5fr` (ADR 0089). */
+const SHARE = /^(\d+(?:\.\d+)?)fr$/;
+
+function readHeight(map: Data, path: string, report: Report): CoverRowHeight {
+  const value = map['height'];
+  if (value === undefined) return { kind: 'auto' };
+  if (typeof value === 'number' && Number.isFinite(value)) return { kind: 'points', pt: value };
+  const share = typeof value === 'string' ? SHARE.exec(value.trim()) : null;
+  if (share !== null) return { kind: 'share', fr: Number(share[1]) };
+  report(
+    'invalid-value',
+    'Expected a height in points or a share such as "1fr".',
+    join(path, 'height'),
+  );
+  return { kind: 'auto' };
+}
+
+function readLayoutRow(value: unknown, path: string, report: Report): CoverLayoutRow | undefined {
+  const map = asMap(value, path, report);
+  if (map === undefined) return undefined;
+  checkKeys(map, ['height', 'valign', 'content'], path, report);
+  const height = readHeight(map, path, report);
+  let valign: CoverLayoutRow['valign'] = 'top';
+  const given = map['valign'];
+  if (given !== undefined) {
+    const found = COVER_ALIGNMENTS.find((name) => name === given);
+    if (found === undefined) {
+      report('invalid-value', 'Expected top, center or bottom.', join(path, 'valign'));
+    } else {
+      valign = found;
+    }
+  }
+  const content =
+    map['content'] === undefined ? [] : readEntries(map['content'], join(path, 'content'), report);
+  return { height, valign, content: content ?? [] };
+}
+
+function readCover(value: unknown, path: string, report: Report): Cover | undefined {
+  if (Array.isArray(value)) {
+    const entries = readEntries(value, path, report);
+    return entries === undefined ? undefined : { kind: 'list', entries };
+  }
+  const map = asMap(value, path, report);
+  if (map === undefined) return undefined;
+  checkKeys(map, ['margins', 'rows'], path, report);
+  const given = map['rows'];
+  if (!Array.isArray(given)) {
+    report('invalid-type', `Expected a list, found ${describe(given)}.`, join(path, 'rows'));
+    return undefined;
+  }
+  const rows = given.flatMap((row: unknown, index) => {
+    const read = readLayoutRow(row, `${join(path, 'rows')}[${String(index)}]`, report);
+    return read === undefined ? [] : [read];
+  });
+  const margins =
+    map['margins'] === undefined
+      ? undefined
+      : readMargins(map['margins'], join(path, 'margins'), report);
+  return { kind: 'rows', ...(margins !== undefined ? { margins } : {}), rows };
+}
+
+/** The sides that a map of margins gives; the others are left out. */
+function readMargins(
+  value: unknown,
+  path: string,
+  report: Report,
+): Partial<PageMargins> | undefined {
+  const sides = asMap(value, path, report);
+  if (sides === undefined) return undefined;
+  checkKeys(sides, MARGIN_SIDES, path, report);
+  const margins: Mutable<Partial<PageMargins>> = {};
+  const top = readNumber(sides, 'top', path, report);
+  if (top !== undefined) margins.topPt = top;
+  const right = readNumber(sides, 'right', path, report);
+  if (right !== undefined) margins.rightPt = right;
+  const bottom = readNumber(sides, 'bottom', path, report);
+  if (bottom !== undefined) margins.bottomPt = bottom;
+  const left = readNumber(sides, 'left', path, report);
+  if (left !== undefined) margins.leftPt = left;
+  return margins;
 }
 
 function readHeaderFooter(map: Data, path: string, report: Report): HeaderFooter {
@@ -150,22 +252,11 @@ export function readPageTemplate(map: Data, path: string, report: Report): PageT
     }
   }
 
-  const margins: Mutable<PageMargins> = { ...BUILT_IN_PAGE_TEMPLATE.margins };
-  if (map['margins'] !== undefined) {
-    const here = join(path, 'margins');
-    const sides = asMap(map['margins'], here, report);
-    if (sides !== undefined) {
-      checkKeys(sides, MARGIN_SIDES, here, report);
-      const top = readNumber(sides, 'top', here, report);
-      if (top !== undefined) margins.topPt = top;
-      const right = readNumber(sides, 'right', here, report);
-      if (right !== undefined) margins.rightPt = right;
-      const bottom = readNumber(sides, 'bottom', here, report);
-      if (bottom !== undefined) margins.bottomPt = bottom;
-      const left = readNumber(sides, 'left', here, report);
-      if (left !== undefined) margins.leftPt = left;
-    }
-  }
+  const givenMargins =
+    map['margins'] === undefined
+      ? undefined
+      : readMargins(map['margins'], join(path, 'margins'), report);
+  const margins: PageMargins = { ...BUILT_IN_PAGE_TEMPLATE.margins, ...givenMargins };
   const slots = (name: 'header' | 'footer'): { header?: HeaderFooter; footer?: HeaderFooter } => {
     if (map[name] === undefined) return {};
     const here = join(path, name);

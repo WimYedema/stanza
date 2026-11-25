@@ -6,7 +6,7 @@ title: "ADR 0019: Cover page"
 <!-- stanza: #2dajqw744r -->
 # ADR 0019: Cover page
 
-Status: Accepted
+Status: Accepted. Rows, images and cover margins added by ADR 0089.
 
 <!-- stanza: #ydbtzj7ksz -->
 ## Context

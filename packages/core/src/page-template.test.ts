@@ -4,7 +4,13 @@ import type { Document } from './document.js';
 import { resolvePageTemplate } from './page-template.js';
 import { applyDefaults, validateMetadata, type ProjectSettings } from './project.js';
 import { validateStylesheet } from './style-validation.js';
-import { BUILT_IN_PAGE_TEMPLATE, type PageTemplate, type Stylesheet } from './stylesheet.js';
+import {
+  BUILT_IN_PAGE_TEMPLATE,
+  type CoverImage,
+  type CoverRowHeight,
+  type PageTemplate,
+  type Stylesheet,
+} from './stylesheet.js';
 import { sheet } from './stylesheet.testing.js';
 
 const letter: PageTemplate = {
@@ -82,19 +88,25 @@ describe('validateStylesheet and page templates', () => {
     const title = { kind: 'token', token: 'title', label: '' } as const;
     const ok: PageTemplate = {
       ...wide,
-      cover: [
-        { kind: 'paragraph', text: [title] },
-        { kind: 'paragraph', style: 'body' as never, text: [title] },
-        { kind: 'table', style: 'table' as never, rows: [{ label: 'A', value: [title] }] },
-      ],
+      cover: {
+        kind: 'list',
+        entries: [
+          { kind: 'paragraph', text: [title] },
+          { kind: 'paragraph', style: 'body' as never, text: [title] },
+          { kind: 'table', style: 'table' as never, rows: [{ label: 'A', value: [title] }] },
+        ],
+      },
     };
     expect(problems(sheet({ pageTemplates: { page: ok } }))).toEqual([]);
     const bad: PageTemplate = {
       ...wide,
-      cover: [
-        { kind: 'paragraph', style: 'gone' as never, text: [page] },
-        { kind: 'table', style: 'body' as never, rows: [{ label: 'A', value: [page] }] },
-      ],
+      cover: {
+        kind: 'list',
+        entries: [
+          { kind: 'paragraph', style: 'gone' as never, text: [page] },
+          { kind: 'table', style: 'body' as never, rows: [{ label: 'A', value: [page] }] },
+        ],
+      },
     };
     expect(problems(sheet({ pageTemplates: { page: bad } }))).toEqual([
       ['unknown-cover-style', 'page-templates.page.cover[0].style'],
@@ -105,7 +117,68 @@ describe('validateStylesheet and page templates', () => {
   });
 
   it('accepts an empty cover', () => {
-    expect(problems(sheet({ pageTemplates: { page: { ...wide, cover: [] } } }))).toEqual([]);
+    expect(
+      problems(
+        sheet({ pageTemplates: { page: { ...wide, cover: { kind: 'list', entries: [] } } } }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('checks the rows of a cover: heights, shares beside rows that grow, and the page', () => {
+    const rows = (cover: NonNullable<PageTemplate['cover']>) =>
+      problems(sheet({ pageTemplates: { page: { ...wide, cover } } }));
+    const row = (height: CoverRowHeight) => ({ height, valign: 'top' as const, content: [] });
+    expect(
+      rows({
+        kind: 'rows',
+        margins: { topPt: 36 },
+        rows: [row({ kind: 'points', pt: 100 }), row({ kind: 'share', fr: 2 })],
+      }),
+    ).toEqual([]);
+    expect(
+      rows({ kind: 'rows', rows: [row({ kind: 'points', pt: 0 }), row({ kind: 'share', fr: 0 })] }),
+    ).toEqual([
+      ['invalid-value', 'page-templates.page.cover.rows[0].height'],
+      ['invalid-value', 'page-templates.page.cover.rows[1].height'],
+    ]);
+    expect(
+      rows({ kind: 'rows', rows: [row({ kind: 'auto' }), row({ kind: 'share', fr: 1 })] }),
+    ).toEqual([['cover-share-with-auto', 'page-templates.page.cover.rows']]);
+    expect(
+      rows({
+        kind: 'rows',
+        rows: [row({ kind: 'points', pt: 500 }), row({ kind: 'points', pt: 200 })],
+      }),
+    ).toEqual([['cover-too-tall', 'page-templates.page.cover.rows']]);
+    expect(rows({ kind: 'rows', margins: { topPt: -1, bottomPt: 800 }, rows: [] })).toEqual([
+      ['invalid-value', 'page-templates.page.cover.margins.top'],
+      ['invalid-value', 'page-templates.page.cover.margins'],
+    ]);
+  });
+
+  it('checks the images of a cover: path, width, style and its line spacing', () => {
+    const exact = {
+      text: {},
+      paragraph: { lineSpacing: { rule: 'exactly', pt: 12 } },
+      variants: {},
+    } as const;
+    const image = (entry: Partial<CoverImage>): PageTemplate => ({
+      ...wide,
+      cover: { kind: 'list', entries: [{ kind: 'image', path: 'assets/logo.png', ...entry }] },
+    });
+    const check = (template: PageTemplate) =>
+      validateStylesheet(
+        sheet({ paragraph: { tight: exact }, pageTemplates: { page: template } }),
+      ).map((d) => [d.severity, d.code, d.path]);
+    expect(check(image({ widthPt: 120 }))).toEqual([]);
+    expect(check(image({ path: '../logo.png', widthPt: 0, style: 'gone' as never }))).toEqual([
+      ['error', 'invalid-value', 'page-templates.page.cover[0].image'],
+      ['error', 'invalid-value', 'page-templates.page.cover[0].width'],
+      ['error', 'unknown-cover-style', 'page-templates.page.cover[0].style'],
+    ]);
+    expect(check(image({ style: 'tight' as never }))).toEqual([
+      ['warning', 'cover-image-line-spacing', 'page-templates.page.cover[0].style'],
+    ]);
   });
 });
 

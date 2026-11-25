@@ -1,6 +1,8 @@
 import type { Diagnostic, Fix } from './diagnostic.js';
 import { BODY_STYLE } from './default-styles.js';
+import { COVER_END_RESERVE_PT, coverAreaHeightPt, coverAreaWidthPt } from './cover.js';
 import { MIN_TEXT_AREA_PT, PAGE_SIZES, PAGE_SIZE_NAMES } from './page-template.js';
+import { isSafeRelativePath } from './project.js';
 import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
 import type { StyleName } from './style-name.js';
 import {
@@ -17,8 +19,10 @@ import {
   VARIANT_MARKS,
   type Border,
   type ColorValue,
+  type CoverEntry,
   type FontValue,
   type LineSpacing,
+  type PageTemplate,
   type ParagraphProps,
   type SlotPart,
   type Stylesheet,
@@ -292,8 +296,37 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         }
       }
     };
-    template.cover?.forEach((entry, index) => {
-      const here = `${path}.cover[${String(index)}]`;
+    const checkEntry = (entry: CoverEntry, here: string): void => {
+      if (entry.kind === 'image') {
+        if (!isSafeRelativePath(entry.path)) {
+          error(
+            'invalid-value',
+            'The image must be a relative path with "/" separators and no "..".',
+            `${here}.image`,
+          );
+        }
+        if (entry.widthPt !== undefined && !(Number.isFinite(entry.widthPt) && entry.widthPt > 0)) {
+          error('invalid-value', 'The width must be a number of points above 0.', `${here}.width`);
+        }
+        if (entry.style !== undefined && !stylesheet.paragraphStyles.has(entry.style)) {
+          error(
+            'unknown-cover-style',
+            `The style "${entry.style}" is not a paragraph style.`,
+            `${here}.style`,
+          );
+        } else if (
+          resolveParagraphStyle(stylesheet, entry.style ?? BODY_STYLE)?.paragraph.lineSpacing
+            ?.rule === 'exactly'
+        ) {
+          diagnostics.push({
+            severity: 'warning',
+            code: 'cover-image-line-spacing',
+            message: `The style "${entry.style ?? BODY_STYLE}" has exact line spacing, which cuts off the image in Word.`,
+            path: `${here}.style`,
+          });
+        }
+        return;
+      }
       if (entry.kind === 'paragraph') {
         if (entry.style !== undefined && !stylesheet.paragraphStyles.has(entry.style)) {
           error(
@@ -315,7 +348,75 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
       entry.rows.forEach((row, rowIndex) => {
         checkCoverParts(row.value, `${here}.table.rows[${String(rowIndex)}].value`);
       });
-    });
+    };
+    const checkCover = (page: PageTemplate, here: string): void => {
+      const cover = page.cover;
+      if (cover === undefined) return;
+      if (cover.kind === 'list') {
+        cover.entries.forEach((entry, index) => {
+          checkEntry(entry, `${here}[${String(index)}]`);
+        });
+        return;
+      }
+      cover.rows.forEach((row, index) => {
+        const rowPath = `${here}.rows[${String(index)}]`;
+        if (
+          row.height.kind === 'points' &&
+          !(Number.isFinite(row.height.pt) && row.height.pt > 0)
+        ) {
+          error(
+            'invalid-value',
+            'A height must be a number of points above 0.',
+            `${rowPath}.height`,
+          );
+        }
+        if (row.height.kind === 'share' && !(Number.isFinite(row.height.fr) && row.height.fr > 0)) {
+          error('invalid-value', 'A share must be above 0, such as "1fr".', `${rowPath}.height`);
+        }
+        row.content.forEach((entry, entryIndex) => {
+          checkEntry(entry, `${rowPath}.content[${String(entryIndex)}]`);
+        });
+      });
+      const kinds = new Set(cover.rows.map((row) => row.height.kind));
+      if (kinds.has('share') && kinds.has('auto')) {
+        error(
+          'cover-share-with-auto',
+          'A cover cannot have rows with a share ("fr") and rows without a height: the height that is left is not known.',
+          `${here}.rows`,
+        );
+      }
+      const own = cover.margins ?? {};
+      for (const [side, value] of [
+        ['top', own.topPt],
+        ['right', own.rightPt],
+        ['bottom', own.bottomPt],
+        ['left', own.leftPt],
+      ] as const) {
+        checkNotNegative(value, `${here}.margins.${side}`);
+      }
+      const width = coverAreaWidthPt(page);
+      const height = coverAreaHeightPt(page);
+      if (width < MIN_TEXT_AREA_PT || height < MIN_TEXT_AREA_PT) {
+        error(
+          'invalid-value',
+          `The margins must leave a text area of at least ${String(MIN_TEXT_AREA_PT)} pt each way.`,
+          `${here}.margins`,
+        );
+        return;
+      }
+      const fixed = cover.rows.reduce(
+        (sum, row) => sum + (row.height.kind === 'points' ? row.height.pt : 0),
+        0,
+      );
+      if (fixed > height - COVER_END_RESERVE_PT) {
+        error(
+          'cover-too-tall',
+          `The rows are ${String(Math.round(fixed))} pt high together, more than the ${String(Math.floor(height - COVER_END_RESERVE_PT))} pt of the cover page.`,
+          `${here}.rows`,
+        );
+      }
+    };
+    if (template.cover !== undefined) checkCover(template, `${path}.cover`);
     const sides = [
       ['top', margins.topPt],
       ['right', margins.rightPt],

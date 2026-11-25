@@ -1,0 +1,210 @@
+stanza-format: 1
+
+# A corporate report: a cover in rows with a logo near the top corner, the title and subtitle in
+# the lower part of the page, and a small metadata table at the bottom (ADR 0089).
+
+tokens:
+  colors:
+    brand: '#103466'
+    accent: '#0080A0'
+    heading: '#103466'
+    muted: '#6B7280'
+    rule: '#C9D2DC'
+    surface: '#EEF3F8'
+    white: '#FFFFFF'
+  fonts:
+    body: ['Calibri', 'Arial']
+    display: ['Calibri Light', 'Calibri', 'Arial']
+    mono: ['Consolas', 'Courier New']
+
+paragraph-styles:
+  body:
+    font: body
+    size: 11
+    space-after: 6
+    line-spacing: { multiple: 1.15 }
+    variants:
+      strong: { bold: true }
+      emphasis: { italic: true }
+      code: { font: mono, size: 10 }
+      link: { color: accent, underline: true }
+
+  heading-1:
+    based-on: body
+    font: display
+    size: 18
+    numbered: true
+    color: heading
+    space-before: 24
+    space-after: 8
+    keep-with-next: true
+    variants:
+      strong: false
+      emphasis: { italic: true }
+
+  heading-2:
+    based-on: heading-1
+    size: 14
+    space-before: 16
+    space-after: 6
+
+  heading-3:
+    based-on: heading-2
+    size: 12
+    bold: true
+
+  heading-4:
+    based-on: heading-3
+    italic: true
+    numbered: false
+
+  heading-5:
+    based-on: heading-4
+
+  heading-6:
+    based-on: heading-5
+
+  code:
+    based-on: body
+    font: mono
+    size: 10
+    keep-together: true
+    background: surface
+    variants:
+      strong: false
+      emphasis: false
+      code: false
+      link: false
+
+  list-bulleted:
+    based-on: body
+    space-after: 3
+    indent-left: 36
+    first-line-indent: -18
+
+  list-numbered:
+    based-on: list-bulleted
+
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  header-footer:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+
+  toc-1:
+    based-on: body
+    space-after: 3
+
+  toc-2:
+    based-on: toc-1
+    indent-left: 18
+
+  cover-logo:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  cover-kicker:
+    based-on: body
+    size: 12
+    bold: true
+    color: accent
+    space-after: 6
+
+  cover-title:
+    based-on: body
+    font: display
+    size: 34
+    color: brand
+    space-after: 8
+    line-spacing: { multiple: 1 }
+
+  cover-subtitle:
+    based-on: body
+    font: display
+    size: 16
+    color: muted
+    space-after: 0
+
+  cover-cell:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+character-styles:
+  marker:
+    bold: true
+    color: accent
+
+table-styles:
+  table:
+    cell-style: table-cell
+    border:
+      outer: { width: 0.75, color: rule }
+      inside-horizontal: { width: 0.5, color: rule }
+    header-row:
+      bold: true
+      background: surface
+      repeat: true
+    cell-padding: 4
+
+  cover-table:
+    cell-style: cover-cell
+    border:
+      inside-horizontal: { width: 0.5, color: rule }
+    cell-padding: 3
+
+page-templates:
+  page:
+    size: A4
+    margins: { top: 72, right: 72, bottom: 72, left: 72 }
+    header:
+      style: header-footer
+      left: '[](stanza:title)'
+      right: '[](stanza:classification)'
+    footer:
+      style: header-footer
+      left: '[](stanza:field:document-number)'
+      right: 'Page [1](stanza:page) of [1](stanza:pages)'
+    cover:
+      margins: { top: 40, right: 56, bottom: 56, left: 56 }
+      rows:
+        - height: 100
+          content:
+            - image: assets/logo.png
+              width: 150
+              style: cover-logo
+        - height: 3fr
+          valign: bottom
+          content:
+            - style: cover-kicker
+              text: 'Annual report'
+            - style: cover-title
+              text: '[Untitled](stanza:title)'
+            - style: cover-subtitle
+              text: '[](stanza:field:subtitle)'
+        - height: 2fr
+        - height: 110
+          valign: bottom
+          content:
+            - table:
+                style: cover-table
+                rows:
+                  - label: 'Document number'
+                    value: '[](stanza:field:document-number)'
+                  - label: 'Status'
+                    value: '[](stanza:field:status)'
+                  - label: 'Classification'
+                    value: '[](stanza:classification)'
+                  - label: 'Authors'
+                    value: '[](stanza:authors)'
+
+table-of-contents:
+  page-numbers: true

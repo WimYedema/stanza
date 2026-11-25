@@ -35,10 +35,13 @@ describe('styleReferences', () => {
         ...BUILT_IN_PAGE_TEMPLATE,
         header: { style: n('header-footer'), left: [], center: [], right: [] },
         footer: { style: n('header-footer'), left: [], center: [], right: [] },
-        cover: [
-          { kind: 'paragraph', style: n('cover-title'), text: [] },
-          { kind: 'table', style: n('cover-table'), rows: [] },
-        ],
+        cover: {
+          kind: 'list',
+          entries: [
+            { kind: 'paragraph', style: n('cover-title'), text: [] },
+            { kind: 'table', style: n('cover-table'), rows: [] },
+          ],
+        },
       },
     },
   });

@@ -84,6 +84,46 @@ function addPageBreaks(files: Files, pageBreaks: ReadonlyMap<string, boolean>): 
   files['word/styles.xml'] = strToU8(text);
 }
 
+/** How Word marks a picture as decorative, so that it needs no alternative text. */
+const DECORATIVE =
+  '<a:extLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+  '<a:ext uri="{C183D7F6-B498-43B3-948B-1728B52AA6E4}">' +
+  '<adec:decorative xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative" val="1"/>' +
+  '</a:ext></a:extLst>';
+
+/**
+ * The library numbers drawings from a counter shared by every export; they restart at 1. The
+ * pictures of a cover are marked as decorative (ADR 0089).
+ */
+function renumberDrawings(files: Files): void {
+  const document = files['word/document.xml'];
+  if (document === undefined) return;
+  let next = 0;
+  const text = strFromU8(document).replace(
+    /<wp:docPr id="\d+"( name="[^"]*")\/>/g,
+    (_whole, name: string) => `<wp:docPr id="${String(++next)}"${name}>${DECORATIVE}</wp:docPr>`,
+  );
+  files['word/document.xml'] = strToU8(text);
+}
+
+/**
+ * Word ends a section with a paragraph. The one that ends a cover with rows gets a line of 1 pt
+ * and no spacing, so that rows that fill the page leave room for it (ADR 0089). It is the first
+ * paragraph that holds section properties.
+ */
+function shrinkCoverEnd(files: Files): void {
+  const document = files['word/document.xml'];
+  if (document === undefined) return;
+  const end = '<w:p><w:pPr><w:sectPr>';
+  const text = strFromU8(document);
+  const at = text.indexOf(end);
+  if (at < 0) throw new Error('The package has no cover section to end.');
+  const small =
+    '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>' +
+    '<w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr><w:sectPr>';
+  files['word/document.xml'] = strToU8(text.slice(0, at) + small + text.slice(at + end.length));
+}
+
 export interface FinishOptions {
   /** Written into the package, so the same inputs give the same bytes. */
   readonly timestamp: Date;
@@ -95,6 +135,8 @@ export interface FinishOptions {
   readonly protection: 'comments' | 'none';
   /** The source to embed as a custom XML part (ADR 0084), if any. */
   readonly source?: FinishedStamp;
+  /** The document starts with a cover of rows, whose section end is made small (ADR 0089). */
+  readonly coverRows?: boolean;
 }
 
 /**
@@ -141,6 +183,7 @@ export function finishPackage(bytes: Uint8Array, options: FinishOptions): Uint8A
   alignTocPageNumbers(files, options.textWidthTwips);
   if (options.protection === 'comments') addReviewProtection(files);
   if (options.source !== undefined) addSourcePart(files, options.source);
+  if (options.coverRows === true) shrinkCoverEnd(files);
   const core = files['docProps/core.xml'];
   if (core !== undefined) {
     const iso = timestamp.toISOString();
@@ -153,6 +196,7 @@ export function finishPackage(bytes: Uint8Array, options: FinishOptions): Uint8A
   }
   renumberRelationships(files);
   renumberBookmarks(files);
+  renumberDrawings(files);
   // Zip entry times are local wall-clock values, so the UTC fields are used as such.
   const mtime = new Date(
     timestamp.getUTCFullYear(),

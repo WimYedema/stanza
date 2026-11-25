@@ -108,7 +108,24 @@ export {
 export { numberHeadings, type HeadingNumbers } from './heading-numbering.js';
 export { maxHeadingLevel } from './heading-levels.js';
 export { slotText, slotValue } from './slot-values.js';
-export { coverBlocks } from './cover.js';
+export {
+  COVER_END_RESERVE_PT,
+  coverAreaHeightPt,
+  coverAreaWidthPt,
+  coverBlocks,
+  coverMargins,
+  coverRowHeightsPt,
+  fillCover,
+  type CoverItem,
+  type FilledCoverRow,
+} from './cover.js';
+export {
+  naturalWidthPt,
+  readImageInfo,
+  type ImageAsset,
+  type ImageFormat,
+  type ImageInfo,
+} from './image-info.js';
 export {
   HARDCODED_FIELD_NAMES,
   REVIEW_PROTECTIONS,
@@ -126,6 +143,7 @@ export {
 } from './project.js';
 export {
   BUILT_IN_PAGE_TEMPLATE,
+  COVER_ALIGNMENTS,
   DEFAULT_PAGE_TEMPLATE_NAME,
   DEFAULT_TABLE_OF_CONTENTS,
   PAGINATION_TOKENS,
@@ -133,13 +151,20 @@ export {
   RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
   VARIANT_MARKS,
+  coverEntries,
+  coverImagePaths,
   type Alignment,
   type BandedRows,
   type Border,
   type CharacterStyle,
   type ColorValue,
+  type Cover,
+  type CoverAlignment,
   type CoverEntry,
+  type CoverImage,
+  type CoverLayoutRow,
   type CoverRow,
+  type CoverRowHeight,
   type FontValue,
   type HeaderRow,
   type HeaderFooter,

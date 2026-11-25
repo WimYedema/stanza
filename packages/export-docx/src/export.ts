@@ -1,13 +1,13 @@
 import {
   BUILT_IN_PAGE_TEMPLATE,
   PAGE_TEMPLATE_FIELD,
-  coverBlocks,
   numberHeadings,
   resolvePageTemplate,
   validateDocument,
   validateStylesheet,
   type Diagnostic,
   type Document as StanzaDocument,
+  type ImageAsset,
   type Stylesheet,
   type LinkSchemes,
   type ReviewProtection,
@@ -15,9 +15,10 @@ import {
 } from '@stanza/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext, type ReferenceFile } from './content.js';
+import { buildCover } from './cover.js';
 import { footerOf, headerOf } from './header-footer.js';
 import { ListNumbering } from './list-numbering.js';
-import { pageGeometry } from './page.js';
+import { pageGeometry, type PageGeometry } from './page.js';
 import { finishPackage } from './package.js';
 import { RunStyles } from './run-styles.js';
 import { finishedStamp, stampProperties } from './stamp.js';
@@ -46,6 +47,11 @@ export interface ExportOptions {
    * (ADR 0030); `none` leaves it open, so that Word for the web can comment on it at all.
    */
   readonly protection?: ReviewProtection;
+  /**
+   * The images that covers show, by their path in the project (ADR 0089). The project reads them;
+   * a cover image that is not here is an error.
+   */
+  readonly images?: ReadonlyMap<string, ImageAsset>;
 }
 
 export interface ExportResult {
@@ -56,6 +62,21 @@ export interface ExportResult {
 
 const hasErrors = (diagnostics: readonly Diagnostic[]): boolean =>
   diagnostics.some((diagnostic) => diagnostic.severity === 'error');
+
+/** The size and margins of a section, as the library wants them. */
+function sectionPage(page: PageGeometry) {
+  return {
+    size: { width: page.widthTwips, height: page.heightTwips },
+    margin: {
+      top: page.marginTopTwips,
+      right: page.marginRightTwips,
+      bottom: page.marginBottomTwips,
+      left: page.marginLeftTwips,
+      header: page.headerTwips,
+      footer: page.footerTwips,
+    },
+  };
+}
 
 /** Writes a validated document as a DOCX package with named styles. */
 export async function exportDocx(
@@ -104,28 +125,15 @@ export async function exportDocx(
     linkSchemes: options.linkSchemes ?? {},
   };
   const children = buildBlocks(document.blocks, context);
-  const coverChildren =
-    template.cover === undefined
-      ? []
-      : buildBlocks(coverBlocks(template.cover, document.meta), { ...context, headingLabels: [] });
-  const hasCover = coverChildren.length > 0;
+  const cover = buildCover(template, document.meta, options.images ?? new Map(), context);
+  const hasCover = cover !== undefined;
   if (hasErrors(diagnostics)) return { bytes: undefined, diagnostics };
 
   const { title, authors } = document.meta;
   const counting = { hasCover };
   const header = headerOf(template.header, document.meta, page, counting);
   const footer = footerOf(template.footer, document.meta, page, counting);
-  const pageProperties = {
-    size: { width: page.widthTwips, height: page.heightTwips },
-    margin: {
-      top: page.marginTopTwips,
-      right: page.marginRightTwips,
-      bottom: page.marginBottomTwips,
-      left: page.marginLeftTwips,
-      header: page.headerTwips,
-      footer: page.footerTwips,
-    },
-  };
+  const pageProperties = sectionPage(page);
   const stamp = options.source === undefined ? undefined : finishedStamp(options.source);
   const file = new Document({
     ...(title !== undefined ? { title } : {}),
@@ -142,7 +150,9 @@ export async function exportDocx(
     },
     ...(context.lists.config().length > 0 ? { numbering: { config: context.lists.config() } } : {}),
     sections: [
-      ...(hasCover ? [{ properties: { page: pageProperties }, children: coverChildren }] : []),
+      ...(cover !== undefined
+        ? [{ properties: { page: sectionPage(cover.page) }, children: [...cover.children] }]
+        : []),
       {
         properties: {
           // The cover is not counted.
@@ -162,6 +172,7 @@ export async function exportDocx(
       textWidthTwips: page.textWidthTwips,
       protection: options.protection ?? 'comments',
       ...(stamp !== undefined ? { source: stamp } : {}),
+      ...(cover?.rows === true ? { coverRows: true } : {}),
     }),
     diagnostics,
   };

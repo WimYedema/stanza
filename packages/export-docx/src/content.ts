@@ -444,7 +444,7 @@ function separateTables(children: readonly Child[]): Child[] {
 }
 
 /** What a document body is made of. */
-type Child = Paragraph | Table | TableOfContents;
+export type Child = Paragraph | Table | TableOfContents;
 
 /** Maps the blocks of a document. Blocks that cannot be mapped yet are reported and left out. */
 export function buildBlocks(blocks: readonly Block[], context: BuildContext): Child[] {

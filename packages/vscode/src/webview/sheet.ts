@@ -194,7 +194,7 @@ export function createSheet(elements: SheetElements): Sheet {
       const section = sectionOf(current, stylesheet);
       drawBand(elements.header, template.header, meta, section);
       drawBand(elements.footer, template.footer, meta, section);
-      drawCover(elements.cover, coverBlocks(template.cover ?? [], meta), stylesheet);
+      drawCover(elements.cover, coverBlocks(template.cover, meta), stylesheet);
     },
   };
 }
