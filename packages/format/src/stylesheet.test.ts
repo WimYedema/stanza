@@ -341,6 +341,31 @@ describe('parseStylesheet', () => {
     });
   });
 
+  it('reads the title block of a page template as a list of entries', () => {
+    const source = sheet(
+      [
+        'page-templates:',
+        '  page:',
+        '    title-block:',
+        '      - { image: assets/logo.png, width: 90 }',
+        "      - { style: body, text: '[Untitled](stanza:title)' }",
+      ].join('\n'),
+    );
+    const { stylesheet, diagnostics } = parseStylesheet(source);
+    expect(diagnostics).toEqual([]);
+    expect(stylesheet.pageTemplates.get(name('page'))?.titleBlock).toEqual([
+      { kind: 'image', path: 'assets/logo.png', widthPt: 90 },
+      {
+        kind: 'paragraph',
+        style: 'body',
+        text: [{ kind: 'token', token: 'title', label: 'Untitled' }],
+      },
+    ]);
+    expect(problems(sheet('page-templates:\n  page:\n    title-block: { rows: [] }'))).toEqual([
+      ['invalid-type', 'page-templates.page.title-block'],
+    ]);
+  });
+
   it('reports cover rows that are wrongly written', () => {
     const rows = (lines: string): string =>
       `page-templates:\n  page:\n    cover:\n${lines

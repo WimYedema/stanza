@@ -5,3 +5,10 @@ defaults:
   classification: 'Internal'
   authors:
     - 'Team Lead'
+metadata-fields:
+  date:
+    type: string
+    label: 'Date'
+  recipients:
+    type: list
+    label: 'To'

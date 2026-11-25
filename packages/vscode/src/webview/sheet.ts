@@ -6,6 +6,7 @@ import {
   RESERVED_TABLE_STYLE,
   applyDefaults,
   coverBlocks,
+  titleBlockBlocks,
   numberHeadings,
   resolvePageTemplate,
   resolveTableStyle,
@@ -41,6 +42,8 @@ export interface SheetInput {
 
 export interface SheetElements {
   readonly cover: HTMLElement;
+  /** The title block above the text (ADR 0090): from the template, not part of the document. */
+  readonly titleBlock?: HTMLElement;
   readonly header: HTMLElement;
   readonly footer: HTMLElement;
   /** The nonce of the content security policy, for the style element of the page geometry. */
@@ -179,7 +182,8 @@ export function createSheet(elements: SheetElements): Sheet {
   const style = document.createElement('style');
   if (elements.nonce !== undefined) style.setAttribute('nonce', elements.nonce);
   document.head.append(style);
-  for (const root of [elements.cover, elements.header, elements.footer]) root.classList.add(SCOPE);
+  const roots = [elements.cover, elements.titleBlock, elements.header, elements.footer];
+  for (const root of roots) root?.classList.add(SCOPE);
 
   let state: Partial<SheetInput> = {};
   return {
@@ -195,6 +199,9 @@ export function createSheet(elements: SheetElements): Sheet {
       drawBand(elements.header, template.header, meta, section);
       drawBand(elements.footer, template.footer, meta, section);
       drawCover(elements.cover, coverBlocks(template.cover, meta), stylesheet);
+      if (elements.titleBlock !== undefined) {
+        drawCover(elements.titleBlock, titleBlockBlocks(template.titleBlock, meta), stylesheet);
+      }
     },
   };
 }

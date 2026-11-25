@@ -6,7 +6,7 @@ title: "ADR 0089: Cover rows and images"
 <!-- stanza: #2mwdtjbmtr -->
 # ADR 0089: Cover rows and images
 
-Status: Accepted. Backlog item 221, refining ADR 0019. The same rows will be used by the title block of item 232. Decided with the product owner on 2026-11-25.
+Status: Accepted. Backlog item 221, refining ADR 0019. The title block of ADR 0090 uses its entries and images; the image diagnostics were renamed there. Decided with the product owner on 2026-11-25.
 
 <!-- stanza: #a6xwra81zp -->
 ## Context
@@ -53,11 +53,11 @@ cover:
 
 An image entry is `{ image, width, style }`.
 
-- `image` is the path of a PNG or JPEG file, relative to the project root, like the other paths of the project file. The format is read from the content of the file, not from its name. A file that is missing or that is not a PNG or JPEG is an error (`cover-image-not-found`, `cover-image-unsupported`).
-- `width` is the width in points. Left out, the image has its size in pixels at 96 per inch. The height follows from the aspect ratio of the image, which is always kept. An image wider than its row is made as wide as the row, with a warning (`cover-image-too-wide`).
-- `style` is the paragraph style of the paragraph that holds the image, `body` by default. Its alignment places the image left, centred or right, and its spacing gives the room around it, so the image has no position of its own. A style with `exactly` line spacing would cut the image off, and is a warning (`cover-image-line-spacing`).
+- `image` is the path of a PNG or JPEG file, relative to the project root, like the other paths of the project file. The format is read from the content of the file, not from its name. A file that is missing or that is not a PNG or JPEG is an error (`image-not-found`, `image-unsupported`).
+- `width` is the width in points. Left out, the image has its size in pixels at 96 per inch. The height follows from the aspect ratio of the image, which is always kept. An image wider than its row is made as wide as the row, with a warning (`image-too-wide`).
+- `style` is the paragraph style of the paragraph that holds the image, `body` by default. Its alignment places the image left, centred or right, and its spacing gives the room around it, so the image has no position of its own. A style with `exactly` line spacing would cut the image off, and is a warning (`image-line-spacing`).
 
-An image in a row in points that is taller than the row is a warning (`cover-image-too-tall`): Word would cut it off. Text that does not fit its row is cut off by Word as well, and the product cannot see it, because it does not measure text.
+An image in a row in points that is taller than the row is a warning (`image-too-tall`): Word would cut it off. Text that does not fit its row is cut off by Word as well, and the product cannot see it, because it does not measure text.
 
 The images are read by the project when it loads, and given to the exporter with the document. The exporter embeds them and gives the same bytes for the same files.
 
@@ -105,4 +105,4 @@ The stylesheet stays at format version 1, since the map form and image entries a
 <!-- stanza: #3dnndpccvn -->
 ## Not covered
 
-Columns and areas (item 225), background colors (item 226), a background image (item 227), the title block (item 232), drawing the rows in the editor (item 222) and SVG images.
+Columns and areas (item 225), background colors (item 226), a background image (item 227), the title block (ADR 0090), drawing the rows in the editor (item 222) and SVG images.

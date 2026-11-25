@@ -17,7 +17,7 @@ The DOCX files go to `build/` inside each project, which Git ignores.
 | --- | --- |
 | `corporate-report` | A cover in rows (ADR 0089): a logo near the top corner with cover margins of its own, the title and subtitle in the lower part of the page, and a metadata table at the bottom. A4, numbered headings, a table of contents with page numbers, header and footer. |
 | `classic-cover` | A classic centred cover in rows on Letter paper: the title a third of the way down, the authors in the middle, an emblem and the organisation at the bottom. Centring comes from the paragraph styles, not the rows. |
-| `plain-memo` | No cover: the body starts on the first page, with the title in the header. The baseline for the title block of backlog item 232. |
+| `plain-memo` | No cover, but a title block (ADR 0090): the template writes a small logo, the title and a table of from, to, date and classification at the top of the first page, and the text follows. |
 
 ## Adding an example
 

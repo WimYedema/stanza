@@ -3,6 +3,7 @@ import {
   coverAreaWidthPt,
   coverRowHeightsPt,
   isSafeRelativePath,
+  PAGE_SIZES,
   naturalWidthPt,
   readImageInfo,
   type CoverImage,
@@ -17,22 +18,40 @@ interface FoundImage {
   readonly entry: CoverImage;
   /** Where the entry is in the stylesheet. */
   readonly at: string;
-  readonly template: PageTemplate;
+  /** The width that the image has at most: of the cover page, or of the body text. */
+  readonly maxWidthPt: number;
   /** The height of its row in points, when the row has one. */
   readonly rowHeightPt: number | undefined;
 }
 
-/** Each image entry of the covers of a stylesheet, with its place in the stylesheet. */
+/** The width of the body text of a template, in points. */
+const textWidthPt = (template: PageTemplate): number =>
+  PAGE_SIZES[template.size].widthPt - template.margins.leftPt - template.margins.rightPt;
+
+/**
+ * Each image entry of the covers and title blocks of a stylesheet (ADR 0089, ADR 0090), with its
+ * place in the stylesheet.
+ */
 function imageEntries(stylesheet: Stylesheet): FoundImage[] {
   const found: FoundImage[] = [];
   for (const [name, template] of stylesheet.pageTemplates) {
+    template.titleBlock?.forEach((entry, index) => {
+      if (entry.kind !== 'image') return;
+      found.push({
+        entry,
+        at: `page-templates.${name}.title-block[${String(index)}]`,
+        maxWidthPt: textWidthPt(template),
+        rowHeightPt: undefined,
+      });
+    });
     const cover = template.cover;
     if (cover === undefined) continue;
     const here = `page-templates.${name}.cover`;
+    const maxWidthPt = coverAreaWidthPt(template);
     if (cover.kind === 'list') {
       cover.entries.forEach((entry, index) => {
         if (entry.kind !== 'image') return;
-        found.push({ entry, at: `${here}[${String(index)}]`, template, rowHeightPt: undefined });
+        found.push({ entry, at: `${here}[${String(index)}]`, maxWidthPt, rowHeightPt: undefined });
       });
       continue;
     }
@@ -46,7 +65,7 @@ function imageEntries(stylesheet: Stylesheet): FoundImage[] {
         found.push({
           entry,
           at: `${here}.rows[${String(rowIndex)}].content[${String(index)}]`,
-          template,
+          maxWidthPt,
           rowHeightPt: heights[rowIndex],
         });
       });
@@ -55,22 +74,22 @@ function imageEntries(stylesheet: Stylesheet): FoundImage[] {
   return found;
 }
 
-/** Warnings for an image that does not fit where the cover puts it (ADR 0089). */
+/** Warnings for an image that does not fit where the template puts it (ADR 0089). */
 function checkFit(
   found: FoundImage,
   image: ImageAsset,
   file: string,
   diagnostics: ProjectDiagnostic[],
 ): void {
-  const maxWidthPt = coverAreaWidthPt(found.template);
+  const { maxWidthPt } = found;
   const askedPt = found.entry.widthPt ?? naturalWidthPt(image);
   const widthPt = Math.min(askedPt, maxWidthPt);
   if (askedPt > maxWidthPt) {
     diagnostics.push({
       file,
       severity: 'warning',
-      code: 'cover-image-too-wide',
-      message: `The image is ${String(Math.round(askedPt))} pt wide, wider than the ${String(Math.floor(maxWidthPt))} pt of the cover, and is made as wide as the cover.`,
+      code: 'image-too-wide',
+      message: `The image is ${String(Math.round(askedPt))} pt wide, wider than the ${String(Math.floor(maxWidthPt))} pt it has, and is made that wide.`,
       path: `${found.at}.${found.entry.widthPt === undefined ? 'image' : 'width'}`,
     });
   }
@@ -79,7 +98,7 @@ function checkFit(
     diagnostics.push({
       file,
       severity: 'warning',
-      code: 'cover-image-too-tall',
+      code: 'image-too-tall',
       message: `The image is ${String(Math.round(heightPt))} pt high, higher than its row of ${String(Math.floor(found.rowHeightPt))} pt, and Word cuts it off.`,
       path: `${found.at}.image`,
     });
@@ -87,7 +106,7 @@ function checkFit(
 }
 
 /**
- * Reads the images that the covers of the stylesheet show (ADR 0089), by path, and checks that
+ * Reads the images that the covers and title blocks of the stylesheet show (ADR 0089, ADR 0090), by path, and checks that
  * they fit. An image that is missing, or that is not a PNG or JPEG, is reported once, at its first
  * entry. A path that is not safe is left to the stylesheet check.
  */
@@ -110,7 +129,7 @@ export async function loadCoverImages(
       diagnostics.push({
         file: stylesheetFile,
         severity: 'error',
-        code: 'cover-image-not-found',
+        code: 'image-not-found',
         message: `The image "${entry.path}" was not found in the project.`,
         path: `${at}.image`,
       });
@@ -121,7 +140,7 @@ export async function loadCoverImages(
       diagnostics.push({
         file: stylesheetFile,
         severity: 'error',
-        code: 'cover-image-unsupported',
+        code: 'image-unsupported',
         message: `The image "${entry.path}" is not a PNG or JPEG file.`,
         path: `${at}.image`,
       });

@@ -42,6 +42,7 @@ describe('styleReferences', () => {
             { kind: 'table', style: n('cover-table'), rows: [] },
           ],
         },
+        titleBlock: [{ kind: 'table', style: n('cover-table'), rows: [] }],
       },
     },
   });
@@ -63,6 +64,7 @@ describe('styleReferences', () => {
     ]);
     expect(styleReferences(stylesheet, 'table', n('cover-table'))).toEqual([
       'The page template "page" uses it in its cover.',
+      'The page template "page" uses it in its title block.',
     ]);
   });
 

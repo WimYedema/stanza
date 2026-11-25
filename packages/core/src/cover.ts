@@ -63,7 +63,8 @@ function fillEntry(entry: CoverEntry, meta: DocumentMeta): CoverItem | undefined
     : { kind: 'block', block: { type: 'table', style: entry.style, header: [], rows } };
 }
 
-const fill = (entries: readonly CoverEntry[], meta: DocumentMeta): CoverItem[] =>
+/** The entries with the metadata filled in, in order, without the empty ones. */
+export const fillEntries = (entries: readonly CoverEntry[], meta: DocumentMeta): CoverItem[] =>
   entries.flatMap((entry) => {
     const item = fillEntry(entry, meta);
     return item === undefined ? [] : [item];
@@ -81,7 +82,7 @@ export function fillCover(cover: Cover, meta: DocumentMeta): readonly FilledCove
   const filled = rows.map((row) => ({
     height: row.height,
     valign: row.valign,
-    items: fill(row.content, meta),
+    items: fillEntries(row.content, meta),
   }));
   return filled.some((row) => row.items.length > 0) ? filled : undefined;
 }
@@ -92,9 +93,21 @@ export function fillCover(cover: Cover, meta: DocumentMeta): readonly FilledCove
  */
 export function coverBlocks(cover: Cover | undefined, meta: DocumentMeta): Block[] {
   if (cover === undefined) return [];
-  return fill(coverEntries(cover), meta).flatMap((item) =>
-    item.kind === 'block' ? [item.block] : [],
-  );
+  return blocksOf(fillEntries(coverEntries(cover), meta));
+}
+
+const blocksOf = (items: readonly CoverItem[]): Block[] =>
+  items.flatMap((item) => (item.kind === 'block' ? [item.block] : []));
+
+/**
+ * The blocks of a title block (ADR 0090), with the metadata filled in, in order. Images are left
+ * out, as for a cover in the editor.
+ */
+export function titleBlockBlocks(
+  entries: readonly CoverEntry[] | undefined,
+  meta: DocumentMeta,
+): Block[] {
+  return entries === undefined ? [] : blocksOf(fillEntries(entries, meta));
 }
 
 /** The margins of the cover page: its own, and the template's for the sides it leaves out. */

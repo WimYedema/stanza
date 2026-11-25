@@ -1229,7 +1229,7 @@ describe('exportDocx cover of rows (ADR 0089)', () => {
   it('reports an image that was not loaded, and writes nothing', async () => {
     const result = await exportRows(new Map());
     expect(result.bytes).toBeUndefined();
-    expect(codes(result.diagnostics)).toEqual(['cover-image-not-found']);
+    expect(codes(result.diagnostics)).toEqual(['image-not-found']);
   });
 
   it('leaves the end of a cover that is a list as it was', async () => {
@@ -1240,5 +1240,103 @@ describe('exportDocx cover of rows (ADR 0089)', () => {
     );
     expect(documentXml).not.toContain('w:line="20"');
     expect(documentXml).not.toContain('<w:trHeight');
+  });
+});
+
+describe('exportDocx title block (ADR 0090)', () => {
+  /** Adds a title block to a page template of the fixture, which may have a cover too. */
+  const withTitleBlock = (template: string) => {
+    const lines = [
+      '    title-block:',
+      '      - { image: assets/logo.png, width: 900, style: cover-meta }',
+      "      - { style: cover-title, text: '[Untitled](stanza:title)' }",
+      '      - table:',
+      '          style: table-grid',
+      '          rows:',
+      "            - { label: 'Number', value: '[](stanza:field:document-number)' }",
+      "            - { label: 'Empty', value: '[](stanza:field:nothing)' }",
+      "      - { style: cover-meta, text: '[](stanza:field:nothing)' }",
+      '',
+    ].join('\n');
+    const header = `  ${template}:\n`;
+    const at = STYLESHEET_TEXT.indexOf(header) + header.length;
+    const parsed = parseStylesheet(
+      `${STYLESHEET_TEXT.slice(0, at)}${lines}${STYLESHEET_TEXT.slice(at)}`,
+    );
+    expect(parsed.diagnostics).toEqual([]);
+    return parsed.stylesheet;
+  };
+  const logo = new Uint8Array(33);
+  logo.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const images = new Map([
+    ['assets/logo.png', { format: 'png' as const, widthPx: 300, heightPx: 100, bytes: logo }],
+  ]);
+  const body = '<!-- stanza: #k7m2q9x4zb -->\n# One\n\n```stanza-toc\ndepth: 1\n```\n\nText.\n';
+
+  async function exportWith(template: string, front: string) {
+    const result = await exportDocx(read(body, front), withTitleBlock(template), {
+      timestamp: TIMESTAMP,
+      images,
+    });
+    const files = unzipSync(result.bytes ?? new Uint8Array());
+    return { result, documentXml: strFromU8(files['word/document.xml'] ?? new Uint8Array()) };
+  }
+
+  it('writes the title block at the start of the body, before its content and table of contents', async () => {
+    const { result, documentXml } = await exportWith(
+      'page',
+      'title: "My Doc"\ndocument-number: "D-1"\n',
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(documentXml.match(/<w:sectPr/g)).toHaveLength(1);
+    const order = [
+      '<wp:docPr id="1" name="logo.png">',
+      '>My Doc<',
+      '>Number<',
+      '>D-1<',
+      '<w:pStyle w:val="Heading1"/>',
+      '<w:pStyle w:val="TOC1"/>',
+      '>Text.<',
+    ];
+    const found = order.filter((text) => documentXml.includes(text));
+    expect(found).toEqual(order);
+    const places = order.map((text) => documentXml.indexOf(text));
+    expect([...places].sort((a, b) => a - b)).toEqual(places);
+    expect(documentXml).not.toContain('>Empty<');
+  });
+
+  it('makes an image no wider than the body text', async () => {
+    const { documentXml } = await exportWith('page', 'title: "My Doc"\n');
+    // 451.3 pt of text on A4 with margins of 72 pt, a third of that high.
+    const extent = /<wp:extent cx="(\d+)" cy="(\d+)"\/>/.exec(documentXml);
+    expect(Number(extent?.[1])).toBe(Math.round(((451.3 * 96) / 72) * 9525));
+    expect(Math.abs(Number(extent?.[2]) * 3 - Number(extent?.[1]))).toBeLessThan(10);
+  });
+
+  it('goes on the first body page after a cover', async () => {
+    const { documentXml } = await exportWith(
+      'page-letter',
+      'page-template: "page-letter"\ntitle: "My Doc"\n',
+    );
+    const sections = documentXml.indexOf('<w:sectPr');
+    expect(documentXml.match(/<w:sectPr/g)).toHaveLength(2);
+    expect(documentXml.indexOf('<wp:docPr id="1"')).toBeGreaterThan(sections);
+    expect(documentXml.lastIndexOf('>My Doc<')).toBeGreaterThan(sections);
+  });
+
+  it('writes nothing when no entry is left', async () => {
+    const parsed = parseStylesheet(
+      STYLESHEET_TEXT.replace(
+        '  page:\n',
+        "  page:\n    title-block:\n      - { style: cover-meta, text: '[](stanza:field:nothing)' }\n",
+      ),
+    );
+    const result = await exportDocx(read(body, 'title: "T"\n'), parsed.stylesheet, {
+      timestamp: TIMESTAMP,
+    });
+    const plain = await exportDocx(read(body, 'title: "T"\n'), stylesheet, {
+      timestamp: TIMESTAMP,
+    });
+    expect(result.bytes).toEqual(plain.bytes);
   });
 });

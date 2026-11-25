@@ -4,6 +4,7 @@ import {
   coverMargins,
   coverRowHeightsPt,
   fillCover,
+  fillEntries,
   naturalWidthPt,
   type Block,
   type CoverItem,
@@ -57,7 +58,7 @@ function imageParagraph(
   if (asset === undefined) {
     context.diagnostics.push({
       severity: 'error',
-      code: 'cover-image-not-found',
+      code: 'image-not-found',
       message: `The image "${image.path}" was not loaded with the document.`,
     });
     return undefined;
@@ -195,4 +196,21 @@ export function buildCover(
     return children.length === 0 ? undefined : { page, children, rows: false };
   }
   return { page, children: [layoutTable(rows, template, page, images, here)], rows: true };
+}
+
+/**
+ * The title block of a template for a document (ADR 0090): its entries with the metadata filled
+ * in, as paragraphs, tables and images as wide as the body text at most. Nothing when the template
+ * has none or nothing on it is left.
+ */
+export function buildTitleBlock(
+  template: PageTemplate,
+  meta: DocumentMeta,
+  images: ReadonlyMap<string, ImageAsset>,
+  context: BuildContext,
+): Child[] {
+  const items = fillEntries(template.titleBlock ?? [], meta);
+  if (items.length === 0) return [];
+  const here: BuildContext = { ...context, headingLabels: [] };
+  return itemChildren(items, images, context.page.textWidthTwips / 20, here);
 }

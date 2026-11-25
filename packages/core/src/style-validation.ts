@@ -290,7 +290,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         if (part.kind === 'token' && PAGINATION_TOKENS.includes(part.token)) {
           error(
             'cover-token-not-allowed',
-            `The token "${part.token}" depends on pagination and cannot be used on a cover.`,
+            `The token "${part.token}" depends on pagination and cannot be used on a cover or in a title block.`,
             where,
           );
         }
@@ -320,7 +320,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         ) {
           diagnostics.push({
             severity: 'warning',
-            code: 'cover-image-line-spacing',
+            code: 'image-line-spacing',
             message: `The style "${entry.style ?? BODY_STYLE}" has exact line spacing, which cuts off the image in Word.`,
             path: `${here}.style`,
           });
@@ -417,6 +417,9 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
       }
     };
     if (template.cover !== undefined) checkCover(template, `${path}.cover`);
+    template.titleBlock?.forEach((entry, index) => {
+      checkEntry(entry, `${path}.title-block[${String(index)}]`);
+    });
     const sides = [
       ['top', margins.topPt],
       ['right', margins.rightPt],

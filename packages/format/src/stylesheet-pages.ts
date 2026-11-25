@@ -240,7 +240,7 @@ function readHeaderFooter(map: Data, path: string, report: Report): HeaderFooter
 }
 
 export function readPageTemplate(map: Data, path: string, report: Report): PageTemplate {
-  checkKeys(map, ['size', 'margins', 'header', 'footer', 'cover'], path, report);
+  checkKeys(map, ['size', 'margins', 'header', 'footer', 'cover', 'title-block'], path, report);
   let size: PageSize = BUILT_IN_PAGE_TEMPLATE.size;
   const given = map['size'];
   if (given !== undefined) {
@@ -265,11 +265,16 @@ export function readPageTemplate(map: Data, path: string, report: Report): PageT
   };
   const cover =
     map['cover'] === undefined ? undefined : readCover(map['cover'], join(path, 'cover'), report);
+  const titleBlock =
+    map['title-block'] === undefined
+      ? undefined
+      : readEntries(map['title-block'], join(path, 'title-block'), report);
   return {
     size,
     margins,
     ...slots('header'),
     ...slots('footer'),
     ...(cover !== undefined ? { cover } : {}),
+    ...(titleBlock !== undefined ? { titleBlock } : {}),
   };
 }

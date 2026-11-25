@@ -26,7 +26,7 @@ const coverUses = (cover: Cover | undefined, family: StyleFamily, name: string) 
 /**
  * What in the stylesheet itself refers to a style, as sentences: a style based on it, a table
  * style that has it as the cell style, a page template that uses it in its header, footer or
- * cover. A style that something refers to cannot be deleted without breaking the stylesheet.
+ * cover or title block. A style that something refers to cannot be deleted without breaking the stylesheet.
  */
 export function styleReferences(
   stylesheet: Stylesheet,
@@ -58,6 +58,13 @@ export function styleReferences(
     }
     if (coverUses(page.cover, family, name)) {
       found.push(`The page template "${template}" uses it in its cover.`);
+    }
+    const titleBlock = page.titleBlock;
+    if (
+      titleBlock !== undefined &&
+      coverUses({ kind: 'list', entries: titleBlock }, family, name)
+    ) {
+      found.push(`The page template "${template}" uses it in its title block.`);
     }
   }
   return found;

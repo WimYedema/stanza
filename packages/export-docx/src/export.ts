@@ -15,7 +15,7 @@ import {
 } from '@stanza/core';
 import { Document, Packer } from 'docx';
 import { buildBlocks, type BuildContext, type ReferenceFile } from './content.js';
-import { buildCover } from './cover.js';
+import { buildCover, buildTitleBlock } from './cover.js';
 import { footerOf, headerOf } from './header-footer.js';
 import { ListNumbering } from './list-numbering.js';
 import { pageGeometry, type PageGeometry } from './page.js';
@@ -124,8 +124,13 @@ export async function exportDocx(
     otherTargets,
     linkSchemes: options.linkSchemes ?? {},
   };
-  const children = buildBlocks(document.blocks, context);
-  const cover = buildCover(template, document.meta, options.images ?? new Map(), context);
+  const images = options.images ?? new Map<string, ImageAsset>();
+  // The title block comes first in the body, before its content and its table of contents.
+  const children = [
+    ...buildTitleBlock(template, document.meta, images, context),
+    ...buildBlocks(document.blocks, context),
+  ];
+  const cover = buildCover(template, document.meta, images, context);
   const hasCover = cover !== undefined;
   if (hasErrors(diagnostics)) return { bytes: undefined, diagnostics };
 

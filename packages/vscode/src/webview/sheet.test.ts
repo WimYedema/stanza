@@ -149,6 +149,41 @@ describe('createSheet', () => {
     expect(table?.querySelector('td')?.className).toBe('stanza-p-table-cell');
   });
 
+  it('draws a title block above the text, from the metadata, when the host has a place for it', () => {
+    const withTitleBlock = parseStylesheet(
+      readFileSync(
+        join(
+          dirname(fileURLToPath(import.meta.url)),
+          '../../../../fixtures/example-project/styles/default.yaml',
+        ),
+        'utf8',
+      )
+        .replaceAll('\r\n', '\n')
+        .replace(
+          '  page:\n',
+          "  page:\n    title-block:\n      - { image: assets/logo.png }\n      - { style: cover-title, text: '[Untitled](stanza:title)' }\n",
+        ),
+    ).stylesheet;
+    const titleBlock = document.createElement('div');
+    document.body.append(titleBlock);
+    const withPlace = createSheet({ cover, titleBlock, header, footer });
+    const update = (front: string): void => {
+      withPlace.update({
+        stylesheet: withTitleBlock,
+        defaults: {},
+        document: documentOf(front, BODY).document,
+      });
+    };
+    update('title: "My title"\n');
+    expect(titleBlock.hidden).toBe(false);
+    expect([...titleBlock.querySelectorAll('p')].map((p) => [p.className, p.textContent])).toEqual([
+      ['stanza-p-cover-title', 'My title'],
+    ]);
+    expect(cover.hidden).toBe(true);
+    update('title: "My title"\npage-template: "page-letter"\n');
+    expect(titleBlock.hidden).toBe(true);
+  });
+
   it('has no cover for a template without one, and hides a header with nothing in it', () => {
     show('title: "T"\n');
     expect(cover.hidden).toBe(true);

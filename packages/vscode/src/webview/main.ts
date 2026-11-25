@@ -233,6 +233,7 @@ const changes = createChangesBar(element('changes'), {
 });
 const pages = createSheet({
   cover: element('cover'),
+  titleBlock: element('title-block'),
   header: element('header'),
   footer: element('footer'),
   ...(nonce !== undefined ? { nonce } : {}),

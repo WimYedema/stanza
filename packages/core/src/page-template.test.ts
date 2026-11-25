@@ -156,6 +156,21 @@ describe('validateStylesheet and page templates', () => {
     ]);
   });
 
+  it('checks the entries of a title block as those of a cover', () => {
+    const pageToken = { kind: 'token', token: 'page', label: '' } as const;
+    const template: PageTemplate = {
+      ...wide,
+      titleBlock: [
+        { kind: 'paragraph', style: 'gone' as never, text: [pageToken] },
+        { kind: 'image', path: 'assets/logo.png', widthPt: 90 },
+      ],
+    };
+    expect(problems(sheet({ pageTemplates: { page: template } }))).toEqual([
+      ['unknown-cover-style', 'page-templates.page.title-block[0].style'],
+      ['cover-token-not-allowed', 'page-templates.page.title-block[0].text'],
+    ]);
+  });
+
   it('checks the images of a cover: path, width, style and its line spacing', () => {
     const exact = {
       text: {},
@@ -177,7 +192,7 @@ describe('validateStylesheet and page templates', () => {
       ['error', 'unknown-cover-style', 'page-templates.page.cover[0].style'],
     ]);
     expect(check(image({ style: 'tight' as never }))).toEqual([
-      ['warning', 'cover-image-line-spacing', 'page-templates.page.cover[0].style'],
+      ['warning', 'image-line-spacing', 'page-templates.page.cover[0].style'],
     ]);
   });
 });

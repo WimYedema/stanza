@@ -116,6 +116,8 @@ export {
   coverMargins,
   coverRowHeightsPt,
   fillCover,
+  fillEntries,
+  titleBlockBlocks,
   type CoverItem,
   type FilledCoverRow,
 } from './cover.js';

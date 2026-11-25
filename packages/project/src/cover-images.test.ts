@@ -72,8 +72,8 @@ describe('the images of a cover', () => {
       { 'assets/logo.svg': new TextEncoder().encode('<svg/>') },
     );
     expect(findings(loaded)).toEqual([
-      ['error', 'cover-image-not-found', 'styles.yaml', 'page-templates.page.cover[0].image'],
-      ['error', 'cover-image-unsupported', 'styles.yaml', 'page-templates.page.cover[1].image'],
+      ['error', 'image-not-found', 'styles.yaml', 'page-templates.page.cover[0].image'],
+      ['error', 'image-unsupported', 'styles.yaml', 'page-templates.page.cover[1].image'],
     ]);
     expect(loaded.images.size).toBe(0);
   });
@@ -92,16 +92,35 @@ describe('the images of a cover', () => {
     expect(findings(loaded)).toEqual([
       [
         'warning',
-        'cover-image-too-wide',
+        'image-too-wide',
         'styles.yaml',
         'page-templates.page.cover.rows[0].content[0].width',
       ],
       [
         'warning',
-        'cover-image-too-tall',
+        'image-too-tall',
         'styles.yaml',
         'page-templates.page.cover.rows[0].content[1].image',
       ],
     ]);
+  });
+
+  it('reads the images of a title block, which may be as wide as the body text', async () => {
+    const storage = memoryStorage(
+      {
+        'stanza.yaml': PROJECT,
+        'styles.yaml': styles('      - text: x').replace(
+          '    cover:\n      - text: x\n',
+          '    title-block:\n      - { image: assets/mark.png, width: 500 }\n',
+        ),
+      },
+      [],
+      { 'assets/mark.png': png(90, 30) },
+    );
+    const loaded = await loadProject(storage);
+    expect(findings(loaded)).toEqual([
+      ['warning', 'image-too-wide', 'styles.yaml', 'page-templates.page.title-block[0].width'],
+    ]);
+    expect([...loaded.images.keys()]).toEqual(['assets/mark.png']);
   });
 });

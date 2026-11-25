@@ -1,12 +1,13 @@
 ---
 stanza-format: 1
 title: "Release plan for version 2"
+date: "2026-12-01"
+recipients:
+  - "Product team"
+  - "Support"
 ---
 
-<!-- stanza: #dgnr2fev9z -->
-# Release plan for version 2
-
-This example has no cover: the body starts on the first page, and the title is repeated in the header. It is the baseline for the title block of backlog item 232, which will put a condensed version of a cover at the top of the first page.
+This example has no cover. Above this paragraph the template writes a title block from the metadata: a small logo, the title, and a table of who the memo is from and to, its date and its classification (ADR 0090). The document itself starts with its text.
 
 <!-- stanza: #gysp67bhkt -->
 # Dates

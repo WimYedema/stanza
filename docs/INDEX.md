@@ -16,7 +16,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 ## Stylesheet and pages (`core`, `format`, `css`)
 
 - 0006: typed stylesheet (read first). 0035: comment-preserving text edits. 0059: banded table rows. 0065: colors and fonts only from tokens. 0074: move raw colors and fonts into tokens (`format --fix-stylesheet`, quick fix).
-- 0016, 0017, 0019, 0089: page templates, header and footer slots, cover page; 0089 divides the cover into rows and adds images and cover margins.
+- 0016, 0017, 0019, 0089, 0090: page templates, header and footer slots, cover page; 0089 divides the cover into rows and adds images and cover margins; 0090 adds a title block at the top of the first body page.
 - 0021: browser CSS.
 
 ## DOCX export (`export-docx`)

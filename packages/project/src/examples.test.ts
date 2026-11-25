@@ -51,4 +51,17 @@ describe('the example projects', () => {
     expect(cover).toContain('<wp:docPr id="1"');
     expect(Object.keys(files).filter((file) => file.startsWith('word/media/'))).toHaveLength(1);
   });
+
+  it('plain-memo has a title block before its text, and no cover', async () => {
+    const { written } = await buildExample('plain-memo');
+    const files = unzipSync(written.get('build/documents/release-plan.docx') ?? new Uint8Array());
+    const document = strFromU8(files['word/document.xml'] ?? new Uint8Array());
+    expect(document.match(/<w:sectPr/g)).toHaveLength(1);
+    const logo = document.indexOf('<wp:docPr id="1"');
+    const title = document.indexOf('<w:pStyle w:val="TitleMain"/>');
+    const text = document.indexOf('This example has no cover.');
+    expect(logo).toBeGreaterThan(0);
+    expect(logo).toBeLessThan(title);
+    expect(title).toBeLessThan(text);
+  });
 });

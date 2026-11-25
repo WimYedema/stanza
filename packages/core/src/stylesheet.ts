@@ -209,25 +209,33 @@ export function coverEntries(cover: Cover): readonly CoverEntry[] {
   return cover.kind === 'list' ? cover.entries : cover.rows.flatMap((row) => row.content);
 }
 
-/** The images a page template's cover shows, by path, in order and without repeats. */
+/** The images that the covers and title blocks of page templates show, by path, without repeats. */
 export function coverImagePaths(templates: Iterable<PageTemplate>): readonly string[] {
   const paths = new Set<string>();
   for (const template of templates) {
-    if (template.cover === undefined) continue;
-    for (const entry of coverEntries(template.cover)) {
+    const entries = [
+      ...(template.cover === undefined ? [] : coverEntries(template.cover)),
+      ...(template.titleBlock ?? []),
+    ];
+    for (const entry of entries) {
       if (entry.kind === 'image') paths.add(entry.path);
     }
   }
   return [...paths];
 }
 
-/** The pages of a document: size, margins, header and footer, and an optional cover page. */
+/**
+ * The pages of a document: size, margins, header and footer, an optional cover page, and an
+ * optional title block at the top of the first body page (ADR 0090).
+ */
 export interface PageTemplate {
   readonly size: PageSize;
   readonly margins: PageMargins;
   readonly header?: HeaderFooter;
   readonly footer?: HeaderFooter;
   readonly cover?: Cover;
+  /** The entries of a cover, written before the content of the body. */
+  readonly titleBlock?: readonly CoverEntry[];
 }
 
 export interface Stylesheet {

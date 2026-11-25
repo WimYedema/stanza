@@ -6,6 +6,7 @@ import {
   coverMargins,
   coverRowHeightsPt,
   fillCover,
+  titleBlockBlocks,
 } from './cover.js';
 import type { DocumentMeta } from './document.js';
 import { slotText, slotValue } from './slot-values.js';
@@ -171,5 +172,22 @@ describe('cover rows', () => {
     expect(coverAreaHeightPt(template)).toBeCloseTo(841.9 - 36 - 72);
     const list: PageTemplate = { ...template, cover: { kind: 'list', entries: [] } };
     expect(coverMargins(list)).toEqual(template.margins);
+  });
+});
+
+describe('titleBlockBlocks', () => {
+  it('fills in the metadata of a title block and leaves out images and empty entries', () => {
+    const blocks = titleBlockBlocks(
+      [
+        { kind: 'image', path: 'assets/logo.png' },
+        { kind: 'paragraph', style: style('title-main'), text: [token('title')] },
+        { kind: 'paragraph', text: [field('none')] },
+      ],
+      meta,
+    );
+    expect(blocks).toEqual([
+      { type: 'paragraph', style: 'title-main', content: [{ type: 'text', text: 'T', marks: [] }] },
+    ]);
+    expect(titleBlockBlocks(undefined, meta)).toEqual([]);
   });
 });
