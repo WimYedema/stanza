@@ -186,3 +186,55 @@ Checked on 2026-11-22 for item 138 and ADR 0084. The same document was built wit
 - How long the synced folder lags behind while a document stays open in Word desktop.
 - Updating the table of contents under the protection: the document had no table of contents.
 - A work tenant: sharing for review only, mentions, and whether sharing changes the package.
+
+<!-- stanza: #njxvxwr1tv -->
+## Cover corpus
+
+Backlog item 224, 2026-11-25. The covers of Word's own gallery, 16 in `Document Parts\1033\16\Built-In Building Blocks.dotx` and 3 in the downloaded Element and Insight building blocks, were inserted by Word into new documents and exported to PDF, and their XML was read. The imec template was not available; public imec documents built on `imec Ghent_normal_master.dotx` have no separate cover, with the logo, page numbers and rules anchored in odd and even headers and footers. No file of Microsoft or imec is kept in the repository.
+
+<!-- stanza: #swedr2kf20 -->
+### How they are built
+
+- 14 of the 16 gallery covers are text boxes and shapes anchored to the page. Sideline is two tables; Integral, Element and the two Insight covers combine a table with anchored shapes and pictures.
+- Every cover holds its values in content controls bound to document properties: the title, the subject (shown as the subtitle), the author, and some of the abstract, the publish date, the company, the company address, the company e-mail and the category (shown as a course title).
+- Decoration is drawn: rectangles and bars filled with a theme color, gradients, diagonal lines, curves, facets and ornaments, and photographs.
+
+<!-- stanza: #ks4d22d0cw -->
+### What each needs
+
+Grid means rows and columns with areas (item 225), color means area backgrounds and full-bleed margins (item 226), and picture means a full-page background image (item 227). "Now" is what the rows of ADR 0089 give: R is reproduced, A is approximated with a part left out or simplified.
+
+<!-- stanza: #g8eag962cr .table-grid widths="18 44 20 9 9" -->
+| Cover | What it looks like | Needs | Now | 225 to 227 |
+| --- | --- | --- | --- | --- |
+| Austin | A narrow card with a border right of centre, a dark block with the abstract, title, subtitle and author; a gradient behind | grid, color, picture | A | A (no card border) |
+| Banded | A band at the top, the title centred, a large band at the bottom with the author and company | color | A | R |
+| Element | A dark band low on the page with a colored strip on the left, the title, author, course and date in white | grid, color | A | R |
+| Facet | Facets across the top, the title, subtitle, abstract and author on the right below | picture | A | R |
+| Filigree | Centred, with ornaments above and below the title and rules around it, the date and company at the bottom | rows, images, thin rows as rules | A | R |
+| Grid | Two full-height colored columns, the title and abstract in the wide one, the subtitle in the narrow one | grid, color | A | R |
+| Insight 1 and 2 | A photograph across the top, a colored band with the title and subtitle, a strip at the bottom with three values left, centre and right | grid, color, image | A | R |
+| Integral | Two columns with a vertical rule between: a photograph, the title and subtitle on the left, the abstract and author on the right | grid, color (the rule), image | A | R |
+| Ion (Dark) | A dark gradient block with a curved lower edge and the title, a tab with the year at the top right | grid, color, picture | A | R |
+| Ion (Light) | A tab with the year at the top right, the title, subtitle and author below the middle | grid, color | A | R |
+| Motion | A colored band down the right with the year, the title on a black band that crosses it, a photograph | grid, color, image, overlap | A | A (no overlap) |
+| Retrospect | The title with a rule under it, a colored band at the bottom with a thin strip on top and the author and company | color, thin rows as rules | A | R |
+| Semaphore | A colored strip down the left, the date at the top right, the title, subtitle and author at the bottom right | grid, color | A | R |
+| Sideline | A rule beside the company, title and subtitle, the author and date at the bottom | grid, color (the rule) | A | R |
+| Slice (Dark) | A gradient over the whole page with diagonal lines, the title and subtitle at the bottom left | picture | A | R |
+| Slice (Light) | The title and subtitle at the top, diagonal lines, the school and course at the bottom right | picture | A | R |
+| ViewMaster | A black page with a grey strip on the left, the title, subtitle, author and company in white | grid, color | A | R |
+| Whisp | A dark strip down the left, a tab with the date, curves at the bottom, the title and author on the right | grid, color, picture | A | R |
+
+<!-- stanza: #nyw1why7k0 -->
+### Findings
+
+- **Placement already works.** With the rows of ADR 0089 the text of every cover can be put where it is, with the alignment of its paragraph styles; what is missing is color and decoration. All 19 are recognisable only with color.
+- **Grid and color reach 11 of 19,** and approximate the other 8. **With the background image, 18 of 19** are reproduced; Motion stays approximate, since its title band crosses the other parts.
+- **Rules are thin rows or columns with a color,** as Word's own covers draw them with filled rectangles: Filigree, Retrospect, Sideline and Integral need no paragraph or cell borders.
+- **A strip of three values,** left, centre and right (Insight), is a row of three columns.
+- **Gradients and curved or slanted shapes** (Austin, Ion Dark, Facet, the Slices, Whisp) are a background image; a solid color is the fallback.
+- **Text that is long,** such as the abstract on 4 covers, sits in rows of fixed height, so the diagnostic for text that does not fit (item 231) matters.
+- **Not needed by any of the 19:** rotated text, several tables in one area, overlapping areas (except Motion) and a second cover page.
+- **For the import (items 223 and 229):** the content controls map to tokens by their binding: title to `title`, subject to `field:subtitle`, author to `authors`, and the others to fields named after the property (`field:abstract`, `field:publish-date`, `field:company`, `field:company-address`, `field:company-email`, `field:category`). Anchored text boxes are the common case, not the exception.
+- **The corpus leans to design:** corporate templates, such as the controlled-document covers of the policy corpus above, are more often a logo, a title and a table, which the rows already reproduce. The imec template is still to be checked when it is available.
