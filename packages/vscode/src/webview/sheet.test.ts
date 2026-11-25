@@ -177,11 +177,68 @@ describe('createSheet', () => {
     update('title: "My title"\n');
     expect(titleBlock.hidden).toBe(false);
     expect([...titleBlock.querySelectorAll('p')].map((p) => [p.className, p.textContent])).toEqual([
+      ['stanza-p-body', '[assets/logo.png]'],
       ['stanza-p-cover-title', 'My title'],
     ]);
+    expect(titleBlock.querySelector('.image-missing')?.getAttribute('title')).toContain('PNG');
     expect(cover.hidden).toBe(true);
+    withPlace.update({ images: new Map([['assets/logo.png', 'data:image/png;base64,iVA=']]) });
+    const picture = titleBlock.querySelector('img');
+    expect(picture?.getAttribute('src')).toBe('data:image/png;base64,iVA=');
+    expect(picture?.getAttribute('alt')).toBe('');
+    expect(picture?.style.maxWidth).toBe('100%');
+    expect(picture?.style.width).toBe('');
     update('title: "My title"\npage-template: "page-letter"\n');
     expect(titleBlock.hidden).toBe(true);
+  });
+
+  it('draws a cover of rows with their heights, alignment, margins and images', () => {
+    const rows = [
+      '  page-rows:',
+      '    size: A4',
+      '    margins: { top: 72, right: 72, bottom: 72, left: 72 }',
+      '    cover:',
+      '      margins: { top: 36, left: 48, right: 48 }',
+      '      rows:',
+      '        - height: 100',
+      '          content:',
+      '            - { image: assets/logo.png, width: 150, style: cover-meta }',
+      '        - height: 2fr',
+      '          valign: bottom',
+      '          content:',
+      "            - { style: cover-title, text: '[Untitled](stanza:title)' }",
+      '        - height: 1fr',
+      '',
+    ].join('\n');
+    const text = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '../../../../fixtures/example-project/styles/default.yaml',
+      ),
+      'utf8',
+    ).replaceAll('\r\n', '\n');
+    const at = text.indexOf('\ntable-of-contents:');
+    const withRows = parseStylesheet(`${text.slice(0, at)}\n${rows}${text.slice(at)}`).stylesheet;
+    sheet.update({
+      stylesheet: withRows,
+      defaults: {},
+      document: documentOf('title: "My title"\npage-template: "page-rows"\n', BODY).document,
+      images: new Map([['assets/logo.png', 'data:image/png;base64,iVA=']]),
+    });
+    expect(cover.hidden).toBe(false);
+    expect(cover.style.padding).toBe('36pt 48pt 72pt');
+    const drawn = [...cover.querySelectorAll<HTMLElement>('.cover-row')];
+    // 733.9 pt between the margins, less 2 pt for the end of the section and the 100 pt row.
+    expect(drawn.map((row) => row.style.height)).toEqual(['100pt', '421.267pt', '210.633pt']);
+    expect(drawn.map((row) => row.style.justifyContent)).toEqual([
+      'flex-start',
+      'flex-end',
+      'flex-start',
+    ]);
+    expect(drawn[0]?.style.overflow).toBe('hidden');
+    expect(drawn[0]?.querySelector('img')?.style.width).toBe('150pt');
+    expect(drawn[1]?.textContent).toBe('My title');
+    expect(drawn[2]?.childNodes).toHaveLength(0);
   });
 
   it('has no cover for a template without one, and hides a header with nothing in it', () => {

@@ -5,13 +5,18 @@ import {
   PAGE_TEMPLATE_FIELD,
   RESERVED_TABLE_STYLE,
   applyDefaults,
-  coverBlocks,
-  titleBlockBlocks,
+  coverAreaHeightPt,
+  coverMargins,
+  coverRowHeightsPt,
+  fillCover,
+  fillEntries,
   numberHeadings,
   resolvePageTemplate,
   resolveTableStyle,
   slotValue,
   type Block,
+  type CoverAlignment,
+  type CoverItem,
   type Document,
   type DocumentMeta,
   type HeaderFooter,
@@ -24,7 +29,8 @@ import { paragraphClass, tableClass } from '@stanza/css';
 
 /**
  * The paper look of the editor (ADR 0028): the page of the selected template around the text, with
- * its header and footer in the margins, and the cover as a sheet of its own. It is a view of the
+ * its header and footer in the margins, the cover as a sheet of its own with its rows, margins and
+ * images (ADR 0089, item 222), and the title block above the text (ADR 0090). It is a view of the
  * template and the metadata. Nothing here is part of the document, and there is no pagination.
  */
 
@@ -38,6 +44,11 @@ export interface SheetInput {
   readonly stylesheet: Stylesheet;
   readonly defaults: ProjectDefaults;
   readonly document: Document;
+  /**
+   * The images of the covers and title blocks as data URLs, by their path in the project. An
+   * image that is not here is shown as a placeholder with its path.
+   */
+  readonly images?: ReadonlyMap<string, string>;
 }
 
 export interface SheetElements {
@@ -147,35 +158,145 @@ function drawBand(
 const textOf = (block: Block): string =>
   block.type === 'paragraph' ? block.content.map((inline) => inline.text).join('') : '';
 
-/** The cover as paragraphs and tables with the classes of their styles, as the editor writes them. */
-function drawCover(root: HTMLElement, blocks: readonly Block[], stylesheet: Stylesheet): void {
-  root.replaceChildren();
-  root.hidden = blocks.length === 0;
-  for (const block of blocks) {
-    if (block.type === 'paragraph') {
-      const paragraph = document.createElement('p');
-      paragraph.className = paragraphClass(block.style ?? BODY_STYLE);
-      paragraph.textContent = textOf(block);
-      root.append(paragraph);
-    } else if (block.type === 'table') {
-      const style = block.style ?? RESERVED_TABLE_STYLE;
-      const cellStyle = resolveTableStyle(stylesheet, style)?.cellStyle;
-      const table = document.createElement('table');
-      table.className = tableClass(style);
-      const body = table.createTBody();
-      for (const row of block.rows) {
-        const tr = body.insertRow();
-        for (const cell of row) {
-          const td = tr.insertCell();
-          td.className = paragraphClass(cellStyle ?? BODY_STYLE);
-          td.textContent = cell.blocks
-            .flatMap((cellBlock) => (cellBlock.type === 'paragraph' ? [textOf(cellBlock)] : []))
-            .join(' ');
-        }
-      }
-      root.append(table);
+/** A paragraph or a table of a cover, with the classes of its styles, as the editor writes them. */
+function blockElement(block: Block, stylesheet: Stylesheet): HTMLElement | undefined {
+  if (block.type === 'paragraph') {
+    const paragraph = document.createElement('p');
+    paragraph.className = paragraphClass(block.style ?? BODY_STYLE);
+    paragraph.textContent = textOf(block);
+    return paragraph;
+  }
+  if (block.type !== 'table') return undefined;
+  const style = block.style ?? RESERVED_TABLE_STYLE;
+  const cellStyle = resolveTableStyle(stylesheet, style)?.cellStyle;
+  const table = document.createElement('table');
+  table.className = tableClass(style);
+  const body = table.createTBody();
+  for (const row of block.rows) {
+    const tr = body.insertRow();
+    for (const cell of row) {
+      const td = tr.insertCell();
+      td.className = paragraphClass(cellStyle ?? BODY_STYLE);
+      td.textContent = cell.blocks
+        .flatMap((cellBlock) => (cellBlock.type === 'paragraph' ? [textOf(cellBlock)] : []))
+        .join(' ');
     }
   }
+  return table;
+}
+
+/**
+ * An image in a paragraph of its style, as wide as asked or as it is, and never wider than its
+ * place, with its aspect ratio kept, as Word shows it. One that the host did not send is a
+ * placeholder that names its path.
+ */
+function imageElement(
+  item: CoverItem & { kind: 'image' },
+  images: ReadonlyMap<string, string>,
+): HTMLElement {
+  const { image } = item;
+  const paragraph = document.createElement('p');
+  paragraph.className = paragraphClass(image.style ?? BODY_STYLE);
+  const source = images.get(image.path);
+  if (source === undefined) {
+    const missing = document.createElement('span');
+    missing.className = 'image-missing';
+    missing.textContent = `[${image.path}]`;
+    missing.title = 'The image is not in the project, or is not a PNG or JPEG file.';
+    paragraph.append(missing);
+    return paragraph;
+  }
+  const picture = document.createElement('img');
+  picture.src = source;
+  picture.alt = '';
+  if (image.widthPt !== undefined) picture.style.width = pt(image.widthPt);
+  picture.style.maxWidth = '100%';
+  picture.style.height = 'auto';
+  paragraph.append(picture);
+  return paragraph;
+}
+
+function itemElements(
+  items: readonly CoverItem[],
+  stylesheet: Stylesheet,
+  images: ReadonlyMap<string, string>,
+): HTMLElement[] {
+  return items.flatMap((item) => {
+    const element =
+      item.kind === 'image' ? imageElement(item, images) : blockElement(item.block, stylesheet);
+    return element === undefined ? [] : [element];
+  });
+}
+
+const JUSTIFY: Readonly<Record<CoverAlignment, string>> = {
+  top: 'flex-start',
+  center: 'center',
+  bottom: 'flex-end',
+};
+
+/**
+ * The cover on its sheet. A list is drawn from the top. Rows get the heights that the export
+ * writes, their alignment, and the margins of the cover; content that does not fit its row is cut
+ * off, as in Word.
+ */
+function drawCover(
+  root: HTMLElement,
+  template: PageTemplate,
+  meta: DocumentMeta,
+  stylesheet: Stylesheet,
+  images: ReadonlyMap<string, string>,
+): void {
+  root.replaceChildren();
+  root.style.padding = '';
+  const cover = template.cover;
+  const rows = cover === undefined ? undefined : fillCover(cover, meta);
+  root.hidden = rows === undefined;
+  if (cover === undefined || rows === undefined) return;
+  if (cover.kind === 'list') {
+    root.append(
+      ...itemElements(
+        rows.flatMap((row) => row.items),
+        stylesheet,
+        images,
+      ),
+    );
+    return;
+  }
+  const margins = coverMargins(template);
+  root.style.padding = [margins.topPt, margins.rightPt, margins.bottomPt, margins.leftPt]
+    .map(pt)
+    .join(' ');
+  const heights = coverRowHeightsPt(
+    rows.map((row) => row.height),
+    coverAreaHeightPt(template),
+  );
+  rows.forEach((row, index) => {
+    const element = document.createElement('div');
+    element.className = 'cover-row';
+    const height = heights[index];
+    if (height !== undefined) {
+      element.style.height = pt(height);
+      element.style.overflow = 'hidden';
+    }
+    element.style.display = 'flex';
+    element.style.flexDirection = 'column';
+    element.style.justifyContent = JUSTIFY[row.valign];
+    element.append(...itemElements(row.items, stylesheet, images));
+    root.append(element);
+  });
+}
+
+/** The title block above the text (ADR 0090), or nothing when no entry is left. */
+function drawTitleBlock(
+  root: HTMLElement,
+  template: PageTemplate,
+  meta: DocumentMeta,
+  stylesheet: Stylesheet,
+  images: ReadonlyMap<string, string>,
+): void {
+  const items = fillEntries(template.titleBlock ?? [], meta);
+  root.replaceChildren(...itemElements(items, stylesheet, images));
+  root.hidden = items.length === 0;
 }
 
 export function createSheet(elements: SheetElements): Sheet {
@@ -190,6 +311,7 @@ export function createSheet(elements: SheetElements): Sheet {
     update(patch) {
       state = { ...state, ...patch };
       const { stylesheet, defaults, document: current } = state;
+      const images = state.images ?? new Map<string, string>();
       if (stylesheet === undefined || defaults === undefined || current === undefined) return;
       const meta = applyDefaults({ defaults }, current.meta);
       const template = templateOf(stylesheet, meta);
@@ -198,9 +320,9 @@ export function createSheet(elements: SheetElements): Sheet {
       const section = sectionOf(current, stylesheet);
       drawBand(elements.header, template.header, meta, section);
       drawBand(elements.footer, template.footer, meta, section);
-      drawCover(elements.cover, coverBlocks(template.cover, meta), stylesheet);
+      drawCover(elements.cover, template, meta, stylesheet, images);
       if (elements.titleBlock !== undefined) {
-        drawCover(elements.titleBlock, titleBlockBlocks(template.titleBlock, meta), stylesheet);
+        drawTitleBlock(elements.titleBlock, template, meta, stylesheet, images);
       }
     },
   };

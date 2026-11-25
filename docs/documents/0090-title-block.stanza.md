@@ -22,7 +22,7 @@ Until now a document could only write such lines as content, which puts the look
 - **It is written at the start of the body,** before the first block of the document and so before its table of contents, on the same page. A template can have a cover, a title block, both or neither.
 - **It has no rows, no heights and no margins of its own.** Its entries flow from the top of the text area and the body follows them. Rows only place content on a page of fixed size, and that is what a cover is for.
 - **The rules of the entries are those of a cover:** a paragraph without text, a table row without a value and a table without rows are left out, and a title block with nothing left is not written. The pagination tokens (`page`, `pages`, `section`) are errors, with the codes of the cover. An image is at most as wide as the body text, with a warning when it is asked to be wider.
-- **The editor shows it** at the top of the page sheet, above the text, as it shows the cover: the text of its entries in their styles, without images (item 222). It is not part of the document and cannot be edited there.
+- **The editor shows it** at the top of the page sheet, above the text, as it shows the cover: its entries in their styles, with its images (item 222). It is not part of the document and cannot be edited there.
 - **The image diagnostics are named for images, not covers:** `image-not-found`, `image-unsupported`, `image-too-wide`, `image-too-tall` and `image-line-spacing`, since they apply to a title block too, and later to figures (item 163).
 
 The stylesheet stays at format version 1, since `title-block` is optional. The document format does not change.
@@ -44,4 +44,4 @@ The stylesheet stays at format version 1, since `title-block` is optional. The d
 <!-- stanza: #34wwcq1223 -->
 ## Not covered
 
-Columns in a title block (item 225), drawing images in the editor (item 222), and a title block that differs per document beyond its metadata.
+Columns in a title block (item 225), and a title block that differs per document beyond its metadata.

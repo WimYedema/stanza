@@ -94,7 +94,8 @@ const posted = (): HostMessage[] =>
       message.type !== 'usage' &&
       message.type !== 'diagnostics' &&
       message.type !== 'project-ready' &&
-      message.type !== 'review-round',
+      message.type !== 'review-round' &&
+      message.type !== 'images',
   );
 const diagnosticsPosted = (): Extract<HostMessage, { type: 'diagnostics' }>[] =>
   (world.posted as HostMessage[]).filter(
@@ -129,6 +130,34 @@ describe('the page of the editor', () => {
 });
 
 describe('starting', () => {
+  it('sends the images of the title block after the document, as data URLs (item 222)', async () => {
+    open(
+      CANONICAL,
+      '\n',
+      files({
+        '/w/p/styles/default.yaml': `${STYLESHEET}page-templates:\n  page:\n    title-block:\n      - image: assets/logo.png\n`,
+      }),
+    );
+    // The start of a PNG of 4 by 2 pixels: enough for its size to be read.
+    const logo = new Uint8Array(33);
+    logo.set([
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 4, 0, 0, 0, 2,
+    ]);
+    world.binary.set('/w/p/assets/logo.png', logo);
+    fromWebview({ type: 'ready' });
+    await settled(() => {
+      expect(world.posted).toContainEqual({
+        type: 'images',
+        images: {
+          'assets/logo.png': `data:image/png;base64,${Buffer.from(logo).toString('base64')}`,
+        },
+      });
+    });
+    const types = (world.posted as HostMessage[]).map((message) => message.type);
+    expect(types.indexOf('init')).toBeLessThan(types.indexOf('images'));
+    expect(types.filter((type) => type === 'images')).toHaveLength(1);
+  });
+
   it('sends project link schemes initially and refreshes changed or removed settings without source edits', async () => {
     open(
       CANONICAL,

@@ -92,7 +92,7 @@ The stylesheet stays at format version 1, since the map form and image entries a
 - A cover can place a logo, a title and a subtitle roughly where a corporate cover has them, with named styles only.
 - The cover is a table in Word. A reviewer who clicks on it sees table cells, which is how Word templates build covers too.
 - Text that is longer than its row is cut off in Word without a diagnostic.
-- The preview of the cover in the editor shows the text of its entries in order and not the rows or the images. Item 222 draws the rows.
+- The editor draws the cover on its sheet with the same rows, heights, alignment, margins and images (item 222). The host sends the images that the project read as data URLs, so the webview reads no files, and a missing image shows as its path. Text is laid out by the browser, so where it breaks lines may differ from Word.
 
 <!-- stanza: #773wjwfk0f -->
 ## Alternatives considered
@@ -105,4 +105,4 @@ The stylesheet stays at format version 1, since the map form and image entries a
 <!-- stanza: #3dnndpccvn -->
 ## Not covered
 
-Columns and areas (item 225), background colors (item 226), a background image (item 227), the title block (ADR 0090), drawing the rows in the editor (item 222) and SVG images.
+Columns and areas (item 225), background colors (item 226), a background image (item 227), the title block (ADR 0090) and SVG images.

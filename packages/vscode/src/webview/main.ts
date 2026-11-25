@@ -452,6 +452,9 @@ function handle(message: HostMessage): void {
       }
       return;
     }
+    case 'images':
+      pages.update({ images: new Map(Object.entries(message.images)) });
+      return;
     case 'defaults':
       pages.update({ defaults: message.defaults });
       metadata.update({ defaults: message.defaults });
