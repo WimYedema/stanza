@@ -6,9 +6,13 @@ import {
   RESERVED_TABLE_STYLE,
   applyDefaults,
   coverAreaHeightPt,
+  coverAreaWidthPt,
+  coverColumnWidthsPt,
+  coverGrid,
   coverMargins,
   coverRowHeightsPt,
   fillCover,
+  fillGrid,
   fillEntries,
   numberHeadings,
   resolvePageTemplate,
@@ -249,41 +253,61 @@ export function drawCover(
   root.replaceChildren();
   root.style.padding = '';
   const cover = template.cover;
-  const rows = cover === undefined ? undefined : fillCover(cover, meta);
-  root.hidden = rows === undefined;
-  if (cover === undefined || rows === undefined) return;
+  root.hidden = true;
+  if (cover === undefined) return;
   if (cover.kind === 'list') {
+    const rows = fillCover(cover, meta);
+    root.hidden = rows === undefined;
     root.append(
       ...itemElements(
-        rows.flatMap((row) => row.items),
+        (rows ?? []).flatMap((row) => row.items),
         stylesheet,
         images,
       ),
     );
     return;
   }
+  const grid = coverGrid(cover);
+  const areas = fillGrid(grid, meta);
+  root.hidden = areas === undefined;
+  if (areas === undefined) return;
   const margins = coverMargins(template);
   root.style.padding = [margins.topPt, margins.rightPt, margins.bottomPt, margins.leftPt]
     .map(pt)
     .join(' ');
-  const heights = coverRowHeightsPt(
-    rows.map((row) => row.height),
-    coverAreaHeightPt(template),
+  const widths = coverColumnWidthsPt(grid.columns, coverAreaWidthPt(template));
+  const heights = coverRowHeightsPt(grid.rows, coverAreaHeightPt(template));
+  const layout = document.createElement('div');
+  layout.className = 'cover-grid';
+  layout.style.display = 'grid';
+  layout.style.setProperty('grid-template-columns', widths.map(pt).join(' '));
+  layout.style.setProperty(
+    'grid-template-rows',
+    heights.map((height) => (height === undefined ? 'auto' : pt(height))).join(' '),
   );
-  rows.forEach((row, index) => {
+  for (const area of areas) {
     const element = document.createElement('div');
-    element.className = 'cover-row';
-    const height = heights[index];
-    if (height !== undefined) {
-      element.style.height = pt(height);
+    element.className = 'cover-area';
+    element.dataset['area'] = area.name;
+    element.dataset['row'] = String(area.row + 1);
+    element.dataset['column'] = String(area.column + 1);
+    element.style.setProperty('grid-row', `${String(area.row + 1)} / span ${String(area.rowSpan)}`);
+    element.style.setProperty(
+      'grid-column',
+      `${String(area.column + 1)} / span ${String(area.columnSpan)}`,
+    );
+    const spanned = heights.slice(area.row, area.row + area.rowSpan);
+    if (spanned.every((height) => height !== undefined)) {
+      element.style.height = pt(spanned.reduce<number>((sum, height) => sum + height, 0));
       element.style.overflow = 'hidden';
     }
     element.style.display = 'flex';
     element.style.flexDirection = 'column';
-    element.style.justifyContent = JUSTIFY[row.valign];
-    element.append(...itemElements(row.items, stylesheet, images));
-    root.append(element);
-  });
+    element.style.justifyContent = JUSTIFY[area.valign];
+    element.append(...itemElements(area.items, stylesheet, images));
+    layout.append(element);
+  }
+  root.append(layout);
 }
 
 /** The title block above the text (ADR 0090), or nothing when no entry is left. */

@@ -6,7 +6,7 @@ title: "ADR 0089: Cover rows and images"
 <!-- stanza: #2mwdtjbmtr -->
 # ADR 0089: Cover rows and images
 
-Status: Accepted. Backlog item 221, refining ADR 0019. The title block of ADR 0090 uses its entries and images; the image diagnostics were renamed there. Decided with the product owner on 2026-11-25.
+Status: Accepted. Backlog item 221, refining ADR 0019. The title block of ADR 0090 uses its entries and images; the image diagnostics were renamed there. ADR 0092 makes the rows a grid of one column. Decided with the product owner on 2026-11-25.
 
 <!-- stanza: #a6xwra81zp -->
 ## Context

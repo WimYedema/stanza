@@ -2,14 +2,18 @@ import {
   BODY_STYLE,
   coverAreaHeightPt,
   coverMargins,
+  coverColumnWidthsPt,
+  coverGrid,
   coverRowHeightsPt,
   fillCover,
   fillEntries,
+  fillGrid,
   naturalWidthPt,
   type Block,
   type CoverItem,
+  type CoverGrid,
   type DocumentMeta,
-  type FilledCoverRow,
+  type FilledArea,
   type ImageAsset,
   type PageTemplate,
 } from '@stanza/core';
@@ -29,11 +33,11 @@ import { buildBlocks, type BuildContext, type Child } from './content.js';
 import { pageGeometry, type PageGeometry } from './page.js';
 import { wordStyleId } from './style-ids.js';
 
-/** A cover as Word content: its own page and what goes on it (ADR 0019, ADR 0089). */
+/** A cover as Word content: its own page and what goes on it (ADR 0019, ADR 0089, ADR 0092). */
 export interface CoverSection {
   readonly page: PageGeometry;
   readonly children: readonly Child[];
-  /** True for a cover of rows, which is one layout table. */
+  /** True for a cover of rows or a grid, which is one layout table. */
   readonly rows: boolean;
 }
 
@@ -106,19 +110,18 @@ function itemChildren(
 }
 
 /**
- * The heights of the rows in twips, or undefined for one that grows. The shares are rounded, and
- * the last share row takes what the rounding leaves, so that the rows add up as computed.
+ * Sizes in twips, or undefined for a row that grows. The shares are rounded, and the last share
+ * takes what the rounding leaves, so that the sizes add up as computed.
  */
-function rowHeightsTwips(rows: readonly FilledCoverRow[], template: PageTemplate) {
-  const heights = coverRowHeightsPt(
-    rows.map((row) => row.height),
-    coverAreaHeightPt(template),
-  );
-  const result = heights.map((pt) => (pt === undefined ? undefined : twips(pt)));
-  const shares = rows.flatMap((row, index) => (row.height.kind === 'share' ? [index] : []));
+function sizesTwips(
+  kinds: readonly ('points' | 'share' | 'auto')[],
+  sizesPt: readonly (number | undefined)[],
+): (number | undefined)[] {
+  const result = sizesPt.map((pt) => (pt === undefined ? undefined : twips(pt)));
+  const shares = kinds.flatMap((kind, index) => (kind === 'share' ? [index] : []));
   const last = shares.at(-1);
   if (last !== undefined) {
-    const total = twips(shares.reduce((sum, index) => sum + (heights[index] ?? 0), 0));
+    const total = twips(shares.reduce((sum, index) => sum + (sizesPt[index] ?? 0), 0));
     const others = shares.slice(0, -1).reduce((sum, index) => sum + (result[index] ?? 0), 0);
     result[last] = Math.max(0, total - others);
   }
@@ -131,44 +134,83 @@ const VALIGN = {
   bottom: VerticalAlignTable.BOTTOM,
 } as const;
 
+const emptyParagraph = (): Paragraph => new Paragraph({ style: wordStyleId(BODY_STYLE) });
+
 /**
- * The rows of a cover as one borderless table as wide as the text, with one column. Its borders,
- * widths, cell margins, row heights and alignment are explicit, as layout that the stylesheet
- * computes (ADR 0089).
+ * The grid of a cover as one borderless table as wide as the text (ADR 0089, ADR 0092): a column
+ * for each column, a row for each row, and a cell for each area that spans its columns and rows. Its
+ * borders, widths, cell margins, row heights and alignment are explicit, as layout that the
+ * stylesheet computes.
  */
 function layoutTable(
-  rows: readonly FilledCoverRow[],
+  grid: CoverGrid,
+  areas: readonly FilledArea[],
   template: PageTemplate,
   page: PageGeometry,
   images: ReadonlyMap<string, ImageAsset>,
   context: BuildContext,
 ): Table {
   const width = page.textWidthTwips;
-  const heights = rowHeightsTwips(rows, template);
-  const widthPt = width / 20;
+  const columns = sizesTwips(
+    grid.columns.map((column) => column.kind),
+    coverColumnWidthsPt(grid.columns, width / 20),
+  ).map((value) => value ?? 0);
+  const heights = sizesTwips(
+    grid.rows.map((row) => row.kind),
+    coverRowHeightsPt(grid.rows, coverAreaHeightPt(template)),
+  );
+  const span = (from: number, count: number): number =>
+    columns.slice(from, from + count).reduce((sum, value) => sum + value, 0);
+  const owner = (row: number, column: number): FilledArea | undefined =>
+    areas.find(
+      (area) =>
+        row >= area.row &&
+        row < area.row + area.rowSpan &&
+        column >= area.column &&
+        column < area.column + area.columnSpan,
+    );
   return new Table({
     layout: TableLayoutType.FIXED,
     width: { size: width, type: WidthType.DXA },
-    columnWidths: [width],
+    columnWidths: columns,
     borders: TableBorders.NONE,
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    rows: rows.map((row, index) => {
-      const height = heights[index];
-      // A cover has no table of contents, so its children are paragraphs and tables.
-      const children = itemChildren(row.items, images, widthPt, context).filter(
-        (child): child is Paragraph | Table => child instanceof Paragraph || child instanceof Table,
-      );
+    rows: grid.rows.map((_, row) => {
+      const height = heights[row];
+      const cells: TableCell[] = [];
+      columns.forEach((columnWidth, column) => {
+        const area = owner(row, column);
+        if (area === undefined) {
+          cells.push(
+            new TableCell({
+              width: { size: columnWidth, type: WidthType.DXA },
+              children: [emptyParagraph()],
+            }),
+          );
+          return;
+        }
+        // The library writes the cells below the first row of an area that spans rows.
+        if (area.row !== row || area.column !== column) return;
+        const areaWidth = span(area.column, area.columnSpan);
+        // A cover has no table of contents, so its children are paragraphs and tables.
+        const children = itemChildren(area.items, images, areaWidth / 20, context).filter(
+          (child): child is Paragraph | Table =>
+            child instanceof Paragraph || child instanceof Table,
+        );
+        cells.push(
+          new TableCell({
+            width: { size: areaWidth, type: WidthType.DXA },
+            verticalAlign: VALIGN[area.valign],
+            ...(area.columnSpan > 1 ? { columnSpan: area.columnSpan } : {}),
+            ...(area.rowSpan > 1 ? { rowSpan: area.rowSpan } : {}),
+            children: children.length > 0 ? children : [emptyParagraph()],
+          }),
+        );
+      });
       return new TableRow({
         cantSplit: true,
         ...(height !== undefined ? { height: { value: height, rule: HeightRule.EXACT } } : {}),
-        children: [
-          new TableCell({
-            width: { size: width, type: WidthType.DXA },
-            verticalAlign: VALIGN[row.valign],
-            children:
-              children.length > 0 ? children : [new Paragraph({ style: wordStyleId(BODY_STYLE) })],
-          }),
-        ],
+        children: cells,
       });
     }),
   });
@@ -186,16 +228,17 @@ export function buildCover(
 ): CoverSection | undefined {
   const { cover } = template;
   if (cover === undefined) return undefined;
-  const rows = fillCover(cover, meta);
-  if (rows === undefined) return undefined;
   const page = pageGeometry({ ...template, margins: coverMargins(template) });
   const here: BuildContext = { ...context, page, headingLabels: [] };
   if (cover.kind === 'list') {
-    const items = rows.flatMap((row) => row.items);
+    const items = fillCover(cover, meta)?.flatMap((row) => row.items) ?? [];
     const children = itemChildren(items, images, page.textWidthTwips / 20, here);
     return children.length === 0 ? undefined : { page, children, rows: false };
   }
-  return { page, children: [layoutTable(rows, template, page, images, here)], rows: true };
+  const grid = coverGrid(cover);
+  const areas = fillGrid(grid, meta);
+  if (areas === undefined) return undefined;
+  return { page, children: [layoutTable(grid, areas, template, page, images, here)], rows: true };
 }
 
 /**

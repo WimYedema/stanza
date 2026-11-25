@@ -396,6 +396,7 @@ describe('parseStylesheet', () => {
         ),
       ),
     ).toEqual([
+      ['unknown-property', 'page-templates.page.cover.margins.middle'],
       ['unknown-property', 'page-templates.page.cover.rows[0].size'],
       ['invalid-value', 'page-templates.page.cover.rows[0].height'],
       ['invalid-value', 'page-templates.page.cover.rows[0].valign'],
@@ -403,7 +404,6 @@ describe('parseStylesheet', () => {
       ['invalid-value', 'page-templates.page.cover.rows[1].content[0]'],
       ['unknown-property', 'page-templates.page.cover.rows[1].content[1].width'],
       ['invalid-type', 'page-templates.page.cover.rows[1].content[2].image'],
-      ['unknown-property', 'page-templates.page.cover.margins.middle'],
     ]);
   });
 

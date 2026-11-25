@@ -1,10 +1,12 @@
 import {
   coverAreaHeightPt,
   coverAreaWidthPt,
+  coverColumnWidthsPt,
   coverRowHeightsPt,
   isSafeRelativePath,
   PAGE_SIZES,
   naturalWidthPt,
+  placeAreas,
   readImageInfo,
   type CoverImage,
   type ImageAsset,
@@ -20,7 +22,7 @@ interface FoundImage {
   readonly at: string;
   /** The width that the image has at most: of the cover page, or of the body text. */
   readonly maxWidthPt: number;
-  /** The height of its row in points, when the row has one. */
+  /** The height of its row, or of the rows of its area, in points, when they have one. */
   readonly rowHeightPt: number | undefined;
 }
 
@@ -29,8 +31,8 @@ const textWidthPt = (template: PageTemplate): number =>
   PAGE_SIZES[template.size].widthPt - template.margins.leftPt - template.margins.rightPt;
 
 /**
- * Each image entry of the covers and title blocks of a stylesheet (ADR 0089, ADR 0090), with its
- * place in the stylesheet.
+ * Each image entry of the covers and title blocks of a stylesheet (ADR 0089, ADR 0090, ADR 0092),
+ * with its place in the stylesheet.
  */
 function imageEntries(stylesheet: Stylesheet): FoundImage[] {
   const found: FoundImage[] = [];
@@ -55,21 +57,45 @@ function imageEntries(stylesheet: Stylesheet): FoundImage[] {
       });
       continue;
     }
-    const heights = coverRowHeightsPt(
-      cover.rows.map((row) => row.height),
-      coverAreaHeightPt(template),
-    );
-    cover.rows.forEach((row, rowIndex) => {
-      row.content.forEach((entry, index) => {
+    if (cover.kind === 'rows') {
+      const heights = coverRowHeightsPt(
+        cover.rows.map((row) => row.height),
+        coverAreaHeightPt(template),
+      );
+      cover.rows.forEach((row, rowIndex) => {
+        row.content.forEach((entry, index) => {
+          if (entry.kind !== 'image') return;
+          found.push({
+            entry,
+            at: `${here}.rows[${String(rowIndex)}].content[${String(index)}]`,
+            maxWidthPt,
+            rowHeightPt: heights[rowIndex],
+          });
+        });
+      });
+      continue;
+    }
+    // A grid (ADR 0092): an image has the width of its area, and the height of the rows it spans.
+    const widths = coverColumnWidthsPt(cover.columns, maxWidthPt);
+    const heights = coverRowHeightsPt(cover.rows, coverAreaHeightPt(template));
+    for (const placed of placeAreas(cover.areas, cover.columns.length).areas) {
+      const spanned = heights.slice(placed.row, placed.row + placed.rowSpan);
+      const areaHeight = spanned.every((height) => height !== undefined)
+        ? spanned.reduce<number>((sum, height) => sum + height, 0)
+        : undefined;
+      const areaWidth = widths
+        .slice(placed.column, placed.column + placed.columnSpan)
+        .reduce((sum, width) => sum + width, 0);
+      cover.area[placed.name]?.content.forEach((entry, index) => {
         if (entry.kind !== 'image') return;
         found.push({
           entry,
-          at: `${here}.rows[${String(rowIndex)}].content[${String(index)}]`,
-          maxWidthPt,
-          rowHeightPt: heights[rowIndex],
+          at: `${here}.area.${placed.name}.content[${String(index)}]`,
+          maxWidthPt: areaWidth,
+          rowHeightPt: areaHeight,
         });
       });
-    });
+    }
   }
   return found;
 }

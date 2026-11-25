@@ -5,7 +5,9 @@ import {
   coverBlocks,
   coverMargins,
   coverRowHeightsPt,
+  coverGrid,
   fillCover,
+  fillGrid,
   titleBlockBlocks,
 } from './cover.js';
 import type { DocumentMeta } from './document.js';
@@ -96,16 +98,16 @@ describe('cover rows', () => {
   };
   const missing: CoverEntry = { kind: 'paragraph', text: [field('none')] };
 
-  it('keeps every row, with empty ones, and leaves images in place', () => {
-    const rows = fillCover(
-      {
+  it('keeps every row of a grid, with empty ones, and leaves images in place', () => {
+    const rows = fillGrid(
+      coverGrid({
         kind: 'rows',
         rows: [
           { height: { kind: 'points', pt: 90 }, valign: 'top', content: [logo] },
           { height: { kind: 'share', fr: 1 }, valign: 'bottom', content: [missing, title] },
           { height: { kind: 'share', fr: 1 }, valign: 'top', content: [] },
         ],
-      },
+      }),
       meta,
     );
     expect(rows?.map((row) => row.items.map((item) => item.kind))).toEqual([
@@ -117,7 +119,7 @@ describe('cover rows', () => {
 
   it('is nothing when no entry is left, and a list is one row that grows', () => {
     const empty = { height: { kind: 'auto' }, valign: 'top', content: [missing] } as const;
-    expect(fillCover({ kind: 'rows', rows: [empty] }, meta)).toBeUndefined();
+    expect(fillGrid(coverGrid({ kind: 'rows', rows: [empty] }), meta)).toBeUndefined();
     expect(fillCover({ kind: 'list', entries: [title] }, meta)).toEqual([
       {
         height: { kind: 'auto' },

@@ -1,4 +1,4 @@
-import type { Cover, CoverEntry, CoverRowHeight, PageMargins } from '@stanza/core';
+import type { Cover, CoverEntry, CoverGrid, CoverRowHeight, PageMargins } from '@stanza/core';
 import { slotSource } from './slot-source.js';
 
 /**
@@ -77,10 +77,55 @@ export function entriesSource(entries: readonly CoverEntry[]): string {
   return entries.length === 0 ? '[]' : entriesLines(entries).join('\n');
 }
 
-/** The value of a `cover`: a list of entries (ADR 0019), or its margins and rows (ADR 0089). */
+/** A size in a list, such as `120` or `'2fr'`, and `auto` for a row that grows. */
+const sizeText = (size: CoverRowHeight): string =>
+  size.kind === 'points'
+    ? String(size.pt)
+    : size.kind === 'share'
+      ? `${String(size.fr)}fr`
+      : 'auto';
+
+/** The lines of a grid (ADR 0092), with the names of each line of areas lined up in columns. */
+function gridLines(cover: CoverGrid, margins: string | undefined): string[] {
+  const widths = cover.areas.reduce<number[]>((max, line) => {
+    line.forEach((name, column) => {
+      max[column] = Math.max(max[column] ?? 0, name.length);
+    });
+    return max;
+  }, []);
+  const areaLines = cover.areas.map((line) =>
+    line
+      .map((name, column) => (column === line.length - 1 ? name : name.padEnd(widths[column] ?? 0)))
+      .join(' '),
+  );
+  const areas = Object.entries(cover.area).flatMap(([name, area]) => {
+    const lines = [
+      ...(area.valign !== 'top' ? [`valign: ${area.valign}`] : []),
+      ...(area.content.length > 0
+        ? ['content:', ...indent(entriesLines(area.content), '  ')]
+        : ['content: []']),
+    ];
+    return [`${name}:`, ...indent(lines, '  ')];
+  });
+  return [
+    ...(margins !== undefined ? [`margins: ${margins}`] : []),
+    `columns: [${cover.columns.map(sizeText).join(', ')}]`,
+    `rows: [${cover.rows.map(sizeText).join(', ')}]`,
+    ...(areaLines.length > 0
+      ? ['areas:', ...areaLines.map((line) => `  - ${quoted(line)}`)]
+      : ['areas: []']),
+    ...(areas.length > 0 ? ['area:', ...indent(areas, '  ')] : []),
+  ];
+}
+
+/**
+ * The value of a `cover`: a list of entries (ADR 0019), its margins and rows (ADR 0089), or its
+ * margins and grid (ADR 0092).
+ */
 export function coverSource(cover: Cover): string {
   if (cover.kind === 'list') return entriesSource(cover.entries);
   const margins = cover.margins === undefined ? undefined : marginsText(cover.margins);
+  if (cover.kind === 'grid') return gridLines(cover, margins).join('\n');
   const rows = cover.rows.flatMap((row) => {
     const height = heightText(row.height);
     const lines = [

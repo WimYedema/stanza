@@ -202,11 +202,42 @@ export type Cover =
       readonly kind: 'rows';
       readonly margins?: Partial<PageMargins>;
       readonly rows: readonly CoverLayoutRow[];
-    };
+    }
+  | CoverGrid;
 
-/** The entries of a cover, from top to bottom. */
+/** The width of a grid column: in points, or a share of what is left (ADR 0092). */
+export type CoverColumnWidth =
+  | { readonly kind: 'points'; readonly pt: number }
+  | { readonly kind: 'share'; readonly fr: number };
+
+/** The content of a named area of a grid. */
+export interface CoverArea {
+  readonly valign: CoverAlignment;
+  readonly content: readonly CoverEntry[];
+}
+
+/**
+ * A cover divided into columns and rows, with named areas that span them, as the template areas of
+ * a CSS grid (ADR 0092). `areas` has a line for each row and a name for each column, or `.` for a
+ * cell of no area.
+ */
+export interface CoverGrid {
+  readonly kind: 'grid';
+  readonly margins?: Partial<PageMargins>;
+  readonly columns: readonly CoverColumnWidth[];
+  readonly rows: readonly CoverRowHeight[];
+  readonly areas: readonly (readonly string[])[];
+  readonly area: Readonly<Record<string, CoverArea>>;
+}
+
+/** The name of a grid cell that belongs to no area. */
+export const EMPTY_AREA = '.';
+
+/** The entries of a cover, from top to bottom; for a grid, by area in the order they are given. */
 export function coverEntries(cover: Cover): readonly CoverEntry[] {
-  return cover.kind === 'list' ? cover.entries : cover.rows.flatMap((row) => row.content);
+  if (cover.kind === 'list') return cover.entries;
+  if (cover.kind === 'rows') return cover.rows.flatMap((row) => row.content);
+  return Object.values(cover.area).flatMap((area) => area.content);
 }
 
 /** The images that the covers and title blocks of page templates show, by path, without repeats. */

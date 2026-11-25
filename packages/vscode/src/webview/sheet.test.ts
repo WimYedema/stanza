@@ -227,7 +227,7 @@ describe('createSheet', () => {
     });
     expect(cover.hidden).toBe(false);
     expect(cover.style.padding).toBe('36pt 48pt 72pt');
-    const drawn = [...cover.querySelectorAll<HTMLElement>('.cover-row')];
+    const drawn = [...cover.querySelectorAll<HTMLElement>('.cover-area')];
     // 733.9 pt between the margins, less 2 pt for the end of the section and the 100 pt row.
     expect(drawn.map((row) => row.style.height)).toEqual(['100pt', '421.267pt', '210.633pt']);
     expect(drawn.map((row) => row.style.justifyContent)).toEqual([

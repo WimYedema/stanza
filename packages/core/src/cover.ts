@@ -2,12 +2,14 @@ import type { Block, DocumentMeta, Text } from './document.js';
 import { slotText } from './slot-values.js';
 import { PAGE_SIZES } from './page-template.js';
 import {
+  EMPTY_AREA,
   coverEntries,
   type Cover,
   type CoverAlignment,
+  type CoverColumnWidth,
   type CoverEntry,
+  type CoverGrid,
   type CoverImage,
-  type CoverLayoutRow,
   type CoverRowHeight,
   type PageMargins,
   type PageTemplate,
@@ -71,26 +73,130 @@ export const fillEntries = (entries: readonly CoverEntry[], meta: DocumentMeta):
   });
 
 /**
- * The rows of a cover with the metadata filled in, or undefined when no entry is left, so that
- * the cover is not written. Rows that are empty stay, since they hold the place of the rows below.
+ * The entries of a list cover with the metadata filled in, as one row that grows, or undefined when
+ * no entry is left, so that the cover is not written.
  */
 export function fillCover(cover: Cover, meta: DocumentMeta): readonly FilledCoverRow[] | undefined {
-  const rows: readonly CoverLayoutRow[] =
-    cover.kind === 'list'
-      ? [{ height: { kind: 'auto' }, valign: 'top', content: cover.entries }]
-      : cover.rows;
-  const filled = rows.map((row) => ({
-    height: row.height,
-    valign: row.valign,
-    items: fillEntries(row.content, meta),
-  }));
-  return filled.some((row) => row.items.length > 0) ? filled : undefined;
+  const entries = coverEntries(cover);
+  const items = fillEntries(entries, meta);
+  return items.length > 0 ? [{ height: { kind: 'auto' }, valign: 'top', items }] : undefined;
+}
+
+/** An area of a grid where it is: the row and column of its top left cell, and its spans. */
+export interface PlacedArea {
+  readonly name: string;
+  readonly row: number;
+  readonly column: number;
+  readonly rowSpan: number;
+  readonly columnSpan: number;
+}
+
+/** The areas of a grid in the order of their top left cells, and what is wrong with its shape. */
+export interface GridShape {
+  readonly areas: readonly PlacedArea[];
+  readonly problems: readonly string[];
 }
 
 /**
- * The blocks of a cover page, with the metadata filled in, in order. Images are left out: this is
- * what the editor shows of a cover until it draws the rows (item 222).
+ * Where the areas of a grid are (ADR 0092). Each line must have a name for each column, and the
+ * cells of a name must form a rectangle; `.` is a cell of no area.
  */
+export function placeAreas(areas: readonly (readonly string[])[], columns: number): GridShape {
+  const problems: string[] = [];
+  const cells = new Map<string, { row: number; column: number }[]>();
+  areas.forEach((line, row) => {
+    if (line.length !== columns) {
+      problems.push(
+        `Row ${String(row + 1)} has ${String(line.length)} names for ${String(columns)} columns.`,
+      );
+    }
+    line.forEach((name, column) => {
+      if (name === EMPTY_AREA) return;
+      const list = cells.get(name) ?? [];
+      list.push({ row, column });
+      cells.set(name, list);
+    });
+  });
+  const placed: PlacedArea[] = [];
+  for (const [name, list] of cells) {
+    const rows = list.map((cell) => cell.row);
+    const columnsOf = list.map((cell) => cell.column);
+    const row = Math.min(...rows);
+    const column = Math.min(...columnsOf);
+    const rowSpan = Math.max(...rows) - row + 1;
+    const columnSpan = Math.max(...columnsOf) - column + 1;
+    const filled = list.length === rowSpan * columnSpan;
+    if (!filled) problems.push(`The area "${name}" is not a rectangle.`);
+    else placed.push({ name, row, column, rowSpan, columnSpan });
+  }
+  placed.sort((a, b) => a.row - b.row || a.column - b.column);
+  return { areas: placed, problems };
+}
+
+/**
+ * A cover of rows as a grid of one column with an area for each row (ADR 0092), so that rows and
+ * grids are written and drawn the same way. A grid is itself.
+ */
+export function coverGrid(cover: Cover & { readonly kind: 'rows' | 'grid' }): CoverGrid {
+  if (cover.kind === 'grid') return cover;
+  const name = (index: number): string => `row-${String(index + 1)}`;
+  return {
+    kind: 'grid',
+    ...(cover.margins !== undefined ? { margins: cover.margins } : {}),
+    columns: [{ kind: 'share', fr: 1 }],
+    rows: cover.rows.map((row) => row.height),
+    areas: cover.rows.map((_, index) => [name(index)]),
+    area: Object.fromEntries(
+      cover.rows.map((row, index) => [name(index), { valign: row.valign, content: row.content }]),
+    ),
+  };
+}
+
+/** An area of a grid with the metadata of its entries filled in. */
+export interface FilledArea extends PlacedArea {
+  readonly valign: CoverAlignment;
+  readonly items: readonly CoverItem[];
+}
+
+/**
+ * The areas of a grid with the metadata filled in, or undefined when no entry is left, so that the
+ * cover is not written. Empty areas stay, since they hold their place.
+ */
+export function fillGrid(grid: CoverGrid, meta: DocumentMeta): readonly FilledArea[] | undefined {
+  const areas = placeAreas(grid.areas, grid.columns.length).areas.map((placed) => {
+    const area = grid.area[placed.name];
+    return {
+      ...placed,
+      valign: area?.valign ?? 'top',
+      items: area === undefined ? [] : fillEntries(area.content, meta),
+    };
+  });
+  return areas.some((area) => area.items.length > 0) ? areas : undefined;
+}
+
+/**
+ * The width of each column in points: those in points as they are, and shares of what they leave of
+ * the width of the cover page. Nothing is left for shares when the columns in points take it all.
+ */
+export function coverColumnWidthsPt(
+  columns: readonly CoverColumnWidth[],
+  areaWidthPt: number,
+): number[] {
+  const fixed = columns.reduce(
+    (sum, column) => sum + (column.kind === 'points' ? column.pt : 0),
+    0,
+  );
+  const shares = columns.reduce(
+    (sum, column) => sum + (column.kind === 'share' ? column.fr : 0),
+    0,
+  );
+  const left = Math.max(0, areaWidthPt - fixed);
+  return columns.map((column) =>
+    column.kind === 'points' ? column.pt : shares > 0 ? (left * column.fr) / shares : 0,
+  );
+}
+
+/** The blocks of a cover page, with the metadata filled in, in order, without its images. */
 export function coverBlocks(cover: Cover | undefined, meta: DocumentMeta): Block[] {
   if (cover === undefined) return [];
   return blocksOf(fillEntries(coverEntries(cover), meta));
@@ -112,7 +218,8 @@ export function titleBlockBlocks(
 
 /** The margins of the cover page: its own, and the template's for the sides it leaves out. */
 export function coverMargins(template: PageTemplate): PageMargins {
-  const own = template.cover?.kind === 'rows' ? template.cover.margins : undefined;
+  const cover = template.cover;
+  const own = cover === undefined || cover.kind === 'list' ? undefined : cover.margins;
   return { ...template.margins, ...own };
 }
 

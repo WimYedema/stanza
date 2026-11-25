@@ -241,6 +241,23 @@ describe('the cover editor', () => {
     ]);
   });
 
+  it('shows a grid as edited in the text, and does not change it (ADR 0092)', () => {
+    show(
+      `${BASE}    cover:\n      columns: [1fr, 100]\n      rows: [1fr]\n      areas:\n        - title side\n      area:\n        title:\n          content: []\n`,
+    );
+    const kind = kindOf(0);
+    expect(kind.disabled).toBe(true);
+    expect(kind.value).toBe('grid');
+    expect(editor.element.textContent).toContain(
+      'a grid of 2 columns and 1 rows with the areas title',
+    );
+    expect(editor.element.querySelectorAll('.cover-row-box')).toHaveLength(0);
+    change(kindOf(1), 'entries');
+    applyLast();
+    expect(templateOf(stylesheetOf(text)).cover?.kind).toBe('grid');
+    expect(templateOf(stylesheetOf(text)).titleBlock).toEqual([]);
+  });
+
   it('draws the stylesheet again after a refusal', () => {
     show(ROWS);
     buttonOf('Remove the row').click();

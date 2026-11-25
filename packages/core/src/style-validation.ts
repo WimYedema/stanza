@@ -1,6 +1,6 @@
 import type { Diagnostic, Fix } from './diagnostic.js';
 import { BODY_STYLE } from './default-styles.js';
-import { COVER_END_RESERVE_PT, coverAreaHeightPt, coverAreaWidthPt } from './cover.js';
+import { COVER_END_RESERVE_PT, coverAreaHeightPt, coverAreaWidthPt, placeAreas } from './cover.js';
 import { MIN_TEXT_AREA_PT, PAGE_SIZES, PAGE_SIZE_NAMES } from './page-template.js';
 import { isSafeRelativePath } from './project.js';
 import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
@@ -20,6 +20,7 @@ import {
   type Border,
   type ColorValue,
   type CoverEntry,
+  type CoverGrid,
   type FontValue,
   type LineSpacing,
   type PageTemplate,
@@ -349,6 +350,48 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         checkCoverParts(row.value, `${here}.table.rows[${String(rowIndex)}].value`);
       });
     };
+    const checkGrid = (grid: CoverGrid, page: PageTemplate, here: string): void => {
+      grid.columns.forEach((column, index) => {
+        const where = `${here}.columns[${String(index)}]`;
+        if (column.kind === 'points' && !(Number.isFinite(column.pt) && column.pt > 0)) {
+          error('invalid-value', 'A width must be a number of points above 0.', where);
+        }
+        if (column.kind === 'share' && !(Number.isFinite(column.fr) && column.fr > 0)) {
+          error('invalid-value', 'A share must be above 0, such as "1fr".', where);
+        }
+      });
+      if (grid.areas.length !== grid.rows.length) {
+        error(
+          'cover-areas-shape',
+          `The areas have ${String(grid.areas.length)} lines for ${String(grid.rows.length)} rows.`,
+          `${here}.areas`,
+        );
+      }
+      for (const problem of placeAreas(grid.areas, grid.columns.length).problems) {
+        error('cover-areas-shape', problem, `${here}.areas`);
+      }
+      const named = new Set(grid.areas.flat());
+      for (const [name, area] of Object.entries(grid.area)) {
+        if (!named.has(name)) {
+          error('unknown-cover-area', `The areas have no area "${name}".`, `${here}.area.${name}`);
+        }
+        area.content.forEach((entry, index) => {
+          checkEntry(entry, `${here}.area.${name}.content[${String(index)}]`);
+        });
+      }
+      const fixed = grid.columns.reduce(
+        (sum, column) => sum + (column.kind === 'points' ? column.pt : 0),
+        0,
+      );
+      const width = coverAreaWidthPt(page);
+      if (width >= MIN_TEXT_AREA_PT && fixed > width) {
+        error(
+          'cover-too-wide',
+          `The columns are ${String(Math.round(fixed))} pt wide together, more than the ${String(Math.floor(width))} pt of the cover page.`,
+          `${here}.columns`,
+        );
+      }
+    };
     const checkCover = (page: PageTemplate, here: string): void => {
       const cover = page.cover;
       if (cover === undefined) return;
@@ -358,26 +401,29 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         });
         return;
       }
-      cover.rows.forEach((row, index) => {
-        const rowPath = `${here}.rows[${String(index)}]`;
-        if (
-          row.height.kind === 'points' &&
-          !(Number.isFinite(row.height.pt) && row.height.pt > 0)
-        ) {
-          error(
-            'invalid-value',
-            'A height must be a number of points above 0.',
-            `${rowPath}.height`,
-          );
+      const heights = cover.kind === 'grid' ? cover.rows : cover.rows.map((row) => row.height);
+      const heightPath = (index: number): string =>
+        cover.kind === 'grid'
+          ? `${here}.rows[${String(index)}]`
+          : `${here}.rows[${String(index)}].height`;
+      heights.forEach((height, index) => {
+        if (height.kind === 'points' && !(Number.isFinite(height.pt) && height.pt > 0)) {
+          error('invalid-value', 'A height must be a number of points above 0.', heightPath(index));
         }
-        if (row.height.kind === 'share' && !(Number.isFinite(row.height.fr) && row.height.fr > 0)) {
-          error('invalid-value', 'A share must be above 0, such as "1fr".', `${rowPath}.height`);
+        if (height.kind === 'share' && !(Number.isFinite(height.fr) && height.fr > 0)) {
+          error('invalid-value', 'A share must be above 0, such as "1fr".', heightPath(index));
         }
-        row.content.forEach((entry, entryIndex) => {
-          checkEntry(entry, `${rowPath}.content[${String(entryIndex)}]`);
-        });
       });
-      const kinds = new Set(cover.rows.map((row) => row.height.kind));
+      if (cover.kind === 'rows') {
+        cover.rows.forEach((row, index) => {
+          row.content.forEach((entry, entryIndex) => {
+            checkEntry(entry, `${here}.rows[${String(index)}].content[${String(entryIndex)}]`);
+          });
+        });
+      } else {
+        checkGrid(cover, page, here);
+      }
+      const kinds = new Set(heights.map((height) => height.kind));
       if (kinds.has('share') && kinds.has('auto')) {
         error(
           'cover-share-with-auto',
@@ -404,8 +450,8 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         );
         return;
       }
-      const fixed = cover.rows.reduce(
-        (sum, row) => sum + (row.height.kind === 'points' ? row.height.pt : 0),
+      const fixed = heights.reduce(
+        (sum, height) => sum + (height.kind === 'points' ? height.pt : 0),
         0,
       );
       if (fixed > height - COVER_END_RESERVE_PT) {

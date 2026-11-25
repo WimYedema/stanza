@@ -23,7 +23,12 @@ async function buildExample(name: string) {
  */
 describe('the example projects', () => {
   it('are there', () => {
-    expect(exampleNames()).toEqual(['classic-cover', 'corporate-report', 'plain-memo']);
+    expect(exampleNames()).toEqual([
+      'classic-cover',
+      'corporate-report',
+      'plain-memo',
+      'technical-note',
+    ]);
   });
 
   it.each(exampleNames())(
@@ -42,6 +47,7 @@ describe('the example projects', () => {
   it.each([
     ['corporate-report', 'build/documents/annual-review.docx'],
     ['classic-cover', 'build/documents/field-guide.docx'],
+    ['technical-note', 'build/documents/cache-design.docx'],
   ])('%s has a cover of rows with its image', async (name, path) => {
     const { written } = await buildExample(name);
     const files = unzipSync(written.get(path) ?? new Uint8Array());

@@ -105,6 +105,63 @@ describe('the images of a cover', () => {
     ]);
   });
 
+  it('warns about an image wider than its area of a grid, or higher than the rows it spans', async () => {
+    const loaded = await load(
+      [
+        '      columns: [100, 1fr]',
+        '      rows: [40, 30, 1fr]',
+        '      areas:',
+        '        - mark  title',
+        '        - mark  title',
+        '        - .     title',
+        '      area:',
+        '        mark:',
+        '          content:',
+        '            - image: assets/mark.png',
+      ].join('\n'),
+      { 'assets/mark.png': png(160, 160) },
+    );
+    expect(findings(loaded)).toEqual([
+      [
+        'warning',
+        'image-too-wide',
+        'styles.yaml',
+        'page-templates.page.cover.area.mark.content[0].image',
+      ],
+      // Made 100 pt wide, it is 100 pt high, more than the 70 pt of the rows of its area.
+      [
+        'warning',
+        'image-too-tall',
+        'styles.yaml',
+        'page-templates.page.cover.area.mark.content[0].image',
+      ],
+    ]);
+    const tall = await load(
+      [
+        '      columns: [200, 1fr]',
+        '      rows: [40, 30, 1fr]',
+        '      areas:',
+        '        - mark  title',
+        '        - mark  title',
+        '        - .     title',
+        '      area:',
+        '        mark:',
+        '          content:',
+        '            - image: assets/mark.png',
+      ].join('\n'),
+      { 'assets/mark.png': png(160, 160) },
+    );
+    // 120 pt high in the 70 pt of the two rows of its area.
+    expect(findings(tall)).toEqual([
+      [
+        'warning',
+        'image-too-tall',
+        'styles.yaml',
+        'page-templates.page.cover.area.mark.content[0].image',
+      ],
+    ]);
+  });
+
   it('reads the images of a title block, which may be as wide as the body text', async () => {
     const storage = memoryStorage(
       {

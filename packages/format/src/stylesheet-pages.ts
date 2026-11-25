@@ -5,7 +5,11 @@ import {
   RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
   type Cover,
+  type CoverAlignment,
+  type CoverArea,
+  type CoverColumnWidth,
   type CoverEntry,
+  type CoverGrid,
   type CoverLayoutRow,
   type CoverRow,
   type CoverRowHeight,
@@ -145,18 +149,116 @@ function readEntries(value: unknown, path: string, report: Report): CoverEntry[]
 /** A share of what is left, such as `1fr` or `0.5fr` (ADR 0089). */
 const SHARE = /^(\d+(?:\.\d+)?)fr$/;
 
-function readHeight(map: Data, path: string, report: Report): CoverRowHeight {
-  const value = map['height'];
-  if (value === undefined) return { kind: 'auto' };
+/** A size in points or a share such as `1fr`, or undefined after a report. */
+function readSize(
+  value: unknown,
+  path: string,
+  report: Report,
+  what: string,
+): { kind: 'points'; pt: number } | { kind: 'share'; fr: number } | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return { kind: 'points', pt: value };
   const share = typeof value === 'string' ? SHARE.exec(value.trim()) : null;
   if (share !== null) return { kind: 'share', fr: Number(share[1]) };
-  report(
-    'invalid-value',
-    'Expected a height in points or a share such as "1fr".',
-    join(path, 'height'),
-  );
-  return { kind: 'auto' };
+  report('invalid-value', `Expected ${what} in points or a share such as "1fr".`, path);
+  return undefined;
+}
+
+function readHeight(map: Data, path: string, report: Report): CoverRowHeight {
+  const value = map['height'];
+  if (value === undefined) return { kind: 'auto' };
+  return readSize(value, join(path, 'height'), report, 'a height') ?? { kind: 'auto' };
+}
+
+function readAlignment(map: Data, path: string, report: Report): CoverAlignment {
+  const given = map['valign'];
+  if (given === undefined) return 'top';
+  const found = COVER_ALIGNMENTS.find((name) => name === given);
+  if (found === undefined) {
+    report('invalid-value', 'Expected top, center or bottom.', join(path, 'valign'));
+    return 'top';
+  }
+  return found;
+}
+
+/** An area name is kebab-case, as a style name; `.` is a cell of no area. */
+const AREA_NAME = /^(?:\.|[a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/;
+
+/** The grid of a cover (ADR 0092): columns, rows of heights, the lines of areas and their content. */
+function readGrid(
+  map: Data,
+  path: string,
+  report: Report,
+  margins: Partial<PageMargins> | undefined,
+): CoverGrid | undefined {
+  const list = (key: string): unknown[] | undefined => {
+    const value = map[key];
+    if (Array.isArray(value)) return value as unknown[];
+    report('invalid-type', `Expected a list, found ${describe(value)}.`, join(path, key));
+    return undefined;
+  };
+  const columnsGiven = map['columns'] === undefined ? ['1fr'] : list('columns');
+  const rowsGiven = list('rows');
+  const areasGiven = list('areas');
+  if (columnsGiven === undefined || rowsGiven === undefined || areasGiven === undefined) {
+    return undefined;
+  }
+  const columns: CoverColumnWidth[] = [];
+  columnsGiven.forEach((value: unknown, index) => {
+    const size = readSize(value, `${join(path, 'columns')}[${String(index)}]`, report, 'a width');
+    if (size !== undefined) columns.push(size);
+  });
+  const rows = rowsGiven.map((value: unknown, index): CoverRowHeight => {
+    if (value === 'auto') return { kind: 'auto' };
+    return (
+      readSize(value, `${join(path, 'rows')}[${String(index)}]`, report, 'a height or auto') ?? {
+        kind: 'auto',
+      }
+    );
+  });
+  const areas = areasGiven.map((value: unknown, index): string[] => {
+    const where = `${join(path, 'areas')}[${String(index)}]`;
+    if (typeof value !== 'string') {
+      report('invalid-type', `Expected a line of area names, found ${describe(value)}.`, where);
+      return [];
+    }
+    const names = value
+      .trim()
+      .split(/\s+/)
+      .filter((name) => name !== '');
+    const bad = names.find((name) => !AREA_NAME.test(name));
+    if (bad !== undefined) {
+      report(
+        'invalid-value',
+        `"${bad}" is not an area name: use kebab-case, or "." for none.`,
+        where,
+      );
+    }
+    return names;
+  });
+  const area: Record<string, CoverArea> = {};
+  if (map['area'] !== undefined) {
+    const here = join(path, 'area');
+    const given = asMap(map['area'], here, report);
+    for (const [name, value] of Object.entries(given ?? {})) {
+      const at = join(here, name);
+      const entry = asMap(value, at, report);
+      if (entry === undefined) continue;
+      checkKeys(entry, ['valign', 'content'], at, report);
+      const content =
+        entry['content'] === undefined
+          ? []
+          : readEntries(entry['content'], join(at, 'content'), report);
+      area[name] = { valign: readAlignment(entry, at, report), content: content ?? [] };
+    }
+  }
+  return {
+    kind: 'grid',
+    ...(margins !== undefined ? { margins } : {}),
+    columns,
+    rows,
+    areas,
+    area,
+  };
 }
 
 function readLayoutRow(value: unknown, path: string, report: Report): CoverLayoutRow | undefined {
@@ -164,16 +266,7 @@ function readLayoutRow(value: unknown, path: string, report: Report): CoverLayou
   if (map === undefined) return undefined;
   checkKeys(map, ['height', 'valign', 'content'], path, report);
   const height = readHeight(map, path, report);
-  let valign: CoverLayoutRow['valign'] = 'top';
-  const given = map['valign'];
-  if (given !== undefined) {
-    const found = COVER_ALIGNMENTS.find((name) => name === given);
-    if (found === undefined) {
-      report('invalid-value', 'Expected top, center or bottom.', join(path, 'valign'));
-    } else {
-      valign = found;
-    }
-  }
+  const valign = readAlignment(map, path, report);
   const content =
     map['content'] === undefined ? [] : readEntries(map['content'], join(path, 'content'), report);
   return { height, valign, content: content ?? [] };
@@ -186,6 +279,15 @@ function readCover(value: unknown, path: string, report: Report): Cover | undefi
   }
   const map = asMap(value, path, report);
   if (map === undefined) return undefined;
+  const margins =
+    map['margins'] === undefined
+      ? undefined
+      : readMargins(map['margins'], join(path, 'margins'), report);
+  if (map['areas'] !== undefined) {
+    checkKeys(map, ['margins', 'columns', 'rows', 'areas', 'area'], path, report);
+    return readGrid(map, path, report, margins);
+  }
+  // `columns` and `area` belong to a grid, which has `areas`.
   checkKeys(map, ['margins', 'rows'], path, report);
   const given = map['rows'];
   if (!Array.isArray(given)) {
@@ -196,10 +298,6 @@ function readCover(value: unknown, path: string, report: Report): Cover | undefi
     const read = readLayoutRow(row, `${join(path, 'rows')}[${String(index)}]`, report);
     return read === undefined ? [] : [read];
   });
-  const margins =
-    map['margins'] === undefined
-      ? undefined
-      : readMargins(map['margins'], join(path, 'margins'), report);
   return { kind: 'rows', ...(margins !== undefined ? { margins } : {}), rows };
 }
 

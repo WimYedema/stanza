@@ -507,6 +507,22 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
   function draw(): void {
     if (current === undefined) return;
     const cover = current.cover;
+    if (cover?.kind === 'grid') {
+      // Editing a grid is item 230; until then the panel shows it and leaves it as it is.
+      const select = el('select');
+      select.append(option('grid', 'A grid of areas'));
+      select.disabled = true;
+      coverRoot.replaceChildren(
+        row('Kind', select),
+        el(
+          'p',
+          'hint',
+          `The cover is a grid of ${String(cover.columns.length)} columns and ${String(cover.rows.length)} rows with the areas ${Object.keys(cover.area).join(', ') || '(none)'}. It is edited in the text of the stylesheet (ADR 0092).`,
+        ),
+      );
+      drawTitleBlock();
+      return;
+    }
     const kind: Kind = cover === undefined ? 'none' : cover.kind;
     const select = el('select');
     select.append(
@@ -547,7 +563,11 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
       parts.push(...drawRows(cover));
     }
     coverRoot.replaceChildren(...parts);
+    drawTitleBlock();
+  }
 
+  function drawTitleBlock(): void {
+    if (current === undefined) return;
     const titleBlock = current.titleBlock;
     const toggle = el('select');
     toggle.append(option('none', 'No title block'), option('entries', 'A title block'));
