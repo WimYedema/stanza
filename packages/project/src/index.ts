@@ -109,3 +109,4 @@ export {
   type ThreadPosition,
   type ThreadQuote,
 } from './review-threads.js';
+export { MAX_PROJECT_IMAGE_BYTES, MAX_PROJECT_IMAGES, projectImages } from './project-images.js';

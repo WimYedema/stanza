@@ -8,6 +8,7 @@ export { assignMissingIdsInText, type AssignIdsInTextResult } from './assign-ids
 export { formatAnnotation, parseAnnotation, type Annotation } from './annotation.js';
 export { DEFAULT_VARIANTS, declareVariant, type DeclareVariantResult } from './declare-variant.js';
 export {
+  setBlock,
   setProperty,
   unsetProperty,
   type EditFailure,
@@ -32,5 +33,6 @@ export {
 } from './edit-document-list.js';
 export { serializeDocument } from './serialize.js';
 export { slotSource } from './slot-source.js';
+export { coverSource, entriesSource } from './cover-source.js';
 export { parseStylesheet, type StylesheetParseResult } from './stylesheet.js';
 export { moveValuesToTokens, type UseTokensResult } from './use-tokens.js';

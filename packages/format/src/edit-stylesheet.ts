@@ -216,7 +216,7 @@ function removeLines(text: string, pair: Pair): Edit {
   if (keyAt === undefined) throw layout();
   const start = lineStart(text, keyAt);
   if (text.slice(start, keyAt).trim() !== '') throw layout();
-  const end = lineEnd(text, endOf(pair));
+  const end = lineEnd(text, pairEnd(pair));
   if (end < text.length) return { from: start, to: end + 1, insert: '' };
   return { from: Math.max(0, start - 1), to: end, insert: '' };
 }
@@ -366,4 +366,74 @@ export function setProperty(
  */
 export function unsetProperty(source: string, path: readonly string[]): StylesheetEdit {
   return edit(source, path, (text, root) => planUnset(text, root, path));
+}
+
+/** Where the value of a node ends, without the blank lines and comments that a block range runs over. */
+function nodeEnd(node: unknown): number {
+  if (isMap(node) && node.flow !== true) {
+    const last = node.items.at(-1);
+    return last === undefined ? (rangeOf(node)?.[1] ?? 0) : pairEnd(last);
+  }
+  if (isSeq(node) && node.flow !== true) {
+    const last = node.items.at(-1);
+    return last === undefined ? (rangeOf(node)?.[1] ?? 0) : nodeEnd(last);
+  }
+  return rangeOf(node)?.[1] ?? 0;
+}
+
+const pairEnd = (pair: Pair): number => Math.max(rangeOf(pair.key)?.[1] ?? 0, nodeEnd(pair.value));
+
+/** `key: value` for a flow value on one line, or `key:` and the lines of the block below it. */
+function blockText(indent: string, key: string, block: string): string {
+  const lines = block.split('\n');
+  if (lines.length === 1 && /^[[{]/.test(block)) return `${indent}${key}: ${block}`;
+  return [
+    `${indent}${key}:`,
+    ...lines.map((line) => (line === '' ? '' : `${indent}  ${line}`)),
+  ].join('\n');
+}
+
+function planBlock(text: string, root: YAMLMap, path: readonly string[], block: string): Edit[] {
+  let map = root;
+  for (const key of path.slice(0, -1)) {
+    const pair = findPair(map, key);
+    if (pair === undefined || !isMap(pair.value)) {
+      throw new Refusal('invalid-path', `There is no "${key}" to change.`);
+    }
+    map = pair.value;
+  }
+  const key = path.at(-1) ?? '';
+  const pair = findPair(map, key);
+  if (pair === undefined) {
+    if (map.flow === true || map.items.length === 0) throw layout();
+    return [appendTo(text, map, (indent) => blockText(indent, key, block))];
+  }
+  const keyAt = rangeOf(pair.key)?.[0];
+  if (keyAt === undefined) throw layout();
+  const start = lineStart(text, keyAt);
+  if (text.slice(start, keyAt).trim() !== '') throw layout();
+  const end = lineEnd(text, pairEnd(pair));
+  const next = blockText(text.slice(start, keyAt), key, block);
+  return text.slice(start, end) === next ? [] : [{ from: start, to: end, insert: next }];
+}
+
+/**
+ * Writes the value of a property as a block of lines, such as the cover of a page template that the
+ * style editor wrote (ADR 0091): the lines of the property are replaced, with any comments inside
+ * them, or the property is added after the last line of its mapping. `block` is the value without
+ * its key, indented from column 0; undefined removes the property. The lines around it stay, and the
+ * result is refused if it has an error that the text did not have.
+ */
+export function setBlock(
+  source: string,
+  path: readonly string[],
+  block: string | undefined,
+): StylesheetEdit {
+  if (block === undefined) return unsetProperty(source, path);
+  return edit(source, path, (text, root) => {
+    if (hasControl(block.replaceAll('\n', ''))) {
+      throw new Refusal('invalid-value', 'A block cannot contain control characters.');
+    }
+    return planBlock(text, root, path, block);
+  });
 }

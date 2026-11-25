@@ -9,6 +9,7 @@ import {
 } from '../shared/styles-protocol.js';
 import { createAddPanel } from './styles-add.js';
 import { createPanel } from './styles-panel.js';
+import { createCoverPreview } from './styles-cover-preview.js';
 import { createPagePanel } from './styles-pages.js';
 import { focusSample, sampleDocument } from './styles-sample.js';
 import { createThemePanel } from './styles-theme.js';
@@ -52,7 +53,16 @@ const panel = createPanel({
   },
 });
 const theme = createThemePanel({ root: element('theme'), send });
-const pages = createPagePanel({ root: element('pages'), send });
+const pages = createPagePanel({
+  root: element('pages'),
+  send,
+  preview: createCoverPreview({
+    root: element('cover-preview'),
+    cover: element('preview-cover'),
+    first: element('preview-first'),
+    titleBlock: element('preview-title'),
+  }),
+});
 const adder = createAddPanel({
   root: element('add'),
   send,
@@ -142,6 +152,9 @@ function handle(message: StylesHostMessage): void {
     case 'select-style':
       view.selectWhenShown(message.kind, message.name);
       if (latest !== undefined) view.show(latest);
+      return;
+    case 'images':
+      pages.setImages(new Map(Object.entries(message.images)));
       return;
     case 'edit-refused':
       panel.refused(message.message);

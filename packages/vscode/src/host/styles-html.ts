@@ -61,6 +61,23 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
   .side-panel .status { margin: 0; padding: 6px 12px; background: #5a1d1d; color: #ffb4b4;
     font-size: 12px; }
   .side-panel .status:empty { display: none; }
+  .preview-sheet { margin: 16px auto; background: #ffffff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
+  .preview-note { margin: 12pt 0 0; font: italic 11px sans-serif; color: #9d9d9d; }
+  .cover-editor .cover-row-box, .cover-editor .cover-entry { margin: 4px 12px 8px;
+    padding: 4px 0 4px 6px; border-left: 2px solid #3c3c3c; }
+  .cover-editor .cover-entry { margin: 4px 0 6px 8px; }
+  .cover-editor .cover-head { display: flex; justify-content: space-between; align-items: center;
+    padding-right: 8px; }
+  .cover-editor .cover-kind { font-size: 11px; font-weight: 600; text-transform: uppercase;
+    color: #9d9d9d; }
+  .cover-editor .cover-buttons { display: flex; gap: 2px; }
+  .cover-editor .cover-buttons button { padding: 0 6px; }
+  .cover-editor .cover-adds { display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+    margin: 4px 0 0 8px; }
+  .cover-editor .cover-table-row { display: grid; grid-template-columns: 1fr 1.4fr auto auto;
+    gap: 2px 4px; margin: 2px 8px 2px 0; }
+  .cover-editor .cover-margins { margin: 0 0 4px; }
+  .cover-editor > section > details > div > button, .cover-editor .cover-row-box > button { margin: 4px 12px; }
   #desk { padding: 12px 0 48px; overflow-x: auto; }
   #page { box-sizing: border-box; max-width: 560pt; margin: 12px auto; padding: 36pt;
     background: #ffffff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); }
@@ -86,6 +103,13 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
       <div id="pages" class="side-panel" hidden></div>
     </div>
     <div id="desk">
+      <div id="cover-preview" hidden>
+        <div id="preview-cover" class="preview-sheet" hidden></div>
+        <div id="preview-first" class="preview-sheet" hidden>
+          <div id="preview-title"></div>
+          <p class="preview-note">The text of the document follows here.</p>
+        </div>
+      </div>
       <div id="page"><div id="sample"></div></div>
     </div>
   </div>

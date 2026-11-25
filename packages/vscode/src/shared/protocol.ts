@@ -227,7 +227,7 @@ export const MAX_TEXT_LENGTH = 20_000_000;
 const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]*={0,2}$/;
 
 /** Images by path, each a data URL of a PNG or JPEG; undefined for anything else. */
-function parseImages(value: unknown): Readonly<Record<string, string>> | undefined {
+export function parseImages(value: unknown): Readonly<Record<string, string>> | undefined {
   if (!isRecord(value)) return undefined;
   const images: Record<string, string> = {};
   let length = 0;

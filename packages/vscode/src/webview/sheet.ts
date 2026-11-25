@@ -239,7 +239,7 @@ const JUSTIFY: Readonly<Record<CoverAlignment, string>> = {
  * writes, their alignment, and the margins of the cover; content that does not fit its row is cut
  * off, as in Word.
  */
-function drawCover(
+export function drawCover(
   root: HTMLElement,
   template: PageTemplate,
   meta: DocumentMeta,
@@ -287,7 +287,7 @@ function drawCover(
 }
 
 /** The title block above the text (ADR 0090), or nothing when no entry is left. */
-function drawTitleBlock(
+export function drawTitleBlock(
   root: HTMLElement,
   template: PageTemplate,
   meta: DocumentMeta,

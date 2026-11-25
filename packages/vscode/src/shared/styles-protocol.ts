@@ -1,4 +1,4 @@
-import type { Reason } from './protocol.js';
+import { parseImages, type Reason } from './protocol.js';
 
 /**
  * The messages between the extension host and the webview of the style editor (ADR 0036). Both
@@ -15,7 +15,12 @@ export type StylesHostMessage =
   /** Selects a style, such as the one that the person was looking at in a document. */
   | { readonly type: 'select-style'; readonly kind: StyleKind; readonly name: string }
   /** The file is not the stylesheet of a project, and why. */
-  | { readonly type: 'refused'; readonly title: string; readonly reasons: readonly Reason[] };
+  | { readonly type: 'refused'; readonly title: string; readonly reasons: readonly Reason[] }
+  /**
+   * The PNG and JPEG files of the project as data URLs, by path, to choose an image of a cover or a
+   * title block and to show it in the preview (ADR 0091).
+   */
+  | { readonly type: 'images'; readonly images: Readonly<Record<string, string>> };
 
 /** A value that can be written on one line in a stylesheet (`YamlValue` of the format package). */
 export type Value =
@@ -27,6 +32,11 @@ export type StylesWebviewMessage =
   /** Sets the property at a path of the stylesheet, such as `paragraph-styles`, `body`, `size`. */
   | { readonly type: 'set'; readonly path: readonly string[]; readonly value: Value }
   | { readonly type: 'unset'; readonly path: readonly string[] }
+  /**
+   * Writes the value at a path as a block of YAML lines, or removes it for null: the cover or the
+   * title block of a page template, written by the panel as a whole (ADR 0091).
+   */
+  | { readonly type: 'set-block'; readonly path: readonly string[]; readonly source: string | null }
   /** Adds an empty style, based on another of its kind or on none (ADR 0053). */
   | {
       readonly type: 'add-style';
@@ -54,6 +64,8 @@ const MAX_PATH_LENGTH = 8;
 const MAX_TEXT_LENGTH = 500;
 const MAX_ITEMS = 20;
 const MAX_DEPTH = 3;
+/** A cover written out is longer than a value, but not by much. */
+const MAX_BLOCK_LENGTH = 100_000;
 
 function isPath(value: unknown): value is readonly string[] {
   return (
@@ -92,6 +104,14 @@ export function parseStylesWebviewMessage(value: unknown): StylesWebviewMessage 
     }
     case 'unset':
       return isPath(value['path']) ? { type: 'unset', path: value['path'] } : undefined;
+    case 'set-block': {
+      const { path, source } = value;
+      if (!isPath(path)) return undefined;
+      if (source === null) return { type: 'set-block', path, source };
+      return typeof source === 'string' && source.length <= MAX_BLOCK_LENGTH
+        ? { type: 'set-block', path, source }
+        : undefined;
+    }
     case 'add-style': {
       const { kind, name, basedOn } = value;
       if (!isStyleKind(kind) || !isName(name)) return undefined;
@@ -138,6 +158,10 @@ export function parseStylesHostMessage(value: unknown): StylesHostMessage | unde
     case 'select-style': {
       const { kind, name } = value;
       return isStyleKind(kind) && isName(name) ? { type: 'select-style', kind, name } : undefined;
+    }
+    case 'images': {
+      const images = parseImages(value['images']);
+      return images === undefined ? undefined : { type: 'images', images };
     }
     default:
       return undefined;

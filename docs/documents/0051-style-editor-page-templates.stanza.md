@@ -6,7 +6,7 @@ title: "ADR 0051: The style editor, page templates"
 <!-- stanza: #egr380e0jd -->
 # ADR 0051: The style editor, page templates
 
-Status: Accepted
+Status: Accepted. The cover and the title block are edited in the panel since ADR 0091.
 
 <!-- stanza: #aat3agxr8f -->
 ## Context

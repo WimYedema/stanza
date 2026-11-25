@@ -30,6 +30,13 @@ describe('parseStylesWebviewMessage', () => {
       });
     }
     expect(parseStylesWebviewMessage({ type: 'unset', path })).toEqual({ type: 'unset', path });
+    for (const source of ["- text: 'A'", null]) {
+      expect(parseStylesWebviewMessage({ type: 'set-block', path, source })).toEqual({
+        type: 'set-block',
+        path,
+        source,
+      });
+    }
   });
 
   it.each([
@@ -45,6 +52,10 @@ describe('parseStylesWebviewMessage', () => {
     { type: 'set', path: Array.from({ length: 9 }, () => 'a'), value: 1 },
     { type: 'unset', path: [] },
     { type: 'unset' },
+    { type: 'set-block', path: ['a'] },
+    { type: 'set-block', path: ['a'], source: 5 },
+    { type: 'set-block', path: [], source: '[]' },
+    { type: 'set-block', path: ['a'], source: 'x'.repeat(100_001) },
   ])('refuses %j', (value) => {
     expect(parseStylesWebviewMessage(value)).toBeUndefined();
   });
@@ -87,6 +98,11 @@ describe('parseStylesHostMessage', () => {
       text: 'a',
     });
     expect(parseStylesHostMessage({ type: 'text', text: '' })).toEqual({ type: 'text', text: '' });
+    const images = { 'assets/logo.png': 'data:image/png;base64,iVA=' };
+    expect(parseStylesHostMessage({ type: 'images', images })).toEqual({ type: 'images', images });
+    expect(
+      parseStylesHostMessage({ type: 'images', images: { 'a.gif': 'data:image/gif;base64,R0' } }),
+    ).toBeUndefined();
     const refused = {
       type: 'refused',
       title: 'T',

@@ -1,14 +1,16 @@
 import { SLOT_TOKENS, type PageSize, type PageTemplate, type Stylesheet } from '@stanza/core';
 import { slotSource } from '@stanza/format';
 import type { StylesWebviewMessage, Value } from '../shared/styles-protocol.js';
+import type { CoverPreview } from './styles-cover-preview.js';
+import { createCoverEditor, refuseCover } from './styles-cover.js';
 import { el, option, simpleRow as row, simpleSection as section } from './styles-dom.js';
 import type { Entry } from './styles-families.js';
 import { numberFrom } from './styles-properties.js';
 
 /**
- * The panel of a page template (ADR 0051): the size, the margins, and the header and footer with
- * their three slots. Changes go to the host as edits of the text of the stylesheet. The cover is
- * still edited as text.
+ * The panel of a page template (ADR 0051): the size, the margins, the header and footer with their
+ * three slots, and the cover and title block (ADR 0091). Changes go to the host as edits of the text
+ * of the stylesheet.
  */
 
 const SIZES: readonly PageSize[] = ['A4', 'Letter'];
@@ -25,6 +27,8 @@ const PLACEHOLDER_LABEL: Partial<Record<(typeof SLOT_TOKENS)[number], string>> =
 export interface PagePanelOptions {
   readonly root: HTMLElement;
   readonly send: (message: StylesWebviewMessage) => void;
+  /** Where the cover and title block of the template are drawn, if anywhere. */
+  readonly preview?: CoverPreview;
 }
 
 export interface PagePanel {
@@ -32,11 +36,14 @@ export interface PagePanel {
   show(entry: Entry | undefined, stylesheet: Stylesheet): boolean;
   /** A change was refused: says why, and shows the stylesheet as it is. */
   refused(message: string): void;
+  /** The images of the project as data URLs by path, to choose from and to show. */
+  setImages(images: ReadonlyMap<string, string>): void;
 }
 
 const titleOf = (key: string): string => key.charAt(0).toUpperCase() + key.slice(1);
 
-export function createPagePanel({ root, send }: PagePanelOptions): PagePanel {
+export function createPagePanel({ root, send, preview }: PagePanelOptions): PagePanel {
+  const covers = createCoverEditor(send);
   const status = el('p', 'status');
   status.setAttribute('role', 'status');
   let current: { readonly name: string; readonly stylesheet: Stylesheet } | undefined;
@@ -135,7 +142,7 @@ export function createPagePanel({ root, send }: PagePanelOptions): PagePanel {
     section('Page', row('Size', size)),
     section('Margins', ...margins),
     ...bandSections,
-    section('Cover', el('p', 'hint', 'The cover page is edited in the text of the stylesheet.')),
+    covers.element,
   );
 
   function update(): void {
@@ -144,6 +151,8 @@ export function createPagePanel({ root, send }: PagePanelOptions): PagePanel {
     )?.[1];
     if (current === undefined || template === undefined) return;
     for (const apply of updates) apply(template, current.stylesheet);
+    covers.update(current.name, template, current.stylesheet);
+    preview?.show(template, current.stylesheet);
   }
 
   return {
@@ -151,6 +160,7 @@ export function createPagePanel({ root, send }: PagePanelOptions): PagePanel {
       if (entry?.kind !== 'page-template') {
         current = undefined;
         root.hidden = true;
+        preview?.show(undefined, stylesheet);
         return false;
       }
       current = { name: entry.name, stylesheet };
@@ -161,6 +171,11 @@ export function createPagePanel({ root, send }: PagePanelOptions): PagePanel {
     refused(message) {
       status.textContent = message;
       update();
+      refuseCover(covers, message);
+    },
+    setImages(images) {
+      covers.setImages([...images.keys()]);
+      preview?.setImages(images);
     },
   };
 }
