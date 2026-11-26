@@ -1,4 +1,4 @@
-import { isStyleName, type Diagnostic, type StyleName } from '@stanza/core';
+import { isStyleName, type ColorValue, type Diagnostic, type StyleName } from '@stanza/core';
 import { parseDocument } from 'yaml';
 import { FORMAT_VERSION } from './front-matter.js';
 import { LEGACY_FORMAT_CODE, LEGACY_FORMAT_KEY, LEGACY_FORMAT_MESSAGE } from './legacy.js';
@@ -152,4 +152,29 @@ export function readFormatVersion(data: Data, report: Report): number | undefine
     );
   }
   return formatVersion;
+}
+
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+
+/** A color: `#RRGGBB`, which ADR 0065 reports, or the name of a color token. */
+export function colorOf(value: unknown, path: string, report: Report): ColorValue | undefined {
+  if (typeof value === 'string' && HEX_COLOR.test(value)) {
+    return { kind: 'hex', hex: value.toUpperCase() };
+  }
+  if (typeof value === 'string' && KEBAB_CASE.test(value)) return { kind: 'token', name: value };
+  report(
+    'invalid-type',
+    `Expected a #RRGGBB color or a color token name, found ${describe(value)}.`,
+    path,
+  );
+  return undefined;
+}
+
+export function readColor(
+  map: Data,
+  key: string,
+  path: string,
+  report: Report,
+): ColorValue | undefined {
+  return map[key] === undefined ? undefined : colorOf(map[key], join(path, key), report);
 }

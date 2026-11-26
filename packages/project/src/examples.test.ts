@@ -24,6 +24,7 @@ async function buildExample(name: string) {
 describe('the example projects', () => {
   it('are there', () => {
     expect(exampleNames()).toEqual([
+      'banded-cover',
       'classic-cover',
       'corporate-report',
       'plain-memo',

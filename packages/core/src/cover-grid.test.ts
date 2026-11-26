@@ -135,6 +135,39 @@ describe('validateStylesheet and cover grids', () => {
     area: { side: { valign: 'top', content: [] } },
   };
 
+  it('checks the background of an area and of a row as a color token (ADR 0093)', () => {
+    expect(
+      problems({
+        ...ok,
+        area: {
+          side: { valign: 'top', background: { kind: 'token', name: 'nothing' }, content: [] },
+        },
+      }),
+    ).toEqual([['unknown-token', 'page-templates.page.cover.area.side.background']]);
+    const rows = validateStylesheet(
+      sheet({
+        pageTemplates: {
+          page: {
+            size: 'A4',
+            margins: { topPt: 72, rightPt: 72, bottomPt: 72, leftPt: 72 },
+            cover: {
+              kind: 'rows',
+              rows: [
+                {
+                  height: { kind: 'points', pt: 10 },
+                  valign: 'top',
+                  background: { kind: 'hex', hex: '#123456' },
+                  content: [],
+                },
+              ],
+            },
+          },
+        },
+      }),
+    ).map((d) => [d.code, d.path]);
+    expect(rows).toEqual([['raw-color', 'page-templates.page.cover.rows[0].background']]);
+  });
+
   it('accepts a grid', () => {
     expect(problems(ok)).toEqual([]);
   });

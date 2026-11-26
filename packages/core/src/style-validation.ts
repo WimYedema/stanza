@@ -375,6 +375,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         if (!named.has(name)) {
           error('unknown-cover-area', `The areas have no area "${name}".`, `${here}.area.${name}`);
         }
+        checkColor(area.background, `${here}.area.${name}.background`);
         area.content.forEach((entry, index) => {
           checkEntry(entry, `${here}.area.${name}.content[${String(index)}]`);
         });
@@ -416,6 +417,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
       });
       if (cover.kind === 'rows') {
         cover.rows.forEach((row, index) => {
+          checkColor(row.background, `${here}.rows[${String(index)}].background`);
           row.content.forEach((entry, entryIndex) => {
             checkEntry(entry, `${here}.rows[${String(index)}].content[${String(entryIndex)}]`);
           });

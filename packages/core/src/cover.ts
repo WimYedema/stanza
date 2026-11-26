@@ -5,6 +5,7 @@ import {
   EMPTY_AREA,
   coverEntries,
   type Cover,
+  type ColorValue,
   type CoverAlignment,
   type CoverColumnWidth,
   type CoverEntry,
@@ -147,7 +148,14 @@ export function coverGrid(cover: Cover & { readonly kind: 'rows' | 'grid' }): Co
     rows: cover.rows.map((row) => row.height),
     areas: cover.rows.map((_, index) => [name(index)]),
     area: Object.fromEntries(
-      cover.rows.map((row, index) => [name(index), { valign: row.valign, content: row.content }]),
+      cover.rows.map((row, index) => [
+        name(index),
+        {
+          valign: row.valign,
+          ...(row.background !== undefined ? { background: row.background } : {}),
+          content: row.content,
+        },
+      ]),
     ),
   };
 }
@@ -155,6 +163,7 @@ export function coverGrid(cover: Cover & { readonly kind: 'rows' | 'grid' }): Co
 /** An area of a grid with the metadata of its entries filled in. */
 export interface FilledArea extends PlacedArea {
   readonly valign: CoverAlignment;
+  readonly background?: ColorValue;
   readonly items: readonly CoverItem[];
 }
 
@@ -168,6 +177,7 @@ export function fillGrid(grid: CoverGrid, meta: DocumentMeta): readonly FilledAr
     return {
       ...placed,
       valign: area?.valign ?? 'top',
+      ...(area?.background !== undefined ? { background: area.background } : {}),
       items: area === undefined ? [] : fillEntries(area.content, meta),
     };
   });

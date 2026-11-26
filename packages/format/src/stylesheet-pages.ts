@@ -24,6 +24,7 @@ import {
   checkKeys,
   describe,
   join,
+  readColor,
   readName,
   readNumber,
   readString,
@@ -243,12 +244,17 @@ function readGrid(
       const at = join(here, name);
       const entry = asMap(value, at, report);
       if (entry === undefined) continue;
-      checkKeys(entry, ['valign', 'content'], at, report);
+      checkKeys(entry, ['valign', 'background', 'content'], at, report);
       const content =
         entry['content'] === undefined
           ? []
           : readEntries(entry['content'], join(at, 'content'), report);
-      area[name] = { valign: readAlignment(entry, at, report), content: content ?? [] };
+      const background = readColor(entry, 'background', at, report);
+      area[name] = {
+        valign: readAlignment(entry, at, report),
+        ...(background !== undefined ? { background } : {}),
+        content: content ?? [],
+      };
     }
   }
   return {
@@ -264,12 +270,18 @@ function readGrid(
 function readLayoutRow(value: unknown, path: string, report: Report): CoverLayoutRow | undefined {
   const map = asMap(value, path, report);
   if (map === undefined) return undefined;
-  checkKeys(map, ['height', 'valign', 'content'], path, report);
+  checkKeys(map, ['height', 'valign', 'background', 'content'], path, report);
   const height = readHeight(map, path, report);
   const valign = readAlignment(map, path, report);
+  const background = readColor(map, 'background', path, report);
   const content =
     map['content'] === undefined ? [] : readEntries(map['content'], join(path, 'content'), report);
-  return { height, valign, content: content ?? [] };
+  return {
+    height,
+    valign,
+    ...(background !== undefined ? { background } : {}),
+    content: content ?? [],
+  };
 }
 
 function readCover(value: unknown, path: string, report: Report): Cover | undefined {

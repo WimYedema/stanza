@@ -19,6 +19,7 @@ import {
 } from '@stanza/core';
 import {
   HeightRule,
+  ShadingType,
   ImageRun,
   Paragraph,
   Table,
@@ -30,6 +31,7 @@ import {
   WidthType,
 } from 'docx';
 import { buildBlocks, type BuildContext, type Child } from './content.js';
+import { colorHex } from './docx-props.js';
 import { pageGeometry, type PageGeometry } from './page.js';
 import { wordStyleId } from './style-ids.js';
 
@@ -134,6 +136,15 @@ const VALIGN = {
   bottom: VerticalAlignTable.BOTTOM,
 } as const;
 
+/** The fill of an area with a background (ADR 0093), as cell shading of the token's color. */
+function shadingOf(area: FilledArea, context: BuildContext) {
+  const fill =
+    area.background === undefined
+      ? undefined
+      : colorHex(context.stylesheet.tokens, area.background);
+  return fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, color: 'auto', fill } };
+}
+
 const emptyParagraph = (): Paragraph => new Paragraph({ style: wordStyleId(BODY_STYLE) });
 
 /**
@@ -201,6 +212,7 @@ function layoutTable(
           new TableCell({
             width: { size: areaWidth, type: WidthType.DXA },
             verticalAlign: VALIGN[area.valign],
+            ...shadingOf(area, context),
             ...(area.columnSpan > 1 ? { columnSpan: area.columnSpan } : {}),
             ...(area.rowSpan > 1 ? { rowSpan: area.rowSpan } : {}),
             children: children.length > 0 ? children : [emptyParagraph()],

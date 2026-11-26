@@ -1,4 +1,11 @@
-import type { Cover, CoverEntry, CoverGrid, CoverRowHeight, PageMargins } from '@stanza/core';
+import type {
+  ColorValue,
+  Cover,
+  CoverEntry,
+  CoverGrid,
+  CoverRowHeight,
+  PageMargins,
+} from '@stanza/core';
 import { slotSource } from './slot-source.js';
 
 /**
@@ -54,6 +61,10 @@ function entriesLines(entries: readonly CoverEntry[]): string[] {
   return entries.flatMap((entry) => item(entryLines(entry)));
 }
 
+/** A color token by its name; a raw color, which ADR 0065 reports, in quotes. */
+const colorText = (color: ColorValue): string =>
+  color.kind === 'token' ? color.name : quoted(color.hex);
+
 const heightText = (height: CoverRowHeight): string | undefined => {
   if (height.kind === 'points') return String(height.pt);
   if (height.kind === 'share') return `${String(height.fr)}fr`;
@@ -101,6 +112,7 @@ function gridLines(cover: CoverGrid, margins: string | undefined): string[] {
   const areas = Object.entries(cover.area).flatMap(([name, area]) => {
     const lines = [
       ...(area.valign !== 'top' ? [`valign: ${area.valign}`] : []),
+      ...(area.background !== undefined ? [`background: ${colorText(area.background)}`] : []),
       ...(area.content.length > 0
         ? ['content:', ...indent(entriesLines(area.content), '  ')]
         : ['content: []']),
@@ -131,6 +143,7 @@ export function coverSource(cover: Cover): string {
     const lines = [
       ...(height !== undefined ? [`height: ${height}`] : []),
       ...(row.valign !== 'top' ? [`valign: ${row.valign}`] : []),
+      ...(row.background !== undefined ? [`background: ${colorText(row.background)}`] : []),
       ...(row.content.length > 0 ? ['content:', ...indent(entriesLines(row.content), '  ')] : []),
     ];
     return item(lines.length > 0 ? lines : ['content: []']);

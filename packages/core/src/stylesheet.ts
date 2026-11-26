@@ -189,6 +189,8 @@ export type CoverAlignment = (typeof COVER_ALIGNMENTS)[number];
 export interface CoverLayoutRow {
   readonly height: CoverRowHeight;
   readonly valign: CoverAlignment;
+  /** A color token that fills the row from edge to edge of the cover's text area (ADR 0093). */
+  readonly background?: ColorValue;
   readonly content: readonly CoverEntry[];
 }
 
@@ -213,6 +215,8 @@ export type CoverColumnWidth =
 /** The content of a named area of a grid. */
 export interface CoverArea {
   readonly valign: CoverAlignment;
+  /** A color token that fills the area (ADR 0093). */
+  readonly background?: ColorValue;
   readonly content: readonly CoverEntry[];
 }
 

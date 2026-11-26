@@ -9,7 +9,6 @@ import {
   type BandedRows,
   type Border,
   type CharacterStyle,
-  type ColorValue,
   type Diagnostic,
   type FontValue,
   type HeaderRow,
@@ -31,6 +30,8 @@ import {
   KEBAB_CASE,
   asMap,
   checkKeys,
+  colorOf,
+  readColor,
   describe,
   isNonEmptyStringList,
   join,
@@ -54,8 +55,6 @@ export interface StylesheetParseResult {
   readonly formatVersion: number | undefined;
 }
 
-const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
-
 const EMPTY: Stylesheet = {
   tokens: { colors: new Map(), fonts: new Map() },
   paragraphStyles: new Map(),
@@ -64,23 +63,6 @@ const EMPTY: Stylesheet = {
   pageTemplates: new Map(),
   tableOfContents: DEFAULT_TABLE_OF_CONTENTS,
 };
-
-function colorOf(value: unknown, path: string, report: Report): ColorValue | undefined {
-  if (typeof value === 'string' && HEX_COLOR.test(value)) {
-    return { kind: 'hex', hex: value.toUpperCase() };
-  }
-  if (typeof value === 'string' && KEBAB_CASE.test(value)) return { kind: 'token', name: value };
-  report(
-    'invalid-type',
-    `Expected a #RRGGBB color or a color token name, found ${describe(value)}.`,
-    path,
-  );
-  return undefined;
-}
-
-function readColor(map: Data, key: string, path: string, report: Report): ColorValue | undefined {
-  return map[key] === undefined ? undefined : colorOf(map[key], join(path, key), report);
-}
 
 function readFont(map: Data, key: string, path: string, report: Report): FontValue | undefined {
   const value = map[key];

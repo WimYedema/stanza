@@ -21,6 +21,9 @@ const RESERVED = [
 const stylesheet = parseStylesheet(
   [
     'stanza-format: 1',
+    'tokens:',
+    '  colors:',
+    "    band: '#17607F'",
     'paragraph-styles:',
     RESERVED,
     'table-styles:',
@@ -39,6 +42,7 @@ const stylesheet = parseStylesheet(
     '      area:',
     '        side:',
     '          valign: bottom',
+    '          background: band',
     '          content:',
     "            - text: 'Side'",
     '        title:',
@@ -68,6 +72,7 @@ describe('the sheet of a cover grid (ADR 0092)', () => {
     expect(cover.hidden).toBe(false);
     expect(cover.style.padding).toBe('36pt 48pt 48pt');
     const areas = [...cover.querySelectorAll<HTMLElement>('.cover-area')];
+    expect(areas.map((area) => area.style.backgroundColor)).toEqual(['rgb(23, 96, 127)', '', '']);
     expect(
       areas.map((area) => [
         area.dataset['area'],

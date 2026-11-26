@@ -26,6 +26,7 @@ function withGrid(): ReturnType<typeof parseStylesheet>['stylesheet'] {
     '      area:',
     '        side:',
     '          valign: bottom',
+    '          background: brand',
     '          content:',
     "            - { style: cover-meta, text: 'Side' }",
     '        logo:',
@@ -95,6 +96,16 @@ describe('exportDocx cover grid (ADR 0092)', () => {
     expect(rows[0]).toContain('<w:vAlign w:val="bottom"/>');
     expect(rows[1]).toContain('<w:vAlign w:val="center"/>');
     expect(rows[1]).toContain('>My Doc<');
+  });
+
+  it('fills an area with the color of its background token (ADR 0093)', async () => {
+    const xml = await coverXml();
+    const first = (xml.match(/<w:tr>.*?<\/w:tr>/gs) ?? [])[0] ?? '';
+    const side = /<w:tc>.*?<\/w:tc>/s.exec(first)?.[0] ?? '';
+    expect(side).toContain('<w:shd w:fill="2E75B6" w:color="auto" w:val="clear"/>');
+    // The side spans three rows: the cells that continue it below carry the same shading.
+    expect(xml.match(/<w:shd w:fill="2E75B6"/g)).toHaveLength(3);
+    expect(xml.match(/<w:shd /g)).toHaveLength(3);
   });
 
   it('makes an image no wider than its area', async () => {

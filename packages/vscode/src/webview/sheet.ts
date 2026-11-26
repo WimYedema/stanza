@@ -304,6 +304,14 @@ export function drawCover(
     element.style.display = 'flex';
     element.style.flexDirection = 'column';
     element.style.justifyContent = JUSTIFY[area.valign];
+    const background = area.background;
+    const fill =
+      background === undefined
+        ? undefined
+        : background.kind === 'hex'
+          ? background.hex
+          : stylesheet.tokens.colors.get(background.name);
+    if (fill !== undefined) element.style.backgroundColor = fill;
     element.append(...itemElements(area.items, stylesheet, images));
     layout.append(element);
   }

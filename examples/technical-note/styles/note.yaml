@@ -1,8 +1,9 @@
 stanza-format: 1
 
-# A technical note with a cover grid (ADR 0092): the logo beside the document number at the top,
-# the title across both columns low on the page, and a table of metadata beside the status and
-# classification at the bottom. The areas below are a small picture of the page.
+# A technical note with a cover grid (ADR 0092): a colored strip down the left edge of the page
+# (ADR 0093), the logo beside the document number at the top, the title across two columns low on
+# the page, and a table of metadata beside the status and classification at the bottom. The areas
+# below are a small picture of the page.
 
 tokens:
   colors:
@@ -194,15 +195,17 @@ page-templates:
       left: '[](stanza:classification)'
       right: 'Page [1](stanza:page) of [1](stanza:pages)'
     cover:
-      margins: { top: 40, right: 56, bottom: 56, left: 56 }
-      columns: [1fr, 170]
+      margins: { top: 40, right: 56, bottom: 56, left: 0 }
+      columns: [16, 40, 1fr, 170]
       rows: [90, 3fr, 1fr, 100]
       areas:
-        - logo  number
-        - title title
-        - .     .
-        - table status
+        - strip . logo  number
+        - strip . title title
+        - strip . .     .
+        - strip . table status
       area:
+        strip:
+          background: accent
         logo:
           content:
             - { image: assets/logo.png, width: 140, style: cover-logo }

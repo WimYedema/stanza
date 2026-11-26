@@ -474,10 +474,29 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
         const chosen = COVER_ALIGNMENTS.find((value) => value === valign.value) ?? 'top';
         setRows(replaced(cover.rows, index, { ...layoutRow, valign: chosen }), false);
       });
+      const background = el('select');
+      const tokens = [...(current?.stylesheet.tokens.colors.keys() ?? [])];
+      background.append(option('', '(none)'), ...tokens.map((name) => option(name, name)));
+      background.value = layoutRow.background?.kind === 'token' ? layoutRow.background.name : '';
+      background.title = 'A color token that fills the row (ADR 0093)';
+      background.addEventListener('change', () => {
+        const rest = without(layoutRow, 'background');
+        setRows(
+          replaced(
+            cover.rows,
+            index,
+            background.value === ''
+              ? rest
+              : { ...rest, background: { kind: 'token', name: background.value } },
+          ),
+          false,
+        );
+      });
       box.append(
         head,
         row('Height', height),
         row('Align', valign),
+        row('Background', background),
         entriesBox(layoutRow.content, context(), (content) => {
           setRows(
             replaced(cover.rows, index, { ...layoutRow, content }),

@@ -241,6 +241,31 @@ describe('the cover editor', () => {
     ]);
   });
 
+  it('sets and clears the background of a row from the color tokens (ADR 0093)', () => {
+    show(
+      ROWS.replace(
+        'stanza-format: 1\n',
+        "stanza-format: 1\ntokens:\n  colors:\n    band: '#17607F'\n",
+      ),
+    );
+    const background = [
+      ...editor.element.querySelectorAll<HTMLSelectElement>('.cover-row-box select'),
+    ].find((select) => select.title.startsWith('A color token'));
+    if (background === undefined) throw new Error('No background.');
+    expect([...background.options].map((o) => o.value)).toEqual(['', 'band']);
+    change(background, 'band');
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows[0]?.background).toEqual({
+      kind: 'token',
+      name: 'band',
+    });
+    change(background, '');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows[0]?.background).toBeUndefined();
+  });
+
   it('shows a grid as edited in the text, and does not change it (ADR 0092)', () => {
     show(
       `${BASE}    cover:\n      columns: [1fr, 100]\n      rows: [1fr]\n      areas:\n        - title side\n      area:\n        title:\n          content: []\n`,

@@ -20,7 +20,7 @@ const RESERVED = [
   .join('\n');
 
 const sheet = (cover: string): string =>
-  `stanza-format: 1\nparagraph-styles:\n${RESERVED}\ntable-styles:\n  table: {}\npage-templates:\n  page:\n    size: A4\n${cover}`;
+  `stanza-format: 1\ntokens:\n  colors:\n    band: '#17607F'\nparagraph-styles:\n${RESERVED}\ntable-styles:\n  table: {}\npage-templates:\n  page:\n    size: A4\n${cover}`;
 
 const read = (text: string) => parseStylesheet(text);
 const coverOf = (text: string) =>
@@ -105,6 +105,39 @@ describe('a cover grid in the stylesheet', () => {
       expect(problems(edited.text)).toEqual([]);
       expect(coverOf(edited.text)).toEqual(grid);
     }
+  });
+
+  it('reads and writes the background of a row and of an area (ADR 0093)', () => {
+    const rows = sheet(
+      ['    cover:', '      rows:', '        - height: 20', '          background: band', ''].join(
+        '\n',
+      ),
+    );
+    const cover = coverOf(rows);
+    expect(cover).toEqual({
+      kind: 'rows',
+      rows: [
+        {
+          height: { kind: 'points', pt: 20 },
+          valign: 'top',
+          background: { kind: 'token', name: 'band' },
+          content: [],
+        },
+      ],
+    });
+    if (cover === undefined) return;
+    expect(coverSource(cover)).toBe('rows:\n  - height: 20\n    background: band');
+    const grid: CoverGrid = {
+      ...EXPECTED,
+      rows: [
+        { kind: 'points', pt: 90 },
+        { kind: 'share', fr: 2 },
+        { kind: 'points', pt: 60 },
+      ],
+      area: { logo: { valign: 'top', background: { kind: 'token', name: 'band' }, content: [] } },
+    };
+    const edited = setBlock(sheet(''), ['page-templates', 'page', 'cover'], coverSource(grid));
+    expect(edited.ok && coverOf(edited.text)).toEqual(grid);
   });
 
   it('takes one column of the whole width when it gives no columns', () => {
