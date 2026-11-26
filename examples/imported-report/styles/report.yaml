@@ -210,7 +210,7 @@ page-templates:
     cover:
       margins: { top: 28.35, bottom: 28.35 }
       columns: [225, 1fr]
-      rows: [24, 17.8, 1, 14.4, 21.6, 14.4, 40, 65.4, 16.8, 1fr, 13.2]
+      rows: [24, 17.8, 1, 155.8, 16.8, 166.5, 21.6, 301.5, 40, 12, 1fr, 13.2]
       areas:
         - 'area-1 area-2'
         - '.      .'
@@ -221,6 +221,7 @@ page-templates:
         - 'area-5 area-5'
         - '.      .'
         - 'area-6 area-6'
+        - '.      .'
         - '.      .'
         - 'area-7 area-7'
       area:
@@ -240,9 +241,13 @@ page-templates:
           content: []
         area-4:
           content:
+            - style: report-classline
+              text: 'Technical report'
+        area-5:
+          content:
             - style: report-doctitle
               text: '[Document title](stanza:title)'
-        area-5:
+        area-6:
           content:
             - table:
                 style: report-table
@@ -251,10 +256,6 @@ page-templates:
                     value: '[Author name(s)](stanza:authors)'
                   - label: 'Date:'
                     value: '[Date](stanza:field:date) Doc. No: [Document number](stanza:field:document-number)'
-        area-6:
-          content:
-            - style: report-classline
-              text: 'Technical report'
         area-7:
           content:
             - style: report-footline

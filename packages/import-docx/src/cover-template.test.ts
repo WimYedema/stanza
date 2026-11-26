@@ -73,6 +73,29 @@ describe('importCoverTemplate (ADR 0094)', () => {
     expect(Math.abs(top - 226.85)).toBeLessThan(1);
   });
 
+  it('puts a title framed at the centre in the middle, and a table framed at the bottom at the end', () => {
+    const rows = imported.cover.rows.map((row) => (row.kind === 'points' ? row.pt : 0));
+    // Where the row of the first area whose first entry passes the test starts and ends, in
+    // points from the top of the page; the cover starts 28.35 pt down.
+    const place = (test: (entry: unknown) => boolean): [number, number] => {
+      const index = imported.cover.areas.findIndex((line) =>
+        line.some((name) => test(imported.cover.area[name]?.content[0])),
+      );
+      const top = 28.35 + rows.slice(0, index).reduce((sum, value) => sum + value, 0);
+      return [top, top + (rows[index] ?? 0)];
+    };
+    const [titleTop, titleBottom] = place(
+      (entry) => (entry as { style?: string } | undefined)?.style === 'test-doctitle',
+    );
+    const [, tableBottom] = place(
+      (entry) => (entry as { kind?: string } | undefined)?.kind === 'table',
+    );
+    // The margins run from 56.7 pt to 785.2 pt of the A4 page of 841.9 pt.
+    expect(Math.abs((titleTop + titleBottom) / 2 - (56.7 + 785.2) / 2)).toBeLessThan(2);
+    expect(tableBottom).toBeGreaterThan(760);
+    expect(tableBottom).toBeLessThanOrEqual(785.2);
+  });
+
   it('makes placeholders tokens and fields, with their text as label', () => {
     const title = contents().find(
       (area) => area?.content[0]?.kind === 'paragraph' && area.content[0].style === 'test-doctitle',

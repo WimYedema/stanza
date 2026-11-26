@@ -5,6 +5,7 @@ import {
   Footer,
   FrameAnchorType,
   Header,
+  HorizontalPositionAlign,
   ImageRun,
   Packer,
   PageBreak,
@@ -22,6 +23,7 @@ import {
   TableCell,
   TableRow,
   TextRun,
+  VerticalPositionAlign,
   WidthType,
 } from 'docx';
 
@@ -44,13 +46,26 @@ const ptab = (alignment: (typeof PositionalTabAlignment)[keyof typeof Positional
     leader: PositionalTabLeader.NONE,
   });
 
+/** A frame at an alignment within the margins, as corporate templates place a title or a table. */
+const aligned = (y: (typeof VerticalPositionAlign)[keyof typeof VerticalPositionAlign]) => ({
+  type: 'alignment' as const,
+  alignment: { x: HorizontalPositionAlign.CENTER, y },
+  anchor: { horizontal: FrameAnchorType.MARGIN, vertical: FrameAnchorType.MARGIN },
+});
+
+/** A paragraph of the metadata table, in the frame at the bottom of the page. */
+const bottom = (text: string): Paragraph =>
+  new Paragraph({ style: 'meta', text, frame: aligned(VerticalPositionAlign.BOTTOM) });
+
 const cell = (children: Paragraph[], columnSpan?: number): TableCell =>
   new TableCell({ children, ...(columnSpan !== undefined ? { columnSpan } : {}) });
 
 /**
  * A made-up report template, built like a real corporate one: a different first-page header with a
- * logo and an address in a table without borders, a rule, a framed class line, placeholders in
- * square brackets, a table of metadata with borders, and a footer centred with a tab. The body
+ * logo and an address in a table without borders, a rule, a class line in a frame a quarter down
+ * the page, a title in a frame centred on the page, placeholders in square brackets, a table of
+ * metadata with borders between two paragraphs of a frame at the bottom, and a footer centred with
+ * a tab. The body
  * pages have a header of a logo, the title, the revision and the date, and a footer of page
  * numbers. `logo` is a PNG for the logo; the example `imported-report` was made with one.
  */
@@ -204,27 +219,31 @@ export async function reportTemplate(logo: Uint8Array = smallPng()): Promise<Uin
             },
           }),
           new Paragraph({ style: 'base' }),
-          new Paragraph({ style: 'doctitle', text: '[Document title]' }),
+          new Paragraph({
+            style: 'doctitle',
+            text: '[Document title]',
+            frame: aligned(VerticalPositionAlign.CENTER),
+          }),
           new Paragraph({ style: 'base' }),
+          // The table at the bottom of the page: its paragraphs and those around it share one frame.
+          new Paragraph({ style: 'meta', frame: aligned(VerticalPositionAlign.BOTTOM) }),
           new Table({
             columnWidths: [1700, 2400, 1300, 3495],
             rows: [
               new TableRow({
-                children: [
-                  cell([new Paragraph({ style: 'meta', text: 'Author(s):' })]),
-                  cell([new Paragraph({ style: 'meta', text: '[Author name(s)]' })], 3),
-                ],
+                children: [cell([bottom('Author(s):')]), cell([bottom('[Author name(s)]')], 3)],
               }),
               new TableRow({
                 children: [
-                  cell([new Paragraph({ style: 'meta', text: 'Date:' })]),
-                  cell([new Paragraph({ style: 'meta', text: '[Date]' })]),
-                  cell([new Paragraph({ style: 'meta', text: 'Doc. No:' })]),
-                  cell([new Paragraph({ style: 'meta', text: '[Document number]' })]),
+                  cell([bottom('Date:')]),
+                  cell([bottom('[Date]')]),
+                  cell([bottom('Doc. No:')]),
+                  cell([bottom('[Document number]')]),
                 ],
               }),
             ],
           }),
+          new Paragraph({ style: 'meta', frame: aligned(VerticalPositionAlign.BOTTOM) }),
           new Paragraph({ children: [new PageBreak()] }),
           new Paragraph({ style: 'base', text: 'The body of the report.' }),
         ],

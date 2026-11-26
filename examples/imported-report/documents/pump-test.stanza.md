@@ -14,7 +14,7 @@ page-template: "report"
 
 The cover of this report and the header and footer of its pages were not written by hand: `stanza import cover` read them from a Word template, `template/report-template.docx`, and wrote them into the stylesheet as the page template `report`. Open the template in Word beside the built document to compare them.
 
-On the cover, the logo and the address sit in columns as they did in a table without borders in the template, the rule under them comes from a paragraph border, the class line stands where its frame put it, and the placeholders in square brackets became the title, the authors and two fields. On the pages after it, the header has the logo, the title and the date where the positional tabs of the template put them, and the footer counts the pages with the page fields of the template.
+On the cover, the logo and the address sit in columns as they did in a table without borders in the template, the rule under them comes from a paragraph border, and the frames of the template put the class line a quarter of the way down, the title in the middle and the table of metadata at the bottom of the page. The placeholders in square brackets became the title, the authors and two fields. On the pages after it, the header has the logo, the title and the date where the positional tabs of the template put them, and the footer counts the pages with the page fields of the template.
 
 <!-- stanza: #szb3w6t9zb -->
 # Results
