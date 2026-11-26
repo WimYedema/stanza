@@ -19,7 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run build && npm run typecheck:tests && npm run test && npm run lint && npm run format:check && npm run docs:check",
-    "examples": "node packages/cli/dist/main.js build examples/banded-cover && node packages/cli/dist/main.js build examples/classic-cover && node packages/cli/dist/main.js build examples/corporate-report && node packages/cli/dist/main.js build examples/plain-memo && node packages/cli/dist/main.js build examples/technical-note",
+    "examples": "node packages/cli/dist/main.js build examples/banded-cover && node packages/cli/dist/main.js build examples/classic-cover && node packages/cli/dist/main.js build examples/corporate-report && node packages/cli/dist/main.js build examples/imported-report && node packages/cli/dist/main.js build examples/plain-memo && node packages/cli/dist/main.js build examples/technical-note",
     "docs:fix": "node packages/cli/dist/main.js format --assign-ids docs",
     "docs:check": "node packages/cli/dist/main.js validate docs && node packages/cli/dist/main.js format --check --assign-ids docs"
   },

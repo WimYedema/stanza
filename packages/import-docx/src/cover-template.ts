@@ -1200,6 +1200,9 @@ function groupByFrame(blocks: readonly Block[]): { frame?: Frame; blocks: Block[
   return groups;
 }
 
+/** The padding of the cells of a cover table, in points: Word's own is about as wide at the sides. */
+const COVER_TABLE_PADDING_PT = 3;
+
 interface GridRow {
   heightPt: number;
   /** The areas of the row by their column range; one spanning all columns for most rows. */
@@ -1537,9 +1540,10 @@ class GridBuilder {
       ...(outer !== undefined ? { outer } : {}),
       ...(insideHorizontal !== undefined ? { insideHorizontal } : {}),
       ...(insideVertical !== undefined ? { insideVertical } : {}),
-      cellPaddingPt: 3,
+      cellPaddingPt: COVER_TABLE_PADDING_PT,
     });
-    this.full(block.heightPt, {
+    // Word leaves no room above and below the text of a cell; the cover table has its padding.
+    this.full(block.heightPt + 2 * COVER_TABLE_PADDING_PT * tableRows.length, {
       valign: 'top',
       content: [{ kind: 'table', style: styleName as StyleName, rows: tableRows }],
     });

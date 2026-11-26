@@ -1,6 +1,7 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { buildProject } from './build.js';
+import { importCover } from './import-cover.js';
 import {
   diskProject,
   exampleDirectory,
@@ -27,6 +28,7 @@ describe('the example projects', () => {
       'banded-cover',
       'classic-cover',
       'corporate-report',
+      'imported-report',
       'plain-memo',
       'technical-note',
     ]);
@@ -70,5 +72,21 @@ describe('the example projects', () => {
     expect(logo).toBeGreaterThan(0);
     expect(logo).toBeLessThan(title);
     expect(title).toBeLessThan(text);
+  });
+
+  it('imported-report has the stylesheet and logo that importing its Word template gives (ADR 0094)', async () => {
+    // The example is the import of template/report-template.docx into template/base.yaml. When
+    // the import changes, make it again as examples/README.md says, and look at the result.
+    const { files, binary } = diskProject(exampleDirectory('imported-report'));
+    const base = files['template/base.yaml'] ?? '';
+    const storage = memoryStorage({ ...files, 'styles/report.yaml': base }, [], binary);
+    const template = binary['template/report-template.docx'] ?? new Uint8Array();
+    const imported = await importCover(storage, template, { name: 'report', fileName: 'x' });
+    if (!imported.ok) throw new Error(imported.message);
+    expect(storage.texts.get('styles/report.yaml')).toBe(files['styles/report.yaml']);
+    expect([...storage.written.keys()]).toEqual(['assets/report/image-1.png']);
+    expect(storage.written.get('assets/report/image-1.png')).toEqual(
+      binary['assets/report/image-1.png'],
+    );
   });
 });

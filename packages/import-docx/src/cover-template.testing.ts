@@ -50,9 +50,21 @@ const cell = (children: Paragraph[], columnSpan?: number): TableCell =>
 /**
  * A made-up report template, built like a real corporate one: a different first-page header with a
  * logo and an address in a table without borders, a rule, a framed class line, placeholders in
- * square brackets, a table of metadata with borders, and a footer centred with a tab.
+ * square brackets, a table of metadata with borders, and a footer centred with a tab. The body
+ * pages have a header of a logo, the title, the revision and the date, and a footer of page
+ * numbers. `logo` is a PNG for the logo; the example `imported-report` was made with one.
  */
-export async function reportTemplate(): Promise<Uint8Array> {
+export async function reportTemplate(logo: Uint8Array = smallPng()): Promise<Uint8Array> {
+  const view = new DataView(logo.buffer, logo.byteOffset, logo.byteLength);
+  const image = (width: number) =>
+    new ImageRun({
+      type: 'png',
+      data: logo,
+      transformation: {
+        width,
+        height: Math.round((width * view.getUint32(20)) / view.getUint32(16)),
+      },
+    });
   const document = new Document({
     styles: {
       paragraphStyles: [
@@ -116,11 +128,7 @@ export async function reportTemplate(): Promise<Uint8Array> {
               new Paragraph({
                 style: 'meta',
                 children: [
-                  new ImageRun({
-                    type: 'png',
-                    data: smallPng(),
-                    transformation: { width: 64, height: 19 },
-                  }),
+                  image(64),
                   new TextRun({ children: [ptab(PositionalTabAlignment.CENTER)] }),
                   new SimpleField('TITLE', 'Old title'),
                   new TextRun(' \u2013 rev. '),
@@ -144,13 +152,7 @@ export async function reportTemplate(): Promise<Uint8Array> {
                       cell([
                         new Paragraph({
                           style: 'base',
-                          children: [
-                            new ImageRun({
-                              type: 'png',
-                              data: smallPng(),
-                              transformation: { width: 96, height: 29 },
-                            }),
-                          ],
+                          children: [image(96)],
                         }),
                       ]),
                       cell([

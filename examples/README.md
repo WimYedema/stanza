@@ -19,6 +19,7 @@ The DOCX files go to `build/` inside each project, which Git ignores.
 | `classic-cover` | A classic centred cover in rows on Letter paper: the title a third of the way down, the authors in the middle, an emblem and the organisation at the bottom. Centring comes from the paragraph styles, not the rows. |
 | `banded-cover` | Colored bands (ADR 0093): a cover without margins whose rows run to the edges of the page, a band at the top, the title on white, a thin rule as a row of 5 pt, and a dark band with white text from the paragraph styles. |
 | `technical-note` | A cover grid (ADR 0092) with a colored strip down the left edge (ADR 0093), and a header grid on the body pages (ADR 0095) with a small logo, the title and subtitle on two lines and the number on the right, closer to the edge: the logo beside the document number and date, the title across both columns low on the page, and a metadata table beside the status and classification at the bottom. The `areas` of the stylesheet are a small picture of the page. |
+| `imported-report` | A cover and body header and footer imported from a Word template (ADR 0094, ADR 0095) with `stanza import cover`: `template/report-template.docx` is a made-up corporate template, `template/base.yaml` the stylesheet before the import, and `styles/report.yaml` the stylesheet after it. The document lists where the result differs from the template. |
 | `plain-memo` | No cover, but a title block (ADR 0090): the template writes a small logo, the title and a table of from, to, date and classification at the top of the first page, and the text follows. |
 
 ## Adding an example
@@ -27,3 +28,17 @@ The DOCX files go to `build/` inside each project, which Git ignores.
 - Use made-up names, people and logos only. The logos here are abstract shapes drawn for these examples.
 - Assign IDs with `node packages/cli/dist/main.js format --assign-ids examples/<name>`.
 - Add the project to the table above and to the list in `examples.test.ts`.
+
+## Making `imported-report` again
+
+`examples.test.ts` checks that importing the template into `template/base.yaml` gives `styles/report.yaml` and the logo exactly. When the import changes on purpose, make the example again and look at the build before you commit it:
+
+```sh
+cp examples/imported-report/template/base.yaml examples/imported-report/styles/report.yaml
+rm -r examples/imported-report/assets/report
+node packages/cli/dist/main.js import cover examples/imported-report/template/report-template.docx examples/imported-report --name report
+node packages/cli/dist/main.js build examples/imported-report
+```
+
+The template was written with `reportTemplate` in `packages/import-docx/src/cover-template.testing.ts`, with the logo of `corporate-report`.
+
