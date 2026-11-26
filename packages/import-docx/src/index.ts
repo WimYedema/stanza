@@ -16,3 +16,12 @@ export {
   type ReadBodyResult,
   type TrackedChange,
 } from './review-text.js';
+export {
+  importCoverTemplate,
+  type CoverTemplateImport,
+  type CoverTemplateOptions,
+  type CoverTemplateResult,
+  type ImportedBorder,
+  type ImportedParagraphStyle,
+  type ImportedTableStyle,
+} from './cover-template.js';

@@ -13,6 +13,8 @@ import {
   adoptMarkdownDocument,
   applyMigration,
   importWordDocument,
+  importCover,
+  describeCoverImport,
   inspectReviewFile,
   newPushFileName,
   pullReview,
@@ -64,6 +66,12 @@ Commands:
                        ${DOCUMENT_SUFFIX} document in documents/, named after the file, with IDs
                        given. An existing document is never replaced: a taken name gets a
                        number. What could not be carried over is listed.
+  import cover <file.dotx|docx> [project] [--name <template>]
+                       Add the cover of a Word template to the stylesheet as a new page
+                       template (by default named after the file), with the styles, color and
+                       font tokens it needs and its pictures in assets/<template>/. The first
+                       page becomes a cover grid whose row heights are estimates, and text in
+                       [square brackets] becomes metadata fields. Nothing is replaced.
   adopt <file.md> [project]
                        Add an ordinary Markdown file to the project as a new ${DOCUMENT_SUFFIX}
                        document, in the same way as import. The original is not changed. What
@@ -146,6 +154,7 @@ function parseDate(text: string): Date | undefined {
 }
 
 const isWordFile = (file: string): boolean => extname(file).toLowerCase() === '.docx';
+const isWordTemplate = (file: string): boolean => /^\.(docx|dotx|docm|dotm)$/i.test(extname(file));
 const isMarkdownFile = (file: string): boolean => /^\.(md|markdown)$/i.test(extname(file));
 
 const plural = (count: number, word: string): string =>
@@ -449,6 +458,45 @@ async function reviewPush(
   return 0;
 }
 
+/** `stanza import cover <file> [project] [--name <template>]` (ADR 0094). */
+async function importCoverCommand(
+  io: Io,
+  positionals: readonly string[],
+  values: { readonly name?: string | undefined },
+): Promise<number> {
+  const usage = (message: string): number => {
+    io.stderr(`stanza: ${message}\n\n${USAGE}`);
+    return 2;
+  };
+  const [file, folder = '.', ...more] = positionals;
+  if (file === undefined || !isWordTemplate(file)) {
+    return usage(
+      'import cover needs a Word template, as in: stanza import cover report.dotx [project].',
+    );
+  }
+  if (more.length > 0) return usage(`unexpected argument "${more.join(' ')}".`);
+  let bytes: Uint8Array;
+  try {
+    bytes = await (io.readBytes ?? readFile)(resolve(io.cwd, file));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    io.stderr(`stanza: cannot read ${file}: ${reason}\n`);
+    return 2;
+  }
+  const storage = (io.openStorage ?? nodeStorage)(resolve(io.cwd, folder));
+  const imported = await importCover(storage, bytes, {
+    fileName: basename(file, extname(file)),
+    ...(values.name !== undefined ? { name: values.name } : {}),
+  });
+  if (!imported.ok) {
+    io.stderr(`stanza: ${imported.message}\n`);
+    return 2;
+  }
+  io.stdout(`Imported the cover of ${file} as the page template "${imported.template}".\n`);
+  for (const line of describeCoverImport(imported)) io.stdout(`  ${line}\n`);
+  return 0;
+}
+
 /** Runs the command line and returns the exit code. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   const usage = (message: string): number => {
@@ -473,6 +521,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
         'max-diagnostics': { type: 'string' },
         new: { type: 'boolean' },
         force: { type: 'boolean' },
+        name: { type: 'string' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -562,6 +611,10 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     }
     return reportReview(io, file, inspected.inspection);
   }
+  if (command === 'import' && positionals[1] === 'cover') {
+    return importCoverCommand(io, positionals.slice(2), values);
+  }
+  if (values.name !== undefined) return usage('--name applies to import cover only.');
   if (command === 'import' || command === 'adopt') {
     if (
       values.out !== undefined ||
