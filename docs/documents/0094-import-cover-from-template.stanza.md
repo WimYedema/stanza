@@ -33,7 +33,7 @@ Word is never a build input. The stylesheet edits are those of the style editor,
 <!-- stanza: #v9f1m8752n -->
 ### What the cover is
 
-The cover is the first page of the template: the body up to the first page break or section break, after the first-page header (or the default header), with the first-page footer (or the default footer) at the bottom. The body pages, with their headers and footers, are not imported (item 216).
+The cover is the first page of the template: the body up to the first page break or section break, after the first-page header (or the default header), with the first-page footer (or the default footer) at the bottom. The content of the body pages is not imported; their header and footer are (below).
 
 <!-- stanza: #s8ctxp5hwr -->
 ### From the flow to a grid
@@ -54,6 +54,13 @@ A paragraph in a **frame** (`framePr`, in its style or its own properties) is at
 A text in square brackets is a placeholder: `[Document title]` and `[Title]` become `title`, `[Author name(s)]` and the like `authors`, `[Classification]` `classification`, `[Version]` `version`, and any other `[Text]` the field `field:text` in kebab-case. A content control bound to a document property becomes the token of that property (title, author, subject as `field:subtitle`, and the others as fields named after the property). The label of a token is the placeholder text, so that an unfilled cover shows what to fill in, as the template does.
 
 <!-- stanza: #6kxw88m89a -->
+### The header and the footer of the body pages
+
+Since ADR 0095, the default header and footer of the template become the header and the footer of the page template, as grids, at the distances of the template. A line that tabs or positional tabs part into left, centre and right becomes a row of columns, the centre one half of the width, each part in the alignment of its tab. Word fields become tokens: `PAGE`, `NUMPAGES` and `SECTIONPAGES` the page fields, `STYLEREF` the section, `REVNUM` the version (reported, since it counts saves), the date fields the field `date`, and `TITLE`, `AUTHOR`, `SUBJECT` and `DOCPROPERTY` their tokens or fields; another field keeps its last result as text and is reported. On the cover, where the page fields cannot be, they keep their last result. The headers and footers of even pages are left out, as the body has one of each.
+
+The label of a token or field that comes from a content control or a field is the name of the value, such as `Date`, and none for the version, so that a document that has no such value does not show the value the template happened to have. A page field has `1`, as Word shows until it updates.
+
+<!-- stanza: #scd7a4kh21 -->
 ### Styles
 
 A style is the look a paragraph has in the template: its Word style with the styles it is based on and the document defaults, and the direct formatting of the paragraph and its first run. Paragraphs that look the same share one style. The properties read are the font, size, bold, italic, color, alignment, spacing before and after, line spacing and left indent. Theme fonts and theme colors are read from the theme. Borders, shading of paragraphs, small caps, tabs and frames are left out and reported, except the rules above.
@@ -75,4 +82,4 @@ A style is the look a paragraph has in the template: its Word style with the sty
 <!-- stanza: #kqw19ywk9q -->
 ## Not covered
 
-Anchored shapes and text boxes as areas (item 229), headers and footers of the body pages (item 216), the styles of the body, a different first page in the body, and updating a template that was imported.
+Anchored shapes and text boxes as areas (item 229), the styles of the body, a different first page in the body, and updating a template that was imported.

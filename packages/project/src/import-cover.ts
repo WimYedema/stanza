@@ -85,9 +85,23 @@ function tableStyleLines(style: ImportedTableStyle): string[] {
 /** The lines of the new page template: its page and its cover (ADR 0094). */
 function templateLines(result: CoverTemplateImport): string[] {
   const { margins } = result;
+  // A header or footer of the body pages, as a grid with its distance (ADR 0095).
+  const band = (kind: 'header' | 'footer'): string[] => {
+    const spec = result[kind];
+    if (spec?.grid === undefined) return [];
+    return [
+      `${kind}:`,
+      ...indent([
+        ...(spec.distancePt !== undefined ? [`distance: ${String(spec.distancePt)}`] : []),
+        ...coverSource(spec.grid).split('\n'),
+      ]),
+    ];
+  };
   return [
     `size: ${result.size}`,
     `margins: { top: ${String(margins.topPt)}, right: ${String(margins.rightPt)}, bottom: ${String(margins.bottomPt)}, left: ${String(margins.leftPt)} }`,
+    ...band('header'),
+    ...band('footer'),
     'cover:',
     ...indent(coverSource(result.cover).split('\n')),
   ];

@@ -7,6 +7,7 @@ import {
   type CoverEntry,
   type CoverGrid,
   type CoverRowHeight,
+  type HeaderFooter,
   type LineSpacing,
   type PageMargins,
   type PageSize,
@@ -57,6 +58,9 @@ export interface CoverTemplateImport {
   readonly size: PageSize;
   readonly margins: PageMargins;
   readonly cover: CoverGrid;
+  /** The header and the footer of the body pages, as grids (ADR 0095). */
+  readonly header?: HeaderFooter;
+  readonly footer?: HeaderFooter;
   readonly paragraphStyles: readonly ImportedParagraphStyle[];
   readonly tableStyles: readonly ImportedTableStyle[];
   /** New color tokens, by name, as `#RRGGBB`. */
@@ -486,10 +490,30 @@ const BOUND_PROPERTIES: Readonly<Record<string, string>> = {
   title: 'title',
   creator: 'authors',
   subject: 'field:subtitle',
+  PublishDate: 'field:date',
 };
+
+/** The tokens that are Word fields, whose label is the number Word shows until it updates them. */
+const PAGE_TOKENS = new Set(['page', 'pages']);
+
+/** A label for a value: its name in words, such as `Document number`; none for the version. */
+function readable(name: string): string {
+  if (name === 'version' || name === 'section') return '';
+  const words = name.replace(/-/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Markers in the text of a paragraph while it is read; private-use characters, never in text. */
+const FIELD = '\uE001';
+const LABEL = '\uE002';
+const CLOSE = '\uE003';
+const TOKEN = '\uE004';
+/** A tab, followed by `L`, `C` or `R` for a positional tab, or by `T` for a tab to a tab stop. */
+const SEGMENT = '\uE005';
 
 const kebab = (text: string): string =>
   text
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -542,6 +566,8 @@ type Block =
       readonly pageBreak: boolean;
       readonly sectionBreak: boolean;
       readonly frame?: Frame;
+      /** In a header or footer: the parts of a line that tabs put left, centre and right. */
+      readonly segments?: readonly Segment[];
     }
   | {
       readonly kind: 'table';
@@ -550,6 +576,13 @@ type Block =
       /** The part that holds the table, for the pictures in its cells. */
       readonly part: Part;
     };
+
+/** A part of a line of a header or footer, between tabs (ADR 0095). */
+interface Segment {
+  readonly alignment: Alignment;
+  readonly lines: readonly SlotPart[][];
+  readonly pictures: readonly PictureRef[];
+}
 
 /** The elements of a name below one, without the fallback copy of alternate content. */
 const descendants = (element: XmlElement, name: string): XmlElement[] => {
@@ -589,7 +622,68 @@ class Reader {
   readonly approximated: string[] = [];
   readonly leftOut: string[] = [];
 
+  /** True while a header or a footer is read, where the page fields are tokens and tabs part a line. */
+  band = false;
+
   constructor(readonly looks: Looks) {}
+
+  /**
+   * The marker of a Word field (ADR 0095): page fields are tokens in a header or footer, the
+   * revision is the version, a date is the field `date`, and a document property is its token or a
+   * field of its name. Any other field keeps its last result as text.
+   */
+  private fieldMarker(instruction: string, shown: string): string {
+    const words = instruction.trim().split(/\s+/);
+    const name = words[0]?.toUpperCase() ?? '';
+    // The label is what shows while the value is missing: the name of the value, and for a page
+    // field the number that Word shows until it updates the field. A template's own value, such as
+    // its date, would show in documents that have none.
+    const token = (value: string): string =>
+      `${TOKEN}${value}${LABEL}${PAGE_TOKENS.has(value) ? shown || '1' : readable(value)}${CLOSE}`;
+    const field = (value: string): string => {
+      this.fields.add(value);
+      return `${FIELD}${value}${LABEL}${readable(value)}${CLOSE}`;
+    };
+    const paged = (value: string): string => {
+      if (this.band) return token(value);
+      this.approximated.push(`The field ${name} on the cover keeps its last result as text.`);
+      return shown;
+    };
+    switch (name) {
+      case 'PAGE':
+        return paged('page');
+      case 'NUMPAGES':
+      case 'SECTIONPAGES':
+        return paged('pages');
+      case 'STYLEREF':
+        return paged('section');
+      case 'REVNUM':
+        this.approximated.push(
+          'The REVNUM field, which counts the saves of a file, is the version token (ADR 0095).',
+        );
+        return token('version');
+      case 'DATE':
+      case 'CREATEDATE':
+      case 'SAVEDATE':
+      case 'PRINTDATE':
+        return field('date');
+      case 'TITLE':
+        return token('title');
+      case 'AUTHOR':
+        return token('authors');
+      case 'SUBJECT':
+        return field('subtitle');
+      case 'DOCPROPERTY': {
+        const property = (words[1] ?? '').replace(/"/g, '');
+        const known = BOUND_PROPERTIES[property.charAt(0).toLowerCase() + property.slice(1)];
+        if (known === undefined) return field(kebab(property) || 'property');
+        return known.startsWith('field:') ? field(known.slice('field:'.length)) : token(known);
+      }
+      default:
+        this.leftOut.push(`The field ${name} is left out; its last result stays as text.`);
+        return shown;
+    }
+  }
 
   paragraph(element: XmlElement, part: Part, alignment?: Alignment): Block[] {
     let look = this.looks.lookOf(element);
@@ -606,19 +700,70 @@ class Reader {
     const extra: Block[] = [];
     // A content control bound to a document property is that property.
     let text = '';
+    // A complex field: its instruction, then its last result, which the marker replaces.
+    let fieldPhase: 'none' | 'instruction' | 'result' = 'none';
+    let instruction = '';
+    let shownResult = '';
+    // The part of the line each picture is in, in the order of the drawings.
+    const drawingSegments: number[] = [];
+    const segmentsSoFar = (): number => text.split(SEGMENT).length - 1;
+    const readRun = (run: XmlElement): void => {
+      for (const piece of elementsOf(run)) {
+        if (piece.name === 'fldChar') {
+          const type = piece.attrs['fldCharType'];
+          if (type === 'begin') {
+            fieldPhase = 'instruction';
+            instruction = '';
+            shownResult = '';
+          } else if (type === 'separate') {
+            fieldPhase = 'result';
+          } else if (type === 'end') {
+            text += this.fieldMarker(instruction, shownResult);
+            fieldPhase = 'none';
+          }
+          continue;
+        }
+        if (piece.name === 'instrText') {
+          instruction += piece.children.filter((node) => typeof node === 'string').join('');
+          continue;
+        }
+        if (piece.name === 'drawing' || piece.name === 'AlternateContent') {
+          if (
+            descendants({ name: 'x', attrs: {}, children: [piece] }, 'drawing').length > 0 ||
+            piece.name === 'drawing'
+          ) {
+            drawingSegments.push(segmentsSoFar());
+          }
+          continue;
+        }
+        const value =
+          piece.name === 't'
+            ? piece.children.filter((node) => typeof node === 'string').join('')
+            : piece.name === 'tab'
+              ? `${SEGMENT}T`
+              : piece.name === 'ptab'
+                ? `${SEGMENT}${(piece.attrs['alignment'] ?? 'left').charAt(0).toUpperCase()}`
+                : piece.name === 'br' || piece.name === 'cr'
+                  ? '\n'
+                  : '';
+        if (fieldPhase === 'result') shownResult += value;
+        else if (fieldPhase === 'none') text += value;
+      }
+    };
     const visit = (node: XmlElement): void => {
       for (const child of elementsOf(node)) {
         if (child.name === 'sdt') {
           const binding = childOf(childOf(child, 'sdtPr'), 'dataBinding')?.attrs['xpath'];
           const property = binding === undefined ? undefined : /(\w+)\[1\]\s*$/.exec(binding)?.[1];
           if (property !== undefined) {
-            const shown = runsOf(child).map(textOfRun).join('') || property;
+            // The label is the name of the property, not the value the template has.
             const token = BOUND_PROPERTIES[property];
             if (token === undefined || token.startsWith('field:')) {
               const field = token === undefined ? kebab(property) : token.slice('field:'.length);
-              text += `\uE001${field}\uE002${shown}\uE003`;
+              this.fields.add(field);
+              text += `${FIELD}${field}${LABEL}${readable(field)}${CLOSE}`;
             } else {
-              text += `\uE004${token}\uE002${shown}\uE003`;
+              text += `${TOKEN}${token}${LABEL}${readable(token)}${CLOSE}`;
             }
             continue;
           }
@@ -626,7 +771,14 @@ class Reader {
           continue;
         }
         if (child.name === 'r') {
-          text += textOfRun(child);
+          readRun(child);
+          continue;
+        }
+        if (child.name === 'fldSimple') {
+          text += this.fieldMarker(
+            child.attrs['instr'] ?? '',
+            runsOf(child).map(textOfRun).join(''),
+          );
           continue;
         }
         if (OWN_CONTENT.has(child.name)) continue;
@@ -634,8 +786,8 @@ class Reader {
       }
     };
     visit(element);
-    const pictures: PictureRef[] = [];
-    for (const drawing of descendants(element, 'drawing')) {
+    const pictures: (PictureRef & { segment: number })[] = [];
+    for (const [index, drawing] of descendants(element, 'drawing').entries()) {
       const holder = childOf(drawing, 'inline') ?? childOf(drawing, 'anchor');
       if (holder?.name === 'anchor')
         this.approximated.push('A picture anchored to the page is placed in the flow.');
@@ -649,6 +801,7 @@ class Reader {
         id: target.path,
         widthPt: round(Number(extent.attrs['cx'] ?? '0') / 12700),
         heightPt: round(Number(extent.attrs['cy'] ?? '0') / 12700),
+        segment: drawingSegments[index] ?? 0,
       });
     }
     for (const drawing of descendants(element, 'drawing')) {
@@ -694,8 +847,44 @@ class Reader {
     if (descendants(element, 'pict').length > 0 && pictures.length === 0) {
       this.leftOut.push('A VML picture or shape (w:pict) is left out.');
     }
-    const lines = text.split('\n').map((line) => this.lineParts(line));
-    const visibleLines = lines.filter((line) => line.length > 0).length;
+    const parts = text.split(SEGMENT);
+    const stops = this.looks.tabStopsOf(element);
+    let stop = 0;
+    const segments: Segment[] = parts.map((piece, index) => {
+      if (index === 0) {
+        return {
+          alignment: look.alignment ?? 'left',
+          lines: piece.split('\n').map((line) => this.lineParts(line)),
+          pictures: pictures.filter((picture) => picture.segment === 0),
+        };
+      }
+      const kind = piece.charAt(0);
+      const tabKind = kind === 'T' ? stops[stop++] : undefined;
+      const side: Alignment =
+        kind === 'C' || tabKind === 'center'
+          ? 'center'
+          : kind === 'R' || tabKind === 'right' || tabKind === 'end'
+            ? 'right'
+            : 'left';
+      return {
+        alignment: side,
+        lines: piece
+          .slice(1)
+          .split('\n')
+          .map((line) => this.lineParts(line)),
+        pictures: pictures.filter((picture) => picture.segment === index),
+      };
+    });
+    const split = this.band && segments.length > 1;
+    const lines = split
+      ? []
+      : text
+          .replace(new RegExp(`${SEGMENT}[LCRT]`, 'g'), ' ')
+          .split('\n')
+          .map((line) => this.lineParts(line));
+    const visibleLines = split
+      ? Math.max(...segments.map((segment) => segment.lines.filter((l) => l.length > 0).length))
+      : lines.filter((line) => line.length > 0).length;
     const textHeight = Math.max(visibleLines, 1) * lineHeightPt(look);
     const picturesHeight = pictures.reduce((sum, picture) => Math.max(sum, picture.heightPt), 0);
     const heightPt =
@@ -715,6 +904,7 @@ class Reader {
         childOf(pPr, 'pageBreakBefore') !== undefined,
       sectionBreak: childOf(pPr, 'sectPr') !== undefined,
       ...(frame !== undefined ? { frame } : {}),
+      ...(split ? { segments } : {}),
     };
     return [block, ...extra];
   }
@@ -724,14 +914,18 @@ class Reader {
     const parts: SlotPart[] = [];
     let rest = line;
     while (rest !== '') {
-      const at = rest.search(/[\uE001\uE004]/);
+      const at = rest.search(new RegExp(`[${FIELD}${TOKEN}]`));
       const plain = at < 0 ? rest : rest.slice(0, at);
       parts.push(...slotParts(plain, this.fields));
       if (at < 0) break;
-      const close = rest.indexOf('\uE003', at);
-      const [name = '', label = ''] = rest.slice(at + 1, close).split('\uE002');
-      if (rest[at] === '\uE004') {
-        parts.push({ kind: 'token', token: name as 'title' | 'authors', label });
+      const close = rest.indexOf(CLOSE, at);
+      const [name = '', label = ''] = rest.slice(at + 1, close).split(LABEL);
+      if (rest[at] === TOKEN) {
+        parts.push({
+          kind: 'token',
+          token: name as 'title' | 'authors' | 'page' | 'pages' | 'section' | 'version',
+          label,
+        });
       } else {
         this.fields.add(name);
         parts.push({ kind: 'field', name, label });
@@ -890,7 +1084,6 @@ export function importCoverTemplate(
     converted.push('The header of the first page, at the top of the cover.');
   if (footer !== undefined)
     converted.push('The footer of the first page, at the bottom of the cover.');
-  reader.leftOut.push('The headers and footers of the body pages are not imported (item 216).');
 
   const coverWidthPt = width / 20 - margins.leftPt - margins.rightPt;
   const pageHeight = height / 20;
@@ -921,6 +1114,28 @@ export function importCoverTemplate(
     converted.push('A frame at its place on the page.');
   }
   const footerPiece = footer === undefined ? undefined : build.capture(footerBlocks);
+
+  // The header and footer of the body pages (ADR 0095): the default ones, as grids.
+  const bodyBand = (kind: 'header' | 'footer', distancePt: number): HeaderFooter | undefined => {
+    const references = elementsOf(section, `${kind}Reference`);
+    if (references.some((r) => r.attrs['type'] === 'even')) {
+      reader.leftOut.push(`The ${kind} of even pages is left out; the body has one ${kind}.`);
+    }
+    const id = references.find((r) => r.attrs['type'] === 'default')?.attrs['id'];
+    const target = id === undefined ? undefined : document.relationships.get(id);
+    const part = target === undefined ? undefined : pkg.part(target.path);
+    if (part === undefined) return undefined;
+    reader.band = true;
+    const grid = build.band(reader.blocks(part.xml, part, false));
+    reader.band = false;
+    if (grid === undefined) return undefined;
+    converted.push(
+      `The ${kind} of the body pages, as a grid at ${String(distancePt)} pt from the edge.`,
+    );
+    return { left: [], center: [], right: [], distancePt, grid };
+  };
+  const bodyHeader = bodyBand('header', headerDistance);
+  const bodyFooter = bodyBand('footer', footerDistance);
   build.place(pieces, header === undefined ? margins.topPt : headerDistance, footerPiece);
 
   const coverMargins: Partial<PageMargins> = {
@@ -941,6 +1156,8 @@ export function importCoverTemplate(
       size,
       margins,
       cover,
+      ...(bodyHeader !== undefined ? { header: bodyHeader } : {}),
+      ...(bodyFooter !== undefined ? { footer: bodyFooter } : {}),
       paragraphStyles: build.paragraphStyles(),
       tableStyles: build.tableStyles,
       colors: build.newColors,
@@ -1172,6 +1389,11 @@ class GridBuilder {
         this.addTable(block);
         continue;
       }
+      if (block.segments !== undefined) {
+        flush();
+        this.addSegments(block, block.segments);
+        continue;
+      }
       const hasText = block.lines.some((line) => line.length > 0);
       if (hasText || block.pictures.length > 0) {
         text.push(block);
@@ -1326,6 +1548,63 @@ class GridBuilder {
     );
   }
 
+  /**
+   * A line of a header or footer with parts between tabs (ADR 0095): a row with a column for each
+   * part, each in the alignment of its tab. In a line of left, centre and right, the centre part
+   * is usually the longest, so it has half of the width; other lines have equal columns.
+   */
+  private addSegments(block: Block & { kind: 'paragraph' }, segments: readonly Segment[]): void {
+    const count = segments.length;
+    const centred = count === 3 && segments[1]?.alignment === 'center';
+    const boundaries = centred
+      ? [0, this.widthPt / 4, (this.widthPt * 3) / 4, this.widthPt]
+      : Array.from({ length: count + 1 }, (_, index) => (this.widthPt * index) / count);
+    const cells = segments.map((segment, index) => {
+      const style = this.styleFor({ ...block.look, alignment: segment.alignment }, block.style);
+      const content: CoverEntry[] = [
+        ...segment.pictures.flatMap((picture): CoverEntry[] => {
+          const entry = this.image(picture);
+          return entry === undefined ? [] : [{ ...entry, style }];
+        }),
+        ...segment.lines
+          .filter((line) => line.length > 0)
+          .map((text): CoverEntry => ({ kind: 'paragraph', style, text })),
+      ];
+      return {
+        from: index,
+        to: index + 1,
+        ...(content.length > 0 ? { area: { valign: 'top' as const, content } } : {}),
+      };
+    });
+    this.rows.push({ heightPt: block.heightPt, cells, boundaries });
+    this.converted.push(
+      'A line of a header or footer with tabs as columns, left, centre and right.',
+    );
+  }
+
+  /**
+   * A header or a footer as a grid (ADR 0095): the rows of its blocks, without the empty rows at its
+   * ends; a row with content grows, and an empty row between keeps its height. Undefined when it
+   * has no content.
+   */
+  band(blocks: readonly Block[]): CoverGrid | undefined {
+    const { rows } = this.capture(blocks);
+    const filled = (row: GridRow): boolean => row.cells.some((cell) => cell.area !== undefined);
+    while (rows.length > 0 && !filled(rows[0] as GridRow)) rows.shift();
+    while (rows.length > 0 && !filled(rows.at(-1) as GridRow)) rows.pop();
+    if (rows.length === 0) return undefined;
+    const { columns, areas, area } = this.shape(rows);
+    return {
+      kind: 'grid',
+      columns,
+      rows: rows.map((row): CoverRowHeight =>
+        filled(row) ? { kind: 'auto' } : { kind: 'points', pt: Math.max(0.5, round(row.heightPt)) },
+      ),
+      areas,
+      area,
+    };
+  }
+
   /** The grid: columns from the boundaries of layout tables, and the rows that fill the cover. */
   grid(margins: Partial<PageMargins>, heightPt: number): CoverGrid {
     const empty = (row: GridRow | undefined): boolean =>
@@ -1341,10 +1620,36 @@ class GridBuilder {
         this.rows.splice(index, 1);
       }
     }
+    const { columns, areas, area } = this.shape(this.rows);
+    const fixed = this.rows.reduce(
+      (sum, row) => sum + (row.share === true ? 0 : Math.max(1, round(row.heightPt))),
+      0,
+    );
+    const room = heightPt - 2;
+    const scale = fixed > room ? room / fixed : 1;
+    if (scale < 1) {
+      this.reader.approximated.push(
+        'The cover was taller than the page, so its rows were made lower.',
+      );
+    }
+    const rows: CoverRowHeight[] = this.rows.map((row) =>
+      row.share === true
+        ? { kind: 'share', fr: 1 }
+        : { kind: 'points', pt: Math.max(0.5, round(row.heightPt * scale)) },
+    );
+    return { kind: 'grid', margins, columns, rows, areas, area };
+  }
+
+  /** The columns of rows, from the boundaries of their tables and tabs, and their areas. */
+  private shape(gridRows: readonly GridRow[]): {
+    columns: CoverColumnWidth[];
+    areas: string[][];
+    area: Record<string, CoverArea>;
+  } {
     // An edge within a point of another is that edge, so that a table a little narrower than the
     // page does not make a sliver of a column.
     const sorted = [0, round(this.widthPt)];
-    for (const row of this.rows) {
+    for (const row of gridRows) {
       for (const edge of row.boundaries ?? []) {
         const at = round(Math.min(edge, this.widthPt));
         if (sorted.every((known) => Math.abs(known - at) > 1)) sorted.push(at);
@@ -1363,25 +1668,9 @@ class GridBuilder {
     });
     const columnOf = (edge: number): number =>
       sorted.indexOf(snap(round(Math.min(edge, this.widthPt))));
-    const fixed = this.rows.reduce(
-      (sum, row) => sum + (row.share === true ? 0 : Math.max(1, round(row.heightPt))),
-      0,
-    );
-    const room = heightPt - 2;
-    const scale = fixed > room ? room / fixed : 1;
-    if (scale < 1) {
-      this.reader.approximated.push(
-        'The cover was taller than the page, so its rows were made lower.',
-      );
-    }
-    const rows: CoverRowHeight[] = this.rows.map((row) =>
-      row.share === true
-        ? { kind: 'share', fr: 1 }
-        : { kind: 'points', pt: Math.max(0.5, round(row.heightPt * scale)) },
-    );
     const area: Record<string, CoverArea> = {};
     let count = 0;
-    const areas = this.rows.map((row) => {
+    const areas = gridRows.map((row) => {
       const line = sorted.slice(1).map(() => '.');
       for (const cell of row.cells) {
         if (cell.area === undefined) continue;
@@ -1397,6 +1686,6 @@ class GridBuilder {
       }
       return line;
     });
-    return { kind: 'grid', margins, columns, rows, areas, area };
+    return { columns, areas, area };
   }
 }

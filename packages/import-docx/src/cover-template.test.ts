@@ -152,4 +152,62 @@ describe('importCoverTemplate (ADR 0094)', () => {
     });
     expect(result.ok).toBe(false);
   });
+
+  it('makes the header of the body pages a grid: the logo, the title and the date in their columns (ADR 0095)', () => {
+    const header = imported.header;
+    expect(header?.distancePt).toBe(28.35);
+    expect(header?.grid?.columns).toEqual([
+      { kind: 'points', pt: 111.3 },
+      { kind: 'points', pt: 222.5 },
+      { kind: 'share', fr: 1 },
+    ]);
+    expect(header?.grid?.rows).toEqual([{ kind: 'auto' }]);
+    const [logo, title, date] = (header?.grid?.areas[0] ?? []).map(
+      (name) => header?.grid?.area[name]?.content,
+    );
+    expect(logo).toEqual([
+      { kind: 'image', path: 'assets/test/image-1.png', widthPt: 48, style: 'test-meta' },
+    ]);
+    expect(title).toEqual([
+      {
+        kind: 'paragraph',
+        style: 'test-meta-2',
+        text: [
+          { kind: 'token', token: 'title', label: 'Title' },
+          { kind: 'text', text: ' \u2013 rev. ' },
+          { kind: 'token', token: 'version', label: '' },
+        ],
+      },
+    ]);
+    expect(date).toEqual([
+      {
+        kind: 'paragraph',
+        style: 'test-meta-3',
+        text: [{ kind: 'field', name: 'date', label: 'Date' }],
+      },
+    ]);
+    const styles = new Map(imported.paragraphStyles.map((style) => [style.name, style]));
+    expect(styles.get('test-meta-2')?.alignment).toBe('center');
+    expect(styles.get('test-meta-3')?.alignment).toBe('right');
+    expect(imported.approximated).toContain(
+      'The REVNUM field, which counts the saves of a file, is the version token (ADR 0095).',
+    );
+  });
+
+  it('makes the footer of the body pages a grid with the page fields as tokens (ADR 0095)', () => {
+    const footer = imported.footer;
+    expect(footer?.distancePt).toBe(28.35);
+    const name = footer?.grid?.areas[0]?.[0] ?? '';
+    expect(footer?.grid?.area[name]?.content).toEqual([
+      {
+        kind: 'paragraph',
+        style: 'test-meta',
+        text: [
+          { kind: 'token', token: 'page', label: '1' },
+          { kind: 'text', text: ' / ' },
+          { kind: 'token', token: 'pages', label: '1' },
+        ],
+      },
+    ]);
+  });
 });

@@ -8,7 +8,13 @@ import {
   ImageRun,
   Packer,
   PageBreak,
+  PageNumber,
   Paragraph,
+  PositionalTab,
+  PositionalTabAlignment,
+  PositionalTabLeader,
+  PositionalTabRelativeTo,
+  SimpleField,
   Tab,
   TabStopType,
   Table,
@@ -30,6 +36,13 @@ export function smallPng(): Uint8Array {
   view.setUint32(20, 48);
   return bytes;
 }
+
+const ptab = (alignment: (typeof PositionalTabAlignment)[keyof typeof PositionalTabAlignment]) =>
+  new PositionalTab({
+    alignment,
+    relativeTo: PositionalTabRelativeTo.MARGIN,
+    leader: PositionalTabLeader.NONE,
+  });
 
 const cell = (children: Paragraph[], columnSpan?: number): TableCell =>
   new TableCell({ children, ...(columnSpan !== undefined ? { columnSpan } : {}) });
@@ -96,6 +109,29 @@ export async function reportTemplate(): Promise<Uint8Array> {
           },
         },
         headers: {
+          // The header of the body pages: a logo, then the title and the revision in the centre
+          // and the date at the right, put there with positional tabs, as fields.
+          default: new Header({
+            children: [
+              new Paragraph({
+                style: 'meta',
+                children: [
+                  new ImageRun({
+                    type: 'png',
+                    data: smallPng(),
+                    transformation: { width: 64, height: 19 },
+                  }),
+                  new TextRun({ children: [ptab(PositionalTabAlignment.CENTER)] }),
+                  new SimpleField('TITLE', 'Old title'),
+                  new TextRun(' \u2013 rev. '),
+                  new SimpleField('REVNUM', '17'),
+                  new TextRun({ children: [ptab(PositionalTabAlignment.RIGHT)] }),
+                  new SimpleField('DATE \\@ "dd/MM/yyyy"', '01/02/2026'),
+                ],
+              }),
+              new Paragraph({ style: 'meta' }),
+            ],
+          }),
           first: new Header({
             children: [
               new Table({
@@ -129,6 +165,18 @@ export async function reportTemplate(): Promise<Uint8Array> {
           }),
         },
         footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                style: 'meta',
+                children: [
+                  new TextRun({ children: [PageNumber.CURRENT] }),
+                  new TextRun(' / '),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES] }),
+                ],
+              }),
+            ],
+          }),
           first: new Footer({
             children: [
               new Paragraph({
