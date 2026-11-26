@@ -96,14 +96,24 @@ const DECORATIVE =
  * pictures of a cover are marked as decorative (ADR 0089).
  */
 function renumberDrawings(files: Files): void {
-  const document = files['word/document.xml'];
-  if (document === undefined) return;
   let next = 0;
-  const text = strFromU8(document).replace(
-    /<wp:docPr id="\d+"( name="[^"]*")\/>/g,
-    (_whole, name: string) => `<wp:docPr id="${String(++next)}"${name}>${DECORATIVE}</wp:docPr>`,
-  );
-  files['word/document.xml'] = strToU8(text);
+  // The document first, then its headers and footers in the order of their names.
+  const parts = [
+    'word/document.xml',
+    ...Object.keys(files)
+      .filter((name) => /^word\/(header|footer)\d+\.xml$/.test(name))
+      .sort(),
+  ];
+  for (const name of parts) {
+    const part = files[name];
+    if (part === undefined) continue;
+    const text = strFromU8(part).replace(
+      /<wp:docPr id="\d+"( name="[^"]*")\/>/g,
+      (_whole, title: string) =>
+        `<wp:docPr id="${String(++next)}"${title}>${DECORATIVE}</wp:docPr>`,
+    );
+    files[name] = strToU8(text);
+  }
 }
 
 /**

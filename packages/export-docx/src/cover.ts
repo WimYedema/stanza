@@ -11,9 +11,11 @@ import {
   naturalWidthPt,
   type Block,
   type CoverItem,
+  type ColorValue,
+  type CoverAlignment,
+  type PlacedArea,
   type CoverGrid,
   type DocumentMeta,
-  type FilledArea,
   type ImageAsset,
   type PageTemplate,
 } from '@stanza/core';
@@ -53,7 +55,7 @@ const pixels = (pt: number): number => (pt * 96) / 72;
  * `maxWidthPt`, with its aspect ratio kept. An image that was not loaded is reported, since the
  * project reads the images and the exporter cannot.
  */
-function imageParagraph(
+export function imageParagraph(
   item: CoverItem & { kind: 'image' },
   images: ReadonlyMap<string, ImageAsset>,
   maxWidthPt: number,
@@ -86,7 +88,7 @@ function imageParagraph(
 }
 
 /** The items of a row in order; runs of blocks are built together, as in a document. */
-function itemChildren(
+export function itemChildren(
   items: readonly CoverItem[],
   images: ReadonlyMap<string, ImageAsset>,
   maxWidthPt: number,
@@ -137,7 +139,7 @@ const VALIGN = {
 } as const;
 
 /** The fill of an area with a background (ADR 0093), as cell shading of the token's color. */
-function shadingOf(area: FilledArea, context: BuildContext) {
+function shadingOf(area: GridArea, context: BuildContext) {
   const fill =
     area.background === undefined
       ? undefined
@@ -145,34 +147,40 @@ function shadingOf(area: FilledArea, context: BuildContext) {
   return fill === undefined ? {} : { shading: { type: ShadingType.CLEAR, color: 'auto', fill } };
 }
 
-const emptyParagraph = (): Paragraph => new Paragraph({ style: wordStyleId(BODY_STYLE) });
+export const emptyParagraph = (): Paragraph => new Paragraph({ style: wordStyleId(BODY_STYLE) });
+
+/** An area of a grid where it is, with its alignment and its background. */
+export interface GridArea extends PlacedArea {
+  readonly valign: CoverAlignment;
+  readonly background?: ColorValue;
+}
 
 /**
- * The grid of a cover as one borderless table as wide as the text (ADR 0089, ADR 0092): a column
- * for each column, a row for each row, and a cell for each area that spans its columns and rows. Its
- * borders, widths, cell margins, row heights and alignment are explicit, as layout that the
- * stylesheet computes.
+ * A grid as one borderless table as wide as `widthTwips` (ADR 0089, ADR 0092, ADR 0095): a column
+ * for each column, a row for each row, and a cell for each area that spans its columns and rows,
+ * with the content that `cellChildren` gives it. Its borders, widths, cell margins, row heights and
+ * alignment are explicit, as layout that the stylesheet computes.
  */
-function layoutTable(
+export function gridTable<Area extends GridArea>(
   grid: CoverGrid,
-  areas: readonly FilledArea[],
-  template: PageTemplate,
-  page: PageGeometry,
-  images: ReadonlyMap<string, ImageAsset>,
+  areas: readonly Area[],
+  widthTwips: number,
+  heightsPt: readonly (number | undefined)[],
+  cellChildren: (area: Area, widthPt: number) => (Paragraph | Table)[],
   context: BuildContext,
 ): Table {
-  const width = page.textWidthTwips;
+  const width = widthTwips;
   const columns = sizesTwips(
     grid.columns.map((column) => column.kind),
     coverColumnWidthsPt(grid.columns, width / 20),
   ).map((value) => value ?? 0);
   const heights = sizesTwips(
     grid.rows.map((row) => row.kind),
-    coverRowHeightsPt(grid.rows, coverAreaHeightPt(template)),
+    heightsPt,
   );
   const span = (from: number, count: number): number =>
     columns.slice(from, from + count).reduce((sum, value) => sum + value, 0);
-  const owner = (row: number, column: number): FilledArea | undefined =>
+  const owner = (row: number, column: number): Area | undefined =>
     areas.find(
       (area) =>
         row >= area.row &&
@@ -203,11 +211,7 @@ function layoutTable(
         // The library writes the cells below the first row of an area that spans rows.
         if (area.row !== row || area.column !== column) return;
         const areaWidth = span(area.column, area.columnSpan);
-        // A cover has no table of contents, so its children are paragraphs and tables.
-        const children = itemChildren(area.items, images, areaWidth / 20, context).filter(
-          (child): child is Paragraph | Table =>
-            child instanceof Paragraph || child instanceof Table,
-        );
+        const children = cellChildren(area, areaWidth / 20);
         cells.push(
           new TableCell({
             width: { size: areaWidth, type: WidthType.DXA },
@@ -250,7 +254,19 @@ export function buildCover(
   const grid = coverGrid(cover);
   const areas = fillGrid(grid, meta);
   if (areas === undefined) return undefined;
-  return { page, children: [layoutTable(grid, areas, template, page, images, here)], rows: true };
+  const table = gridTable(
+    grid,
+    areas,
+    page.textWidthTwips,
+    coverRowHeightsPt(grid.rows, coverAreaHeightPt(template)),
+    // A cover has no table of contents, so its children are paragraphs and tables.
+    (area, widthPt) =>
+      itemChildren(area.items, images, widthPt, here).filter(
+        (child): child is Paragraph | Table => child instanceof Paragraph || child instanceof Table,
+      ),
+    here,
+  );
+  return { page, children: [table], rows: true };
 }
 
 /**

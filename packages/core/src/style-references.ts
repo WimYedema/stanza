@@ -56,6 +56,12 @@ export function styleReferences(
       if (page.footer?.style === name)
         found.push(`The page template "${template}" uses it in its footer.`);
     }
+    for (const part of ['header', 'footer'] as const) {
+      const grid = page[part]?.grid;
+      if (grid !== undefined && coverUses(grid, family, name)) {
+        found.push(`The page template "${template}" uses it in its ${part}.`);
+      }
+    }
     if (coverUses(page.cover, family, name)) {
       found.push(`The page template "${template}" uses it in its cover.`);
     }

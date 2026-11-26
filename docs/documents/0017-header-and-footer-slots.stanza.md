@@ -6,7 +6,7 @@ title: "ADR 0017: Header and footer slots"
 <!-- stanza: #gv49drcrkj -->
 # ADR 0017: Header and footer slots
 
-Status: Accepted. The `authors` and `field:<name>` tokens added by ADR 0019.
+Status: Accepted. The `authors` and `field:<name>` tokens added by ADR 0019. A header or footer can be a grid, and has a distance from the edge, since ADR 0095.
 
 <!-- stanza: #h6kdy5fx2n -->
 ## Context

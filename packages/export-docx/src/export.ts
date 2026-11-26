@@ -136,8 +136,9 @@ export async function exportDocx(
 
   const { title, authors } = document.meta;
   const counting = { hasCover };
-  const header = headerOf(template.header, document.meta, page, counting);
-  const footer = footerOf(template.footer, document.meta, page, counting);
+  const parts = { images, context };
+  const header = headerOf(template.header, document.meta, page, counting, parts);
+  const footer = footerOf(template.footer, document.meta, page, counting, parts);
   const pageProperties = sectionPage(page);
   const stamp = options.source === undefined ? undefined : finishedStamp(options.source);
   const file = new Document({

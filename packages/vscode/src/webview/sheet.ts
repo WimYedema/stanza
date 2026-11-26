@@ -23,6 +23,7 @@ import {
   type CoverItem,
   type Document,
   type DocumentMeta,
+  type FilledArea,
   type HeaderFooter,
   type PageTemplate,
   type ProjectDefaults,
@@ -77,15 +78,17 @@ const pt = (value: number): string => (value === 0 ? '0' : `${number(value)}pt`)
 export function sheetCss(template: PageTemplate): string {
   const { widthPt, heightPt } = PAGE_SIZES[template.size];
   const { topPt, rightPt, bottomPt, leftPt } = template.margins;
-  const band = (margin: number): string => pt(Math.min(BAND_DISTANCE_PT, margin / 2));
+  // The distance of the template (ADR 0095), or 1.25 cm while the margin has room for it.
+  const band = (margin: number, distance: number | undefined): string =>
+    pt(distance ?? Math.min(BAND_DISTANCE_PT, margin / 2));
   return `#desk.paper .sheet {
   width: ${pt(widthPt)};
   min-height: ${pt(heightPt)};
   padding: ${pt(topPt)} ${pt(rightPt)} ${pt(bottomPt)} ${pt(leftPt)};
 }
 #desk.paper .band { left: ${pt(leftPt)}; right: ${pt(rightPt)}; }
-#desk.paper #header { top: ${band(topPt)}; }
-#desk.paper #footer { bottom: ${band(bottomPt)}; }
+#desk.paper #header { top: ${band(topPt, template.header?.distancePt)}; }
+#desk.paper #footer { bottom: ${band(bottomPt, template.footer?.distancePt)}; }
 `;
 }
 
@@ -139,8 +142,29 @@ function drawBand(
   spec: HeaderFooter | undefined,
   meta: DocumentMeta,
   section: string | undefined,
+  grid: {
+    readonly widthPt: number;
+    readonly stylesheet: Stylesheet;
+    readonly images: ReadonlyMap<string, string>;
+  },
 ): void {
   root.replaceChildren();
+  if (spec?.grid !== undefined) {
+    // Its page fields show their labels, as the slots do.
+    const areas = fillGrid(spec.grid, meta);
+    root.hidden = areas === undefined;
+    if (areas === undefined) return;
+    root.append(
+      gridElement(
+        areas,
+        coverColumnWidthsPt(spec.grid.columns, grid.widthPt),
+        coverRowHeightsPt(spec.grid.rows, 0),
+        grid.stylesheet,
+        grid.images,
+      ),
+    );
+    return;
+  }
   root.hidden =
     spec === undefined || (isEmpty(spec.left) && isEmpty(spec.center) && isEmpty(spec.right));
   if (spec === undefined || root.hidden) return;
@@ -275,8 +299,25 @@ export function drawCover(
   root.style.padding = [margins.topPt, margins.rightPt, margins.bottomPt, margins.leftPt]
     .map(pt)
     .join(' ');
-  const widths = coverColumnWidthsPt(grid.columns, coverAreaWidthPt(template));
-  const heights = coverRowHeightsPt(grid.rows, coverAreaHeightPt(template));
+  root.append(
+    gridElement(
+      areas,
+      coverColumnWidthsPt(grid.columns, coverAreaWidthPt(template)),
+      coverRowHeightsPt(grid.rows, coverAreaHeightPt(template)),
+      stylesheet,
+      images,
+    ),
+  );
+}
+
+/** A grid as a CSS grid with the widths and heights of the export (ADR 0092). */
+function gridElement(
+  areas: readonly FilledArea[],
+  widths: readonly number[],
+  heights: readonly (number | undefined)[],
+  stylesheet: Stylesheet,
+  images: ReadonlyMap<string, string>,
+): HTMLElement {
   const layout = document.createElement('div');
   layout.className = 'cover-grid';
   layout.style.display = 'grid';
@@ -315,7 +356,7 @@ export function drawCover(
     element.append(...itemElements(area.items, stylesheet, images));
     layout.append(element);
   }
-  root.append(layout);
+  return layout;
 }
 
 /** The title block above the text (ADR 0090), or nothing when no entry is left. */
@@ -350,8 +391,14 @@ export function createSheet(elements: SheetElements): Sheet {
       const css = sheetCss(template);
       if (style.textContent !== css) style.textContent = css;
       const section = sectionOf(current, stylesheet);
-      drawBand(elements.header, template.header, meta, section);
-      drawBand(elements.footer, template.footer, meta, section);
+      const bands = {
+        widthPt:
+          PAGE_SIZES[template.size].widthPt - template.margins.leftPt - template.margins.rightPt,
+        stylesheet,
+        images,
+      };
+      drawBand(elements.header, template.header, meta, section, bands);
+      drawBand(elements.footer, template.footer, meta, section, bands);
       drawCover(elements.cover, template, meta, stylesheet, images);
       if (elements.titleBlock !== undefined) {
         drawTitleBlock(elements.titleBlock, template, meta, stylesheet, images);

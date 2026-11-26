@@ -149,6 +149,16 @@ export interface HeaderFooter {
   readonly left: readonly SlotPart[];
   readonly center: readonly SlotPart[];
   readonly right: readonly SlotPart[];
+  /**
+   * The distance of the header from the top edge of the page, or of the footer from the bottom
+   * edge, in points (ADR 0095). Absent means 1.25 cm.
+   */
+  readonly distancePt?: number;
+  /**
+   * A grid in place of the three slots (ADR 0095): columns, rows that grow or have points, and
+   * areas with entries, which may show the page fields. The slots are empty then.
+   */
+  readonly grid?: CoverGrid;
 }
 
 /**
@@ -244,13 +254,16 @@ export function coverEntries(cover: Cover): readonly CoverEntry[] {
   return Object.values(cover.area).flatMap((area) => area.content);
 }
 
-/** The images that the covers and title blocks of page templates show, by path, without repeats. */
+/** The images that the covers, title blocks, headers and footers of page templates show. */
 export function coverImagePaths(templates: Iterable<PageTemplate>): readonly string[] {
   const paths = new Set<string>();
   for (const template of templates) {
     const entries = [
       ...(template.cover === undefined ? [] : coverEntries(template.cover)),
       ...(template.titleBlock ?? []),
+      ...[template.header?.grid, template.footer?.grid].flatMap((grid) =>
+        grid === undefined ? [] : coverEntries(grid),
+      ),
     ];
     for (const entry of entries) {
       if (entry.kind === 'image') paths.add(entry.path);

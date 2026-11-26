@@ -286,9 +286,9 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         );
       }
     }
-    const checkCoverParts = (parts: readonly SlotPart[], where: string): void => {
+    const checkCoverParts = (parts: readonly SlotPart[], where: string, paged = false): void => {
       for (const part of parts) {
-        if (part.kind === 'token' && PAGINATION_TOKENS.includes(part.token)) {
+        if (!paged && part.kind === 'token' && PAGINATION_TOKENS.includes(part.token)) {
           error(
             'cover-token-not-allowed',
             `The token "${part.token}" depends on pagination and cannot be used on a cover or in a title block.`,
@@ -297,7 +297,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         }
       }
     };
-    const checkEntry = (entry: CoverEntry, here: string): void => {
+    const checkEntry = (entry: CoverEntry, here: string, paged = false): void => {
       if (entry.kind === 'image') {
         if (!isSafeRelativePath(entry.path)) {
           error(
@@ -336,7 +336,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
             `${here}.style`,
           );
         }
-        checkCoverParts(entry.text, `${here}.text`);
+        checkCoverParts(entry.text, `${here}.text`, paged);
         return;
       }
       if (!stylesheet.tableStyles.has(entry.style)) {
@@ -347,10 +347,10 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         );
       }
       entry.rows.forEach((row, rowIndex) => {
-        checkCoverParts(row.value, `${here}.table.rows[${String(rowIndex)}].value`);
+        checkCoverParts(row.value, `${here}.table.rows[${String(rowIndex)}].value`, paged);
       });
     };
-    const checkGrid = (grid: CoverGrid, page: PageTemplate, here: string): void => {
+    const checkGrid = (grid: CoverGrid, widthPt: number, here: string, paged = false): void => {
       grid.columns.forEach((column, index) => {
         const where = `${here}.columns[${String(index)}]`;
         if (column.kind === 'points' && !(Number.isFinite(column.pt) && column.pt > 0)) {
@@ -377,18 +377,17 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         }
         checkColor(area.background, `${here}.area.${name}.background`);
         area.content.forEach((entry, index) => {
-          checkEntry(entry, `${here}.area.${name}.content[${String(index)}]`);
+          checkEntry(entry, `${here}.area.${name}.content[${String(index)}]`, paged);
         });
       }
       const fixed = grid.columns.reduce(
         (sum, column) => sum + (column.kind === 'points' ? column.pt : 0),
         0,
       );
-      const width = coverAreaWidthPt(page);
-      if (width >= MIN_TEXT_AREA_PT && fixed > width) {
+      if (widthPt >= MIN_TEXT_AREA_PT && fixed > widthPt) {
         error(
           'cover-too-wide',
-          `The columns are ${String(Math.round(fixed))} pt wide together, more than the ${String(Math.floor(width))} pt of the cover page.`,
+          `The columns are ${String(Math.round(fixed))} pt wide together, more than the ${String(Math.floor(widthPt))} pt they have.`,
           `${here}.columns`,
         );
       }
@@ -423,7 +422,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
           });
         });
       } else {
-        checkGrid(cover, page, here);
+        checkGrid(cover, coverAreaWidthPt(page), here);
       }
       const kinds = new Set(heights.map((height) => height.kind));
       if (kinds.has('share') && kinds.has('auto')) {
@@ -465,6 +464,42 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
       }
     };
     if (template.cover !== undefined) checkCover(template, `${path}.cover`);
+    // A header or a footer that is a grid (ADR 0095): its rows grow or have points.
+    for (const part of ['header', 'footer'] as const) {
+      const spec = template[part];
+      const here = `${path}.${part}`;
+      if (
+        spec?.distancePt !== undefined &&
+        !(Number.isFinite(spec.distancePt) && spec.distancePt >= 0)
+      ) {
+        error(
+          'invalid-value',
+          'The distance must be a number of points, 0 or more.',
+          `${here}.distance`,
+        );
+      }
+      const grid = spec?.grid;
+      if (grid === undefined) continue;
+      grid.rows.forEach((row, index) => {
+        const where = `${here}.rows[${String(index)}]`;
+        if (row.kind === 'share') {
+          error(
+            'header-row-share',
+            'A row of a header or footer grows or has points; it cannot have a share.',
+            where,
+          );
+        } else if (row.kind === 'points' && !(Number.isFinite(row.pt) && row.pt > 0)) {
+          error('invalid-value', 'A height must be a number of points above 0.', where);
+        }
+      });
+      const page = PAGE_SIZES[template.size];
+      checkGrid(
+        grid,
+        page.widthPt - template.margins.leftPt - template.margins.rightPt,
+        here,
+        true,
+      );
+    }
     template.titleBlock?.forEach((entry, index) => {
       checkEntry(entry, `${path}.title-block[${String(index)}]`);
     });

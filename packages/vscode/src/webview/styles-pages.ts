@@ -125,14 +125,46 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
       return line;
     });
 
+    // The distance from the edge of the page (ADR 0095); empty takes the default of 1.25 cm.
+    const distance = el('input');
+    distance.type = 'number';
+    distance.step = 'any';
+    distance.min = '0';
+    distance.placeholder = '35.4';
+    distance.addEventListener('change', () => {
+      const value = numberFrom(distance.value);
+      if (value === undefined) return;
+      commit([band, 'distance'], value);
+    });
+    updates.push((template) => {
+      const own = template[band]?.distancePt;
+      distance.value = own === undefined ? '' : String(own);
+    });
+
+    // A header or a footer that is a grid is edited in the text until item 230.
+    const gridNote = el(
+      'p',
+      'hint',
+      'This is a grid of areas, with a logo or several lines; it is edited in the text of the stylesheet (ADR 0095).',
+    );
+    const hint = el(
+      'p',
+      'hint',
+      'Values the program fills in are written as links, such as [](stanza:title). Empty all three slots to leave the line blank.',
+    );
+    updates.push((template) => {
+      const isGrid = template[band]?.grid !== undefined;
+      gridNote.hidden = !isGrid;
+      hint.hidden = isGrid;
+      for (const slotRow of slotRows) slotRow.hidden = isGrid;
+    });
+
     return section(
       titleOf(band),
-      el(
-        'p',
-        'hint',
-        'Values the program fills in are written as links, such as [](stanza:title). Empty all three slots to leave the line blank.',
-      ),
+      hint,
+      gridNote,
       row('Style', style),
+      row('Distance', distance, el('span', 'unit', 'pt')),
       ...slotRows,
     );
   });

@@ -165,4 +165,21 @@ describe('the page panel', () => {
     expect(status()).toBe('The change would make the stylesheet invalid.');
     expect(inputOf('Margins', 'Top').value).toBe('54');
   });
+
+  it('sets the distance of the header from the edge, and clears it to the default (ADR 0095)', () => {
+    const distance = inputOf('Header', 'Distance');
+    expect(distance.value).toBe('');
+    expect(distance.placeholder).toBe('35.4');
+    change(distance, '20');
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'set',
+      path: ['page-templates', 'page', 'header', 'distance'],
+      value: 20,
+    });
+    change(distance, '');
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'unset',
+      path: ['page-templates', 'page', 'header', 'distance'],
+    });
+  });
 });

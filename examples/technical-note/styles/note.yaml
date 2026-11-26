@@ -3,7 +3,9 @@ stanza-format: 1
 # A technical note with a cover grid (ADR 0092): a colored strip down the left edge of the page
 # (ADR 0093), the logo beside the document number at the top, the title across two columns low on
 # the page, and a table of metadata beside the status and classification at the bottom. The areas
-# below are a small picture of the page.
+# below are a small picture of the page. The header of the body pages is a grid too (ADR 0095): a
+# small logo, the title and subtitle on two lines, and the number and status on the right, closer
+# to the edge than the default.
 
 tokens:
   colors:
@@ -92,6 +94,19 @@ paragraph-styles:
     size: 8.5
     color: muted
     space-after: 0
+
+  header-logo:
+    based-on: header-footer
+    line-spacing: { multiple: 1 }
+
+  header-title:
+    based-on: header-footer
+    bold: true
+    color: ink
+
+  header-right:
+    based-on: header-footer
+    alignment: right
 
   toc-1:
     based-on: body
@@ -187,10 +202,27 @@ page-templates:
     size: A4
     margins: { top: 72, right: 72, bottom: 72, left: 72 }
     header:
+      distance: 24
       style: header-footer
-      left: '[](stanza:title)'
-      right: '[](stanza:field:document-number)'
+      columns: [70, 1fr, 120]
+      areas:
+        - logo title number
+      area:
+        logo:
+          content:
+            - { image: assets/logo.png, width: 56, style: header-logo }
+        title:
+          valign: center
+          content:
+            - { style: header-title, text: '[](stanza:title)' }
+            - { text: '[](stanza:field:subtitle)' }
+        number:
+          valign: center
+          content:
+            - { style: header-right, text: '[](stanza:field:document-number)' }
+            - { style: header-right, text: '[](stanza:field:status)' }
     footer:
+      distance: 24
       style: header-footer
       left: '[](stanza:classification)'
       right: 'Page [1](stanza:page) of [1](stanza:pages)'

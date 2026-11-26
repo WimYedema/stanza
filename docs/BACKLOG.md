@@ -12,7 +12,7 @@ Finished items are in `docs/BACKLOG_DONE.md`, one line each. Item numbers are ke
 
 Ordered by the product owner. Existing prerequisites still apply; this is priority order, not dependency order. The remaining items retain their relative order below.
 
-None at the moment: items 221, 232, 222, 193, 224, 225, 226 and 223 were done on 2026-11-25 and 2026-11-26.
+None at the moment: items 221, 232, 222, 193, 224, 225, 226, 223 and 216 were done on 2026-11-25 and 2026-11-26.
 
 ## Theme: Cover page
 
@@ -58,7 +58,6 @@ The references inside one document are done (items 116 to 118, 120; item 177 is 
 29. [S] - Build info: version, date, and revision from Git (tag, commit date, draft marker), with overrides from the project file and CLI flags, feeding the header and cover tokens. Low priority: tokens stay empty until then.
 53. [S] - VS Code commands in the Command Palette: build the project (one DOCX per document into `build/`), export the current document to DOCX, validate, format, and assign IDs, with their results in the Problems panel or an output channel. Export on save moved to item 65. The exporter and the command line exist already (items 16 and 26); this makes them available without a terminal. Low priority.
 213. [XS] - The author in the DOCX file properties: the exporter leaves `dc:creator` as "Un-named". Write the authors from the document metadata, joined, or nothing when there are none; deterministic, like the rest of the output. Found in the spike of item 203, 2026-11-21.
-216. [M] - DOCX running headers and footers: extend the body-section header/footer beyond one text line in three slots to support a local logo, multiline styled content, metadata and Word fields (including page counts and a configured template revision). Configure edge offsets (the imec template uses 1 cm; the exporter currently fixes 1.25 cm). Use local assets and stylesheet styles; keep output deterministic and offline. The cover has no header or footer.
 151. [S] - Link check: an explicit command `stanza check-links` for external addresses and link schemes (item 179), reported as a list. It is not part of `validate` or `build`, which stay offline. Depends on item 179. Taken out of the current priorities by the product owner, 2026-11-25.
 
 ## Theme: Remote areas and review

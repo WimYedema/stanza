@@ -190,6 +190,8 @@ function readGrid(
   path: string,
   report: Report,
   margins: Partial<PageMargins> | undefined,
+  /** For a header or a footer: rows left out are one row that grows for each line of areas. */
+  growingRows = false,
 ): CoverGrid | undefined {
   const list = (key: string): unknown[] | undefined => {
     const value = map[key];
@@ -198,7 +200,11 @@ function readGrid(
     return undefined;
   };
   const columnsGiven = map['columns'] === undefined ? ['1fr'] : list('columns');
-  const rowsGiven = list('rows');
+  const areasLength = Array.isArray(map['areas']) ? map['areas'].length : 0;
+  const rowsGiven =
+    growingRows && map['rows'] === undefined
+      ? Array.from({ length: areasLength }, () => 'auto')
+      : list('rows');
   const areasGiven = list('areas');
   if (columnsGiven === undefined || rowsGiven === undefined || areasGiven === undefined) {
     return undefined;
@@ -335,18 +341,24 @@ function readMargins(
 }
 
 function readHeaderFooter(map: Data, path: string, report: Report): HeaderFooter {
-  checkKeys(map, ['style', 'left', 'center', 'right'], path, report);
   const style = readName(map, 'style', path, report);
+  const distancePt = readNumber(map, 'distance', path, report);
+  const common = {
+    ...(style !== undefined ? { style } : {}),
+    ...(distancePt !== undefined ? { distancePt } : {}),
+  };
+  // A header or a footer with areas is a grid (ADR 0095), in place of the three slots.
+  if (map['areas'] !== undefined) {
+    checkKeys(map, ['style', 'distance', 'columns', 'rows', 'areas', 'area'], path, report);
+    const grid = readGrid(map, path, report, undefined, true);
+    return { ...common, left: [], center: [], right: [], ...(grid !== undefined ? { grid } : {}) };
+  }
+  checkKeys(map, ['style', 'distance', 'left', 'center', 'right'], path, report);
   const slot = (name: 'left' | 'center' | 'right'): SlotPart[] => {
     const text = readString(map, name, path, report);
     return text === undefined ? [] : readSlotText(text, join(path, name), report);
   };
-  return {
-    ...(style !== undefined ? { style } : {}),
-    left: slot('left'),
-    center: slot('center'),
-    right: slot('right'),
-  };
+  return { ...common, left: slot('left'), center: slot('center'), right: slot('right') };
 }
 
 export function readPageTemplate(map: Data, path: string, report: Report): PageTemplate {
