@@ -16,6 +16,20 @@ describe('buildHtml', () => {
     expect(policy).not.toMatch(/unsafe|https?:|\*/);
   });
 
+  it('names the shared chunks in the head, with the nonce, so they are fetched with the script', () => {
+    const page = buildHtml({
+      scriptUri: 'vscode-resource://x/webview.js',
+      nonce: 'abc123',
+      cspSource: 'vscode-resource:',
+      preloadUris: ['vscode-resource://x/chunk-A.js'],
+    });
+    const head = page.slice(0, page.indexOf('</head>'));
+    expect(head).toContain(
+      '<link rel="modulepreload" nonce="abc123" href="vscode-resource://x/chunk-A.js">',
+    );
+    expect(html).not.toContain('modulepreload');
+  });
+
   it('gives every script and style element the nonce, and writes no inline style attribute', () => {
     for (const tag of html.match(/<(script|style)\b[^>]*>/g) ?? []) {
       expect(tag).toContain('nonce="abc123"');

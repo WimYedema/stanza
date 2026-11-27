@@ -1538,3 +1538,68 @@ describe('the review round (ADR 0088)', () => {
     });
   });
 });
+
+describe('startup timings (ADR 0101)', () => {
+  const measured = (record?: () => void): string[] => {
+    const lines: string[] = [];
+    reset({ ...files(), [DOCUMENT]: CANONICAL }, DOCUMENT, CANONICAL, '\n');
+    new StanzaEditorProvider(
+      {
+        extensionUri: { path: '/ext' },
+        workspaceState: memento,
+      } as unknown as vscode.ExtensionContext,
+      new ProjectDiagnostics(),
+      {
+        appendLine: (line: string) => {
+          lines.push(line);
+        },
+      } as unknown as vscode.OutputChannel,
+      new StylesheetSaves(log),
+      record,
+    ).resolveCustomTextEditor(
+      world.document as unknown as vscode.TextDocument,
+      fakePanel() as unknown as vscode.WebviewPanel,
+    );
+    return lines;
+  };
+
+  it('says each painted stage once, from the open request, and never quits on its own', async () => {
+    const lines = measured();
+    fromWebview({ type: 'ready' });
+    fromWebview({ type: 'painted', stage: 'visible', at: Date.now() });
+    fromWebview({ type: 'painted', stage: 'editable', at: Date.now() });
+    fromWebview({ type: 'painted', stage: 'editable', at: Date.now() });
+    await settled(() => {
+      expect(lines.filter((line) => line.startsWith('Stanza startup:'))).toHaveLength(2);
+    });
+    const [visible, editable] = lines.filter((line) => line.startsWith('Stanza startup:'));
+    expect(visible).toMatch(
+      /^Stanza startup: visible after \d+ ms \(webview ready after \d+ ms, document sent after \d+ ms\)/,
+    );
+    expect(editable).toMatch(/^Stanza startup: editable after \d+ ms/);
+    expect(world.commands).not.toContain('workbench.action.quit');
+  });
+
+  it('quits VS Code once the document is editable when a measurement script asked for it', async () => {
+    const marks: string[] = [];
+    measured(((mark: string) => {
+      marks.push(mark);
+    }) as () => void);
+    fromWebview({ type: 'ready' });
+    fromWebview({ type: 'painted', stage: 'visible', at: Date.now() });
+    expect(world.commands).not.toContain('workbench.action.quit');
+    fromWebview({ type: 'painted', stage: 'editable', at: Date.now() });
+    await settled(() => {
+      expect(world.commands).toContain('workbench.action.quit');
+    });
+    expect(marks).toEqual([
+      'open',
+      'webview-ready',
+      'init-sent',
+      'visible',
+      'visible-received',
+      'editable',
+      'editable-received',
+    ]);
+  });
+});

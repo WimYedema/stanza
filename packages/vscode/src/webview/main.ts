@@ -14,8 +14,10 @@ import {
   type MetadataField,
   type Reason,
   type ReviewThreadView,
+  type StartupStep,
   type WebviewMessage,
 } from '../shared/protocol.js';
+import { measureActions } from './measure.js';
 import { createChangesBar } from './changes.js';
 import { createNotices } from './notices.js';
 import { createMetadataPanel } from './metadata.js';
@@ -96,9 +98,12 @@ let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
 /** How many blocks that were removed by changes from outside are not yet dismissed. */
 let removedFromOutside = 0;
-let visibleMs: number | undefined;
-let editableMs: number | undefined;
-let timed = false;
+/** The stages of startup whose paint was reported to the host (ADR 0101). */
+const painted = new Set<'visible' | 'editable'>();
+/** Actions are being measured; from then on no change goes to the host, until the editor closes. */
+let measuring = false;
+/** How many changes of the document the editor has had, to check that a measured action did one. */
+let documentChanges = 0;
 let ready = false;
 let metadataPending = false;
 
@@ -110,15 +115,55 @@ const templateNames = (sheet: Stylesheet): readonly string[] => [
   ...new Set([DEFAULT_PAGE_TEMPLATE_NAME, ...sheet.pageTemplates.keys()]),
 ];
 
-function measurePaint(kind: 'visible' | 'editable'): void {
+/** When the script of the webview had run, from the start of the webview (ADR 0101). */
+let scriptReady = 0;
+/** The parts of the first start, until the read-only document is painted. */
+const steps: StartupStep[] = [];
+let stepAt = 0;
+/** Ends a part of the first start; later starts, after a change from outside, are not timed. */
+function step(name: string): void {
+  if (painted.has('visible')) return;
+  const now = performance.now();
+  steps.push({ name, ms: now - stepAt });
+  stepAt = now;
+}
+
+/**
+ * The time until the script had run, from the start of the webview: until the last script file had
+ * arrived, and then running them, when the browser says when its files arrived (ADR 0101).
+ */
+function scriptSteps(): StartupStep[] {
+  const fetched = Math.max(
+    0,
+    ...performance
+      .getEntriesByType('resource')
+      .filter((entry) => entry.name.endsWith('.js'))
+      .map((entry) => (entry as PerformanceResourceTiming).responseEnd),
+  );
+  return fetched > 0 && fetched <= scriptReady
+    ? [
+        { name: 'page and script files', ms: fetched },
+        { name: 'running the script', ms: scriptReady - fetched },
+      ]
+    : [{ name: 'script', ms: scriptReady }];
+}
+
+/** Tells the host, once per stage, two frames after the content was put in the page. */
+function measurePaint(stage: 'visible' | 'editable'): void {
+  if (painted.has(stage)) return;
+  painted.add(stage);
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      if (kind === 'visible') visibleMs ??= Math.round(performance.now());
-      else editableMs ??= Math.round(performance.now());
-      if (!timed && visibleMs !== undefined && editableMs !== undefined) {
-        timed = true;
-        send({ type: 'startup-timing', visibleMs, editableMs });
-      }
+      if (stage === 'visible') {
+        const now = performance.now();
+        steps.push({ name: 'layout and paint', ms: now - stepAt });
+        send({
+          type: 'painted',
+          stage,
+          at: performance.timeOrigin + now,
+          steps: [...scriptSteps(), ...steps],
+        });
+      } else send({ type: 'painted', stage, at: performance.timeOrigin + performance.now() });
     });
   });
 }
@@ -271,6 +316,8 @@ function flush(): void {
   if (waiting === undefined) return;
   clearTimeout(waiting);
   waiting = undefined;
+  // Measured actions are never sent, so the document stays as it is (ADR 0101).
+  if (measuring) return;
   send({ type: 'change', text: lastText });
 }
 
@@ -301,6 +348,7 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
 }
 
 function onChange(result: ReturnType<StanzaEditor['getDocument']>): void {
+  documentChanges += 1;
   if (result.document === undefined) {
     say(`The content cannot be saved: ${result.diagnostics.map((d) => d.message).join(' ')}`);
     return;
@@ -314,13 +362,16 @@ function onChange(result: ReturnType<StanzaEditor['getDocument']>): void {
 }
 
 function start(message: Extract<HostMessage, { type: 'init' }>): void {
+  step('until the document arrived');
   const sheet = parseStylesheet(message.stylesheetText);
+  step('stylesheet');
   const errors = sheet.diagnostics.filter((d) => d.severity === 'error');
   if (errors.length > 0) {
     refuse('The stylesheet has errors', errors.map(reasonOf), false);
     return;
   }
   const parsed = parseDocument(message.documentText);
+  step('parse document');
   if (parsed.diagnostics.length > 0) {
     refuse('This file cannot be edited visually', parsed.diagnostics.map(reasonOf), false);
     return;
@@ -340,6 +391,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
   say('');
   refused.hidden = true;
   editing.hidden = false;
+  step('properties');
   editor = createStanzaEditor({
     element: element('editor'),
     stylesheet: sheet.stylesheet,
@@ -362,16 +414,19 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     },
     ...(nonce !== undefined ? { styleNonce: nonce } : {}),
   });
+  step('editor');
   pages.update({
     stylesheet: sheet.stylesheet,
     defaults: message.defaults,
     document: parsed.document,
   });
+  step('pages');
   info.setStylesheet(sheet.stylesheet);
   editor.setDiagnostics(inline);
   showThreads();
   toolbar.refresh();
   info.refresh();
+  step('toolbar and panels');
   measurePaint('visible');
   projectReady(message.projectReady);
 }
@@ -468,6 +523,15 @@ function handle(message: HostMessage): void {
     case 'make-reference':
       references.open();
       return;
+    case 'measure-actions': {
+      const content = element('editor').querySelector<HTMLElement>('.ProseMirror');
+      if (editor === undefined || content === null || !ready || measuring) return;
+      measuring = true;
+      void measureActions(editor, content, message.runs, () => documentChanges).then((result) => {
+        send({ type: 'action-timings', ...result });
+      });
+      return;
+    }
     case 'navigation-finished':
       navigation.finish();
       return;
@@ -530,4 +594,6 @@ document.addEventListener(
   true,
 );
 
+scriptReady = performance.now();
+stepAt = scriptReady;
 send({ type: 'ready' });

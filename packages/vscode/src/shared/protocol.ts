@@ -118,6 +118,8 @@ export type HostMessage =
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
   /** Scroll to a top-level block of the document and put the cursor at its start. */
   | { readonly type: 'reveal'; readonly block: number }
+  /** Time each measured action this many times, without sending the changes (ADR 0101). */
+  | { readonly type: 'measure-actions'; readonly runs: number }
   /** Open the list of headings for a reference, as the toolbar button does (ADR 0069). */
   | { readonly type: 'make-reference' }
   | { readonly type: 'navigation-finished' }
@@ -153,7 +155,25 @@ export type HostMessage =
 
 export type WebviewMessage =
   | { readonly type: 'ready' }
-  | { readonly type: 'startup-timing'; readonly visibleMs: number; readonly editableMs: number }
+  /** The document was painted read-only or editable for the first time; the host takes the time (ADR 0101). */
+  | {
+      readonly type: 'painted';
+      readonly stage: 'visible' | 'editable';
+      /** With the first visible paint: the parts of the start of the webview, in order. */
+      readonly steps?: readonly StartupStep[];
+      /**
+       * When it was painted, in milliseconds since 1970 on the clock of the machine. The host can be
+       * too busy to read the message at once, so its arrival is not the time of the paint.
+       */
+      readonly at: number;
+    }
+  /** The durations of the measured actions, from the action to the paint after it (ADR 0101). */
+  | {
+      readonly type: 'action-timings';
+      readonly timings: ActionTimings;
+      /** For each action, in how many runs the editor had a transaction: 0 means it did nothing. */
+      readonly applied: ActionCounts;
+    }
   /** The whole text of the document as the editor writes it. */
   | { readonly type: 'change'; readonly text: string }
   | { readonly type: 'metadata-change'; readonly before: string; readonly text: string }
@@ -289,18 +309,20 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
       if (before.length > MAX_TEXT_LENGTH || text.length > MAX_TEXT_LENGTH) return undefined;
       return { type: 'metadata-change', before, text };
     }
-    case 'startup-timing': {
-      const { visibleMs, editableMs } = value;
-      if (
-        typeof visibleMs !== 'number' ||
-        typeof editableMs !== 'number' ||
-        !Number.isFinite(visibleMs) ||
-        !Number.isFinite(editableMs) ||
-        visibleMs < 0 ||
-        editableMs < visibleMs
-      )
-        return undefined;
-      return { type: 'startup-timing', visibleMs, editableMs };
+    case 'painted': {
+      const { stage, at } = value;
+      if (stage !== 'visible' && stage !== 'editable') return undefined;
+      if (typeof at !== 'number' || !Number.isFinite(at) || at < 0) return undefined;
+      if (value['steps'] === undefined) return { type: 'painted', stage, at };
+      const steps = parseSteps(value['steps']);
+      return steps === undefined ? undefined : { type: 'painted', stage, at, steps };
+    }
+    case 'action-timings': {
+      const timings = parseActionTimings(value['timings']);
+      const applied = parseActionCounts(value['applied']);
+      return timings === undefined || applied === undefined
+        ? undefined
+        : { type: 'action-timings', timings, applied };
     }
     case 'open-review': {
       const key = value['key'];
@@ -326,6 +348,62 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
     default:
       return undefined;
   }
+}
+
+/** The actions that the measurement of ADR 0101 times. */
+export const MEASURED_ACTIONS = ['type', 'enter', 'style', 'strong'] as const;
+export type MeasuredAction = (typeof MEASURED_ACTIONS)[number];
+export type ActionTimings = Readonly<Record<MeasuredAction, readonly number[]>>;
+export type ActionCounts = Readonly<Record<MeasuredAction, number>>;
+
+/** A part of the start of the webview and how long it took, in milliseconds (ADR 0101). */
+export interface StartupStep {
+  readonly name: string;
+  readonly ms: number;
+}
+
+const MAX_STARTUP_STEPS = 50;
+
+function parseSteps(value: unknown): readonly StartupStep[] | undefined {
+  if (!Array.isArray(value) || value.length > MAX_STARTUP_STEPS) return undefined;
+  const steps: StartupStep[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return undefined;
+    const { name, ms } = item;
+    if (typeof name !== 'string' || name.length > 100) return undefined;
+    if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return undefined;
+    steps.push({ name, ms });
+  }
+  return steps;
+}
+
+function parseActionCounts(value: unknown): ActionCounts | undefined {
+  if (!isRecord(value)) return undefined;
+  const counts: Partial<Record<MeasuredAction, number>> = {};
+  for (const action of MEASURED_ACTIONS) {
+    const count = value[action];
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return undefined;
+    counts[action] = count;
+  }
+  return counts as ActionCounts;
+}
+
+const MAX_MEASURE_RUNS = 1000;
+
+function parseActionTimings(value: unknown): ActionTimings | undefined {
+  if (!isRecord(value)) return undefined;
+  const timings: Partial<Record<MeasuredAction, readonly number[]>> = {};
+  for (const action of MEASURED_ACTIONS) {
+    const list = value[action];
+    if (
+      !Array.isArray(list) ||
+      list.length > MAX_MEASURE_RUNS ||
+      !list.every((item) => typeof item === 'number' && Number.isFinite(item) && item >= 0)
+    )
+      return undefined;
+    timings[action] = list as number[];
+  }
+  return timings as ActionTimings;
 }
 
 const isStringList = (value: unknown): value is readonly string[] =>
@@ -561,6 +639,15 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
     case 'used-ids': {
       const ids = value['ids'];
       return isStringList(ids) ? { type: 'used-ids', ids } : undefined;
+    }
+    case 'measure-actions': {
+      const runs = value['runs'];
+      return typeof runs === 'number' &&
+        Number.isInteger(runs) &&
+        runs > 0 &&
+        runs <= MAX_MEASURE_RUNS
+        ? { type: 'measure-actions', runs }
+        : undefined;
     }
     case 'reveal': {
       const block = value['block'];

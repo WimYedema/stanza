@@ -81,7 +81,7 @@ Problems offers quick fixes to add an unlisted document or, after you confirm, t
 
 ## Opening documents
 
-A large project opens in two steps: the document is shown read-only at once, and becomes editable when the project-wide checks are done. Opening a document never reformats or rewrites it. The **Stanza** output channel reports how long both steps took; the timings stay on your machine.
+A large project opens in two steps: the document is shown read-only at once, and becomes editable when the project-wide checks are done. Opening a document never reformats or rewrites it. The **Stanza** output channel reports how long both steps took from the moment the document was opened, and how long Stanza took to start; the timings stay on your machine.
 
 ## Reviewing in Word
 
@@ -97,6 +97,7 @@ Exported documents are protected so that reviewers can only comment. Word for th
 - Links to outside addresses are not checked for existence.
 - Version, date and revision from Git are shown as unavailable in the document properties until they are generated.
 - **Open in Word** is not available in remote or web sessions.
+- The first time VS Code starts with a `.stanza.md` file after Stanza is installed, it may show the file as text, because VS Code does not know Stanza's editor yet at that moment. Right-click the tab and choose **Reopen Editor With...** and then **Stanza Editor**. From the next start on, the file opens in Stanza.
 - The text of a pulled comment is plain text; its bold, italic and links are not kept yet.
 
 ## License

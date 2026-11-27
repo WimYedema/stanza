@@ -38,6 +38,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 - 0076: agent editing workflow, selected-file checks and formatting, bounded validation diagnostics.
 - 0077: reference filename hints, stale-path diagnostics and explicit fixes, Ctrl/Cmd-click navigation.
 - 0078: shared project snapshots, staged document startup and local startup timings.
+- 0101: responsiveness budgets (p95 for action feedback, warm and cold open), first open in a new window measured in parts, the reference setup and corpus, and benchmarks kept apart from the unit tests.
 - 0079: document-list initialization and maintenance, outline moves and quick fixes.
 - 0083: the rename from Phrase to Stanza, the `legacy-format` diagnostic and `stanza migrate`. In older ADRs, Phrase means Stanza.
 

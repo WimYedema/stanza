@@ -1,3 +1,4 @@
+import { readdir, readFile, stat } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import type { DirectoryEntry, ProjectStorage } from '@stanza/project';
 import { PROJECT_FILE } from '@stanza/project';
@@ -9,8 +10,10 @@ import { projectStorage } from './storage.js';
 export async function findRoot(uri: vscode.Uri): Promise<vscode.Uri | undefined> {
   const top = vscode.workspace.getWorkspaceFolder(uri)?.uri ?? vscode.Uri.joinPath(uri, '..');
   const exists = async (folder: vscode.Uri): Promise<boolean> => {
+    const file = vscode.Uri.joinPath(folder, PROJECT_FILE);
     try {
-      await vscode.workspace.fs.stat(vscode.Uri.joinPath(folder, PROJECT_FILE));
+      if (onDisk(file)) await stat(file.fsPath);
+      else await vscode.workspace.fs.stat(file);
       return true;
     } catch {
       return false;
@@ -59,12 +62,33 @@ export async function projectRoot(): Promise<vscode.Uri | undefined> {
 export const uriInProject = (root: vscode.Uri, path: string): vscode.Uri =>
   path === '' ? root : vscode.Uri.joinPath(root, ...path.split('/'));
 
+/**
+ * A file on the local disk, which the extension host reads with Node itself (architecture section
+ * 11): each call of `vscode.workspace.fs` goes to another process of VS Code, which made reading a
+ * project several times slower (ADR 0101, item 238). Other schemes, such as a remote or virtual
+ * workspace, go through VS Code.
+ */
+const onDisk = (uri: vscode.Uri): boolean => uri.scheme === 'file';
+
 /** The storage of a project on VS Code's file system, which reads open documents as they are. */
 export function storageOf(root: vscode.Uri): ProjectStorage {
   return projectStorage({
-    read: (path) => Promise.resolve(vscode.workspace.fs.readFile(uriInProject(root, path))),
+    read: async (path) => {
+      const uri = uriInProject(root, path);
+      return onDisk(uri) ? readFile(uri.fsPath) : vscode.workspace.fs.readFile(uri);
+    },
     async list(directory): Promise<readonly DirectoryEntry[]> {
-      const entries = await vscode.workspace.fs.readDirectory(uriInProject(root, directory));
+      const uri = uriInProject(root, directory);
+      if (onDisk(uri)) {
+        // Links and special files are left out, as in the command line.
+        const entries = await readdir(uri.fsPath, { withFileTypes: true });
+        return entries.flatMap((entry) =>
+          entry.isDirectory() || entry.isFile()
+            ? [{ name: entry.name, directory: entry.isDirectory() }]
+            : [],
+        );
+      }
+      const entries = await vscode.workspace.fs.readDirectory(uri);
       // Links and special files are left out, as in the command line.
       return entries.flatMap(([name, type]) =>
         type === vscode.FileType.Directory || type === vscode.FileType.File

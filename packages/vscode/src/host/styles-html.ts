@@ -1,13 +1,19 @@
-import { contentPolicy, type HtmlInput } from './html.js';
+import { contentPolicy, preloadLinks, type HtmlInput } from './html.js';
 
 /** The page of the style editor (ADR 0036), with the same policy as the page of the document editor. */
-export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
+export function buildStylesHtml({
+  scriptUri,
+  nonce,
+  cspSource,
+  preloadUris = [],
+}: HtmlInput): string {
   const policy = contentPolicy(nonce, cspSource);
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${policy}">
+${preloadLinks(preloadUris, nonce)}
 <meta name="stanza-nonce" content="${nonce}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stanza styles</title>

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
+import { chunkUris } from './webview-chunks.js';
 import { isStyleName, type StyleFamily, type StyleName, type Stylesheet } from '@stanza/core';
 import {
   applyCoverPreset,
@@ -128,6 +129,7 @@ class StylesSession {
       scriptUri: webview.asWebviewUri(vscode.Uri.joinPath(dist, 'styles.js')).toString(),
       nonce: randomBytes(16).toString('base64'),
       cspSource: webview.cspSource,
+      preloadUris: chunkUris(webview, dist),
     });
     this.disposables.push(
       webview.onDidReceiveMessage((raw: unknown) => {
