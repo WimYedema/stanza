@@ -74,6 +74,10 @@ try {
 } finally {
   removeProfile(profile);
 }
+if (results?.error !== undefined) {
+  console.error(`The measurement failed: ${results.error}`);
+  process.exit(1);
+}
 if (results === undefined) {
   console.error(
     'Stanza wrote no results; run "Stanza: Measure Responsiveness" by hand to see why.',

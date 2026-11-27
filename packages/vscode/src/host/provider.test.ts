@@ -1566,9 +1566,9 @@ describe('startup timings (ADR 0101)', () => {
   it('says each painted stage once, from the open request, and never quits on its own', async () => {
     const lines = measured();
     fromWebview({ type: 'ready' });
-    fromWebview({ type: 'painted', stage: 'visible' });
-    fromWebview({ type: 'painted', stage: 'editable' });
-    fromWebview({ type: 'painted', stage: 'editable' });
+    fromWebview({ type: 'painted', stage: 'visible', at: Date.now() });
+    fromWebview({ type: 'painted', stage: 'editable', at: Date.now() });
+    fromWebview({ type: 'painted', stage: 'editable', at: Date.now() });
     await settled(() => {
       expect(lines.filter((line) => line.startsWith('Stanza startup:'))).toHaveLength(2);
     });
@@ -1586,12 +1586,20 @@ describe('startup timings (ADR 0101)', () => {
       marks.push(mark);
     }) as () => void);
     fromWebview({ type: 'ready' });
-    fromWebview({ type: 'painted', stage: 'visible' });
+    fromWebview({ type: 'painted', stage: 'visible', at: Date.now() });
     expect(world.commands).not.toContain('workbench.action.quit');
-    fromWebview({ type: 'painted', stage: 'editable' });
+    fromWebview({ type: 'painted', stage: 'editable', at: Date.now() });
     await settled(() => {
       expect(world.commands).toContain('workbench.action.quit');
     });
-    expect(marks).toEqual(['open', 'webview-ready', 'init-sent', 'visible', 'editable']);
+    expect(marks).toEqual([
+      'open',
+      'webview-ready',
+      'init-sent',
+      'visible',
+      'visible-received',
+      'editable',
+      'editable-received',
+    ]);
   });
 });

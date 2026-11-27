@@ -32,7 +32,7 @@ Each budget is a p95 on the reference setup below, over at least 20 runs.
 | Cold open, editing | the open request, with no snapshot of the project | editing enabled | 2 s |
 
 - **The open request** is the moment the host's `resolveCustomTextEditor` is called, since VS Code gives no earlier hook for every way of opening. Where Stanza itself opens a document (the tree, a reference, a command), the time from that command to the call is reported as well.
-- **Painted** means two animation frames after the content is in the DOM, as now. Two frames are about 17 ms at 120 Hz and 33 ms at 60 Hz, which is the least any duration can be. The webview sends a message at that moment and the host takes the time when it arrives. Both ends of a duration are then on the host's clock, and the message delay counts against the budget rather than being hidden.
+- **Painted** means two animation frames after the content is in the DOM, as now. Two frames are about 17 ms at 120 Hz and 33 ms at 60 Hz, which is the least any duration can be. The webview sends a message at that moment with the time of the paint on the clock of the machine, and the host takes that time when it lies between the open request and the arrival of the message, else the arrival. The host can be too busy to read the message at once, for example while it loads the project, so the arrival is not the time the person sees the document. How much later the host heard of it is reported as a part of its own. (Changed with the product owner on 2026-11-27: at first the arrival was taken, which put up to 2 s of waiting in the host into the time to visible.)
 - **Extension activation** is reported apart, from the start of `activate` to its end, and is not part of any budget. A cold open in a new window also pays activation and the start of the webview; the report names each part, so a slow open can be traced to one of them.
 - **First open in a new window** is measured too: from starting VS Code with a Stanza file to that document painted and editable. It has no budget yet; the first measurements set one. It is reported in parts: VS Code until Stanza activates, activation, the webview loading, and the staged startup of ADR 0078.
 - **Action feedback** must not wait for the host. Saving to the buffer, validation and diagnostics can follow the paint, as they do now.
@@ -72,7 +72,7 @@ A missed budget is a finding, not a failure of the build. It goes into the backl
 
 - A change that makes Stanza slower can be found by running the benchmarks before and after it.
 - The first measurement may show that a budget is not met. That is expected; the backlog then gets an item per budget missed.
-- The startup timing message of ADR 0078 changes: it reports the parts of a duration on the host's clock instead of totals from webview startup.
+- The startup timing message of ADR 0078 changes: it reports the parts of a duration from the open request instead of totals from webview startup, and the webview reports the parts of its own start with the first paint.
 
 <!-- stanza: #pq37hhm24z -->
 ## Format

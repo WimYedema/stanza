@@ -156,7 +156,17 @@ export type HostMessage =
 export type WebviewMessage =
   | { readonly type: 'ready' }
   /** The document was painted read-only or editable for the first time; the host takes the time (ADR 0101). */
-  | { readonly type: 'painted'; readonly stage: 'visible' | 'editable' }
+  | {
+      readonly type: 'painted';
+      readonly stage: 'visible' | 'editable';
+      /** With the first visible paint: the parts of the start of the webview, in order. */
+      readonly steps?: readonly StartupStep[];
+      /**
+       * When it was painted, in milliseconds since 1970 on the clock of the machine. The host can be
+       * too busy to read the message at once, so its arrival is not the time of the paint.
+       */
+      readonly at: number;
+    }
   /** The durations of the measured actions, from the action to the paint after it (ADR 0101). */
   | {
       readonly type: 'action-timings';
@@ -300,8 +310,12 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
       return { type: 'metadata-change', before, text };
     }
     case 'painted': {
-      const { stage } = value;
-      return stage === 'visible' || stage === 'editable' ? { type: 'painted', stage } : undefined;
+      const { stage, at } = value;
+      if (stage !== 'visible' && stage !== 'editable') return undefined;
+      if (typeof at !== 'number' || !Number.isFinite(at) || at < 0) return undefined;
+      if (value['steps'] === undefined) return { type: 'painted', stage, at };
+      const steps = parseSteps(value['steps']);
+      return steps === undefined ? undefined : { type: 'painted', stage, at, steps };
     }
     case 'action-timings': {
       const timings = parseActionTimings(value['timings']);
@@ -341,6 +355,27 @@ export const MEASURED_ACTIONS = ['type', 'enter', 'style', 'strong'] as const;
 export type MeasuredAction = (typeof MEASURED_ACTIONS)[number];
 export type ActionTimings = Readonly<Record<MeasuredAction, readonly number[]>>;
 export type ActionCounts = Readonly<Record<MeasuredAction, number>>;
+
+/** A part of the start of the webview and how long it took, in milliseconds (ADR 0101). */
+export interface StartupStep {
+  readonly name: string;
+  readonly ms: number;
+}
+
+const MAX_STARTUP_STEPS = 50;
+
+function parseSteps(value: unknown): readonly StartupStep[] | undefined {
+  if (!Array.isArray(value) || value.length > MAX_STARTUP_STEPS) return undefined;
+  const steps: StartupStep[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return undefined;
+    const { name, ms } = item;
+    if (typeof name !== 'string' || name.length > 100) return undefined;
+    if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return undefined;
+    steps.push({ name, ms });
+  }
+  return steps;
+}
 
 function parseActionCounts(value: unknown): ActionCounts | undefined {
   if (!isRecord(value)) return undefined;

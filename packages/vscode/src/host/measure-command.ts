@@ -13,6 +13,8 @@ import type { OpenDurations } from './startup-times.js';
 /** How often each document is opened cold and warm, and each action is run (ADR 0101). */
 export const MEASURE_RUNS = 20;
 const OPEN_TIMEOUT_MS = 60_000;
+/** All the actions of one document together: 80 of them can take most of a second each. */
+const ACTIONS_TIMEOUT_MS = 10 * 60_000;
 
 /** The budgets of ADR 0101, as p95 in milliseconds. */
 export const BUDGETS = { action: 100, warmEditable: 300, coldVisible: 500, coldEditable: 2000 };
@@ -119,11 +121,11 @@ export function resultsJson(results: readonly DocumentResult[], about: object): 
 const pause = (duration: number): Promise<void> =>
   new Promise((done) => setTimeout(done, duration));
 
-function withTimeout<T>(promise: Promise<T>, what: string): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, what: string, limit = OPEN_TIMEOUT_MS): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`${what} took longer than ${ms(OPEN_TIMEOUT_MS)}.`));
-    }, OPEN_TIMEOUT_MS);
+      reject(new Error(`${what} took longer than ${ms(limit)}.`));
+    }, limit);
     void promise.then((value) => {
       clearTimeout(timer);
       resolve(value);
@@ -194,9 +196,13 @@ async function measure(
   try {
     await measureProject(editors, diagnostics, log, options);
   } catch (error) {
-    log.appendLine(
-      `Stanza measurement failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    const message = error instanceof Error ? error.message : String(error);
+    log.appendLine(`Stanza measurement failed: ${message}`);
+    // A script waits for the file, so it hears of the failure too.
+    if (options.target !== undefined) {
+      const text = `${JSON.stringify({ error: message })}\n`;
+      await vscode.workspace.fs.writeFile(options.target, new TextEncoder().encode(text));
+    }
   }
   if (options.quit === true) await vscode.commands.executeCommand('workbench.action.quit');
 }
@@ -276,7 +282,9 @@ async function measureProject(
         }
         const measuring = cancelled() ? undefined : editors.measureActions(uri, MEASURE_RUNS);
         const measured =
-          measuring === undefined ? undefined : await withTimeout(measuring, 'Measuring actions');
+          measuring === undefined
+            ? undefined
+            : await withTimeout(measuring, 'Measuring actions', ACTIONS_TIMEOUT_MS);
         // The editor sent none of the measured changes; closing it leaves the file as it was.
         await close(uri);
         done.push({

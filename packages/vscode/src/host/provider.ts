@@ -407,7 +407,10 @@ class EditorSession {
         this.actionsWaiter = undefined;
         return;
       case 'painted':
-        if (this.timer.painted(message.stage) && message.stage === 'editable') {
+        if (
+          this.timer.painted(message.stage, message.at, message.steps) &&
+          message.stage === 'editable'
+        ) {
           if (this.quitWhenEditable) await vscode.commands.executeCommand('workbench.action.quit');
         }
         return;
@@ -681,6 +684,7 @@ class EditorSession {
 
   private async sendInit(): Promise<void> {
     const root = (this.root ??= await findRoot(this.document.uri));
+    this.timer.hostStep('find project');
     if (root === undefined) {
       await this.refuse('This file is not in a Stanza project', [
         {
@@ -691,7 +695,9 @@ class EditorSession {
       return;
     }
     this.watch(root);
+    this.timer.hostStep('watch files');
     const configuration = await this.diagnostics.configuration(root);
+    this.timer.hostStep('configuration');
     if (this.isDisposed()) return;
     if (
       configuration.settings === undefined ||
@@ -707,6 +713,7 @@ class EditorSession {
       return;
     }
     const review = reviewText(this.text());
+    this.timer.hostStep('check text');
     if (!review.ok) {
       this.shown = 'refused';
       await this.post({
@@ -725,6 +732,7 @@ class EditorSession {
         ? undefined
         : snapshot;
     const usedIds = cached === undefined ? [] : this.usedIds(cached, root);
+    this.timer.hostStep('used IDs');
     this.stylesheetText = stylesheetText;
     this.usedKey = usedIds.join(',');
     this.defaultsKey = JSON.stringify(settings.defaults);

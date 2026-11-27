@@ -57,14 +57,18 @@ async function run(setup, index) {
     timeoutMs: RUN_TIMEOUT_MS,
   });
   const at = {};
+  let steps;
+  let hostSteps;
   if (existsSync(marks)) {
     for (const line of readFileSync(marks, 'utf8').split('\n')) {
       if (line === '') continue;
-      const { mark, at: time } = JSON.parse(line);
+      const { mark, at: time, steps: parts } = JSON.parse(line);
       at[mark] ??= time;
+      if (mark === 'visible' && parts !== undefined) steps ??= parts;
+      if (mark === 'init-sent' && parts !== undefined) hostSteps ??= parts;
     }
   }
-  return { started, at };
+  return { started, at, steps, hostSteps };
 }
 
 /** The steps of a first open, each from the step before it. */
@@ -78,6 +82,8 @@ const PARTS = [
   ['host until the document is sent', 'webview-ready', 'init-sent'],
   ['webview until visible', 'init-sent', 'visible'],
   ['until editable', 'visible', 'editable'],
+  // Not a step of its own: how long the busy host took to read that the document was painted.
+  ['host hears of the paint', 'visible', 'visible-received'],
   ['total: visible', 'started', 'visible'],
   ['total: editable', 'started', 'editable'],
 ];
@@ -139,9 +145,14 @@ console.log(describeMachine(about));
 console.log(`Opening ${document} in ${projectFolder(document)}`);
 
 const results = [];
+/** The parts of the start of the webview, per run (ADR 0101). */
+const webview = [];
+/** The parts of "host until the document is sent", per run. */
+const host = [];
 try {
   for (let index = 0; index <= runs; index++) {
-    const measured = parts(await run(setup, index));
+    const ran = await run(setup, index);
+    const measured = parts(ran);
     const label = index === 0 ? 'warm-up' : `run ${String(index)}`;
     if ('error' in measured) {
       console.log(`${label}: left out, ${measured.error}`);
@@ -149,7 +160,11 @@ try {
       console.log(
         `${label}: visible ${String(Math.round(measured['total: visible']))} ms, editable ${String(Math.round(measured['total: editable']))} ms`,
       );
-      if (index > 0) results.push(measured);
+      if (index > 0) {
+        results.push(measured);
+        if (ran.steps !== undefined) webview.push(ran.steps);
+        if (ran.hostSteps !== undefined) host.push(ran.hostSteps);
+      }
     }
     await pause(PAUSE_MS);
   }
@@ -162,10 +177,39 @@ if (results.length === 0) {
 }
 const table = summary(results);
 print(table, results.length);
+/** p50, p95, min and max of each named part over the runs. */
+function stepTable(runs) {
+  const names = [...new Set(runs.flat().map((step) => step.name))];
+  return Object.fromEntries(
+    names.map((name) => {
+      const values = runs.map((run) => run.find((step) => step.name === name)?.ms ?? 0);
+      return [
+        name,
+        {
+          p50: percentile(values, 0.5),
+          p95: percentile(values, 0.95),
+          min: Math.min(...values),
+          max: Math.max(...values),
+        },
+      ];
+    }),
+  );
+}
+const hostTable = stepTable(host);
+if (host.length > 0) {
+  console.log('\nIn the host, from the webview being ready to sending the document');
+  print(hostTable, host.length);
+}
+// From the start of the webview: the first part is its script.
+const webviewTable = stepTable(webview);
+if (webview.length > 0) {
+  console.log('\nIn the webview');
+  print(webviewTable, webview.length);
+}
 if (out !== undefined) {
   writeFileSync(
     out,
-    `${JSON.stringify({ machine: about, document, runs: results, summary: table }, null, 2)}\n`,
+    `${JSON.stringify({ machine: about, document, runs: results, summary: table, host: hostTable, webview: webviewTable }, null, 2)}\n`,
   );
   console.log(`\nWritten to ${out}`);
 }

@@ -36,16 +36,29 @@ describe('parseWebviewMessage', () => {
     }
   });
   it('takes the painted stages of startup and nothing else', () => {
-    expect(parseWebviewMessage({ type: 'painted', stage: 'visible' })).toEqual({
+    const at = 1_795_000_000_000.5;
+    const steps = [{ name: 'editor', ms: 71.2 }];
+    expect(parseWebviewMessage({ type: 'painted', stage: 'visible', at, steps })).toEqual({
       type: 'painted',
       stage: 'visible',
+      at,
+      steps,
     });
-    expect(parseWebviewMessage({ type: 'painted', stage: 'editable' })).toEqual({
+    expect(parseWebviewMessage({ type: 'painted', stage: 'editable', at })).toEqual({
       type: 'painted',
       stage: 'editable',
+      at,
     });
     for (const stage of ['done', 1, undefined]) {
-      expect(parseWebviewMessage({ type: 'painted', stage })).toBeUndefined();
+      expect(parseWebviewMessage({ type: 'painted', stage, at })).toBeUndefined();
+    }
+    for (const bad of [undefined, -1, Infinity, 'now']) {
+      expect(parseWebviewMessage({ type: 'painted', stage: 'visible', at: bad })).toBeUndefined();
+    }
+    for (const bad of [[{ name: 'editor', ms: -1 }], [{ name: 3, ms: 1 }], 'steps']) {
+      expect(
+        parseWebviewMessage({ type: 'painted', stage: 'visible', at, steps: bad }),
+      ).toBeUndefined();
     }
   });
   it('takes the messages of the protocol', () => {
