@@ -47,6 +47,7 @@ import {
   roundStatus,
 } from './review-round.js';
 import { summarizeUsage } from './usage-summary.js';
+import { chunkUris } from './webview-chunks.js';
 import { OpenTimer, type OpenDurations, type RecordMark } from './startup-times.js';
 import type { ActionCounts, ActionTimings, ReviewThreadView } from '../shared/protocol.js';
 
@@ -330,6 +331,7 @@ class EditorSession {
       scriptUri: webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js')).toString(),
       nonce: randomBytes(16).toString('base64'),
       cspSource: webview.cspSource,
+      preloadUris: chunkUris(webview, dist),
     });
     this.disposables.push(
       webview.onDidReceiveMessage((raw: unknown) => {

@@ -63,28 +63,30 @@ Notes:
 
 `node scripts/bench/first-open.mjs <document> --runs 5`. From starting `code` to the document painted, in a new profile with no other extensions installed. Runs here are 5, so p95 is the slowest run.
 
-### 2026-11-27, `docs/documents/0078-document-startup.stanza.md`, before and after item 238
+### 2026-11-27, `docs/documents/0078-document-startup.stanza.md`, before and after items 238 and 243
 
-| Step | Before p50 | After p50 |
-| --- | ---: | ---: |
-| VS Code until the extension host | 1426 | 1436 |
-| Extension host until Stanza runs | 524 | 555 |
-| Loading Stanza | 41 | 45 |
-| Activation | 7 | 7 |
-| Until the open request | 24 | 27 |
-| Webview loading | 536 | 493 |
-| Host until the document is sent | 274 | 29 |
-| Webview until visible | 138 | 189 |
-| Until editable | 860 | 227 |
-| **Total: visible** | **2979** | **2886** |
-| **Total: editable** | **3909** | **3027** |
+5 runs before and after item 238, 10 after item 243.
 
-The host before sending the document, before: finding the project 147 ms and the configuration 110 ms, both through `vscode.workspace.fs`; after: 4 ms and 20 ms. In the webview, from its start: its script 201 ms, then waiting for the document, then 120 ms to parse, build the editor (77 ms) and paint.
+| Step | Before p50 | After 238 p50 | After 243 p50 |
+| --- | ---: | ---: | ---: |
+| VS Code until the extension host | 1426 | 1436 | 1448 |
+| Extension host until Stanza runs | 524 | 555 | 556 |
+| Loading Stanza | 41 | 45 | 43 |
+| Activation | 7 | 7 | 6 |
+| Until the open request | 24 | 27 | 27 |
+| Webview loading | 536 | 493 | 382 |
+| Host until the document is sent | 274 | 29 | 48 |
+| Webview until visible | 138 | 189 | 160 |
+| Until editable | 860 | 227 | 313 |
+| **Total: visible** | **2979** | **2886** | **2718** |
+| **Total: editable** | **3909** | **3027** | **3088** |
+
+The host before sending the document, before item 238: finding the project 147 ms and the configuration 110 ms, both through `vscode.workspace.fs`; after: under 30 ms each. In the webview, after item 243, from its start: the page and its two script files 87 ms (203 ms before, when the chunk was fetched only after `webview.js` had arrived), running the script 18 ms, then waiting for the document, then about 130 ms to parse, build the editor (85 ms) and paint. The script is not worth making smaller: running it takes 18 ms.
 
 On the corpus, a short document: host until the document is sent 272 to 42 ms, until editable 2134 to 845 ms.
 
 Notes:
 
 - About 2 s is VS Code and its built-in extensions, before Stanza runs.
-- From the open request to visible now takes about 0.7 s: 0.5 s for VS Code to make the webview and run its script, and 0.2 s for Stanza. A cold open in a window that is already open takes 0.15 to 0.3 s (above).
+- From the open request to visible now takes about 0.6 s on a first open (about 1 s before items 238 and 243): 0.4 s until the webview has run its script, and 0.2 s for Stanza. A cold open in a window that is already open takes 0.15 to 0.3 s (above).
 - In a new profile, VS Code 1.148.0 opens a `.stanza.md` file as text unless `workbench.editorAssociations` names `stanza.editor`; the script sets it (item 239).

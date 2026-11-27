@@ -5,6 +5,11 @@ export interface HtmlInput {
   readonly nonce: string;
   /** What the webview gives for the origin of the files of the extension. */
   readonly cspSource: string;
+  /**
+   * The shared chunks that the script imports. Named in the head, the webview fetches them with the
+   * script instead of after it (ADR 0101, item 243).
+   */
+  readonly preloadUris?: readonly string[];
 }
 
 /** The policy of a page: no remote resources and only the script and styles that carry the nonce. */
@@ -18,14 +23,20 @@ export function contentPolicy(nonce: string, cspSource: string): string {
   ].join('; ');
 }
 
+/** The head links that fetch the shared chunks together with the script (item 243). */
+export const preloadLinks = (uris: readonly string[], nonce: string): string =>
+  uris.map((uri) => `<link rel="modulepreload" nonce="${nonce}" href="${uri}">\n`).join('');
+
 /** The page of the editor. Its policy allows no remote resources and only the script that it loads. */
-export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
+export function buildHtml({ scriptUri, nonce, cspSource, preloadUris = [] }: HtmlInput): string {
   const policy = contentPolicy(nonce, cspSource);
+  const preloads = preloadLinks(preloadUris, nonce);
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${policy}">
+${preloads}
 <meta name="stanza-nonce" content="${nonce}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stanza</title>

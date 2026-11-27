@@ -128,6 +128,26 @@ function step(name: string): void {
   stepAt = now;
 }
 
+/**
+ * The time until the script had run, from the start of the webview: until the last script file had
+ * arrived, and then running them, when the browser says when its files arrived (ADR 0101).
+ */
+function scriptSteps(): StartupStep[] {
+  const fetched = Math.max(
+    0,
+    ...performance
+      .getEntriesByType('resource')
+      .filter((entry) => entry.name.endsWith('.js'))
+      .map((entry) => (entry as PerformanceResourceTiming).responseEnd),
+  );
+  return fetched > 0 && fetched <= scriptReady
+    ? [
+        { name: 'page and script files', ms: fetched },
+        { name: 'running the script', ms: scriptReady - fetched },
+      ]
+    : [{ name: 'script', ms: scriptReady }];
+}
+
 /** Tells the host, once per stage, two frames after the content was put in the page. */
 function measurePaint(stage: 'visible' | 'editable'): void {
   if (painted.has(stage)) return;
@@ -141,7 +161,7 @@ function measurePaint(stage: 'visible' | 'editable'): void {
           type: 'painted',
           stage,
           at: performance.timeOrigin + now,
-          steps: [{ name: 'script', ms: scriptReady }, ...steps],
+          steps: [...scriptSteps(), ...steps],
         });
       } else send({ type: 'painted', stage, at: performance.timeOrigin + performance.now() });
     });
