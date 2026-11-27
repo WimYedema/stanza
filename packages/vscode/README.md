@@ -81,7 +81,7 @@ Problems offers quick fixes to add an unlisted document or, after you confirm, t
 
 ## Opening documents
 
-A large project opens in two steps: the document is shown read-only at once, and becomes editable when the project-wide checks are done. Opening a document never reformats or rewrites it. The **Stanza** output channel reports how long both steps took; the timings stay on your machine.
+A large project opens in two steps: the document is shown read-only at once, and becomes editable when the project-wide checks are done. Opening a document never reformats or rewrites it. The **Stanza** output channel reports how long both steps took from the moment the document was opened, and how long Stanza took to start; the timings stay on your machine.
 
 ## Reviewing in Word
 

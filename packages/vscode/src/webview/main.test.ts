@@ -65,15 +65,17 @@ describe('staged webview startup', () => {
     expect(document.getElementById('startup-status')?.textContent).toContain('read-only');
     expect(document.querySelector<HTMLFieldSetElement>('#metadata fieldset')?.disabled).toBe(true);
     paint();
-    expect(sent.some((message) => message.type === 'startup-timing')).toBe(false);
+    expect(sent.filter((message) => message.type === 'painted')).toEqual([
+      { type: 'painted', stage: 'visible' },
+    ]);
     receive({ type: 'project-ready', usedIds: ['bbbbbbbbbb'] });
     expect(content?.getAttribute('contenteditable')).toBe('true');
     expect(document.getElementById('startup-status')?.textContent).toBe('');
     paint();
-    const timing = sent.find((message) => message.type === 'startup-timing');
-    if (timing?.type !== 'startup-timing') throw new Error('No startup timings were reported.');
-    expect(timing.visibleMs).toBeGreaterThanOrEqual(0);
-    expect(timing.editableMs).toBeGreaterThanOrEqual(timing.visibleMs);
+    expect(sent.filter((message) => message.type === 'painted')).toEqual([
+      { type: 'painted', stage: 'visible' },
+      { type: 'painted', stage: 'editable' },
+    ]);
     expect(sent.some((message) => message.type === 'change')).toBe(false);
     const properties = document.getElementById('metadata');
     if (properties === null) throw new Error('No properties panel.');

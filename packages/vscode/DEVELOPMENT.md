@@ -6,7 +6,11 @@ VS Code extension with two custom editors (document, style editor), bundled by `
 - `src/shared/`: message types between host and webview (`protocol.ts`, `styles-protocol.ts`).
 - `src/webview/`: runs in the webview. Document view: `main.ts`, `view.ts`, `toolbar.ts`, `sheet.ts`, `style-info.ts`, `notices.ts`, `reveal.ts` (scroll to a block), `reference-picker.ts` (the list of headings for a reference), `reference-navigation.ts` (Ctrl/Cmd-click on a reference), `changes.ts` (the bar for changes from outside). Style editor: `styles-*.ts` (`styles-main.ts` entry, `styles-panel.ts` the panel, `styles-controls.ts` one control per property type, `styles-properties.ts` property state helpers).
 
-Design decisions per feature: link resolution ADR 0077 and 0082, startup ADR 0078, document list ADR 0079, document properties ADR 0080. See `docs/INDEX.md`. Open items: GitHub block-ID anchors (backlog item 189), checking remote link targets (item 151), generated version and revision metadata (item 29).
+Design decisions per feature: link resolution ADR 0077 and 0082, startup ADR 0078 and 0101 (timings in `startup-times.ts` and `load-start.ts`), document list ADR 0079, document properties ADR 0080. See `docs/INDEX.md`. Open items: GitHub block-ID anchors (backlog item 189), checking remote link targets (item 151), generated version and revision metadata (item 29).
+
+## Measuring startup
+
+`node scripts/measure-first-open.mjs <document> [--runs 20] [--out file.json]` measures the first open of a document in a new VS Code window (ADR 0101), after `npm run build`. Each run starts the installed `code` with an empty user data and extensions folder and this extension, and `STANZA_TIMING_FILE` makes the extension write a time stamp at each step and quit VS Code once the document is editable. It prints p50 and p95 of each step: VS Code until the extension host, loading Stanza, activation, the webview, visible and editable. Close nothing while it runs; VS Code windows open and close by themselves.
 
 ## Releasing
 

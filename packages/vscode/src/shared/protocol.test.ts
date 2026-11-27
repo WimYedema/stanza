@@ -12,24 +12,17 @@ describe('parseWebviewMessage', () => {
     ).toBeUndefined();
     expect(parseWebviewMessage({ type: 'open-project' })).toEqual({ type: 'open-project' });
   });
-  it('checks painted startup durations before accepting local timing reports', () => {
-    expect(
-      parseWebviewMessage({ type: 'startup-timing', visibleMs: 120, editableMs: 450 }),
-    ).toEqual({
-      type: 'startup-timing',
-      visibleMs: 120,
-      editableMs: 450,
+  it('takes the painted stages of startup and nothing else', () => {
+    expect(parseWebviewMessage({ type: 'painted', stage: 'visible' })).toEqual({
+      type: 'painted',
+      stage: 'visible',
     });
-    for (const [visibleMs, editableMs] of [
-      [-1, 50],
-      [100, 50],
-      [0, Infinity],
-      [NaN, 50],
-      ['fast', 50],
-    ]) {
-      expect(
-        parseWebviewMessage({ type: 'startup-timing', visibleMs, editableMs }),
-      ).toBeUndefined();
+    expect(parseWebviewMessage({ type: 'painted', stage: 'editable' })).toEqual({
+      type: 'painted',
+      stage: 'editable',
+    });
+    for (const stage of ['done', 1, undefined]) {
+      expect(parseWebviewMessage({ type: 'painted', stage })).toBeUndefined();
     }
   });
   it('takes the messages of the protocol', () => {

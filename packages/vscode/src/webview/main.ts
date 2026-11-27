@@ -96,9 +96,8 @@ let lastText = '';
 let waiting: ReturnType<typeof setTimeout> | undefined;
 /** How many blocks that were removed by changes from outside are not yet dismissed. */
 let removedFromOutside = 0;
-let visibleMs: number | undefined;
-let editableMs: number | undefined;
-let timed = false;
+/** The stages of startup whose paint was reported to the host (ADR 0101). */
+const painted = new Set<'visible' | 'editable'>();
 let ready = false;
 let metadataPending = false;
 
@@ -110,15 +109,13 @@ const templateNames = (sheet: Stylesheet): readonly string[] => [
   ...new Set([DEFAULT_PAGE_TEMPLATE_NAME, ...sheet.pageTemplates.keys()]),
 ];
 
-function measurePaint(kind: 'visible' | 'editable'): void {
+/** Tells the host, once per stage, two frames after the content was put in the page. */
+function measurePaint(stage: 'visible' | 'editable'): void {
+  if (painted.has(stage)) return;
+  painted.add(stage);
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      if (kind === 'visible') visibleMs ??= Math.round(performance.now());
-      else editableMs ??= Math.round(performance.now());
-      if (!timed && visibleMs !== undefined && editableMs !== undefined) {
-        timed = true;
-        send({ type: 'startup-timing', visibleMs, editableMs });
-      }
+      send({ type: 'painted', stage });
     });
   });
 }

@@ -47,6 +47,7 @@ import {
   roundStatus,
 } from './review-round.js';
 import { summarizeUsage } from './usage-summary.js';
+import { OpenTimer, type RecordMark } from './startup-times.js';
 import type { ReviewThreadView } from '../shared/protocol.js';
 
 /** After a change, the project is checked again when nothing has changed for this long. */
@@ -66,6 +67,8 @@ export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly diagnostics: ProjectDiagnostics,
     private readonly log: vscode.OutputChannel,
     private readonly saves: StylesheetSaves,
+    /** Set only when a measurement script asked for the timing file (ADR 0101). */
+    private readonly record?: RecordMark,
   ) {}
 
   /** Scrolls the editor of a document to a top-level block, if that document has one open. */
@@ -171,6 +174,13 @@ export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
+    const timer = new OpenTimer(
+      document.fileName,
+      (line) => {
+        this.log.appendLine(line);
+      },
+      this.record,
+    );
     const session = new EditorSession(
       this.context,
       this.diagnostics,
@@ -179,6 +189,8 @@ export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
       document,
       panel,
       (target) => this.followReference(document.uri, target),
+      timer,
+      this.record !== undefined,
     );
     const key = document.uri.toString();
     this.sessions.set(key, session);
@@ -267,6 +279,9 @@ class EditorSession {
     private readonly document: vscode.TextDocument,
     private readonly panel: vscode.WebviewPanel,
     private readonly followReference: (target: string) => Promise<void>,
+    private readonly timer: OpenTimer,
+    /** A measurement script is waiting: quit VS Code once the document is editable (ADR 0101). */
+    private readonly quitWhenEditable: boolean,
   ) {}
 
   start(): void {
@@ -338,12 +353,13 @@ class EditorSession {
   private async onMessage(message: WebviewMessage | undefined): Promise<void> {
     switch (message?.type) {
       case 'ready':
+        this.timer.webviewReady();
         await this.sendInit();
         return;
-      case 'startup-timing':
-        this.log.appendLine(
-          `Stanza startup: visible ${String(message.visibleMs)} ms, editable ${String(message.editableMs)} ms (${this.document.fileName}).`,
-        );
+      case 'painted':
+        if (this.timer.painted(message.stage) && message.stage === 'editable') {
+          if (this.quitWhenEditable) await vscode.commands.executeCommand('workbench.action.quit');
+        }
         return;
       case 'change':
         await this.apply(message.text);
@@ -666,6 +682,7 @@ class EditorSession {
     this.fieldsKey = JSON.stringify(fields);
     this.schemesKey = JSON.stringify(settings.linkSchemes ?? {});
     this.shown = 'editor';
+    this.timer.initSent();
     await this.post({
       type: 'init',
       documentText: review.text,

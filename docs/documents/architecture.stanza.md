@@ -331,8 +331,19 @@ Examples:
 
 Maintain small fixtures covering one concern each (`fixtures/format/`). Test the generated package structurally. Add a limited number of reviewed golden DOCX artifacts for end-to-end regression checks. Avoid fragile binary snapshots as the only assertion.
 
+<!-- stanza: #03xhnbqjet -->
+## 14. Responsiveness
+
+Stanza should feel like a text editor, not like a build. The goals, as p95 on a stated reference machine, VS Code version and corpus (ADR 0101):
+
+- an action (a key, a toolbar button, a style choice) shows its result within 100 ms;
+- a document of a project that is already loaded is visible and editable within 300 ms;
+- a document of a project that is not loaded yet is visible within 500 ms and editable within 2 seconds.
+
+These are goals that are measured and calibrated, not promises that hold on every machine. Durations start at the open request and end at painted content and editing readiness; extension activation is reported apart. Timing benchmarks are separate from the unit tests and are not run in CI. No goal is met by skipping validation, diagnostics or the wait for project-wide IDs (ADR 0078).
+
 <!-- stanza: #9zbrjdq1r9 -->
-## 14. Security and privacy
+## 15. Security and privacy
 
 Because documents may be confidential:
 
@@ -344,12 +355,12 @@ Because documents may be confidential:
 - exported filenames and asset paths are treated as untrusted input.
 
 <!-- stanza: #pncdj8y56v -->
-## 15. Delivery order
+## 16. Delivery order
 
 The delivery order is `docs/BACKLOG.md`. The earlier vertical-slice plan is superseded by it: pipeline and CLI first, then collections and references, then the editor and review. Advanced history UI and paginated preview follow only after those validate the core proposition.
 
 <!-- stanza: #85y3csq0sx -->
-## 16. Decisions to capture as ADRs
+## 17. Decisions to capture as ADRs
 
 Architecture decision records live in `docs/documents/`, as `NNNN-name.stanza.md`.
 

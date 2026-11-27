@@ -153,7 +153,8 @@ export type HostMessage =
 
 export type WebviewMessage =
   | { readonly type: 'ready' }
-  | { readonly type: 'startup-timing'; readonly visibleMs: number; readonly editableMs: number }
+  /** The document was painted read-only or editable for the first time; the host takes the time (ADR 0101). */
+  | { readonly type: 'painted'; readonly stage: 'visible' | 'editable' }
   /** The whole text of the document as the editor writes it. */
   | { readonly type: 'change'; readonly text: string }
   | { readonly type: 'metadata-change'; readonly before: string; readonly text: string }
@@ -289,18 +290,9 @@ export function parseWebviewMessage(value: unknown): WebviewMessage | undefined 
       if (before.length > MAX_TEXT_LENGTH || text.length > MAX_TEXT_LENGTH) return undefined;
       return { type: 'metadata-change', before, text };
     }
-    case 'startup-timing': {
-      const { visibleMs, editableMs } = value;
-      if (
-        typeof visibleMs !== 'number' ||
-        typeof editableMs !== 'number' ||
-        !Number.isFinite(visibleMs) ||
-        !Number.isFinite(editableMs) ||
-        visibleMs < 0 ||
-        editableMs < visibleMs
-      )
-        return undefined;
-      return { type: 'startup-timing', visibleMs, editableMs };
+    case 'painted': {
+      const { stage } = value;
+      return stage === 'visible' || stage === 'editable' ? { type: 'painted', stage } : undefined;
     }
     case 'open-review': {
       const key = value['key'];
