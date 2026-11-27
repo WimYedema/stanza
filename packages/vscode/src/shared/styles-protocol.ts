@@ -39,6 +39,8 @@ export type StylesWebviewMessage =
    * title block of a page template, written by the panel as a whole (ADR 0091).
    */
   | { readonly type: 'set-block'; readonly path: readonly string[]; readonly source: string | null }
+  /** Makes a cover preset the cover of a page template, with what it uses (ADR 0100). */
+  | { readonly type: 'apply-preset'; readonly template: string; readonly preset: string }
   /** Adds an empty style, based on another of its kind or on none (ADR 0053). */
   | {
       readonly type: 'add-style';
@@ -112,6 +114,12 @@ export function parseStylesWebviewMessage(value: unknown): StylesWebviewMessage 
       if (source === null) return { type: 'set-block', path, source };
       return typeof source === 'string' && source.length <= MAX_BLOCK_LENGTH
         ? { type: 'set-block', path, source }
+        : undefined;
+    }
+    case 'apply-preset': {
+      const { template, preset } = value;
+      return isName(template) && isName(preset)
+        ? { type: 'apply-preset', template, preset }
         : undefined;
     }
     case 'add-style': {

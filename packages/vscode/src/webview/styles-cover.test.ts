@@ -410,6 +410,28 @@ describe('the cover editor', () => {
     expect(cover?.kind === 'grid' && cover.areas[0]).toEqual(['mark']);
   });
 
+  it('starts a cover from a preset, and asks first when there is a cover (ADR 0100)', () => {
+    const presetChoice = (): HTMLSelectElement => {
+      const found = [...editor.element.querySelectorAll('select')].find(
+        (select) => select.title === 'Start the cover from a preset, which you then change',
+      );
+      if (found === undefined) throw new Error('No presets.');
+      return found;
+    };
+    change(presetChoice(), 'band');
+    expect(sent.at(-1)).toEqual({ type: 'apply-preset', template: 'page', preset: 'band' });
+    expect(editor.element.textContent).toContain('It shows the fields subtitle, date');
+    show(ROWS);
+    const count = sent.length;
+    change(presetChoice(), 'classic');
+    expect(sent).toHaveLength(count);
+    expect(editor.element.querySelector('.confirm')?.textContent).toContain(
+      '"Classic, centred" replaces the cover.',
+    );
+    buttonOf('Replace').click();
+    expect(sent.at(-1)).toEqual({ type: 'apply-preset', template: 'page', preset: 'classic' });
+  });
+
   it('draws the stylesheet again after a refusal', () => {
     show(ROWS);
     buttonOf('Remove the row').click();

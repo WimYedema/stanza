@@ -158,6 +158,30 @@ describe('changes from the page', () => {
     });
   });
 
+  it('makes a cover preset the cover of a template, with the styles it uses (ADR 0100)', async () => {
+    const before = [
+      'stanza-format: 1',
+      'paragraph-styles:',
+      ...['body', 'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6']
+        .concat(['code', 'list-bulleted', 'list-numbered'])
+        .map((name) => `  ${name}: {}`),
+      'table-styles:',
+      '  table: {}',
+      'page-templates:',
+      '  page:',
+      '    size: A4',
+      '',
+    ].join('\n');
+    open(SHEET, before, project());
+    await ready();
+    fromWebview({ type: 'apply-preset', template: 'page', preset: 'lower-third' });
+    await settled(() => {
+      expect(world.text).toContain('    cover:\n      rows:\n');
+    });
+    expect(world.text).toContain('  cover-title:\n');
+    expect(world.text).toContain("    cover-accent: '#1F4E79'");
+  });
+
   it('sends the images of the project after the stylesheet, as data URLs (ADR 0091)', async () => {
     const logo = new Uint8Array(33);
     logo.set([

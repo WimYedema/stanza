@@ -36,3 +36,4 @@ export { slotSource } from './slot-source.js';
 export { coverSource, entriesSource, headerFooterSource } from './cover-source.js';
 export { parseStylesheet, type StylesheetParseResult } from './stylesheet.js';
 export { moveValuesToTokens, type UseTokensResult } from './use-tokens.js';
+export { COVER_PRESETS, applyCoverPreset, type CoverPreset } from './cover-presets.js';

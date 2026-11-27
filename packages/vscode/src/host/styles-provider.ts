@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 import { isStyleName, type StyleFamily, type StyleName, type Stylesheet } from '@stanza/core';
 import {
+  applyCoverPreset,
   parseStylesheet,
   setBlock,
   setProperty,
@@ -223,6 +224,11 @@ class StylesSession {
       case 'set-block':
         if (this.accepted) {
           await this.edit(setBlock(this.text(), message.path, message.source ?? undefined));
+        }
+        return;
+      case 'apply-preset':
+        if (this.accepted) {
+          await this.edit(applyCoverPreset(this.text(), message.template, message.preset));
         }
         return;
       case 'add-style':

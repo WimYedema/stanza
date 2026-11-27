@@ -117,6 +117,10 @@ describe('parseStylesHostMessage', () => {
       parseStylesHostMessage({ type: 'select-style', kind: 'table-style', name: 'table' }),
     ).toEqual({ type: 'select-style', kind: 'table-style', name: 'table' });
     const layout = { type: 'document-layout', name: 'report', document: 'pump-test.stanza.md' };
+    expect(
+      parseStylesWebviewMessage({ type: 'apply-preset', template: 'page', preset: 'band' }),
+    ).toEqual({ type: 'apply-preset', template: 'page', preset: 'band' });
+    expect(parseStylesWebviewMessage({ type: 'apply-preset', template: 'page' })).toBeUndefined();
     expect(parseStylesHostMessage(layout)).toEqual(layout);
   });
 

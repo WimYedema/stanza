@@ -12,7 +12,7 @@ import {
   type PageTemplate,
   type Stylesheet,
 } from '@stanza/core';
-import { coverSource, entriesSource } from '@stanza/format';
+import { COVER_PRESETS, coverSource, entriesSource } from '@stanza/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
 import {
   el,
@@ -123,6 +123,8 @@ export function createCoverEditor(
   let images: readonly string[] = [];
   /** The area of a grid cover that is selected in the panel and the preview. */
   let selectedArea: string | undefined;
+  /** What the preset applied last shows, said under the choice of presets. */
+  let presetNote: string | undefined;
   let current:
     | {
         readonly name: string;
@@ -390,7 +392,7 @@ export function createCoverEditor(
         ),
       );
     });
-    const parts: HTMLElement[] = [row('Kind', select), confirmSlot];
+    const parts: HTMLElement[] = [row('Kind', select), confirmSlot, ...presetParts(cover)];
     if (cover?.kind === 'list') {
       parts.push(
         entriesBox(cover.entries, context(), (entries) => {
@@ -422,6 +424,60 @@ export function createCoverEditor(
     }
     coverRoot.replaceChildren(...parts);
     drawTitleBlock();
+  }
+
+  /**
+   * The choice of a preset to start the cover from (ADR 0100). The host writes it, with the styles
+   * and colors it uses that the stylesheet lacks; a cover there is is replaced after a question.
+   */
+  function presetParts(cover: Cover | undefined): HTMLElement[] {
+    const choice = el('select');
+    choice.title = 'Start the cover from a preset, which you then change';
+    choice.append(
+      option('', 'Choose a preset…'),
+      ...COVER_PRESETS.map((preset) => option(preset.id, preset.label)),
+    );
+    const about = el('p', 'hint');
+    about.hidden = presetNote === undefined;
+    about.textContent = presetNote ?? '';
+    const slot = el('div');
+    const apply = (id: string): void => {
+      if (current === undefined) return;
+      const preset = COVER_PRESETS.find((candidate) => candidate.id === id);
+      status.textContent = '';
+      send({ type: 'apply-preset', template: current.name, preset: id });
+      // The panel is drawn again with the new cover, so the note is kept with the editor.
+      presetNote =
+        preset === undefined || preset.fields.length === 0
+          ? undefined
+          : `${preset.description} It shows the fields ${preset.fields.join(', ')}: declare them in the project file (metadata-fields) to fill them.`;
+      about.hidden = presetNote === undefined;
+      about.textContent = presetNote ?? '';
+    };
+    choice.addEventListener('change', () => {
+      const id = choice.value;
+      choice.value = '';
+      const preset = COVER_PRESETS.find((candidate) => candidate.id === id);
+      if (preset === undefined) return;
+      if (cover === undefined) {
+        apply(id);
+        return;
+      }
+      slot.replaceChildren(
+        confirmBox(
+          `"${preset.label}" replaces the cover. ${preset.description} Styles and colors of the same names that the stylesheet has are kept; the others are added.`,
+          'Replace',
+          () => {
+            slot.replaceChildren();
+            apply(id);
+          },
+          () => {
+            slot.replaceChildren();
+          },
+        ),
+      );
+    });
+    return [row('Start from', choice), slot, about];
   }
 
   function drawTitleBlock(): void {
