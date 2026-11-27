@@ -105,6 +105,31 @@ describe('the images of a cover', () => {
     ]);
   });
 
+  it('reads a background image, and warns when it does not have the proportions of the page (ADR 0097)', async () => {
+    const cover = (path: string): string =>
+      [`      background-image: ${path}`, '      rows:', '        - content: []'].join('\n');
+    // The default page is A4, of 595.3 by 841.9 points.
+    const fits = await load(cover('assets/a4.png'), { 'assets/a4.png': png(1190, 1684) });
+    expect(findings(fits)).toEqual([]);
+    expect([...fits.images.keys()]).toEqual(['assets/a4.png']);
+    const square = await load(cover('assets/square.png'), { 'assets/square.png': png(500, 500) });
+    expect(findings(square)).toEqual([
+      ['warning', 'image-aspect', 'styles.yaml', 'page-templates.page.cover.background-image'],
+    ]);
+    expect(square.diagnostics.find((d) => d.code === 'image-aspect')?.message).toContain(
+      'make it 354 pixels wide',
+    );
+    const gone = await load(cover('assets/gone.png'), {});
+    expect(findings(gone)).toEqual([
+      ['error', 'image-not-found', 'styles.yaml', 'page-templates.page.cover.background-image'],
+    ]);
+    const unsafe = await load(cover('../outside.png'), {});
+    expect(findings(unsafe).map(([, code, , path]) => [code, path])).toContainEqual([
+      'invalid-value',
+      'page-templates.page.cover.background-image',
+    ]);
+  });
+
   it('warns about an image wider than its area of a grid, or higher than the rows it spans', async () => {
     const loaded = await load(
       [

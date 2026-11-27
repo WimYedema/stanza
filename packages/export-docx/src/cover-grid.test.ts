@@ -10,13 +10,14 @@ const STYLESHEET_TEXT = readFileSync(
 ).replaceAll('\r\n', '\n');
 
 /** The fixture stylesheet with a template `page-grid` that has a cover grid (ADR 0092). */
-function withGrid(): ReturnType<typeof parseStylesheet>['stylesheet'] {
+function withGrid(background = false): ReturnType<typeof parseStylesheet>['stylesheet'] {
   const grid = [
     '  page-grid:',
     '    size: A4',
     '    margins: { top: 72, right: 72, bottom: 72, left: 72 }',
     '    cover:',
     '      margins: { top: 36, right: 48, bottom: 48, left: 48 }',
+    ...(background ? ['      background-image: assets/back.png'] : []),
     '      columns: [100, 1fr, 1fr]',
     '      rows: [80, 2fr, 1fr]',
     '      areas:',
@@ -50,13 +51,14 @@ const logo = new Uint8Array(33);
 logo.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
 const images = new Map([
   ['assets/logo.png', { format: 'png' as const, widthPx: 400, heightPx: 100, bytes: logo }],
+  ['assets/back.png', { format: 'png' as const, widthPx: 595, heightPx: 842, bytes: logo }],
 ]);
 
-async function coverXml(): Promise<string> {
+async function coverXml(background = false): Promise<string> {
   const document = parseDocument(
     '---\nstanza-format: 1\npage-template: "page-grid"\ntitle: "My Doc"\n---\n\n<!-- stanza: #k7m2q9x4zb -->\n# One\n',
   ).document;
-  const result = await exportDocx(document, withGrid(), {
+  const result = await exportDocx(document, withGrid(background), {
     timestamp: new Date('2026-03-04T05:06:07Z'),
     images,
   });
@@ -64,7 +66,11 @@ async function coverXml(): Promise<string> {
   const xml = strFromU8(
     unzipSync(result.bytes ?? new Uint8Array())['word/document.xml'] ?? new Uint8Array(),
   );
-  return xml.slice(0, xml.indexOf('</w:sectPr>'));
+  const cut = xml.indexOf('</w:sectPr>');
+  // A background picture is in the paragraph that ends the section, after its properties.
+  return background
+    ? xml.slice(0, xml.indexOf('</w:p>', cut) + '</w:p>'.length)
+    : xml.slice(0, cut);
 }
 
 describe('exportDocx cover grid (ADR 0092)', () => {
@@ -113,5 +119,20 @@ describe('exportDocx cover grid (ADR 0092)', () => {
     // The logo asks for 400 pt in an area of 199.65 pt.
     const width = Number(/<wp:extent cx="(\d+)"/.exec(xml)?.[1]);
     expect(width).toBe(Math.round(((3993 / 20) * 96 * 9525) / 72));
+  });
+
+  it('puts a background image behind the cover, on the page, in the paragraph that ends it (ADR 0097)', async () => {
+    const xml = await coverXml(true);
+    const end = xml.slice(xml.lastIndexOf('</w:tbl>'));
+    // No paragraph of its own: the table is followed by the paragraph that ends the section.
+    expect(end.match(/<w:p>/g)).toHaveLength(1);
+    expect(end).toContain('<w:sz w:val="2"/>');
+    expect(end).toContain('behindDoc="1"');
+    expect(end).toContain('<wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset>');
+    expect(end).toContain('<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset>');
+    // A4 in EMU: 595.3 by 841.9 points, 12700 to the point.
+    expect(end).toMatch(/<wp:extent cx="75\d{5}" cy="106\d{5}"\/>/);
+    expect(end).toContain('<wp:wrapNone/>');
+    expect(xml.indexOf('behindDoc="1"')).toBe(xml.lastIndexOf('behindDoc="1"'));
   });
 });

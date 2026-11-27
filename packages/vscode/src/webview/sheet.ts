@@ -283,9 +283,20 @@ export function drawCover(
 ): void {
   root.replaceChildren();
   root.style.padding = '';
+  root.style.backgroundImage = '';
+  root.style.backgroundSize = '';
   const cover = template.cover;
   root.hidden = true;
   if (cover === undefined) return;
+  // The background image is stretched to the page, as in Word (ADR 0097); a missing one shows none.
+  const background =
+    cover.kind === 'list' || cover.backgroundImage === undefined
+      ? undefined
+      : images.get(cover.backgroundImage);
+  if (background !== undefined) {
+    root.style.backgroundImage = `url("${background}")`;
+    root.style.backgroundSize = '100% 100%';
+  }
   if (cover.kind === 'list') {
     const rows = fillCover(cover, meta);
     root.hidden = rows === undefined;

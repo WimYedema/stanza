@@ -131,7 +131,25 @@ function shrinkCoverEnd(files: Files): void {
   const small =
     '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/>' +
     '<w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr><w:sectPr>';
-  files['word/document.xml'] = strToU8(text.slice(0, at) + small + text.slice(at + end.length));
+  // The background picture of the cover (ADR 0097) comes in a paragraph of its own just before;
+  // its run moves into the end of the section, so it takes no line.
+  let before = text.slice(0, at);
+  let runs = '';
+  const start = Math.max(before.lastIndexOf('<w:p>'), before.lastIndexOf('<w:p '));
+  const last = start < 0 ? '' : before.slice(start);
+  if (last.endsWith('</w:p>') && last.includes('behindDoc="1"')) {
+    const open = last.includes('</w:pPr>')
+      ? last.indexOf('</w:pPr>') + '</w:pPr>'.length
+      : last.indexOf('>') + 1;
+    runs = last.slice(open, last.length - '</w:p>'.length);
+    before = before.slice(0, start);
+  }
+  let after = text.slice(at + end.length);
+  if (runs !== '') {
+    const close = after.indexOf('</w:pPr>') + '</w:pPr>'.length;
+    after = after.slice(0, close) + runs + after.slice(close);
+  }
+  files['word/document.xml'] = strToU8(before + small + after);
 }
 
 export interface FinishOptions {

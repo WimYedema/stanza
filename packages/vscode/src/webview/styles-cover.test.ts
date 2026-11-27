@@ -417,4 +417,28 @@ describe('the cover editor', () => {
     editor.reset();
     expect(editor.element.querySelectorAll('.cover-row-box')).toHaveLength(3);
   });
+
+  it('sets and clears the background image of the cover, kept when rows become a grid (ADR 0097)', () => {
+    show(ROWS);
+    const field = [
+      ...editor.element.querySelectorAll<HTMLInputElement>('.cover-margins input'),
+    ].find((input) => input.placeholder === 'none');
+    if (field === undefined) throw new Error('No background image.');
+    change(field, 'assets/cover.png');
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.backgroundImage).toBe('assets/cover.png');
+    change(kindOf(0), 'grid');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.backgroundImage).toBe('assets/cover.png');
+    const again = [
+      ...editor.element.querySelectorAll<HTMLInputElement>('.cover-margins input'),
+    ].find((input) => input.placeholder === 'none');
+    if (again === undefined) throw new Error('No background image.');
+    change(again, '');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.backgroundImage).toBeUndefined();
+  });
 });

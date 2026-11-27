@@ -25,7 +25,16 @@ interface FoundImage {
   readonly maxWidthPt: number;
   /** The height of its row, or of the rows of its area, in points, when they have one. */
   readonly rowHeightPt: number | undefined;
+  /** For the background of a cover (ADR 0097): the page it is stretched to, in points. */
+  readonly page?: { readonly widthPt: number; readonly heightPt: number };
 }
+
+/** The key of the path in the stylesheet: of an image entry, or of a background image. */
+const keyOf = (found: FoundImage): string =>
+  found.page === undefined ? 'image' : 'background-image';
+
+/** How far the proportions of a background image may differ from those of the page. */
+const ASPECT_TOLERANCE = 0.02;
 
 /** The width of the body text of a template, in points. */
 const textWidthPt = (template: PageTemplate): number =>
@@ -63,6 +72,15 @@ function imageEntries(stylesheet: Stylesheet): FoundImage[] {
     const cover = template.cover;
     if (cover === undefined) continue;
     const here = `page-templates.${name}.cover`;
+    if (cover.kind !== 'list' && cover.backgroundImage !== undefined) {
+      found.push({
+        entry: { kind: 'image', path: cover.backgroundImage },
+        at: here,
+        maxWidthPt: PAGE_SIZES[template.size].widthPt,
+        rowHeightPt: undefined,
+        page: PAGE_SIZES[template.size],
+      });
+    }
     const maxWidthPt = coverAreaWidthPt(template);
     if (cover.kind === 'list') {
       cover.entries.forEach((entry, index) => {
@@ -138,6 +156,21 @@ function checkFit(
   file: string,
   diagnostics: ProjectDiagnostic[],
 ): void {
+  if (found.page !== undefined) {
+    // A background is stretched to the page, so only its proportions matter (ADR 0097).
+    const page = found.page.widthPt / found.page.heightPt;
+    const own = image.widthPx / image.heightPx;
+    if (Math.abs(own / page - 1) > ASPECT_TOLERANCE) {
+      diagnostics.push({
+        file,
+        severity: 'warning',
+        code: 'image-aspect',
+        message: `The background image is ${String(image.widthPx)} by ${String(image.heightPx)} pixels, which does not have the proportions of the page, so it is stretched; make it ${String(Math.round(image.heightPx * page))} pixels wide for this height.`,
+        path: `${found.at}.background-image`,
+      });
+    }
+    return;
+  }
   const { maxWidthPt } = found;
   const askedPt = found.entry.widthPt ?? naturalWidthPt(image);
   const widthPt = Math.min(askedPt, maxWidthPt);
@@ -176,7 +209,9 @@ export async function loadCoverImages(
   const images = new Map<string, ImageAsset>();
   const tried = new Set<string>();
   const found = imageEntries(stylesheet);
-  for (const { entry, at } of found) {
+  for (const one of found) {
+    const { entry, at } = one;
+    const key = keyOf(one);
     if (tried.has(entry.path) || !isSafeRelativePath(entry.path)) continue;
     tried.add(entry.path);
     let bytes: Uint8Array;
@@ -188,7 +223,7 @@ export async function loadCoverImages(
         severity: 'error',
         code: 'image-not-found',
         message: `The image "${entry.path}" was not found in the project.`,
-        path: `${at}.image`,
+        path: `${at}.${key}`,
       });
       continue;
     }
@@ -199,7 +234,7 @@ export async function loadCoverImages(
         severity: 'error',
         code: 'image-unsupported',
         message: `The image "${entry.path}" is not a PNG or JPEG file.`,
-        path: `${at}.image`,
+        path: `${at}.${key}`,
       });
       continue;
     }

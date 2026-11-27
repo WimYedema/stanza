@@ -211,10 +211,27 @@ export function createCoverEditor(
       });
       return row(side.charAt(0).toUpperCase() + side.slice(1), input, el('span', 'unit', 'pt'));
     });
+    // A picture that fills the page behind the cover, stretched to it (ADR 0097).
+    const background = el('input');
+    background.type = 'text';
+    background.setAttribute('list', list.id);
+    background.placeholder = 'none';
+    background.value = cover.backgroundImage ?? '';
+    background.addEventListener('change', () => {
+      const path = background.value.trim();
+      const rest = without(cover, 'backgroundImage');
+      writeCover((path === '' ? rest : { ...rest, backgroundImage: path }) as Cover, false);
+    });
     const box = el('div', 'cover-margins');
     box.append(
       el('p', 'hint', 'Margins of the cover; empty takes the margin of the page.'),
       ...margins,
+      row('Background image', background),
+      el(
+        'p',
+        'hint',
+        'A PNG or JPEG behind the whole cover page, stretched to it: make it in the proportions of the page.',
+      ),
     );
     return box;
   }
@@ -316,8 +333,12 @@ export function createCoverEditor(
     select.value = kind;
     const changeKind = (to: string): void => {
       const entries = cover === undefined ? [] : coverEntries(cover);
-      const margins = cover?.kind === 'rows' || cover?.kind === 'grid' ? cover.margins : undefined;
-      const withMargins = margins !== undefined ? { margins } : {};
+      const laid = cover?.kind === 'rows' || cover?.kind === 'grid' ? cover : undefined;
+      // The margins and the background image stay with rows and grids (ADR 0097).
+      const withMargins = {
+        ...(laid?.margins !== undefined ? { margins: laid.margins } : {}),
+        ...(laid?.backgroundImage !== undefined ? { backgroundImage: laid.backgroundImage } : {}),
+      };
       if (to === 'none') writeCover(undefined, true);
       else if (to === 'list') writeCover({ kind: 'list', entries }, true);
       else if (to === 'grid') {

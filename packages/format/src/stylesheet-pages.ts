@@ -299,12 +299,21 @@ function readCover(value: unknown, path: string, report: Report): Cover | undefi
     map['margins'] === undefined
       ? undefined
       : readMargins(map['margins'], join(path, 'margins'), report);
+  // A picture that fills the page behind the cover (ADR 0097).
+  const backgroundImage = readString(map, 'background-image', path, report);
+  const withImage = backgroundImage !== undefined ? { backgroundImage } : {};
   if (map['areas'] !== undefined) {
-    checkKeys(map, ['margins', 'columns', 'rows', 'areas', 'area'], path, report);
-    return readGrid(map, path, report, margins);
+    checkKeys(
+      map,
+      ['margins', 'background-image', 'columns', 'rows', 'areas', 'area'],
+      path,
+      report,
+    );
+    const grid = readGrid(map, path, report, margins);
+    return grid === undefined ? undefined : { ...grid, ...withImage };
   }
   // `columns` and `area` belong to a grid, which has `areas`.
-  checkKeys(map, ['margins', 'rows'], path, report);
+  checkKeys(map, ['margins', 'background-image', 'rows'], path, report);
   const given = map['rows'];
   if (!Array.isArray(given)) {
     report('invalid-type', `Expected a list, found ${describe(given)}.`, join(path, 'rows'));
@@ -314,7 +323,7 @@ function readCover(value: unknown, path: string, report: Report): Cover | undefi
     const read = readLayoutRow(row, `${join(path, 'rows')}[${String(index)}]`, report);
     return read === undefined ? [] : [read];
   });
-  return { kind: 'rows', ...(margins !== undefined ? { margins } : {}), rows };
+  return { kind: 'rows', ...(margins !== undefined ? { margins } : {}), ...withImage, rows };
 }
 
 /** The sides that a map of margins gives; the others are left out. */

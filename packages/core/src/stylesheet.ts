@@ -213,6 +213,8 @@ export type Cover =
   | {
       readonly kind: 'rows';
       readonly margins?: Partial<PageMargins>;
+      /** A PNG or JPEG that fills the cover page behind everything (ADR 0097). */
+      readonly backgroundImage?: string;
       readonly rows: readonly CoverLayoutRow[];
     }
   | CoverGrid;
@@ -238,6 +240,8 @@ export interface CoverArea {
 export interface CoverGrid {
   readonly kind: 'grid';
   readonly margins?: Partial<PageMargins>;
+  /** A PNG or JPEG that fills the cover page behind everything (ADR 0097); not in a header. */
+  readonly backgroundImage?: string;
   readonly columns: readonly CoverColumnWidth[];
   readonly rows: readonly CoverRowHeight[];
   readonly areas: readonly (readonly string[])[];
@@ -267,6 +271,10 @@ export function coverImagePaths(templates: Iterable<PageTemplate>): readonly str
     ];
     for (const entry of entries) {
       if (entry.kind === 'image') paths.add(entry.path);
+    }
+    const cover = template.cover;
+    if (cover !== undefined && cover.kind !== 'list' && cover.backgroundImage !== undefined) {
+      paths.add(cover.backgroundImage);
     }
   }
   return [...paths];

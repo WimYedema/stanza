@@ -144,6 +144,7 @@ export function coverGrid(cover: Cover & { readonly kind: 'rows' | 'grid' }): Co
   return {
     kind: 'grid',
     ...(cover.margins !== undefined ? { margins: cover.margins } : {}),
+    ...(cover.backgroundImage !== undefined ? { backgroundImage: cover.backgroundImage } : {}),
     columns: [{ kind: 'share', fr: 1 }],
     rows: cover.rows.map((row) => row.height),
     areas: cover.rows.map((_, index) => [name(index)]),

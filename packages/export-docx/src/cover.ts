@@ -9,6 +9,7 @@ import {
   fillEntries,
   fillGrid,
   naturalWidthPt,
+  PAGE_SIZES,
   type Block,
   type CoverItem,
   type ColorValue,
@@ -21,7 +22,10 @@ import {
 } from '@stanza/core';
 import {
   HeightRule,
+  HorizontalPositionRelativeFrom,
   ShadingType,
+  TextWrappingType,
+  VerticalPositionRelativeFrom,
   ImageRun,
   Paragraph,
   Table,
@@ -233,6 +237,48 @@ export function gridTable<Area extends GridArea>(
 }
 
 /**
+ * The picture that fills the cover page behind everything (ADR 0097): stretched to the page, from
+ * its top left corner, behind the text and wrapped by nothing. It is built in a paragraph of its
+ * own; the package moves it into the paragraph that ends the cover section, so it takes no line.
+ */
+function backgroundParagraph(
+  path: string,
+  template: PageTemplate,
+  images: ReadonlyMap<string, ImageAsset>,
+  context: BuildContext,
+): Paragraph | undefined {
+  const asset = images.get(path);
+  if (asset === undefined) {
+    context.diagnostics.push({
+      severity: 'error',
+      code: 'image-not-found',
+      message: `The image "${path}" was not loaded with the document.`,
+    });
+    return undefined;
+  }
+  const { widthPt, heightPt } = PAGE_SIZES[template.size];
+  return new Paragraph({
+    children: [
+      new ImageRun({
+        type: asset.format === 'png' ? 'png' : 'jpg',
+        data: asset.bytes,
+        transformation: { width: pixels(widthPt), height: pixels(heightPt) },
+        altText: { name: path.slice(path.lastIndexOf('/') + 1), description: '', title: '' },
+        floating: {
+          horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+          verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
+          behindDocument: true,
+          allowOverlap: true,
+          lockAnchor: true,
+          layoutInCell: false,
+          wrap: { type: TextWrappingType.NONE },
+        },
+      }),
+    ],
+  });
+}
+
+/**
  * The cover of a template for a document, or undefined when the template has none or nothing on it
  * is left once the metadata is filled in.
  */
@@ -266,7 +312,15 @@ export function buildCover(
       ),
     here,
   );
-  return { page, children: [table], rows: true };
+  const background =
+    cover.backgroundImage === undefined
+      ? undefined
+      : backgroundParagraph(cover.backgroundImage, template, images, here);
+  return {
+    page,
+    children: background === undefined ? [table] : [table, background],
+    rows: true,
+  };
 }
 
 /**

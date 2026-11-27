@@ -401,6 +401,13 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         });
         return;
       }
+      if (cover.backgroundImage !== undefined && !isSafeRelativePath(cover.backgroundImage)) {
+        error(
+          'invalid-value',
+          'The background image must be a relative path with "/" separators and no "..".',
+          `${here}.background-image`,
+        );
+      }
       const heights = cover.kind === 'grid' ? cover.rows : cover.rows.map((row) => row.height);
       const heightPath = (index: number): string =>
         cover.kind === 'grid'

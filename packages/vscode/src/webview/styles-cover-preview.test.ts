@@ -176,3 +176,30 @@ describe('the preview of grids while they are edited (ADR 0096)', () => {
     ]);
   });
 });
+
+describe('the background image of the cover (ADR 0097)', () => {
+  it('fills the cover sheet, stretched, once the image is known', () => {
+    const sheet = parseStylesheet(
+      [
+        'stanza-format: 1',
+        'paragraph-styles:',
+        RESERVED,
+        'table-styles:',
+        '  table: {}',
+        'page-templates:',
+        '  page:',
+        '    size: A4',
+        '    cover:',
+        '      background-image: assets/cover.png',
+        '      rows:',
+        "        - content: [{ text: '[Untitled](stanza:title)' }]",
+        '',
+      ].join('\n'),
+    ).stylesheet;
+    preview.show(sheet.pageTemplates.get('page' as StyleName), sheet);
+    expect(elements.cover.style.backgroundImage).toBe('');
+    preview.setImages(new Map([['assets/cover.png', 'data:image/png;base64,iVA=']]));
+    expect(elements.cover.style.backgroundImage).toContain('data:image/png;base64,iVA=');
+    expect(elements.cover.style.backgroundSize).toBe('100% 100%');
+  });
+});

@@ -122,6 +122,9 @@ function gridLines(cover: CoverGrid, margins: string | undefined): string[] {
   });
   return [
     ...(margins !== undefined ? [`margins: ${margins}`] : []),
+    ...(cover.backgroundImage !== undefined
+      ? [`background-image: ${quoted(cover.backgroundImage)}`]
+      : []),
     `columns: [${cover.columns.map(sizeText).join(', ')}]`,
     `rows: [${cover.rows.map(sizeText).join(', ')}]`,
     ...(areaLines.length > 0
@@ -151,6 +154,9 @@ export function coverSource(cover: Cover): string {
   });
   return [
     ...(margins !== undefined ? [`margins: ${margins}`] : []),
+    ...(cover.backgroundImage !== undefined
+      ? [`background-image: ${quoted(cover.backgroundImage)}`]
+      : []),
     ...(rows.length > 0 ? ['rows:', ...indent(rows, '  ')] : ['rows: []']),
   ].join('\n');
 }
