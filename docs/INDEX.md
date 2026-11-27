@@ -1,6 +1,6 @@
 # Documentation index
 
-Read the ADR for the topic you work on; later ADRs refine earlier ones, so read the whole chain named on a line. File names are `docs/documents/NNNN-*.stanza.md`. Other files: `docs/documents/architecture.stanza.md` (boundaries), `docs/documents/product-vision.stanza.md`, `docs/BACKLOG.md` (open work), `docs/BACKLOG_DONE.md` (history), `docs/documents/spike-findings.stanza.md`. The documents are Stanza documents (ADR 0064); this index and the backlog files are plain Markdown.
+Read the ADR for the topic you work on; later ADRs refine earlier ones, so read the whole chain named on a line. File names are `docs/documents/NNNN-*.stanza.md`. Other files: `docs/documents/architecture.stanza.md` (boundaries), `docs/documents/product-vision.stanza.md`, `docs/documents/ux-principles.stanza.md` (UX and design principles for the editors; read before UI work), `docs/BACKLOG.md` (open work), `docs/BACKLOG_DONE.md` (history), `docs/documents/spike-findings.stanza.md`. The documents are Stanza documents (ADR 0064); this index and the backlog files are plain Markdown.
 
 ## Format and domain (`core`, `format`)
 
