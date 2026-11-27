@@ -26,6 +26,7 @@ import {
   VerticalPositionAlign,
   WidthType,
 } from 'docx';
+import { strToU8, zipSync } from 'fflate';
 
 /** Helpers for tests of the cover import (ADR 0094). Not part of the package. */
 
@@ -251,4 +252,109 @@ export async function reportTemplate(logo: Uint8Array = smallPng()): Promise<Uin
     ],
   });
   return new Uint8Array(await Packer.toArrayBuffer(document));
+}
+
+const SHAPE_NAMESPACES = [
+  'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"',
+  'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+  'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"',
+  'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"',
+  'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"',
+  'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"',
+  'xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"',
+  'xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"',
+  'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"',
+].join(' ');
+
+/** EMU of a number of points. */
+const emu = (pt: number): string => String(Math.round(pt * 12700));
+
+/** A drawing anchored to the page at a place, of a size, with its graphic. */
+const anchored = (
+  options: { behind: boolean; depth: number; x: string; y: string; width: number; height: number },
+  graphic: string,
+): string =>
+  `<w:r><w:drawing><wp:anchor behindDoc="${options.behind ? '1' : '0'}" relativeHeight="${String(options.depth)}" simplePos="0" locked="0" layoutInCell="1" allowOverlap="1" distT="0" distB="0" distL="0" distR="0">` +
+  `<wp:simplePos x="0" y="0"/>${options.x}${options.y}` +
+  `<wp:extent cx="${emu(options.width)}" cy="${emu(options.height)}"/><wp:wrapNone/>` +
+  `<wp:docPr id="${String(options.depth)}" name="Shape"/><a:graphic><a:graphicData>${graphic}</a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`;
+
+const atPage = (axis: 'H' | 'V', pt: number): string =>
+  `<wp:position${axis} relativeFrom="page"><wp:posOffset>${emu(pt)}</wp:posOffset></wp:position${axis}>`;
+
+/** A text box with one paragraph of text, or of a content control bound to the title. */
+const textBox = (inner: string, fill: string, box: string): string =>
+  `<wps:wsp><wps:spPr>${box}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${fill}</wps:spPr>` +
+  `<wps:txbx><w:txbxContent><w:p>${inner}</w:p></w:txbxContent></wps:txbx><wps:bodyPr anchor="ctr"/></wps:wsp>`;
+
+/**
+ * A made-up cover of shapes anchored to the page, as the covers of Word's gallery are built
+ * (ADR 0098): a picture behind the whole page; a group with a dark band across the top and, on it,
+ * a text box without fill that holds the title; a box placed by a percentage of the page, filled
+ * with a theme color made darker; and an ellipse, which is left out.
+ */
+export function shapedTemplate(): Uint8Array {
+  const title =
+    '<w:sdt><w:sdtPr><w:dataBinding w:xpath="/ns1:coreProperties[1]/ns0:title[1]" w:storeItemID="{6C3C8BC8-F283-45AE-878A-BAB7291924A1}"/></w:sdtPr>' +
+    '<w:sdtContent><w:r><w:t>[Document title]</w:t></w:r></w:sdtContent></w:sdt>';
+  const picture = anchored(
+    { behind: true, depth: 1, x: atPage('H', 0), y: atPage('V', 0), width: 595.3, height: 841.9 },
+    '<pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="back.png"/><pic:cNvPicPr/></pic:nvPicPr>' +
+      '<pic:blipFill><a:blip r:embed="rIdBack"/></pic:blipFill><pic:spPr/></pic:pic>',
+  );
+  const group = anchored(
+    { behind: true, depth: 2, x: atPage('H', 0), y: atPage('V', 0), width: 595.3, height: 200 },
+    '<wpg:wgp><wpg:cNvGrpSpPr/><wpg:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="1000"/>' +
+      '<a:chOff x="0" y="0"/><a:chExt cx="1000" cy="1000"/></a:xfrm></wpg:grpSpPr>' +
+      '<wps:wsp><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="1000"/></a:xfrm>' +
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="1F3864"/></a:solidFill></wps:spPr><wps:bodyPr/></wps:wsp>' +
+      textBox(
+        title,
+        '<a:noFill/>',
+        '<a:xfrm><a:off x="100" y="500"/><a:ext cx="800" cy="300"/></a:xfrm>',
+      ) +
+      '</wpg:wgp>',
+  );
+  const percent = anchored(
+    {
+      behind: false,
+      depth: 3,
+      x:
+        '<mc:AlternateContent><mc:Choice Requires="wp14"><wp:positionH relativeFrom="page"><wp14:pctPosHOffset>50000</wp14:pctPosHOffset></wp:positionH></mc:Choice>' +
+        '<mc:Fallback><wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH></mc:Fallback></mc:AlternateContent>',
+      y: atPage('V', 600),
+      width: 200,
+      height: 50,
+    },
+    textBox(
+      '<w:r><w:t>Example Org</w:t></w:r>',
+      '<a:solidFill><a:schemeClr val="accent1"><a:lumMod val="50000"/></a:schemeClr></a:solidFill>',
+      '',
+    ),
+  );
+  const ellipse = anchored(
+    { behind: false, depth: 4, x: atPage('H', 40), y: atPage('V', 700), width: 60, height: 60 },
+    '<wps:wsp><wps:spPr><a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></wps:spPr><wps:bodyPr/></wps:wsp>',
+  );
+  const document =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${SHAPE_NAMESPACES}><w:body>` +
+    `<w:p>${picture}${group}${percent}${ellipse}</w:p>` +
+    '<w:p><w:r><w:br w:type="page"/></w:r></w:p><w:p><w:r><w:t>Body.</w:t></w:r></w:p>' +
+    '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567"/></w:sectPr>' +
+    '</w:body></w:document>';
+  const theme =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="T"><a:themeElements>' +
+    '<a:clrScheme name="T"><a:dk1><a:srgbClr val="000000"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>' +
+    '<a:accent1><a:srgbClr val="4472C4"/></a:accent1></a:clrScheme></a:themeElements></a:theme>';
+  const relationships =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rIdBack" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/back.png"/>' +
+    '<Relationship Id="rIdTheme" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>' +
+    '</Relationships>';
+  return zipSync({
+    'word/document.xml': strToU8(document),
+    'word/_rels/document.xml.rels': strToU8(relationships),
+    'word/theme/theme1.xml': strToU8(theme),
+    'word/media/back.png': smallPng(),
+  });
 }

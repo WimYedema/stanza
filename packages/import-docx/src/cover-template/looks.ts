@@ -79,7 +79,7 @@ export class Looks {
 
   constructor(
     styles: XmlElement | undefined,
-    private readonly theme: Theme,
+    readonly theme: Theme,
   ) {
     for (const style of elementsOf(styles, 'style')) {
       const id = style.attrs['styleId'];

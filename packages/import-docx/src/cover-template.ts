@@ -109,9 +109,18 @@ export function importCoverTemplate(
   };
   const header = referenced('header');
   const footer = referenced('footer');
+  // Shapes anchored to the first page are placed on it, not in the flow (ADR 0098).
+  const page = {
+    widthPt: width / 20,
+    heightPt: height / 20,
+    ...margins,
+  };
+  reader.shapes = { page, found: [] };
   const headerBlocks = header === undefined ? [] : reader.blocks(header.xml, header, false);
   const bodyBlocks = reader.blocks(body, document, true);
   const footerBlocks = footer === undefined ? [] : reader.blocks(footer.xml, footer, false);
+  const shapes = reader.shapes.found;
+  reader.shapes = undefined;
   if (header !== undefined)
     converted.push('The header of the first page, at the top of the cover.');
   if (footer !== undefined)
@@ -174,10 +183,13 @@ export function importCoverTemplate(
     topPt: header === undefined ? margins.topPt : headerDistance,
     bottomPt: footer === undefined ? margins.bottomPt : footerDistance,
   };
-  const cover = build.grid(
-    coverMargins,
-    height / 20 - (coverMargins.topPt ?? 0) - (coverMargins.bottomPt ?? 0),
-  );
+  const cover =
+    shapes.length > 0
+      ? build.shapedGrid(shapes, page, coverMargins.topPt ?? 0, coverMargins.bottomPt ?? 0)
+      : build.grid(
+          coverMargins,
+          height / 20 - (coverMargins.topPt ?? 0) - (coverMargins.bottomPt ?? 0),
+        );
   converted.push(
     `The cover: ${String(cover.columns.length)} columns and ${String(cover.rows.length)} rows, with heights estimated from the styles.`,
   );

@@ -163,6 +163,25 @@ describe('coverSource and entriesSource', () => {
 });
 
 describe('setBlock', () => {
+  it('adds after a mapping that ends in a list, with the next key right after it', () => {
+    const text = [
+      'stanza-format: 1',
+      'paragraph-styles:',
+      '  body: {}',
+      'page-templates:',
+      '  page:',
+      '    cover:',
+      '      - text: x',
+      'table-of-contents:',
+      '  page-numbers: false',
+      '',
+    ].join('\n');
+    const added = setBlock(text, ['page-templates', 'more'], 'size: A4');
+    expect(added.ok && added.text).toBe(
+      text.replace('      - text: x\n', '      - text: x\n  more:\n    size: A4\n'),
+    );
+  });
+
   const path = ['page-templates', 'page', 'cover'];
 
   it('adds the property after the last line of its mapping, and keeps the comments around it', () => {

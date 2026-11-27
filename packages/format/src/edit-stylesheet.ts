@@ -1,4 +1,13 @@
-import { isMap, isNode, isScalar, isSeq, parseDocument, type Pair, type YAMLMap } from 'yaml';
+import {
+  isMap,
+  isNode,
+  isPair,
+  isScalar,
+  isSeq,
+  parseDocument,
+  type Pair,
+  type YAMLMap,
+} from 'yaml';
 import { parseStylesheet } from './stylesheet.js';
 
 /**
@@ -67,12 +76,19 @@ const columnOf = (text: string, pos: number): number => pos - lineStart(text, po
  * Where a pair ends: after its value, or after its key when it has no value. A block mapping's own
  * range runs on over the blank lines after it, so its end is that of its last pair.
  */
-const endOf = (pair: Pair): number => {
-  const value = pair.value;
-  const inner = isMap(value) && value.flow !== true ? value.items.at(-1) : undefined;
-  const valueEnd = inner === undefined ? (rangeOf(value)?.[1] ?? 0) : endOf(inner);
-  return Math.max(rangeOf(pair.key)?.[1] ?? 0, valueEnd);
+/**
+ * Where the text of a node ends: for a block mapping or list, where its last item ends, since the
+ * range of a block list runs on to the next key when no blank line comes between.
+ */
+const endOfNode = (node: unknown): number => {
+  if ((isMap(node) || isSeq(node)) && node.flow !== true) {
+    const last: unknown = node.items.at(-1);
+    if (last !== undefined) return isPair(last) ? endOf(last) : endOfNode(last);
+  }
+  return rangeOf(node)?.[1] ?? 0;
 };
+
+const endOf = (pair: Pair): number => Math.max(rangeOf(pair.key)?.[1] ?? 0, endOfNode(pair.value));
 
 const hasControl = (text: string): boolean =>
   Array.from(text).some((char) => char.charCodeAt(0) < 0x20 || char.charCodeAt(0) === 0x7f);

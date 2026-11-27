@@ -82,4 +82,4 @@ A style is the look a paragraph has in the template: its Word style with the sty
 <!-- stanza: #kqw19ywk9q -->
 ## Not covered
 
-Anchored shapes and text boxes as areas (item 229), the styles of the body, a different first page in the body, and updating a template that was imported.
+Anchored shapes and text boxes, which ADR 0098 adds, the styles of the body, a different first page in the body, and updating a template that was imported.

@@ -16,7 +16,17 @@ import {
   type ImportedParagraphStyle,
   type ImportedTableStyle,
 } from './types.js';
-import { type Frame, type Look, hasVisibleBorders, kebab, round, twipsToPt } from './shared.js';
+import {
+  type Frame,
+  type Look,
+  type Part,
+  hasVisibleBorders,
+  kebab,
+  round,
+  twipsToPt,
+} from './shared.js';
+import { layOut, type Placed } from './layout.js';
+import type { PageBox, Shape } from './shapes.js';
 import { TemplatePackage } from './package.js';
 import { Looks } from './looks.js';
 import { type Block, type PictureRef, Reader, type Segment } from './reader.js';
@@ -86,7 +96,7 @@ export class GridBuilder {
     private readonly pkg: TemplatePackage,
   ) {}
 
-  private colorToken(hex: string): string {
+  colorToken(hex: string): string {
     const value = `#${hex.toUpperCase()}`;
     const existing = [...this.options.colors].find(
       ([, known]) => known.toUpperCase() === value,
@@ -497,6 +507,103 @@ export class GridBuilder {
         : { kind: 'points', pt: Math.max(0.5, round(row.heightPt * scale)) },
     );
     return { kind: 'grid', margins, columns, rows, areas, area };
+  }
+
+  /**
+   * The cover with shapes anchored to its page (ADR 0098): the rows of the flow at their places,
+   * from the top and, after the row that takes what is left, from the bottom, and the shapes, laid
+   * out together as one grid over the whole page. A picture behind the text that covers most of
+   * the page is the background image of the cover (ADR 0097).
+   */
+  shapedGrid(
+    found: readonly { readonly shape: Shape; readonly part: Part }[],
+    page: PageBox,
+    coverTopPt: number,
+    coverBottomPt: number,
+  ): CoverGrid {
+    const items: Placed[] = [];
+    const flowRow = (row: GridRow, top: number): void => {
+      for (const cell of row.cells) {
+        const area = cell.area;
+        if (area === undefined) continue;
+        const from = row.boundaries === undefined ? 0 : (row.boundaries[cell.from] ?? 0);
+        const to =
+          row.boundaries === undefined ? this.widthPt : (row.boundaries[cell.to] ?? this.widthPt);
+        const rect = { x: page.leftPt + from, y: top, width: to - from, height: row.heightPt };
+        const color = area.background?.kind === 'token' ? area.background.name : undefined;
+        if (area.content.length === 0 && color !== undefined)
+          items.push({ rect, z: 0, fill: color });
+        else items.push({ rect, z: 0, area });
+      }
+    };
+    const share = this.rows.findIndex((row) => row.share === true);
+    const before = share < 0 ? this.rows : this.rows.slice(0, share);
+    const after = share < 0 ? [] : this.rows.slice(share + 1);
+    let top = coverTopPt;
+    for (const row of before) {
+      flowRow(row, top);
+      top += row.heightPt;
+    }
+    top = page.heightPt - coverBottomPt - after.reduce((sum, row) => sum + row.heightPt, 0);
+    for (const row of after) {
+      flowRow(row, top);
+      top += row.heightPt;
+    }
+    let backgroundImage: string | undefined;
+    for (const { shape, part } of found) {
+      const fill = shape.fill === undefined ? undefined : this.colorToken(shape.fill);
+      const content: CoverEntry[] = [];
+      if (shape.picture !== undefined) {
+        const target = part.relationships.get(shape.picture);
+        const entry =
+          target === undefined
+            ? undefined
+            : this.image({
+                id: target.path,
+                widthPt: shape.rect.width,
+                heightPt: shape.rect.height,
+              });
+        if (entry === undefined) continue;
+        const { rect } = shape;
+        if (shape.behind && rect.width * rect.height >= 0.9 * page.widthPt * page.heightPt) {
+          if (entry.kind === 'image') backgroundImage = entry.path;
+          this.converted.push(
+            'A picture behind the whole page as the background image of the cover.',
+          );
+          continue;
+        }
+        content.push(entry);
+      }
+      if (shape.paragraphs !== undefined) {
+        const blocks = shape.paragraphs.flatMap((paragraph) =>
+          this.reader.paragraph(paragraph, part),
+        );
+        content.push(
+          ...this.entries(
+            blocks.filter(
+              (block): block is Block & { kind: 'paragraph' } => block.kind === 'paragraph',
+            ),
+          ),
+        );
+      }
+      if (content.length === 0 && fill === undefined) continue;
+      items.push({
+        rect: shape.rect,
+        z: shape.z,
+        ...(fill !== undefined ? { fill } : {}),
+        ...(content.length > 0 ? { area: { valign: shape.valign ?? 'top', content } } : {}),
+      });
+    }
+    this.converted.push(
+      `${String(found.length)} shapes anchored to the page, laid out with the rest as one grid over the whole page.`,
+    );
+    const laid = layOut(items, page, this.reader);
+    return {
+      kind: 'grid',
+      margins: { topPt: 0, rightPt: 0, bottomPt: 0, leftPt: 0 },
+      ...(backgroundImage !== undefined ? { backgroundImage } : {}),
+      ...laid,
+    };
   }
 
   /** The columns of rows, from the boundaries of their tables and tabs, and their areas. */

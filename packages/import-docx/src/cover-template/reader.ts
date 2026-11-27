@@ -13,6 +13,7 @@ import {
   twipsToPt,
 } from './shared.js';
 import { Looks } from './looks.js';
+import { shapesOf, type PageBox, type Shape } from './shapes.js';
 
 /**
  * Paragraphs and tables as blocks: their text with placeholders, content controls and fields as
@@ -153,6 +154,12 @@ export class Reader {
 
   /** True while a header or a footer is read, where the page fields are tokens and tabs part a line. */
   band = false;
+
+  /**
+   * While the first page of a cover is read, the page it is on, and the shapes anchored to it that
+   * were found (ADR 0098); they are placed on the page and not in the flow.
+   */
+  shapes: { readonly page: PageBox; readonly found: { shape: Shape; part: Part }[] } | undefined;
 
   constructor(readonly looks: Looks) {}
 
@@ -315,8 +322,21 @@ export class Reader {
       }
     };
     visit(element);
+    // An anchored drawing of a cover is a shape on the page, unless it is a sensitivity label.
+    const asShapes = new Set<XmlElement>();
+    if (this.shapes !== undefined) {
+      for (const drawing of descendants(element, 'drawing')) {
+        const anchor = childOf(drawing, 'anchor');
+        if (anchor === undefined || descendants(drawing, 'classification').length > 0) continue;
+        asShapes.add(drawing);
+        for (const shape of shapesOf(anchor, this.shapes.page, this.looks.theme, this)) {
+          this.shapes.found.push({ shape, part });
+        }
+      }
+    }
     const pictures: (PictureRef & { segment: number })[] = [];
     for (const [index, drawing] of descendants(element, 'drawing').entries()) {
+      if (asShapes.has(drawing)) continue;
       const holder = childOf(drawing, 'inline') ?? childOf(drawing, 'anchor');
       if (holder?.name === 'anchor')
         this.approximated.push('A picture anchored to the page is placed in the flow.');
@@ -334,6 +354,7 @@ export class Reader {
       });
     }
     for (const drawing of descendants(element, 'drawing')) {
+      if (asShapes.has(drawing)) continue;
       // A text box at the right of the page, or in its centre, keeps that side.
       const anchor = childOf(drawing, 'anchor');
       const side =
