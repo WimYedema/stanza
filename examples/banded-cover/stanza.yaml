@@ -1,0 +1,14 @@
+stanza-format: 1
+title: 'Banded cover'
+stylesheet: 'styles/banded.yaml'
+defaults:
+  classification: 'Public'
+  authors:
+    - 'Field Studies Group'
+metadata-fields:
+  subtitle:
+    type: string
+    label: 'Subtitle'
+  organisation:
+    type: string
+    label: 'Organisation'

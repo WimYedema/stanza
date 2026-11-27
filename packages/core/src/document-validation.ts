@@ -19,6 +19,7 @@ import type {
 } from './document.js';
 import { numberHeadings } from './heading-numbering.js';
 import { isNodeId, type NodeId } from './ids.js';
+import { coverOverflows } from './cover-fit.js';
 import { PAGE_TEMPLATE_FIELD, resolvePageTemplate } from './page-template.js';
 import { findBroken, indexReferences } from './references.js';
 import type { StyleName } from './style-name.js';
@@ -97,6 +98,19 @@ export function validateDocument(
         'unknown-page-template',
         `The page template "${template}" does not exist.`,
         PAGE_TEMPLATE_FIELD,
+      );
+    }
+  }
+
+  // Text on the cover that its area cannot hold, which Word cuts off without a sign (item 231).
+  const page = resolvePageTemplate(stylesheet, typeof template === 'string' ? template : undefined);
+  if (page !== undefined) {
+    for (const overflow of coverOverflows(page, document.meta, stylesheet)) {
+      report(
+        'warning',
+        'cover-text-too-long',
+        `The text in the area "${overflow.area}" of the cover needs about ${String(overflow.neededPt)} pt, more than the ${String(overflow.availablePt)} pt it has, and Word cuts off what does not fit. Shorten it, or give the area more room in the stylesheet.`,
+        overflow.field ?? PAGE_TEMPLATE_FIELD,
       );
     }
   }

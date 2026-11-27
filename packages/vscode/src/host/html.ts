@@ -225,6 +225,7 @@ export function buildHtml({ scriptUri, nonce, cspSource }: HtmlInput): string {
       <div id="cover" class="sheet" hidden></div>
       <div id="page" class="sheet">
         <div id="header" class="band" hidden></div>
+        <div id="title-block" hidden></div>
         <div id="editor"></div>
         <div id="footer" class="band" hidden></div>
         <div id="markers" hidden></div>

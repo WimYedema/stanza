@@ -233,6 +233,7 @@ const changes = createChangesBar(element('changes'), {
 });
 const pages = createSheet({
   cover: element('cover'),
+  titleBlock: element('title-block'),
   header: element('header'),
   footer: element('footer'),
   ...(nonce !== undefined ? { nonce } : {}),
@@ -451,6 +452,9 @@ function handle(message: HostMessage): void {
       }
       return;
     }
+    case 'images':
+      pages.update({ images: new Map(Object.entries(message.images)) });
+      return;
     case 'defaults':
       pages.update({ defaults: message.defaults });
       metadata.update({ defaults: message.defaults });

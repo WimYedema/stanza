@@ -1,0 +1,466 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PageTemplate, StyleName, Stylesheet } from '@stanza/core';
+import { parseStylesheet, setBlock } from '@stanza/format';
+import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
+import { createCoverEditor, heightText, parseHeight, type CoverEditor } from './styles-cover.js';
+
+const BASE = `stanza-format: 1
+paragraph-styles:
+  body: {}
+  heading-1: {}
+  heading-2: {}
+  heading-3: {}
+  heading-4: {}
+  heading-5: {}
+  heading-6: {}
+  code: {}
+  list-bulleted: {}
+  list-numbered: {}
+  cover-title: {}
+table-styles:
+  table: {}
+page-templates:
+  page:
+    size: A4
+`;
+
+const ROWS = `${BASE}    cover:
+      margins: { top: 36 }
+      rows:
+        - height: 100
+          content:
+            - image: 'assets/logo.png'
+              width: 120
+        - height: 2fr
+          valign: bottom
+          content:
+            - style: cover-title
+              text: '[Untitled](stanza:title)'
+        - height: 1fr
+`;
+
+const GRID = `${BASE}    cover:
+      margins: { top: 36 }
+      columns: [200, 1fr]
+      rows: [60, 1fr, 40]
+      areas:
+        - 'logo address'
+        - 'title title'
+        - '. .'
+      area:
+        logo:
+          content:
+            - style: cover-title
+              text: 'Logo'
+        address:
+          content: []
+        title:
+          valign: bottom
+          content:
+            - style: cover-title
+              text: '[Untitled](stanza:title)'
+`;
+
+let text = BASE;
+let editor: CoverEditor;
+const sent: StylesWebviewMessage[] = [];
+const send = vi.fn((message: StylesWebviewMessage) => {
+  sent.push(message);
+});
+
+const stylesheetOf = (source: string): Stylesheet => {
+  const parsed = parseStylesheet(source);
+  expect(parsed.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+  return parsed.stylesheet;
+};
+const templateOf = (stylesheet: Stylesheet): PageTemplate => {
+  const template = stylesheet.pageTemplates.get('page' as StyleName);
+  if (template === undefined) throw new Error('No template.');
+  return template;
+};
+
+/** Shows the text, as the panel does after the host sent it. */
+function show(source: string): void {
+  text = source;
+  const stylesheet = stylesheetOf(source);
+  editor.update('page', templateOf(stylesheet), stylesheet);
+}
+
+/** Applies what the editor sent last, as the host does, and shows the result. */
+function applyLast(): void {
+  const message = sent.at(-1);
+  if (message?.type !== 'set-block') throw new Error('Nothing was sent.');
+  const result = setBlock(text, message.path, message.source ?? undefined);
+  if (!result.ok) throw new Error(result.message);
+  show(result.text);
+}
+
+const buttonOf = (label: string, index = 0): HTMLButtonElement => {
+  const found = [...editor.element.querySelectorAll('button')].filter(
+    (button) => button.textContent === label || button.title === label,
+  )[index];
+  if (found === undefined) throw new Error(`No button ${label}.`);
+  return found;
+};
+const change = (field: HTMLInputElement | HTMLSelectElement, value: string): void => {
+  field.value = value;
+  field.dispatchEvent(new Event('change'));
+};
+const kindOf = (section: number): HTMLSelectElement => {
+  const select = editor.element.querySelectorAll('section')[section]?.querySelector('select');
+  if (select === null || select === undefined) throw new Error('No kind.');
+  return select;
+};
+
+beforeEach(() => {
+  sent.length = 0;
+  editor = createCoverEditor(send);
+  document.body.append(editor.element);
+  show(BASE);
+});
+afterEach(() => {
+  document.body.replaceChildren();
+});
+
+describe('parseHeight and heightText', () => {
+  it('read points, shares and nothing, and write them back', () => {
+    for (const [written, height] of [
+      ['100', { kind: 'points', pt: 100 }],
+      ['2.5fr', { kind: 'share', fr: 2.5 }],
+      ['', { kind: 'auto' }],
+    ] as const) {
+      expect(parseHeight(written)).toEqual(height);
+      expect(heightText(height)).toBe(written);
+    }
+    expect(parseHeight('tall')).toBeUndefined();
+  });
+});
+
+describe('the cover editor', () => {
+  it('makes a cover of rows from nothing, and adds an entry to a row', () => {
+    change(kindOf(0), 'rows');
+    expect(sent.at(-1)).toEqual({
+      type: 'set-block',
+      path: ['page-templates', 'page', 'cover'],
+      source: 'rows:\n  - content: []',
+    });
+    applyLast();
+    buttonOf('Add a paragraph').click();
+    applyLast();
+    expect(templateOf(stylesheetOf(text)).cover).toEqual({
+      kind: 'rows',
+      rows: [
+        {
+          height: { kind: 'auto' },
+          valign: 'top',
+          content: [{ kind: 'paragraph', text: [] }],
+        },
+      ],
+    });
+  });
+
+  it('writes text with values as links, which the stylesheet reads as tokens', () => {
+    change(kindOf(0), 'list');
+    applyLast();
+    buttonOf('Add a paragraph').click();
+    applyLast();
+    const input = editor.element.querySelector<HTMLInputElement>('.cover-entry input');
+    if (input === null) throw new Error('No text.');
+    change(input, 'By [](stanza:authors)');
+    applyLast();
+    const cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'list' && cover.entries[0]).toEqual({
+      kind: 'paragraph',
+      text: [
+        { kind: 'text', text: 'By ' },
+        { kind: 'token', token: 'authors', label: '' },
+      ],
+    });
+  });
+
+  it('changes a height, refuses one it cannot read, and keeps the focus where it was', () => {
+    show(ROWS);
+    const heights = [
+      ...editor.element.querySelectorAll<HTMLInputElement>('.cover-row-box > .row input'),
+    ].filter((input) => input.placeholder === 'grows');
+    expect(heights.map((input) => input.value)).toEqual(['100', '2fr', '1fr']);
+    const first = heights[0];
+    if (first === undefined) throw new Error('No height.');
+    first.focus();
+    change(first, 'tall');
+    expect(sent).toEqual([]);
+    expect(editor.element.querySelector('.status')?.textContent).toContain('is not a height');
+    change(first, '120');
+    applyLast();
+    // The panel is drawn again with the new model, and the focus is on the same field.
+    const focused = document.activeElement;
+    expect(focused instanceof HTMLInputElement && focused.value).toBe('120');
+    expect(focused instanceof HTMLInputElement && focused.placeholder).toBe('grows');
+    const cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows[0]?.height).toEqual({ kind: 'points', pt: 120 });
+  });
+
+  it('moves and removes rows, and keeps the entries when a list becomes rows and back', () => {
+    show(ROWS);
+    buttonOf('Move the row down').click();
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows.map((row) => row.height.kind)).toEqual([
+      'share',
+      'points',
+      'share',
+    ]);
+    buttonOf('Remove the row', 2).click();
+    applyLast();
+    // Rows become a list only when the person says so, since the heights go (ADR 0096).
+    const count = sent.length;
+    change(kindOf(0), 'list');
+    expect(sent).toHaveLength(count);
+    expect(kindOf(0).value).toBe('rows');
+    expect(editor.element.querySelector('.confirm')?.textContent).toContain(
+      'not the heights, alignment and backgrounds of the 2 rows',
+    );
+    buttonOf('Cancel').click();
+    expect(editor.element.querySelector('.confirm')).toBeNull();
+    change(kindOf(0), 'list');
+    buttonOf('Change').click();
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'list' && cover.entries.map((entry) => entry.kind)).toEqual([
+      'paragraph',
+      'image',
+    ]);
+    change(kindOf(0), 'none');
+    expect(editor.element.querySelector('.confirm')?.textContent).toContain(
+      'removes the cover with its 2 entries',
+    );
+    buttonOf('Change').click();
+    applyLast();
+    expect(templateOf(stylesheetOf(text)).cover).toBeUndefined();
+  });
+
+  it('sets and clears the margins of the cover, and the width of an image', () => {
+    show(ROWS);
+    const margin = editor.element.querySelector<HTMLInputElement>('.cover-margins input');
+    if (margin === null) throw new Error('No margin.');
+    expect(margin.value).toBe('36');
+    change(margin, '');
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.margins).toBeUndefined();
+    const width = [...editor.element.querySelectorAll<HTMLInputElement>('input')].find(
+      (input) => input.placeholder === 'own size',
+    );
+    if (width === undefined) throw new Error('No width.');
+    change(width, '');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows[0]?.content[0]).toEqual({
+      kind: 'image',
+      path: 'assets/logo.png',
+    });
+  });
+
+  it('offers the images of the project, and adds a table with the first table style', () => {
+    editor.setImages(['assets/a.png', 'assets/b.jpg']);
+    expect(
+      [...editor.element.querySelectorAll('datalist option')].map((o) => o.textContent),
+    ).toEqual(['assets/a.png', 'assets/b.jpg']);
+    change(kindOf(1), 'entries');
+    applyLast();
+    buttonOf('Add an image').click();
+    applyLast();
+    buttonOf('Add a table of labels and values').click();
+    applyLast();
+    buttonOf('Add a row of a label and a value').click();
+    applyLast();
+    expect(templateOf(stylesheetOf(text)).titleBlock).toEqual([
+      { kind: 'image', path: 'assets/a.png' },
+      { kind: 'table', style: 'table', rows: [{ label: 'Label', value: [] }] },
+    ]);
+  });
+
+  it('sets and clears the background of a row from the color tokens (ADR 0093)', () => {
+    show(
+      ROWS.replace(
+        'stanza-format: 1\n',
+        "stanza-format: 1\ntokens:\n  colors:\n    band: '#17607F'\n",
+      ),
+    );
+    const background = [
+      ...editor.element.querySelectorAll<HTMLSelectElement>('.cover-row-box select'),
+    ].find((select) => select.title.startsWith('A color token'));
+    if (background === undefined) throw new Error('No background.');
+    expect([...background.options].map((o) => o.value)).toEqual(['', 'band']);
+    change(background, 'band');
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows[0]?.background).toEqual({
+      kind: 'token',
+      name: 'band',
+    });
+    change(background, '');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows[0]?.background).toBeUndefined();
+  });
+
+  it('turns rows into a grid of one column, and that grid back into the same rows (ADR 0096)', () => {
+    show(ROWS);
+    const rows = templateOf(stylesheetOf(text)).cover;
+    change(kindOf(0), 'grid');
+    applyLast();
+    const grid = templateOf(stylesheetOf(text)).cover;
+    expect(grid?.kind === 'grid' && grid.areas).toEqual([['row-1'], ['row-2'], ['row-3']]);
+    expect(grid?.kind === 'grid' && grid.margins).toEqual({ topPt: 36 });
+    expect(editor.element.querySelectorAll('.grid-area')).toHaveLength(3);
+    change(kindOf(0), 'rows');
+    applyLast();
+    expect(templateOf(stylesheetOf(text)).cover).toEqual(rows);
+  });
+
+  it('refuses to make rows of a grid of two columns, and makes a list of its entries', () => {
+    show(GRID);
+    const count = sent.length;
+    change(kindOf(0), 'rows');
+    expect(sent).toHaveLength(count);
+    expect(kindOf(0).value).toBe('grid');
+    expect(editor.element.querySelector('.status')?.textContent).toContain('one column');
+    change(kindOf(0), 'list');
+    buttonOf('Change').click();
+    applyLast();
+    const cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'list' && cover.entries.map((entry) => entry.kind)).toEqual([
+      'paragraph',
+      'paragraph',
+    ]);
+  });
+
+  it('makes, joins and clears areas of cells that the preview gives, and selects the new area', () => {
+    const selected = vi.fn();
+    document.body.replaceChildren();
+    editor = createCoverEditor(send, selected);
+    document.body.append(editor.element);
+    show(GRID);
+    editor.cells({ row: 2, column: 0, rowSpan: 1, columnSpan: 1 }, { kind: 'new' });
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.areas[2]).toEqual(['area-1', '.']);
+    expect(selected).toHaveBeenLastCalledWith('area-1');
+    expect(editor.element.querySelector('.grid-area.selected')?.getAttribute('data-area')).toBe(
+      'area-1',
+    );
+    editor.cells({ row: 2, column: 1, rowSpan: 1, columnSpan: 1 }, { kind: 'add', name: 'area-1' });
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.areas[2]).toEqual(['area-1', 'area-1']);
+    editor.cells({ row: 0, column: 1, rowSpan: 1, columnSpan: 1 }, { kind: 'clear' });
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && Object.keys(cover.area)).toEqual(['logo', 'title', 'area-1']);
+    const count = sent.length;
+    // The logo and a cell two rows below it are no rectangle: refused, and nothing is sent.
+    editor.cells({ row: 2, column: 0, rowSpan: 1, columnSpan: 1 }, { kind: 'add', name: 'logo' });
+    expect(sent).toHaveLength(count);
+    expect(editor.element.querySelector('.status')?.textContent).toContain('not a rectangle');
+    editor.cells({ row: 1, column: 1, rowSpan: 1, columnSpan: 1 }, { kind: 'new' });
+    expect(sent).toHaveLength(count + 1);
+  });
+
+  it('keeps a change when another follows it in the same panel', () => {
+    show(ROWS);
+    const style = editor.element.querySelectorAll<HTMLSelectElement>('.cover-entry select')[0];
+    if (style === undefined) throw new Error('No style.');
+    change(style, 'cover-title');
+    applyLast();
+    const width = editor.element.querySelector<HTMLInputElement>('.cover-entry input[type=number]');
+    if (width === null) throw new Error('No width.');
+    change(width, '90');
+    applyLast();
+    const cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.rows[0]?.content[0]).toEqual({
+      kind: 'image',
+      path: 'assets/logo.png',
+      widthPt: 90,
+      style: 'cover-title',
+    });
+  });
+
+  it('changes and removes columns, and renames an area to a free name', () => {
+    show(GRID);
+    const width = editor.element.querySelector<HTMLInputElement>('.grid-sizes input');
+    if (width === null) throw new Error('No width.');
+    change(width, '180');
+    applyLast();
+    change(width, 'wide');
+    expect(editor.element.querySelector('.status')?.textContent).toContain('is not a size');
+    buttonOf('Remove the column, and the areas that are only in it', 1).click();
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.columns).toEqual([{ kind: 'points', pt: 180 }]);
+    expect(cover?.kind === 'grid' && Object.keys(cover.area)).toEqual(['logo', 'title']);
+    const name = editor.element.querySelector<HTMLInputElement>('.grid-area-name');
+    if (name === null) throw new Error('No name.');
+    change(name, 'title');
+    expect(editor.element.querySelector('.status')?.textContent).toContain('already');
+    change(name, 'mark');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.areas[0]).toEqual(['mark']);
+  });
+
+  it('starts a cover from a preset, and asks first when there is a cover (ADR 0100)', () => {
+    const presetChoice = (): HTMLSelectElement => {
+      const found = [...editor.element.querySelectorAll('select')].find(
+        (select) => select.title === 'Start the cover from a preset, which you then change',
+      );
+      if (found === undefined) throw new Error('No presets.');
+      return found;
+    };
+    change(presetChoice(), 'band');
+    expect(sent.at(-1)).toEqual({ type: 'apply-preset', template: 'page', preset: 'band' });
+    expect(editor.element.textContent).toContain('It shows the fields subtitle, date');
+    show(ROWS);
+    const count = sent.length;
+    change(presetChoice(), 'classic');
+    expect(sent).toHaveLength(count);
+    expect(editor.element.querySelector('.confirm')?.textContent).toContain(
+      '"Classic, centred" replaces the cover.',
+    );
+    buttonOf('Replace').click();
+    expect(sent.at(-1)).toEqual({ type: 'apply-preset', template: 'page', preset: 'classic' });
+  });
+
+  it('draws the stylesheet again after a refusal', () => {
+    show(ROWS);
+    buttonOf('Remove the row').click();
+    expect(editor.element.querySelectorAll('.cover-row-box')).toHaveLength(2);
+    editor.reset();
+    expect(editor.element.querySelectorAll('.cover-row-box')).toHaveLength(3);
+  });
+
+  it('sets and clears the background image of the cover, kept when rows become a grid (ADR 0097)', () => {
+    show(ROWS);
+    const field = [
+      ...editor.element.querySelectorAll<HTMLInputElement>('.cover-margins input'),
+    ].find((input) => input.placeholder === 'none');
+    if (field === undefined) throw new Error('No background image.');
+    change(field, 'assets/cover.png');
+    applyLast();
+    let cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'rows' && cover.backgroundImage).toBe('assets/cover.png');
+    change(kindOf(0), 'grid');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.backgroundImage).toBe('assets/cover.png');
+    const again = [
+      ...editor.element.querySelectorAll<HTMLInputElement>('.cover-margins input'),
+    ].find((input) => input.placeholder === 'none');
+    if (again === undefined) throw new Error('No background image.');
+    change(again, '');
+    applyLast();
+    cover = templateOf(stylesheetOf(text)).cover;
+    expect(cover?.kind === 'grid' && cover.backgroundImage).toBeUndefined();
+  });
+});

@@ -11,6 +11,7 @@ import {
   resolveLink,
   type Block,
   type Document,
+  type ImageAsset,
   type ListItemBlock,
   type NodeId,
   type ProjectSettings,
@@ -34,6 +35,7 @@ import { buildHtml } from './html.js';
 import { declareVariantInProject, parseFix, type StylesheetSaves } from './declare-variant.js';
 import { EDIT_STYLES_COMMAND } from './edit-styles-command.js';
 import { lineEdit } from './line-diff.js';
+import { imageDataUrls } from './cover-images.js';
 import { findRoot, storageOf, uriInProject } from './project-files.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { normalized, reviewText } from './review.js';
@@ -240,6 +242,8 @@ class EditorSession {
   private defaultsKey: string | undefined;
   private fieldsKey: string | undefined;
   private schemesKey: string | undefined;
+  /** The images of the covers and title blocks sent last, to send them only when they change. */
+  private imagesKey: string | undefined;
   private usageKey: string | undefined;
   /** The review threads sent last, to send them only when they change. */
   private threadsKey: string | undefined;
@@ -672,6 +676,8 @@ class EditorSession {
       ...(fields !== undefined ? { fields } : {}),
       ...(settings.linkSchemes !== undefined ? { linkSchemes: settings.linkSchemes } : {}),
     });
+    this.imagesKey = undefined;
+    await this.postImages(configuration.images);
     let loaded: LoadedProject;
     try {
       loaded = cached ?? (await this.diagnostics.load(root));
@@ -870,7 +876,7 @@ class EditorSession {
     if (this.watched === root.toString()) return;
     this.watched = root.toString();
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(root, '**/*.{yaml,yml,stanza.md}'),
+      new vscode.RelativePattern(root, '**/*.{yaml,yml,stanza.md,png,jpg,jpeg}'),
     );
     this.disposables.push(
       watcher,
@@ -893,6 +899,15 @@ class EditorSession {
     }, REFRESH_DELAY_MS);
   }
 
+  /** Sends the images of the covers and title blocks when they differ from those sent last. */
+  private async postImages(images: ReadonlyMap<string, ImageAsset>): Promise<void> {
+    const urls = imageDataUrls(images);
+    const key = JSON.stringify(urls);
+    if (key === this.imagesKey) return;
+    this.imagesKey = key;
+    await this.post({ type: 'images', images: urls });
+  }
+
   /** Checks the project again, and tells the webview about a new stylesheet or new IDs. */
   private async refresh(): Promise<void> {
     const root = this.root;
@@ -910,6 +925,7 @@ class EditorSession {
       this.stylesheetText = stylesheetText;
       await this.post({ type: 'stylesheet', text: stylesheetText });
     }
+    await this.postImages(loaded.images);
     const usedIds = this.usedIds(loaded, root);
     if (usedIds.join(',') !== this.usedKey) {
       this.usedKey = usedIds.join(',');

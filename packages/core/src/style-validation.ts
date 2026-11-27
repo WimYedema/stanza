@@ -1,6 +1,8 @@
 import type { Diagnostic, Fix } from './diagnostic.js';
 import { BODY_STYLE } from './default-styles.js';
+import { COVER_END_RESERVE_PT, coverAreaHeightPt, coverAreaWidthPt, placeAreas } from './cover.js';
 import { MIN_TEXT_AREA_PT, PAGE_SIZES, PAGE_SIZE_NAMES } from './page-template.js';
+import { isSafeRelativePath } from './project.js';
 import { inheritanceChain, resolveParagraphStyle, resolveTableStyle } from './style-resolution.js';
 import type { StyleName } from './style-name.js';
 import {
@@ -17,8 +19,11 @@ import {
   VARIANT_MARKS,
   type Border,
   type ColorValue,
+  type CoverEntry,
+  type CoverGrid,
   type FontValue,
   type LineSpacing,
+  type PageTemplate,
   type ParagraphProps,
   type SlotPart,
   type Stylesheet,
@@ -281,19 +286,48 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         );
       }
     }
-    const checkCoverParts = (parts: readonly SlotPart[], where: string): void => {
+    const checkCoverParts = (parts: readonly SlotPart[], where: string, paged = false): void => {
       for (const part of parts) {
-        if (part.kind === 'token' && PAGINATION_TOKENS.includes(part.token)) {
+        if (!paged && part.kind === 'token' && PAGINATION_TOKENS.includes(part.token)) {
           error(
             'cover-token-not-allowed',
-            `The token "${part.token}" depends on pagination and cannot be used on a cover.`,
+            `The token "${part.token}" depends on pagination and cannot be used on a cover or in a title block.`,
             where,
           );
         }
       }
     };
-    template.cover?.forEach((entry, index) => {
-      const here = `${path}.cover[${String(index)}]`;
+    const checkEntry = (entry: CoverEntry, here: string, paged = false): void => {
+      if (entry.kind === 'image') {
+        if (!isSafeRelativePath(entry.path)) {
+          error(
+            'invalid-value',
+            'The image must be a relative path with "/" separators and no "..".',
+            `${here}.image`,
+          );
+        }
+        if (entry.widthPt !== undefined && !(Number.isFinite(entry.widthPt) && entry.widthPt > 0)) {
+          error('invalid-value', 'The width must be a number of points above 0.', `${here}.width`);
+        }
+        if (entry.style !== undefined && !stylesheet.paragraphStyles.has(entry.style)) {
+          error(
+            'unknown-cover-style',
+            `The style "${entry.style}" is not a paragraph style.`,
+            `${here}.style`,
+          );
+        } else if (
+          resolveParagraphStyle(stylesheet, entry.style ?? BODY_STYLE)?.paragraph.lineSpacing
+            ?.rule === 'exactly'
+        ) {
+          diagnostics.push({
+            severity: 'warning',
+            code: 'image-line-spacing',
+            message: `The style "${entry.style ?? BODY_STYLE}" has exact line spacing, which cuts off the image in Word.`,
+            path: `${here}.style`,
+          });
+        }
+        return;
+      }
       if (entry.kind === 'paragraph') {
         if (entry.style !== undefined && !stylesheet.paragraphStyles.has(entry.style)) {
           error(
@@ -302,7 +336,7 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
             `${here}.style`,
           );
         }
-        checkCoverParts(entry.text, `${here}.text`);
+        checkCoverParts(entry.text, `${here}.text`, paged);
         return;
       }
       if (!stylesheet.tableStyles.has(entry.style)) {
@@ -313,8 +347,168 @@ export function validateStylesheet(stylesheet: Stylesheet): readonly Diagnostic[
         );
       }
       entry.rows.forEach((row, rowIndex) => {
-        checkCoverParts(row.value, `${here}.table.rows[${String(rowIndex)}].value`);
+        checkCoverParts(row.value, `${here}.table.rows[${String(rowIndex)}].value`, paged);
       });
+    };
+    const checkGrid = (grid: CoverGrid, widthPt: number, here: string, paged = false): void => {
+      grid.columns.forEach((column, index) => {
+        const where = `${here}.columns[${String(index)}]`;
+        if (column.kind === 'points' && !(Number.isFinite(column.pt) && column.pt > 0)) {
+          error('invalid-value', 'A width must be a number of points above 0.', where);
+        }
+        if (column.kind === 'share' && !(Number.isFinite(column.fr) && column.fr > 0)) {
+          error('invalid-value', 'A share must be above 0, such as "1fr".', where);
+        }
+      });
+      if (grid.areas.length !== grid.rows.length) {
+        error(
+          'cover-areas-shape',
+          `The areas have ${String(grid.areas.length)} lines for ${String(grid.rows.length)} rows.`,
+          `${here}.areas`,
+        );
+      }
+      for (const problem of placeAreas(grid.areas, grid.columns.length).problems) {
+        error('cover-areas-shape', problem, `${here}.areas`);
+      }
+      const named = new Set(grid.areas.flat());
+      for (const [name, area] of Object.entries(grid.area)) {
+        if (!named.has(name)) {
+          error('unknown-cover-area', `The areas have no area "${name}".`, `${here}.area.${name}`);
+        }
+        checkColor(area.background, `${here}.area.${name}.background`);
+        area.content.forEach((entry, index) => {
+          checkEntry(entry, `${here}.area.${name}.content[${String(index)}]`, paged);
+        });
+      }
+      const fixed = grid.columns.reduce(
+        (sum, column) => sum + (column.kind === 'points' ? column.pt : 0),
+        0,
+      );
+      if (widthPt >= MIN_TEXT_AREA_PT && fixed > widthPt) {
+        error(
+          'cover-too-wide',
+          `The columns are ${String(Math.round(fixed))} pt wide together, more than the ${String(Math.floor(widthPt))} pt they have.`,
+          `${here}.columns`,
+        );
+      }
+    };
+    const checkCover = (page: PageTemplate, here: string): void => {
+      const cover = page.cover;
+      if (cover === undefined) return;
+      if (cover.kind === 'list') {
+        cover.entries.forEach((entry, index) => {
+          checkEntry(entry, `${here}[${String(index)}]`);
+        });
+        return;
+      }
+      if (cover.backgroundImage !== undefined && !isSafeRelativePath(cover.backgroundImage)) {
+        error(
+          'invalid-value',
+          'The background image must be a relative path with "/" separators and no "..".',
+          `${here}.background-image`,
+        );
+      }
+      const heights = cover.kind === 'grid' ? cover.rows : cover.rows.map((row) => row.height);
+      const heightPath = (index: number): string =>
+        cover.kind === 'grid'
+          ? `${here}.rows[${String(index)}]`
+          : `${here}.rows[${String(index)}].height`;
+      heights.forEach((height, index) => {
+        if (height.kind === 'points' && !(Number.isFinite(height.pt) && height.pt > 0)) {
+          error('invalid-value', 'A height must be a number of points above 0.', heightPath(index));
+        }
+        if (height.kind === 'share' && !(Number.isFinite(height.fr) && height.fr > 0)) {
+          error('invalid-value', 'A share must be above 0, such as "1fr".', heightPath(index));
+        }
+      });
+      if (cover.kind === 'rows') {
+        cover.rows.forEach((row, index) => {
+          checkColor(row.background, `${here}.rows[${String(index)}].background`);
+          row.content.forEach((entry, entryIndex) => {
+            checkEntry(entry, `${here}.rows[${String(index)}].content[${String(entryIndex)}]`);
+          });
+        });
+      } else {
+        checkGrid(cover, coverAreaWidthPt(page), here);
+      }
+      const kinds = new Set(heights.map((height) => height.kind));
+      if (kinds.has('share') && kinds.has('auto')) {
+        error(
+          'cover-share-with-auto',
+          'A cover cannot have rows with a share ("fr") and rows without a height: the height that is left is not known.',
+          `${here}.rows`,
+        );
+      }
+      const own = cover.margins ?? {};
+      for (const [side, value] of [
+        ['top', own.topPt],
+        ['right', own.rightPt],
+        ['bottom', own.bottomPt],
+        ['left', own.leftPt],
+      ] as const) {
+        checkNotNegative(value, `${here}.margins.${side}`);
+      }
+      const width = coverAreaWidthPt(page);
+      const height = coverAreaHeightPt(page);
+      if (width < MIN_TEXT_AREA_PT || height < MIN_TEXT_AREA_PT) {
+        error(
+          'invalid-value',
+          `The margins must leave a text area of at least ${String(MIN_TEXT_AREA_PT)} pt each way.`,
+          `${here}.margins`,
+        );
+        return;
+      }
+      const fixed = heights.reduce(
+        (sum, height) => sum + (height.kind === 'points' ? height.pt : 0),
+        0,
+      );
+      if (fixed > height - COVER_END_RESERVE_PT) {
+        error(
+          'cover-too-tall',
+          `The rows are ${String(Math.round(fixed))} pt high together, more than the ${String(Math.floor(height - COVER_END_RESERVE_PT))} pt of the cover page.`,
+          `${here}.rows`,
+        );
+      }
+    };
+    if (template.cover !== undefined) checkCover(template, `${path}.cover`);
+    // A header or a footer that is a grid (ADR 0095): its rows grow or have points.
+    for (const part of ['header', 'footer'] as const) {
+      const spec = template[part];
+      const here = `${path}.${part}`;
+      if (
+        spec?.distancePt !== undefined &&
+        !(Number.isFinite(spec.distancePt) && spec.distancePt >= 0)
+      ) {
+        error(
+          'invalid-value',
+          'The distance must be a number of points, 0 or more.',
+          `${here}.distance`,
+        );
+      }
+      const grid = spec?.grid;
+      if (grid === undefined) continue;
+      grid.rows.forEach((row, index) => {
+        const where = `${here}.rows[${String(index)}]`;
+        if (row.kind === 'share') {
+          error(
+            'header-row-share',
+            'A row of a header or footer grows or has points; it cannot have a share.',
+            where,
+          );
+        } else if (row.kind === 'points' && !(Number.isFinite(row.pt) && row.pt > 0)) {
+          error('invalid-value', 'A height must be a number of points above 0.', where);
+        }
+      });
+      const page = PAGE_SIZES[template.size];
+      checkGrid(
+        grid,
+        page.widthPt - template.margins.leftPt - template.margins.rightPt,
+        here,
+        true,
+      );
+    }
+    template.titleBlock?.forEach((entry, index) => {
+      checkEntry(entry, `${path}.title-block[${String(index)}]`);
     });
     const sides = [
       ['top', margins.topPt],

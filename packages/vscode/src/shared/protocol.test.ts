@@ -212,6 +212,11 @@ describe('parseHostMessage', () => {
       text: 'a',
     });
     expect(parseHostMessage({ type: 'used-ids', ids: [] })).toEqual({ type: 'used-ids', ids: [] });
+    const images = {
+      'assets/logo.png': 'data:image/png;base64,iVBORw0KGgo=',
+      'assets/mark.jpg': 'data:image/jpeg;base64,/9j/4AAQ',
+    };
+    expect(parseHostMessage({ type: 'images', images })).toEqual({ type: 'images', images });
     expect(parseHostMessage({ type: 'declared', ok: false, message: 'No.' })).toEqual({
       type: 'declared',
       ok: false,
@@ -236,6 +241,10 @@ describe('parseHostMessage', () => {
     { type: 'defaults', defaults: { authors: 'A' } },
     { type: 'external-text' },
     { type: 'used-ids', ids: 'x' },
+    { type: 'images' },
+    { type: 'images', images: { 'a.png': 5 } },
+    { type: 'images', images: { 'a.svg': 'data:image/svg+xml;base64,PHN2Zy8+' } },
+    { type: 'images', images: { 'a.png': 'https://example.com/a.png' } },
     { type: 'declared', ok: 'yes', message: '' },
     { type: 'declared', ok: true },
     { type: 'refused', title: 'T', reasons: [{ line: 1 }], canFormat: true },

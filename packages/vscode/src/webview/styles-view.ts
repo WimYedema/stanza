@@ -23,7 +23,7 @@ export interface StylesView {
 }
 
 const EMPTY: Partial<Record<Family, string>> = {
-  pages: 'No page templates. The built-in A4 page is used.',
+  pages: 'No page layouts. The built-in A4 page is used.',
 };
 
 const keyOf = (entry: Entry): string => `${entry.kind}:${entry.name}`;
@@ -80,7 +80,8 @@ export function createStylesView(
           const item = document.createElement('li');
           const choose = button(displayName(entry));
           if (keyOf(entry) === selectedKey) choose.setAttribute('aria-current', 'true');
-          if (displayName(entry) !== entry.name) {
+          // The name of a part of the page layout is not one a person writes (ADR 0096).
+          if (displayName(entry) !== entry.name && entry.kind !== 'page-part') {
             const name = document.createElement('span');
             name.className = 'name';
             name.textContent = entry.name;

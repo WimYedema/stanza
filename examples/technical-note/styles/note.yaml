@@ -1,0 +1,271 @@
+stanza-format: 1
+
+# A technical note with a cover grid (ADR 0092): a colored strip down the left edge of the page
+# (ADR 0093), the logo beside the document number at the top, the title across two columns low on
+# the page, and a table of metadata beside the status and classification at the bottom. The areas
+# below are a small picture of the page. The header of the body pages is a grid too (ADR 0095): a
+# small logo, the title and subtitle on two lines, and the number and status on the right, closer
+# to the edge than the default.
+
+tokens:
+  colors:
+    ink: '#1B2430'
+    accent: '#0A6E8A'
+    muted: '#6B7280'
+    rule: '#CBD5E1'
+    surface: '#F1F5F9'
+  fonts:
+    body: ['Segoe UI', 'Calibri', 'Arial']
+    mono: ['Consolas', 'Courier New']
+
+paragraph-styles:
+  body:
+    font: body
+    size: 10.5
+    color: ink
+    space-after: 6
+    line-spacing: { multiple: 1.15 }
+    variants:
+      strong: { bold: true }
+      emphasis: { italic: true }
+      code: { font: mono, size: 9.5 }
+      link: { color: accent, underline: true }
+
+  heading-1:
+    based-on: body
+    size: 16
+    bold: true
+    numbered: true
+    color: accent
+    space-before: 18
+    space-after: 6
+    keep-with-next: true
+    variants:
+      strong: false
+      emphasis: { italic: true }
+
+  heading-2:
+    based-on: heading-1
+    size: 13
+
+  heading-3:
+    based-on: heading-2
+    size: 11
+
+  heading-4:
+    based-on: heading-3
+    italic: true
+    numbered: false
+
+  heading-5:
+    based-on: heading-4
+
+  heading-6:
+    based-on: heading-5
+
+  code:
+    based-on: body
+    font: mono
+    size: 9.5
+    keep-together: true
+    background: surface
+    variants:
+      strong: false
+      emphasis: false
+      code: false
+      link: false
+
+  list-bulleted:
+    based-on: body
+    space-after: 3
+    indent-left: 36
+    first-line-indent: -18
+
+  list-numbered:
+    based-on: list-bulleted
+
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  header-footer:
+    based-on: body
+    size: 8.5
+    color: muted
+    space-after: 0
+
+  header-logo:
+    based-on: header-footer
+    line-spacing: { multiple: 1 }
+
+  header-title:
+    based-on: header-footer
+    bold: true
+    color: ink
+
+  header-right:
+    based-on: header-footer
+    alignment: right
+
+  toc-1:
+    based-on: body
+    space-after: 3
+
+  toc-2:
+    based-on: toc-1
+    indent-left: 18
+
+  cover-logo:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  cover-number:
+    based-on: body
+    size: 11
+    bold: true
+    color: accent
+    alignment: right
+    space-after: 2
+
+  cover-date:
+    based-on: body
+    size: 10
+    color: muted
+    alignment: right
+    space-after: 0
+
+  cover-kicker:
+    based-on: body
+    size: 11
+    bold: true
+    color: accent
+    space-after: 6
+
+  cover-title:
+    based-on: body
+    size: 30
+    bold: true
+    color: ink
+    space-after: 6
+    line-spacing: { multiple: 1 }
+
+  cover-subtitle:
+    based-on: body
+    size: 14
+    color: muted
+    space-after: 0
+
+  cover-cell:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  cover-status:
+    based-on: body
+    size: 14
+    bold: true
+    color: accent
+    alignment: right
+    space-after: 2
+
+  cover-classification:
+    based-on: body
+    size: 9
+    color: muted
+    alignment: right
+    space-after: 0
+
+table-styles:
+  table:
+    cell-style: table-cell
+    border:
+      outer: { width: 0.75, color: rule }
+      inside-horizontal: { width: 0.5, color: rule }
+    header-row:
+      bold: true
+      background: surface
+      repeat: true
+    cell-padding: 4
+
+  cover-table:
+    cell-style: cover-cell
+    border:
+      inside-horizontal: { width: 0.5, color: rule }
+    cell-padding: 3
+
+page-templates:
+  page:
+    size: A4
+    margins: { top: 72, right: 72, bottom: 72, left: 72 }
+    header:
+      distance: 24
+      style: header-footer
+      columns: [70, 1fr, 120]
+      areas:
+        - logo title number
+      area:
+        logo:
+          content:
+            - { image: assets/logo.png, width: 56, style: header-logo }
+        title:
+          valign: center
+          content:
+            - { style: header-title, text: '[](stanza:title)' }
+            - { text: '[](stanza:field:subtitle)' }
+        number:
+          valign: center
+          content:
+            - { style: header-right, text: '[](stanza:field:document-number)' }
+            - { style: header-right, text: '[](stanza:field:status)' }
+    footer:
+      distance: 24
+      style: header-footer
+      left: '[](stanza:classification)'
+      right: 'Page [1](stanza:page) of [1](stanza:pages)'
+    cover:
+      margins: { top: 40, right: 56, bottom: 56, left: 0 }
+      columns: [16, 40, 1fr, 170]
+      rows: [90, 3fr, 1fr, 100]
+      areas:
+        - strip . logo  number
+        - strip . title title
+        - strip . .     .
+        - strip . table status
+      area:
+        strip:
+          background: accent
+        logo:
+          content:
+            - { image: assets/logo.png, width: 140, style: cover-logo }
+        number:
+          content:
+            - { style: cover-number, text: '[](stanza:field:document-number)' }
+            - { style: cover-date, text: '[](stanza:field:date)' }
+        title:
+          valign: bottom
+          content:
+            - { style: cover-kicker, text: 'Technical note' }
+            - { style: cover-title, text: '[Untitled](stanza:title)' }
+            - { style: cover-subtitle, text: '[](stanza:field:subtitle)' }
+        table:
+          valign: bottom
+          content:
+            - table:
+                style: cover-table
+                rows:
+                  - label: 'Authors'
+                    value: '[](stanza:authors)'
+                  - label: 'Reviewed by'
+                    value: '[](stanza:field:reviewers)'
+        status:
+          valign: bottom
+          content:
+            - { style: cover-status, text: '[](stanza:field:status)' }
+            - { style: cover-classification, text: '[](stanza:classification)' }
+
+table-of-contents:
+  page-numbers: true

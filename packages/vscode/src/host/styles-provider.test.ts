@@ -139,6 +139,71 @@ describe('changes from the page', () => {
     });
   });
 
+  it('writes a block, such as a cover that the panel wrote, in place of the lines it had (ADR 0091)', async () => {
+    const before =
+      'stanza-format: 1\nparagraph-styles:\n  body: {}\npage-templates:\n  page:\n    size: A4\n';
+    open(SHEET, before, project());
+    await ready();
+    fromWebview({
+      type: 'set-block',
+      path: ['page-templates', 'page', 'cover'],
+      source: "- text: 'Hello'",
+    });
+    await settled(() => {
+      expect(world.text).toBe(`${before}    cover:\n      - text: 'Hello'\n`);
+    });
+    fromWebview({ type: 'set-block', path: ['page-templates', 'page', 'cover'], source: null });
+    await settled(() => {
+      expect(world.text).toBe(before);
+    });
+  });
+
+  it('makes a cover preset the cover of a template, with the styles it uses (ADR 0100)', async () => {
+    const before = [
+      'stanza-format: 1',
+      'paragraph-styles:',
+      ...['body', 'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6']
+        .concat(['code', 'list-bulleted', 'list-numbered'])
+        .map((name) => `  ${name}: {}`),
+      'table-styles:',
+      '  table: {}',
+      'page-templates:',
+      '  page:',
+      '    size: A4',
+      '',
+    ].join('\n');
+    open(SHEET, before, project());
+    await ready();
+    fromWebview({ type: 'apply-preset', template: 'page', preset: 'lower-third' });
+    await settled(() => {
+      expect(world.text).toContain('    cover:\n      rows:\n');
+    });
+    expect(world.text).toContain('  cover-title:\n');
+    expect(world.text).toContain("    cover-accent: '#1F4E79'");
+  });
+
+  it('sends the images of the project after the stylesheet, as data URLs (ADR 0091)', async () => {
+    const logo = new Uint8Array(33);
+    logo.set([
+      137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 4, 0, 0, 0, 2,
+    ]);
+    open(SHEET, 'stanza-format: 1\nparagraph-styles:\n  body: {}\n', {
+      ...project(),
+      '/w/p/assets/logo.png': '',
+    });
+    world.binary.set('/w/p/assets/logo.png', logo);
+    fromWebview(READY);
+    await settled(() => {
+      expect(posted()).toHaveLength(2);
+    });
+    expect(posted()[1]).toEqual({
+      type: 'images',
+      images: {
+        'assets/logo.png': `data:image/png;base64,${Buffer.from(logo).toString('base64')}`,
+      },
+    });
+  });
+
   it('removes a property, and writes a style that has nothing left as {}', async () => {
     open(SHEET, 'stanza-format: 1\nparagraph-styles:\n  body:\n    size: 12\n', project());
     await ready();

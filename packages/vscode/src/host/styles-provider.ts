@@ -1,14 +1,22 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 import { isStyleName, type StyleFamily, type StyleName, type Stylesheet } from '@stanza/core';
-import { parseStylesheet, setProperty, unsetProperty, type StylesheetEdit } from '@stanza/format';
-import { loadProject, styleUsage, type StyleUse } from '@stanza/project';
+import {
+  applyCoverPreset,
+  parseStylesheet,
+  setBlock,
+  setProperty,
+  unsetProperty,
+  type StylesheetEdit,
+} from '@stanza/format';
+import { loadProject, projectImages, styleUsage, type StyleUse } from '@stanza/project';
 import {
   parseStylesWebviewMessage,
   type StyleKind,
   type StylesHostMessage,
   type StylesWebviewMessage,
 } from '../shared/styles-protocol.js';
+import { imageDataUrls } from './cover-images.js';
 import { lineEdit } from './line-diff.js';
 import { findRoot, storageOf } from './project-files.js';
 import { normalized } from './review.js';
@@ -33,6 +41,27 @@ const SELECTION_LIFETIME_MS = 10_000;
 /** The open editors by the URI of their stylesheet, and the selections that wait for one. */
 const sessions = new Map<string, StylesSession>();
 const requested = new Map<string, StyleSelection>();
+
+/** The page layout of a document that the style editor was opened from (ADR 0096). */
+export interface DocumentLayout {
+  readonly name: string;
+  readonly document: string;
+}
+
+const layouts = new Map<string, DocumentLayout>();
+
+/**
+ * Tells the style editor of a stylesheet which page layout the document it is opened from uses, at
+ * once if it is open, else when it has started; dropped as a selection is when nothing takes it up.
+ */
+export function requestDocumentLayout(uri: vscode.Uri, layout: DocumentLayout): void {
+  const key = uri.toString();
+  layouts.set(key, layout);
+  setTimeout(() => {
+    if (layouts.get(key) === layout) layouts.delete(key);
+  }, SELECTION_LIFETIME_MS);
+  sessions.get(key)?.deliverSelection();
+}
 
 /**
  * Asks the style editor of a stylesheet to select a style: at once if it is open, else when it has
@@ -81,6 +110,8 @@ class StylesSession {
   private queue: Promise<void> = Promise.resolve();
   /** The file has been shown to be the stylesheet of its project, so it may be edited. */
   private accepted = false;
+  /** The images sent last, to send them only when they change; the page starts with none. */
+  private imagesKey = JSON.stringify({});
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -107,6 +138,16 @@ class StylesSession {
         this.enqueue(() => this.post({ type: 'text', text: this.text() }));
       }),
     );
+    const images = vscode.workspace.createFileSystemWatcher('**/*.{png,jpg,jpeg}');
+    const imagesChanged = (): void => {
+      this.enqueue(() => this.sendImages());
+    };
+    this.disposables.push(
+      images,
+      images.onDidChange(imagesChanged),
+      images.onDidCreate(imagesChanged),
+      images.onDidDelete(imagesChanged),
+    );
     sessions.set(this.document.uri.toString(), this);
   }
 
@@ -124,10 +165,31 @@ class StylesSession {
 
   private async sendSelection(): Promise<void> {
     const key = this.document.uri.toString();
+    if (!this.accepted) return;
+    const layout = layouts.get(key);
+    if (layout !== undefined) {
+      layouts.delete(key);
+      await this.post({ type: 'document-layout', name: layout.name, document: layout.document });
+    }
     const selection = requested.get(key);
-    if (!this.accepted || selection === undefined) return;
+    if (selection === undefined) return;
     requested.delete(key);
     await this.post({ type: 'select-style', kind: selection.kind, name: selection.name });
+  }
+
+  /**
+   * Sends the PNG and JPEG files of the project, to choose an image for a cover or a title block and
+   * to show it in the preview (ADR 0091), when they differ from those sent last.
+   */
+  private async sendImages(): Promise<void> {
+    if (!this.accepted) return;
+    const root = await findRoot(this.document.uri);
+    if (root === undefined) return;
+    const urls = imageDataUrls(await projectImages(storageOf(root)));
+    const key = JSON.stringify(urls);
+    if (key === this.imagesKey) return;
+    this.imagesKey = key;
+    await this.post({ type: 'images', images: urls });
   }
 
   private enqueue(work: () => Promise<void>): void {
@@ -158,6 +220,16 @@ class StylesSession {
         return;
       case 'unset':
         if (this.accepted) await this.edit(unsetProperty(this.text(), message.path));
+        return;
+      case 'set-block':
+        if (this.accepted) {
+          await this.edit(setBlock(this.text(), message.path, message.source ?? undefined));
+        }
+        return;
+      case 'apply-preset':
+        if (this.accepted) {
+          await this.edit(applyCoverPreset(this.text(), message.template, message.preset));
+        }
         return;
       case 'add-style':
         if (this.accepted) await this.addStyle(message.kind, message.name, message.basedOn);
@@ -309,5 +381,6 @@ class StylesSession {
     await this.post({ type: 'init', text: this.text() });
     this.accepted = true;
     await this.sendSelection();
+    await this.sendImages();
   }
 }

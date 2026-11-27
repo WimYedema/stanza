@@ -1,8 +1,13 @@
 import * as vscode from 'vscode';
-import { activeFile, pickedProjectFile } from './project-files.js';
+import { DEFAULT_PAGE_TEMPLATE_NAME, PAGE_TEMPLATE_FIELD, applyDefaults } from '@stanza/core';
+import { parseDocument } from '@stanza/format';
+import { loadProjectConfiguration } from '@stanza/project';
+import { activeFile, findRoot, pickedProjectFile, storageOf } from './project-files.js';
 import {
   StylesEditorProvider,
+  requestDocumentLayout,
   requestStyleSelection,
+  type DocumentLayout,
   type StyleSelection,
 } from './styles-provider.js';
 import { locateStylesheet } from './styles-project.js';
@@ -17,6 +22,30 @@ function selectionOf(value: unknown): StyleSelection | undefined {
   const { kind, name } = value as { kind?: unknown; name?: unknown };
   if (!KINDS.includes(kind) || typeof name !== 'string' || name === '') return undefined;
   return { kind, name } as StyleSelection;
+}
+
+/**
+ * The page layout a Stanza document uses (ADR 0096): its own `page-template`, else the default of
+ * the project, else the default layout. Nothing for a file that is not a Stanza document.
+ */
+async function layoutOf(file: vscode.Uri): Promise<DocumentLayout | undefined> {
+  if (!file.path.endsWith('.stanza.md')) return undefined;
+  const root = await findRoot(file);
+  if (root === undefined) return undefined;
+  try {
+    const text = new TextDecoder().decode(await vscode.workspace.fs.readFile(file));
+    const { settings } = await loadProjectConfiguration(storageOf(root));
+    const meta = parseDocument(text).document.meta;
+    const name = (settings === undefined ? meta : applyDefaults(settings, meta)).fields[
+      PAGE_TEMPLATE_FIELD
+    ];
+    return {
+      name: typeof name === 'string' ? name : DEFAULT_PAGE_TEMPLATE_NAME,
+      document: file.path.slice(file.path.lastIndexOf('/') + 1),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -41,6 +70,8 @@ export function registerEditStyles(): vscode.Disposable {
     }
     const selection = selectionOf(style);
     if (selection !== undefined) requestStyleSelection(found.uri, selection);
+    const layout = await layoutOf(from);
+    if (layout !== undefined) requestDocumentLayout(found.uri, layout);
     await vscode.commands.executeCommand(
       'vscode.openWith',
       found.uri,

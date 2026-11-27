@@ -1,0 +1,14 @@
+stanza-format: 1
+title: 'Plain memo'
+stylesheet: 'styles/memo.yaml'
+defaults:
+  classification: 'Internal'
+  authors:
+    - 'Team Lead'
+metadata-fields:
+  date:
+    type: string
+    label: 'Date'
+  recipients:
+    type: list
+    label: 'To'

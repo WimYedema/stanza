@@ -1135,3 +1135,208 @@ describe('exportDocx cells with blocks', () => {
     expect(new Set(ids).size).toBe(2);
   });
 });
+
+describe('exportDocx cover of rows (ADR 0089)', () => {
+  const ROWS = [
+    '  page-rows:',
+    '    size: A4',
+    '    margins: { top: 72, right: 72, bottom: 72, left: 72 }',
+    '    cover:',
+    '      margins: { top: 36, left: 48, right: 48 }',
+    '      rows:',
+    '        - height: 100',
+    '          content:',
+    '            - { image: assets/logo.png, width: 150, style: cover-meta }',
+    '        - height: 2fr',
+    '          valign: bottom',
+    '          content:',
+    "            - { style: cover-title, text: '[Untitled](stanza:title)' }",
+    '        - height: 1fr',
+    '',
+  ].join('\n');
+  const at = STYLESHEET_TEXT.indexOf('\ntable-of-contents:');
+  const rowsSheet = parseStylesheet(
+    `${STYLESHEET_TEXT.slice(0, at)}\n${ROWS}${STYLESHEET_TEXT.slice(at)}`,
+  ).stylesheet;
+  const FRONT = 'page-template: "page-rows"\ntitle: "My Doc"\n';
+  const body = '<!-- stanza: #k7m2q9x4zb -->\n# One\n\nText.\n';
+
+  /** The start of a PNG of 480 by 160 pixels: enough for the exporter, which embeds it as it is. */
+  const logo = new Uint8Array(33);
+  logo.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const images = new Map([
+    ['assets/logo.png', { format: 'png' as const, widthPx: 480, heightPx: 160, bytes: logo }],
+  ]);
+
+  async function exportRows(given = images): Promise<ExportResult> {
+    return exportDocx(read(body, FRONT), rowsSheet, { timestamp: TIMESTAMP, images: given });
+  }
+
+  async function coverOf() {
+    const result = await exportRows();
+    const files = unzipSync(result.bytes ?? new Uint8Array());
+    const documentXml = strFromU8(files['word/document.xml'] ?? new Uint8Array());
+    const end = documentXml.indexOf('</w:sectPr>');
+    return { result, files, documentXml, cover: documentXml.slice(0, end) };
+  }
+
+  it('writes the rows as one borderless table with exact heights that fill the cover page', async () => {
+    const { result, cover } = await coverOf();
+    expect(result.diagnostics).toEqual([]);
+    expect(cover).toContain('<w:tblLayout w:type="fixed"/>');
+    expect(cover).toContain('<w:top w:val="none"');
+    expect(cover).toContain('<w:tblCellMar><w:top w:type="dxa" w:w="0"/>');
+    const heights = [...cover.matchAll(/<w:trHeight w:val="(\d+)" w:hRule="exact"\/>/g)].map(
+      (match) => Number(match[1]),
+    );
+    // 733.9 pt between the margins, less 2 pt for the end of the section and 100 pt for the logo,
+    // shared 2 to 1; the last share takes what rounding leaves.
+    expect(heights).toEqual([2000, 8425, 4213]);
+    expect(heights.reduce((sum, value) => sum + value, 0)).toBe(Math.round((733.9 - 2) * 20));
+    expect(cover.match(/<w:vAlign w:val="(\w+)"\/>/g)).toEqual([
+      '<w:vAlign w:val="top"/>',
+      '<w:vAlign w:val="bottom"/>',
+      '<w:vAlign w:val="top"/>',
+    ]);
+    expect(cover).toContain('>My Doc<');
+  });
+
+  it('gives the cover section its own margins, and makes its end one small line', async () => {
+    const { cover, documentXml } = await coverOf();
+    expect(cover).toContain('w:top="720" w:right="960" w:bottom="1440" w:left="960"');
+    expect(cover).toContain(
+      '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr><w:sectPr>',
+    );
+    expect(documentXml.match(/w:lineRule="exact"\/><w:rPr><w:sz w:val="2"/g)).toHaveLength(1);
+  });
+
+  it('embeds the image at its width with its aspect ratio, as a decorative picture', async () => {
+    const { cover, files } = await coverOf();
+    expect(cover).toContain('<w:pStyle w:val="CoverMeta"/>');
+    // 150 by 50 pt.
+    expect(cover).toContain('<wp:extent cx="1905000" cy="635000"/>');
+    expect(cover).toContain('<wp:docPr id="1" name="logo.png"><a:extLst');
+    expect(cover).toContain('<adec:decorative');
+    expect(Object.keys(files).filter((name) => name.startsWith('word/media/'))).toHaveLength(1);
+  });
+
+  it('gives the same bytes each time, whatever the library numbered before', async () => {
+    const first = await exportRows();
+    const second = await exportRows();
+    expect(second.bytes).toEqual(first.bytes);
+  });
+
+  it('reports an image that was not loaded, and writes nothing', async () => {
+    const result = await exportRows(new Map());
+    expect(result.bytes).toBeUndefined();
+    expect(codes(result.diagnostics)).toEqual(['image-not-found']);
+  });
+
+  it('leaves the end of a cover that is a list as it was', async () => {
+    const { documentXml } = await build(
+      body,
+      stylesheet,
+      'page-template: "page-letter"\ntitle: "T"\n',
+    );
+    expect(documentXml).not.toContain('w:line="20"');
+    expect(documentXml).not.toContain('<w:trHeight');
+  });
+});
+
+describe('exportDocx title block (ADR 0090)', () => {
+  /** Adds a title block to a page template of the fixture, which may have a cover too. */
+  const withTitleBlock = (template: string) => {
+    const lines = [
+      '    title-block:',
+      '      - { image: assets/logo.png, width: 900, style: cover-meta }',
+      "      - { style: cover-title, text: '[Untitled](stanza:title)' }",
+      '      - table:',
+      '          style: table-grid',
+      '          rows:',
+      "            - { label: 'Number', value: '[](stanza:field:document-number)' }",
+      "            - { label: 'Empty', value: '[](stanza:field:nothing)' }",
+      "      - { style: cover-meta, text: '[](stanza:field:nothing)' }",
+      '',
+    ].join('\n');
+    const header = `  ${template}:\n`;
+    const at = STYLESHEET_TEXT.indexOf(header) + header.length;
+    const parsed = parseStylesheet(
+      `${STYLESHEET_TEXT.slice(0, at)}${lines}${STYLESHEET_TEXT.slice(at)}`,
+    );
+    expect(parsed.diagnostics).toEqual([]);
+    return parsed.stylesheet;
+  };
+  const logo = new Uint8Array(33);
+  logo.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const images = new Map([
+    ['assets/logo.png', { format: 'png' as const, widthPx: 300, heightPx: 100, bytes: logo }],
+  ]);
+  const body = '<!-- stanza: #k7m2q9x4zb -->\n# One\n\n```stanza-toc\ndepth: 1\n```\n\nText.\n';
+
+  async function exportWith(template: string, front: string) {
+    const result = await exportDocx(read(body, front), withTitleBlock(template), {
+      timestamp: TIMESTAMP,
+      images,
+    });
+    const files = unzipSync(result.bytes ?? new Uint8Array());
+    return { result, documentXml: strFromU8(files['word/document.xml'] ?? new Uint8Array()) };
+  }
+
+  it('writes the title block at the start of the body, before its content and table of contents', async () => {
+    const { result, documentXml } = await exportWith(
+      'page',
+      'title: "My Doc"\ndocument-number: "D-1"\n',
+    );
+    expect(result.diagnostics).toEqual([]);
+    expect(documentXml.match(/<w:sectPr/g)).toHaveLength(1);
+    const order = [
+      '<wp:docPr id="1" name="logo.png">',
+      '>My Doc<',
+      '>Number<',
+      '>D-1<',
+      '<w:pStyle w:val="Heading1"/>',
+      '<w:pStyle w:val="TOC1"/>',
+      '>Text.<',
+    ];
+    const found = order.filter((text) => documentXml.includes(text));
+    expect(found).toEqual(order);
+    const places = order.map((text) => documentXml.indexOf(text));
+    expect([...places].sort((a, b) => a - b)).toEqual(places);
+    expect(documentXml).not.toContain('>Empty<');
+  });
+
+  it('makes an image no wider than the body text', async () => {
+    const { documentXml } = await exportWith('page', 'title: "My Doc"\n');
+    // 451.3 pt of text on A4 with margins of 72 pt, a third of that high.
+    const extent = /<wp:extent cx="(\d+)" cy="(\d+)"\/>/.exec(documentXml);
+    expect(Number(extent?.[1])).toBe(Math.round(((451.3 * 96) / 72) * 9525));
+    expect(Math.abs(Number(extent?.[2]) * 3 - Number(extent?.[1]))).toBeLessThan(10);
+  });
+
+  it('goes on the first body page after a cover', async () => {
+    const { documentXml } = await exportWith(
+      'page-letter',
+      'page-template: "page-letter"\ntitle: "My Doc"\n',
+    );
+    const sections = documentXml.indexOf('<w:sectPr');
+    expect(documentXml.match(/<w:sectPr/g)).toHaveLength(2);
+    expect(documentXml.indexOf('<wp:docPr id="1"')).toBeGreaterThan(sections);
+    expect(documentXml.lastIndexOf('>My Doc<')).toBeGreaterThan(sections);
+  });
+
+  it('writes nothing when no entry is left', async () => {
+    const parsed = parseStylesheet(
+      STYLESHEET_TEXT.replace(
+        '  page:\n',
+        "  page:\n    title-block:\n      - { style: cover-meta, text: '[](stanza:field:nothing)' }\n",
+      ),
+    );
+    const result = await exportDocx(read(body, 'title: "T"\n'), parsed.stylesheet, {
+      timestamp: TIMESTAMP,
+    });
+    const plain = await exportDocx(read(body, 'title: "T"\n'), stylesheet, {
+      timestamp: TIMESTAMP,
+    });
+    expect(result.bytes).toEqual(plain.bytes);
+  });
+});

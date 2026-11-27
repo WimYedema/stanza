@@ -1,0 +1,14 @@
+stanza-format: 1
+title: 'Background cover'
+stylesheet: 'styles/cover.yaml'
+defaults:
+  classification: 'Public'
+  authors:
+    - 'Harbour Works Team'
+metadata-fields:
+  subtitle:
+    type: string
+    label: 'Subtitle'
+  organisation:
+    type: string
+    label: 'Organisation'

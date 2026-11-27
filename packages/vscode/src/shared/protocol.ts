@@ -109,6 +109,11 @@ export type HostMessage =
    */
   | { readonly type: 'external-text'; readonly text: string; readonly mark?: boolean }
   | { readonly type: 'stylesheet'; readonly text: string }
+  /**
+   * The images of the covers and title blocks as data URLs, by their path in the project (ADR 0089,
+   * ADR 0090), sent after `init` and again when they change.
+   */
+  | { readonly type: 'images'; readonly images: Readonly<Record<string, string>> }
   | { readonly type: 'defaults'; readonly defaults: Defaults }
   | { readonly type: 'used-ids'; readonly ids: readonly string[] }
   /** Scroll to a top-level block of the document and put the cursor at its start. */
@@ -217,6 +222,22 @@ const MAX_NAME_LENGTH = 200;
 
 /** A document larger than this is not a document of this tool. */
 export const MAX_TEXT_LENGTH = 20_000_000;
+
+/** A PNG or JPEG as a data URL, which the policy of the webview allows as an image. */
+const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/]*={0,2}$/;
+
+/** Images by path, each a data URL of a PNG or JPEG; undefined for anything else. */
+export function parseImages(value: unknown): Readonly<Record<string, string>> | undefined {
+  if (!isRecord(value)) return undefined;
+  const images: Record<string, string> = {};
+  let length = 0;
+  for (const [path, url] of Object.entries(value)) {
+    if (typeof url !== 'string' || !IMAGE_DATA_URL.test(url)) return undefined;
+    length += url.length;
+    images[path] = url;
+  }
+  return length <= MAX_TEXT_LENGTH ? images : undefined;
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -532,6 +553,10 @@ export function parseHostMessage(value: unknown): HostMessage | undefined {
     case 'stylesheet': {
       const text = value['text'];
       return typeof text === 'string' ? { type: value['type'], text } : undefined;
+    }
+    case 'images': {
+      const images = parseImages(value['images']);
+      return images === undefined ? undefined : { type: 'images', images };
     }
     case 'used-ids': {
       const ids = value['ids'];

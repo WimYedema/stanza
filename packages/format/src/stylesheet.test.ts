@@ -245,12 +245,13 @@ describe('parseStylesheet', () => {
     const result = parseStylesheet(fixture);
     const letter = result.stylesheet.pageTemplates.get(name('page-letter'));
     expect(result.stylesheet.pageTemplates.get(name('page'))?.cover).toBeUndefined();
-    expect(letter?.cover?.[0]).toEqual({
+    const entries = letter?.cover?.kind === 'list' ? letter.cover.entries : [];
+    expect(entries[0]).toEqual({
       kind: 'paragraph',
       style: 'cover-title',
       text: [{ kind: 'token', token: 'title', label: 'Untitled' }],
     });
-    expect(letter?.cover?.[2]).toEqual({
+    expect(entries[2]).toEqual({
       kind: 'table',
       style: 'table-grid',
       rows: [
@@ -270,20 +271,139 @@ describe('parseStylesheet', () => {
     );
     const { stylesheet, diagnostics } = parseStylesheet(source);
     expect(diagnostics).toEqual([]);
-    expect(stylesheet.pageTemplates.get(name('page'))?.cover).toEqual([
+    expect(stylesheet.pageTemplates.get(name('page'))?.cover).toEqual({
+      kind: 'list',
+      entries: [
+        {
+          kind: 'table',
+          style: 'table',
+          rows: [
+            {
+              label: 'A',
+              value: [
+                { kind: 'text', text: 'x ' },
+                { kind: 'token', token: 'authors', label: '' },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('reads a cover in rows, with heights, alignment, images and its own margins', () => {
+    const source = sheet(
+      [
+        'page-templates:',
+        '  page:',
+        '    cover:',
+        '      margins: { top: 36, left: 48 }',
+        '      rows:',
+        '        - height: 96',
+        '          content:',
+        '            - { image: assets/logo.png, width: 120, style: body }',
+        '        - height: 2.5fr',
+        '          valign: bottom',
+        '          content:',
+        "            - text: '[Untitled](stanza:title)'",
+        '        - height: 1fr',
+        '        - height: 40',
+        '          valign: center',
+        '          content:',
+        '            - image: assets/mark.jpg',
+      ].join('\n'),
+    );
+    const { stylesheet, diagnostics } = parseStylesheet(source);
+    expect(diagnostics).toEqual([]);
+    expect(stylesheet.pageTemplates.get(name('page'))?.cover).toEqual({
+      kind: 'rows',
+      margins: { topPt: 36, leftPt: 48 },
+      rows: [
+        {
+          height: { kind: 'points', pt: 96 },
+          valign: 'top',
+          content: [{ kind: 'image', path: 'assets/logo.png', widthPt: 120, style: 'body' }],
+        },
+        {
+          height: { kind: 'share', fr: 2.5 },
+          valign: 'bottom',
+          content: [
+            { kind: 'paragraph', text: [{ kind: 'token', token: 'title', label: 'Untitled' }] },
+          ],
+        },
+        { height: { kind: 'share', fr: 1 }, valign: 'top', content: [] },
+        {
+          height: { kind: 'points', pt: 40 },
+          valign: 'center',
+          content: [{ kind: 'image', path: 'assets/mark.jpg' }],
+        },
+      ],
+    });
+  });
+
+  it('reads the title block of a page template as a list of entries', () => {
+    const source = sheet(
+      [
+        'page-templates:',
+        '  page:',
+        '    title-block:',
+        '      - { image: assets/logo.png, width: 90 }',
+        "      - { style: body, text: '[Untitled](stanza:title)' }",
+      ].join('\n'),
+    );
+    const { stylesheet, diagnostics } = parseStylesheet(source);
+    expect(diagnostics).toEqual([]);
+    expect(stylesheet.pageTemplates.get(name('page'))?.titleBlock).toEqual([
+      { kind: 'image', path: 'assets/logo.png', widthPt: 90 },
       {
-        kind: 'table',
-        style: 'table',
-        rows: [
-          {
-            label: 'A',
-            value: [
-              { kind: 'text', text: 'x ' },
-              { kind: 'token', token: 'authors', label: '' },
-            ],
-          },
-        ],
+        kind: 'paragraph',
+        style: 'body',
+        text: [{ kind: 'token', token: 'title', label: 'Untitled' }],
       },
+    ]);
+    expect(problems(sheet('page-templates:\n  page:\n    title-block: { rows: [] }'))).toEqual([
+      ['invalid-type', 'page-templates.page.title-block'],
+    ]);
+  });
+
+  it('reports cover rows that are wrongly written', () => {
+    const rows = (lines: string): string =>
+      `page-templates:\n  page:\n    cover:\n${lines
+        .split('\n')
+        .map((line) => `      ${line}`)
+        .join('\n')}`;
+    expect(problems(sheet(rows('rows: none\nside: left')))).toEqual([
+      ['unknown-property', 'page-templates.page.cover.side'],
+      ['invalid-type', 'page-templates.page.cover.rows'],
+    ]);
+    expect(
+      problems(
+        sheet(
+          rows(
+            [
+              'margins: { top: 1, middle: 2 }',
+              'rows:',
+              '  - height: tall',
+              '    valign: middle',
+              '    size: 2',
+              '  - height: 2px',
+              '    content:',
+              '      - { image: a.png, text: x }',
+              "      - { text: 'a', width: 3 }",
+              '      - { image: 3 }',
+            ].join('\n'),
+          ),
+        ),
+      ),
+    ).toEqual([
+      ['unknown-property', 'page-templates.page.cover.margins.middle'],
+      ['unknown-property', 'page-templates.page.cover.rows[0].size'],
+      ['invalid-value', 'page-templates.page.cover.rows[0].height'],
+      ['invalid-value', 'page-templates.page.cover.rows[0].valign'],
+      ['invalid-value', 'page-templates.page.cover.rows[1].height'],
+      ['invalid-value', 'page-templates.page.cover.rows[1].content[0]'],
+      ['unknown-property', 'page-templates.page.cover.rows[1].content[1].width'],
+      ['invalid-type', 'page-templates.page.cover.rows[1].content[2].image'],
     ]);
   });
 

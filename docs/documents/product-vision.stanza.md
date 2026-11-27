@@ -207,7 +207,7 @@ Publication features that depend on page layout are the hardest to generate reli
 ### Constrained features
 
 - **Table of contents:** a semantic block with a depth setting, derived from headings. Entries are written as linked paragraphs, so they are visible without any update. Page numbers are a stylesheet option: on, each entry carries a page-number field and Word asks the reader once whether to update fields when the file opens (accepting fills in the page numbers; declining leaves placeholders); off, there are no fields and no prompt.
-- **Cover page:** a page template in the stylesheet whose slots are filled from document metadata, such as title, document class lines, a metadata table, and classification. The body starts on a new page because the template says so.
+- **Cover page:** a page template in the stylesheet whose slots are filled from document metadata, such as title, document class lines, a metadata table, and classification. The page is divided into rows of fixed or proportional height, so a logo, the title and the metadata can sit where a corporate cover has them, without text boxes or floating shapes (ADR 0089). The body starts on a new page because the template says so. A template can also put a condensed title block at the top of the first body page, with or without a cover (ADR 0090).
 - **Tables:** named table styles in the stylesheet, several allowed, covering borders, header row, and padding. Column widths are autofit by default, with optional relative weights on a table. No per-cell formatting.
 - **Headers and footers:** defined in the stylesheet, not the content. Left, centre, and right slots with a small token set, such as title, version, classification, page, pages, and section.
 - **Page templates:** a few named templates in the stylesheet, each with page size (A4 or Letter), margins, and header and footer. A document selects one template.
@@ -220,7 +220,7 @@ Publication features that depend on page layout are the hardest to generate reli
 | Tier | Features |
 | --- | --- |
 | Initial | Table of contents with depth, header and footer slots with tokens, page numbers, A4 and Letter with margins, cover page from metadata, table styles, numbered headings, cross-reference text |
-| Later | Images and captions, boxes and their placement, landscape sections, cover template, table of figures, glossary, minimal bibliography |
+| Later | Images and captions, boxes and their placement, landscape sections, cover columns and backgrounds, table of figures, glossary, minimal bibliography |
 | Not planned | Index, page-number cross-references, columns, odd and even headers, per-page overrides, custom list or number definitions |
 
 Page breaks are a layout concern handled by styles and templates, not by content. Word asks the reader whether to update fields when a document with page-number fields is opened; this was tested and is accepted. A table of contents without page numbers remains available for readers who must never see that prompt.

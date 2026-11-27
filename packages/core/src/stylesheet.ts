@@ -149,25 +149,149 @@ export interface HeaderFooter {
   readonly left: readonly SlotPart[];
   readonly center: readonly SlotPart[];
   readonly right: readonly SlotPart[];
+  /**
+   * The distance of the header from the top edge of the page, or of the footer from the bottom
+   * edge, in points (ADR 0095). Absent means 1.25 cm.
+   */
+  readonly distancePt?: number;
+  /**
+   * A grid in place of the three slots (ADR 0095): columns, rows that grow or have points, and
+   * areas with entries, which may show the page fields. The slots are empty then.
+   */
+  readonly grid?: CoverGrid;
 }
 
-/** One entry of a cover page: a paragraph, or a table of label and value rows (ADR 0019). */
+/**
+ * One entry of a cover page: a paragraph, a table of label and value rows (ADR 0019), or an image
+ * in a paragraph of its style (ADR 0089).
+ */
 export type CoverEntry =
   | { readonly kind: 'paragraph'; readonly style?: StyleName; readonly text: readonly SlotPart[] }
-  | { readonly kind: 'table'; readonly style: StyleName; readonly rows: readonly CoverRow[] };
+  | { readonly kind: 'table'; readonly style: StyleName; readonly rows: readonly CoverRow[] }
+  | CoverImage;
 
 export interface CoverRow {
   readonly label: string;
   readonly value: readonly SlotPart[];
 }
 
-/** The pages of a document: size, margins, header and footer, and an optional cover page. */
+/** An image on a cover: a PNG or JPEG of the project, with its aspect ratio kept (ADR 0089). */
+export interface CoverImage {
+  readonly kind: 'image';
+  /** Relative to the project root, with `/`. */
+  readonly path: string;
+  /** Absent means the size of the image in pixels at 96 per inch. */
+  readonly widthPt?: number;
+  /** The paragraph style that holds the image. Absent means `body`. */
+  readonly style?: StyleName;
+}
+
+/** The height of a cover row: in points, a share of what is left, or as tall as its content. */
+export type CoverRowHeight =
+  | { readonly kind: 'points'; readonly pt: number }
+  | { readonly kind: 'share'; readonly fr: number }
+  | { readonly kind: 'auto' };
+
+export const COVER_ALIGNMENTS = ['top', 'center', 'bottom'] as const;
+export type CoverAlignment = (typeof COVER_ALIGNMENTS)[number];
+
+/** One row of a cover that is divided into rows (ADR 0089). */
+export interface CoverLayoutRow {
+  readonly height: CoverRowHeight;
+  readonly valign: CoverAlignment;
+  /** A color token that fills the row from edge to edge of the cover's text area (ADR 0093). */
+  readonly background?: ColorValue;
+  readonly content: readonly CoverEntry[];
+}
+
+/**
+ * A cover page: a list of entries written from the top (ADR 0019), or rows that divide the page,
+ * with margins of its own (ADR 0089). A side the margins leave out takes the template's margin.
+ */
+export type Cover =
+  | { readonly kind: 'list'; readonly entries: readonly CoverEntry[] }
+  | {
+      readonly kind: 'rows';
+      readonly margins?: Partial<PageMargins>;
+      /** A PNG or JPEG that fills the cover page behind everything (ADR 0097). */
+      readonly backgroundImage?: string;
+      readonly rows: readonly CoverLayoutRow[];
+    }
+  | CoverGrid;
+
+/** The width of a grid column: in points, or a share of what is left (ADR 0092). */
+export type CoverColumnWidth =
+  | { readonly kind: 'points'; readonly pt: number }
+  | { readonly kind: 'share'; readonly fr: number };
+
+/** The content of a named area of a grid. */
+export interface CoverArea {
+  readonly valign: CoverAlignment;
+  /** A color token that fills the area (ADR 0093). */
+  readonly background?: ColorValue;
+  readonly content: readonly CoverEntry[];
+}
+
+/**
+ * A cover divided into columns and rows, with named areas that span them, as the template areas of
+ * a CSS grid (ADR 0092). `areas` has a line for each row and a name for each column, or `.` for a
+ * cell of no area.
+ */
+export interface CoverGrid {
+  readonly kind: 'grid';
+  readonly margins?: Partial<PageMargins>;
+  /** A PNG or JPEG that fills the cover page behind everything (ADR 0097); not in a header. */
+  readonly backgroundImage?: string;
+  readonly columns: readonly CoverColumnWidth[];
+  readonly rows: readonly CoverRowHeight[];
+  readonly areas: readonly (readonly string[])[];
+  readonly area: Readonly<Record<string, CoverArea>>;
+}
+
+/** The name of a grid cell that belongs to no area. */
+export const EMPTY_AREA = '.';
+
+/** The entries of a cover, from top to bottom; for a grid, by area in the order they are given. */
+export function coverEntries(cover: Cover): readonly CoverEntry[] {
+  if (cover.kind === 'list') return cover.entries;
+  if (cover.kind === 'rows') return cover.rows.flatMap((row) => row.content);
+  return Object.values(cover.area).flatMap((area) => area.content);
+}
+
+/** The images that the covers, title blocks, headers and footers of page templates show. */
+export function coverImagePaths(templates: Iterable<PageTemplate>): readonly string[] {
+  const paths = new Set<string>();
+  for (const template of templates) {
+    const entries = [
+      ...(template.cover === undefined ? [] : coverEntries(template.cover)),
+      ...(template.titleBlock ?? []),
+      ...[template.header?.grid, template.footer?.grid].flatMap((grid) =>
+        grid === undefined ? [] : coverEntries(grid),
+      ),
+    ];
+    for (const entry of entries) {
+      if (entry.kind === 'image') paths.add(entry.path);
+    }
+    const cover = template.cover;
+    if (cover !== undefined && cover.kind !== 'list' && cover.backgroundImage !== undefined) {
+      paths.add(cover.backgroundImage);
+    }
+  }
+  return [...paths];
+}
+
+/**
+ * The pages of a document: size, margins, header and footer, an optional cover page, and an
+ * optional title block at the top of the first body page (ADR 0090).
+ */
 export interface PageTemplate {
   readonly size: PageSize;
   readonly margins: PageMargins;
   readonly header?: HeaderFooter;
   readonly footer?: HeaderFooter;
-  readonly cover?: readonly CoverEntry[];
+  readonly cover?: Cover;
+  /** The entries of a cover, written before the content of the body. */
+  readonly titleBlock?: readonly CoverEntry[];
 }
 
 export interface Stylesheet {

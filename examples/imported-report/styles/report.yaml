@@ -1,0 +1,265 @@
+stanza-format: 1
+
+# The stylesheet of the example before its cover came from Word: the body styles and a plain page
+# template. `stanza import cover` added the page template `report` from template/report-template.docx,
+# and the styles, tokens and logo it needs, to styles/report.yaml (ADR 0094, ADR 0095).
+
+tokens:
+  colors:
+    ink: '#222222'
+    accent: '#8A3B12'
+    muted: '#777777'
+    rule: '#CCCCCC'
+    surface: '#F5F5F5'
+    report-color-1: '#336699'
+    report-color-2: '#AA3300'
+    report-color-3: '#000000'
+  fonts:
+    body: ['Aptos', 'Calibri', 'Arial']
+    mono: ['Consolas', 'Courier New']
+    report-font-1: ['Example Sans']
+
+paragraph-styles:
+  body:
+    font: body
+    size: 11
+    color: ink
+    space-after: 6
+    line-spacing: { multiple: 1.15 }
+    variants:
+      strong: { bold: true }
+      emphasis: { italic: true }
+      code: { font: mono, size: 10 }
+      link: { color: accent, underline: true }
+
+  heading-1:
+    based-on: body
+    size: 15
+    bold: true
+    color: accent
+    space-before: 14
+    space-after: 6
+    keep-with-next: true
+    variants:
+      strong: false
+      emphasis: { italic: true }
+
+  heading-2:
+    based-on: heading-1
+    size: 12
+
+  heading-3:
+    based-on: heading-2
+    size: 11
+
+  heading-4:
+    based-on: heading-3
+    italic: true
+
+  heading-5:
+    based-on: heading-4
+
+  heading-6:
+    based-on: heading-5
+
+  code:
+    based-on: body
+    font: mono
+    size: 10
+    keep-together: true
+    background: surface
+    variants:
+      strong: false
+      emphasis: false
+      code: false
+      link: false
+
+  list-bulleted:
+    based-on: body
+    space-after: 3
+    indent-left: 36
+    first-line-indent: -18
+
+  list-numbered:
+    based-on: list-bulleted
+
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  header-footer:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+  report-base:
+    font: report-font-1
+    size: 12
+    space-before: 0
+    space-after: 0
+    line-spacing: { at-least: 12 }
+  report-meta:
+    font: report-font-1
+    size: 10
+    space-before: 0
+    space-after: 0
+    line-spacing: { at-least: 12 }
+  report-classline:
+    font: report-font-1
+    size: 14
+    bold: true
+    alignment: center
+    space-before: 0
+    space-after: 0
+    line-spacing: { at-least: 12 }
+  report-doctitle:
+    font: report-font-1
+    size: 18
+    bold: true
+    color: report-color-2
+    alignment: center
+    space-before: 0
+    space-after: 0
+    line-spacing: { at-least: 12 }
+  report-footline:
+    font: report-font-1
+    size: 11
+    alignment: center
+    space-before: 0
+    space-after: 0
+    line-spacing: { at-least: 12 }
+  report-meta-2:
+    font: report-font-1
+    size: 10
+    alignment: center
+    space-before: 0
+    space-after: 0
+    line-spacing: { at-least: 12 }
+  report-meta-3:
+    font: report-font-1
+    size: 10
+    alignment: right
+    space-before: 0
+    space-after: 0
+    line-spacing: { at-least: 12 }
+
+table-styles:
+  table:
+    cell-style: table-cell
+    border:
+      outer: { width: 0.75, color: rule }
+      inside-horizontal: { width: 0.5, color: rule }
+    header-row:
+      bold: true
+      background: surface
+    cell-padding: 4
+  report-table:
+    cell-style: report-meta
+    border:
+      outer: { width: 0.5, color: report-color-3 }
+      inside-horizontal: { width: 0.5, color: report-color-3 }
+      inside-vertical: { width: 0.5, color: report-color-3 }
+    cell-padding: 3
+
+page-templates:
+  page:
+    size: A4
+    margins: { top: 64, right: 72, bottom: 64, left: 72 }
+    header:
+      style: header-footer
+      left: '[](stanza:title)'
+      right: '[](stanza:classification)'
+    footer:
+      style: header-footer
+      right: '[1](stanza:page) / [1](stanza:pages)'
+  report:
+    size: A4
+    margins: { top: 56.7, right: 56.7, bottom: 56.7, left: 93.55 }
+    header:
+      distance: 28.35
+      columns: [111.3, 222.5, 1fr]
+      rows: [auto]
+      areas:
+        - 'area-1 area-2 area-3'
+      area:
+        area-1:
+          content:
+            - image: 'assets/report/image-1.png'
+              width: 48
+              style: report-meta
+        area-2:
+          content:
+            - style: report-meta-2
+              text: '[Title](stanza:title) – rev. [](stanza:version)'
+        area-3:
+          content:
+            - style: report-meta-3
+              text: '[Date](stanza:field:date)'
+    footer:
+      distance: 28.35
+      columns: [1fr]
+      rows: [auto]
+      areas:
+        - 'area-1'
+      area:
+        area-1:
+          content:
+            - style: report-meta
+              text: '[1](stanza:page) / [1](stanza:pages)'
+    cover:
+      margins: { top: 28.35, bottom: 28.35 }
+      columns: [225, 1fr]
+      rows: [24, 17.8, 1, 155.8, 16.8, 166.5, 21.6, 301.5, 40, 12, 1fr, 13.2]
+      areas:
+        - 'area-1 area-2'
+        - '.      .'
+        - 'area-3 area-3'
+        - '.      .'
+        - 'area-4 area-4'
+        - '.      .'
+        - 'area-5 area-5'
+        - '.      .'
+        - 'area-6 area-6'
+        - '.      .'
+        - '.      .'
+        - 'area-7 area-7'
+      area:
+        area-1:
+          content:
+            - image: 'assets/report/image-1.png'
+              width: 72
+              style: report-base
+        area-2:
+          content:
+            - style: report-meta
+              text: 'Example Org'
+            - style: report-meta
+              text: '1 Main Street'
+        area-3:
+          background: report-color-1
+          content: []
+        area-4:
+          content:
+            - style: report-classline
+              text: 'Technical report'
+        area-5:
+          content:
+            - style: report-doctitle
+              text: '[Document title](stanza:title)'
+        area-6:
+          content:
+            - table:
+                style: report-table
+                rows:
+                  - label: 'Author(s):'
+                    value: '[Author name(s)](stanza:authors)'
+                  - label: 'Date:'
+                    value: '[Date](stanza:field:date) Doc. No: [Document number](stanza:field:document-number)'
+        area-7:
+          content:
+            - style: report-footline
+              text: 'Restricted use'
+
+table-of-contents:
+  page-numbers: false

@@ -2,7 +2,8 @@ import type { StyleName } from './style-name.js';
 import {
   RESERVED_PARAGRAPH_STYLES,
   RESERVED_TABLE_STYLE,
-  type CoverEntry,
+  coverEntries,
+  type Cover,
   type Stylesheet,
 } from './stylesheet.js';
 
@@ -14,17 +15,18 @@ export function isReservedStyle(family: StyleFamily, name: StyleName): boolean {
   return family === 'table' && name === RESERVED_TABLE_STYLE;
 }
 
-const coverUses = (cover: readonly CoverEntry[] | undefined, family: StyleFamily, name: string) =>
-  (cover ?? []).some((entry) =>
-    entry.kind === 'paragraph'
-      ? family === 'paragraph' && entry.style === name
-      : family === 'table' && entry.style === name,
+const coverUses = (cover: Cover | undefined, family: StyleFamily, name: string) =>
+  cover !== undefined &&
+  coverEntries(cover).some((entry) =>
+    entry.kind === 'table'
+      ? family === 'table' && entry.style === name
+      : family === 'paragraph' && entry.style === name,
   );
 
 /**
  * What in the stylesheet itself refers to a style, as sentences: a style based on it, a table
  * style that has it as the cell style, a page template that uses it in its header, footer or
- * cover. A style that something refers to cannot be deleted without breaking the stylesheet.
+ * cover or title block. A style that something refers to cannot be deleted without breaking the stylesheet.
  */
 export function styleReferences(
   stylesheet: Stylesheet,
@@ -54,8 +56,21 @@ export function styleReferences(
       if (page.footer?.style === name)
         found.push(`The page template "${template}" uses it in its footer.`);
     }
+    for (const part of ['header', 'footer'] as const) {
+      const grid = page[part]?.grid;
+      if (grid !== undefined && coverUses(grid, family, name)) {
+        found.push(`The page template "${template}" uses it in its ${part}.`);
+      }
+    }
     if (coverUses(page.cover, family, name)) {
       found.push(`The page template "${template}" uses it in its cover.`);
+    }
+    const titleBlock = page.titleBlock;
+    if (
+      titleBlock !== undefined &&
+      coverUses({ kind: 'list', entries: titleBlock }, family, name)
+    ) {
+      found.push(`The page template "${template}" uses it in its title block.`);
     }
   }
   return found;

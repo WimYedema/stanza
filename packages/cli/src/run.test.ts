@@ -421,6 +421,10 @@ describe('stanza usage', () => {
     [['import', 'notes.txt'], 'import needs a Word file'],
     [['import', 'a.docx', 'project', 'x'], 'unexpected argument "x"'],
     [['import', 'a.docx', '--check'], 'import takes no options'],
+    [['import', 'cover'], 'import cover needs a Word template'],
+    [['import', 'cover', 'cover.pdf'], 'import cover needs a Word template'],
+    [['import', 'cover', 'a.dotx', 'project', 'x'], 'unexpected argument "x"'],
+    [['import', 'a.docx', '--name', 'x'], '--name applies to import cover only'],
     [['adopt'], 'adopt needs a Markdown file'],
     [['adopt', 'notes.txt'], 'adopt needs a Markdown file'],
     [['adopt', 'a.md', 'project', 'x'], 'unexpected argument "x"'],
@@ -431,6 +435,35 @@ describe('stanza usage', () => {
     expect(result.err).toContain(message);
     expect(result.err).toContain('Usage: stanza');
     expect(result.out).toBe('');
+  });
+});
+
+describe('stanza import cover (ADR 0094)', () => {
+  // A small template; the import itself is tested in import-docx.
+  const TEMPLATE =
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
+    '<w:p><w:r><w:t>[Document title]</w:t></w:r></w:p>' +
+    '<w:p><w:r><w:t>[Date], [Document number]</w:t></w:r></w:p>' +
+    '<w:p><w:r><w:br w:type="page"/></w:r></w:p>' +
+    '</w:body></w:document>';
+
+  it('adds the cover of a template as a page template, and refuses the same name again', async () => {
+    writeFileSync(join(work, 'Report.dotx'), zipSync({ 'word/document.xml': strToU8(TEMPLATE) }));
+    const result = await stanza('import', 'cover', 'Report.dotx', 'project', '--name', 'report');
+    expect(result.err).toBe('');
+    expect(result.code).toBe(0);
+    expect(result.out).toContain(
+      'Imported the cover of Report.dotx as the page template "report".',
+    );
+    expect(result.out).toContain(
+      'declare in the project file (metadata-fields): date, document-number',
+    );
+    expect(readFileSync(join(work, 'project', 'styles', 'default.yaml'), 'utf8')).toContain(
+      '\n  report:\n    size: A4\n',
+    );
+    const again = await stanza('import', 'cover', 'Report.dotx', 'project', '--name', 'report');
+    expect(again.code).toBe(2);
+    expect(again.err).toContain('page template "report" already');
   });
 });
 

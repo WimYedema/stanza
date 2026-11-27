@@ -1,0 +1,14 @@
+stanza-format: 1
+title: 'Imported report'
+stylesheet: 'styles/report.yaml'
+defaults:
+  classification: 'Restricted'
+  authors:
+    - 'Example Org'
+metadata-fields:
+  date:
+    type: string
+    label: 'Date'
+  document-number:
+    type: string
+    label: 'Document number'

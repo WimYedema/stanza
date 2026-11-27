@@ -16,7 +16,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 ## Stylesheet and pages (`core`, `format`, `css`)
 
 - 0006: typed stylesheet (read first). 0035: comment-preserving text edits. 0059: banded table rows. 0065: colors and fonts only from tokens. 0074: move raw colors and fonts into tokens (`format --fix-stylesheet`, quick fix).
-- 0016, 0017, 0019: page templates, header and footer slots, cover page.
+- 0016, 0017, 0019, 0089, 0090: page templates, header and footer slots, cover page; 0089 divides the cover into rows and adds images and cover margins; 0090 adds a title block at the top of the first body page; 0092 adds columns and named areas (a cover grid); 0093 adds background colors of rows and areas; 0097 adds a background image behind the whole cover page, stretched to it; 0099 warns when the text of a document is too long for an area of the cover; 0095 makes a header or footer a grid too, with a distance from the edge.
 - 0021: browser CSS.
 
 ## DOCX export (`export-docx`)
@@ -28,6 +28,7 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 
 - 0043: scope. 0045: reading. 0046: tables and TOC. 0047: command. 0049: line breaks. 0060: adopting a Markdown file (same pipeline, other source).
 - 0084: pulling review comments from a reviewed DOCX into a review document (`review pull`), the reviewed version and anchors for a margin view.
+- 0094: importing the cover of a Word template (`stanza import cover`): the first page as a cover grid, with frames placed where they are, placeholders as tokens, and the styles, tokens and images it needs; since 0095 also the body header and footer as grids, with fields as tokens. 0098 adds shapes anchored to the page: text boxes, filled rectangles and pictures, also in groups, laid out with the flow as one grid over the page.
 - 0088: pushing a document for review (`stanza review push`): replace the file in the review folder unless it was saved and not pulled, or write a new one with `--new`.
 
 ## Project and CLI (`project`, `cli`)
@@ -51,4 +52,4 @@ Read the ADR for the topic you work on; later ADRs refine earlier ones, so read 
 - 0080: top-of-document properties, explicit/inherited/missing/system metadata, staged buffer edits and stale-draft checks.
 - Document view: 0027 toolbar and keys, 0028 paper look, 0058 page layout findings (open), 0054 and 0055 style cards and state line, 0057 heading numbers and diagnostics.
 - 0086: review comments beside their text, margin cards and markers, resolving from the editor.
-- Style editor: 0036 shell, 0037 paragraph panel, 0038 groups, 0039 character styles, 0040 table styles, 0041 collapsible groups, 0050 theme, 0051 page templates, 0053 add and delete, 0066 token pickers, 0067 link to the token.
+- Style editor: 0036 shell, 0037 paragraph panel, 0038 groups, 0039 character styles, 0040 table styles, 0041 collapsible groups, 0050 theme, 0051 page templates, 0091 cover and title block (the whole block is written again, `setBlock`), 0100 cover presets to start from, 0096 grids of the cover, header and footer (numbers in the panel, areas dragged in the preview) and the Page layout tab (cover page and body pages, the layout chosen above them), 0053 add and delete, 0066 token pickers, 0067 link to the token.

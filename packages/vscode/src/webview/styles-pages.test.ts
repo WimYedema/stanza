@@ -22,8 +22,10 @@ page-templates:
     size: Letter
 `).stylesheet;
 
-const entry = (name: string): Entry => {
-  const found = entriesOf(stylesheet).find((candidate) => candidate.name === name);
+const entry = (kind: Entry['kind'], name: string): Entry => {
+  const found = entriesOf(stylesheet).find(
+    (candidate) => candidate.kind === kind && candidate.name === name,
+  );
   if (found === undefined) throw new Error(`No entry ${name}.`);
   return found;
 };
@@ -37,7 +39,7 @@ beforeEach(() => {
   document.body.append(root);
   send.mockClear();
   panel = createPagePanel({ root, send });
-  panel.show(entry('page'), stylesheet);
+  panel.show(entry('page-part', 'body'), stylesheet);
 });
 afterEach(() => {
   document.body.replaceChildren();
@@ -69,11 +71,39 @@ const change = (field: HTMLInputElement | HTMLSelectElement, value: string): voi
 const status = (): string => root.querySelector('.status')?.textContent ?? '';
 
 describe('the page panel', () => {
-  it('shows only for a page template', () => {
-    expect(panel.show(entry('body'), stylesheet)).toBe(false);
+  it('shows only for a part of the page layout, and only what that part has (ADR 0096)', () => {
+    expect(panel.show(entry('paragraph-style', 'body'), stylesheet)).toBe(false);
     expect(root.hidden).toBe(true);
-    expect(panel.show(entry('plain'), stylesheet)).toBe(true);
+    expect(panel.show(entry('page-part', 'cover'), stylesheet)).toBe(true);
     expect(root.hidden).toBe(false);
+    const shown = (title: string): boolean =>
+      [...root.querySelectorAll('summary')].some(
+        (summary) => summary.textContent === title && summary.closest('[hidden]') === null,
+      );
+    expect(shown('Cover')).toBe(true);
+    expect(shown('Header')).toBe(false);
+    expect(shown('Title block')).toBe(false);
+    panel.show(entry('page-part', 'body'), stylesheet);
+    expect(shown('Cover')).toBe(false);
+    expect(shown('Header')).toBe(true);
+    expect(shown('Title block')).toBe(true);
+  });
+
+  it('starts on the default layout, offers the others, and starts on that of a document', () => {
+    const layout = root.querySelector<HTMLSelectElement>('.layout-box select');
+    if (layout === null) throw new Error('No layout.');
+    expect([...layout.options].map((option) => option.textContent)).toEqual([
+      'page (default)',
+      'plain',
+    ]);
+    expect(layout.value).toBe('page');
+    change(layout, 'plain');
+    expect(selectOf('Page', 'Size').value).toBe('Letter');
+    panel.setDocumentLayout('page', 'memo.stanza.md');
+    expect(layout.value).toBe('page');
+    expect(root.querySelector('.layout-box')?.textContent).toContain('memo.stanza.md uses it.');
+    change(layout, 'plain');
+    expect(root.querySelector('.layout-box')?.textContent).not.toContain('memo.stanza.md');
   });
 
   it('shows the size, the margins and the slots of the template', () => {
@@ -84,7 +114,9 @@ describe('the page panel', () => {
     expect(inputOf('Header', 'Left').value).toBe('[](stanza:title)');
     expect(inputOf('Header', 'Center').value).toBe('');
     expect(inputOf('Header', 'Right').value).toBe('Page [1](stanza:page) of [1](stanza:pages)');
-    panel.show(entry('plain'), stylesheet);
+    const layout = root.querySelector<HTMLSelectElement>('.layout-box select');
+    if (layout === null) throw new Error('No layout.');
+    change(layout, 'plain');
     expect(selectOf('Page', 'Size').value).toBe('Letter');
     expect(inputOf('Header', 'Left').value).toBe('');
     expect(selectOf('Header', 'Style').value).toBe('');
@@ -164,5 +196,85 @@ describe('the page panel', () => {
     panel.refused('The change would make the stylesheet invalid.');
     expect(status()).toBe('The change would make the stylesheet invalid.');
     expect(inputOf('Margins', 'Top').value).toBe('54');
+  });
+
+  it('sets the distance of the header from the edge, and clears it to the default (ADR 0095)', () => {
+    const distance = inputOf('Header', 'Distance');
+    expect(distance.value).toBe('');
+    expect(distance.placeholder).toBe('35.4');
+    change(distance, '20');
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'set',
+      path: ['page-templates', 'page', 'header', 'distance'],
+      value: 20,
+    });
+    change(distance, '');
+    expect(send).toHaveBeenLastCalledWith({
+      type: 'unset',
+      path: ['page-templates', 'page', 'header', 'distance'],
+    });
+  });
+
+  it('asks before a header grid becomes slots, which cannot hold its areas (ADR 0096)', () => {
+    const withGrid = parseStylesheet(`stanza-format: 1
+paragraph-styles:
+  body: {}
+page-templates:
+  page:
+    size: A4
+    header:
+      columns: [1fr]
+      areas: ['mark']
+      area:
+        mark:
+          content: []
+`).stylesheet;
+    const part = entriesOf(withGrid).find(
+      (each) => each.kind === 'page-part' && each.name === 'body',
+    );
+    if (part === undefined) throw new Error('No part.');
+    panel.show(part, withGrid);
+    const kind = selectOf('Header', 'Kind');
+    expect(kind.value).toBe('grid');
+    send.mockClear();
+    change(kind, 'slots');
+    expect(send).not.toHaveBeenCalled();
+    expect(kind.value).toBe('grid');
+    const box = root.querySelector('.confirm');
+    expect(box?.textContent).toContain('the 1 area of the grid and their entries are removed');
+    [...(box?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Change')?.click();
+    expect(send).toHaveBeenCalledWith({
+      type: 'set-block',
+      path: ['page-templates', 'page', 'header'],
+      source: null,
+    });
+  });
+
+  it('tells the preview what the field with the cursor sizes, and nothing when it leaves', () => {
+    const measured: unknown[] = [];
+    document.body.replaceChildren();
+    root = document.createElement('div');
+    document.body.append(root);
+    panel = createPagePanel({
+      root,
+      send,
+      preview: {
+        show: () => undefined,
+        setImages: () => undefined,
+        setEditing: () => undefined,
+        select: () => undefined,
+        measure: (measure) => measured.push(measure),
+      },
+    });
+    panel.show(entry('page-part', 'body'), stylesheet);
+    const left = inputOf('Margins', 'Left');
+    left.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(measured.at(-1)).toEqual({ target: 'body', what: 'margin', side: 'left' });
+    inputOf('Header', 'Distance').dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(measured.at(-1)).toEqual({ target: 'header', what: 'distance' });
+    selectOf('Header', 'Style').dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(measured.at(-1)).toBeUndefined();
+    left.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    expect(measured.at(-1)).toBeUndefined();
   });
 });

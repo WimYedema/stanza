@@ -94,6 +94,7 @@ export async function documentBytes(
   const source = (await sourceStamps(storage, [documentPath], options.revisions)).get(documentPath);
   const result = await exportDocx(effective, stylesheet, {
     timestamp: options.timestamp,
+    images: loaded.images,
     ...(source !== undefined ? { source } : {}),
     protection: options.protection ?? settings.reviewProtection ?? 'comments',
     otherTargets: referenceTargets(loaded.documents)(documentPath),

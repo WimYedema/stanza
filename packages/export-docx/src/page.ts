@@ -8,7 +8,7 @@ export interface PageGeometry {
   readonly marginRightTwips: number;
   readonly marginBottomTwips: number;
   readonly marginLeftTwips: number;
-  /** The distance of header and footer from the edge, which is the library's 1.25 cm. */
+  /** The distance of header and footer from the edge: the template's, or 1.25 cm (ADR 0095). */
   readonly headerTwips: number;
   readonly footerTwips: number;
   /** The width of the text area. */
@@ -16,6 +16,9 @@ export interface PageGeometry {
 }
 
 const twips = (pt: number): number => Math.round(pt * 20);
+
+/** Where Word puts a header and a footer from the edge of the page by default: 1.25 cm. */
+const DEFAULT_DISTANCE_PT = 35.4;
 
 export function pageGeometry(template: PageTemplate): PageGeometry {
   const size = PAGE_SIZES[template.size];
@@ -27,8 +30,8 @@ export function pageGeometry(template: PageTemplate): PageGeometry {
     marginRightTwips: twips(margins.rightPt),
     marginBottomTwips: twips(margins.bottomPt),
     marginLeftTwips: twips(margins.leftPt),
-    headerTwips: 708,
-    footerTwips: 708,
+    headerTwips: twips(template.header?.distancePt ?? DEFAULT_DISTANCE_PT),
+    footerTwips: twips(template.footer?.distancePt ?? DEFAULT_DISTANCE_PT),
     textWidthTwips: twips(size.widthPt - margins.leftPt - margins.rightPt),
   };
 }

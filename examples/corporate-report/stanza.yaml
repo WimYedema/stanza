@@ -1,0 +1,17 @@
+stanza-format: 1
+title: 'Corporate report'
+stylesheet: 'styles/report.yaml'
+defaults:
+  classification: 'Internal'
+  authors:
+    - 'Research Office'
+metadata-fields:
+  subtitle:
+    type: string
+    label: 'Subtitle'
+  document-number:
+    type: string
+    label: 'Document number'
+  status:
+    type: string
+    label: 'Status'

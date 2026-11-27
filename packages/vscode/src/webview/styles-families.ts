@@ -14,14 +14,17 @@ export const FAMILIES: readonly { readonly id: Family; readonly title: string }[
   { id: 'lists', title: 'Lists' },
   { id: 'tables', title: 'Tables' },
   { id: 'characters', title: 'Character styles' },
-  { id: 'pages', title: 'Pages' },
+  { id: 'pages', title: 'Page layout' },
   { id: 'theme', title: 'Theme' },
 ];
 
 export type EntryKind =
-  'paragraph-style' | 'character-style' | 'table-style' | 'page-template' | 'color' | 'font';
+  'paragraph-style' | 'character-style' | 'table-style' | 'page-part' | 'color' | 'font';
 
-/** One line of a tab: a style, a page template or a token. */
+/**
+ * One line of a tab: a style, a part of the page layout (the cover page or the body pages, ADR 0096)
+ * or a token.
+ */
 export interface Entry {
   readonly family: Family;
   readonly kind: EntryKind;
@@ -34,6 +37,12 @@ export interface Entry {
 
 /** What a person reads for an entry: its label, or else its name. */
 export const displayName = (entry: Entry): string => entry.label ?? entry.name;
+
+/** The parts of a page layout, as the Page layout tab lists them. */
+export const PAGE_PARTS = [
+  ['cover', 'Cover page'],
+  ['body', 'Body pages'],
+] as const;
 
 const HEADING = /^heading-[1-6]$/;
 const LIST = /^list-(bulleted|numbered)$/;
@@ -73,14 +82,11 @@ export function entriesOf(stylesheet: Stylesheet): readonly Entry[] {
       basedOn: style.basedOn,
     });
   }
-  for (const name of stylesheet.pageTemplates.keys()) {
-    entries.push({
-      family: 'pages',
-      kind: 'page-template',
-      name,
-      label: undefined,
-      basedOn: undefined,
-    });
+  // The page layouts are chosen in the panel; the list shows what of one is shaped (ADR 0096).
+  if (stylesheet.pageTemplates.size > 0) {
+    for (const [name, label] of PAGE_PARTS) {
+      entries.push({ family: 'pages', kind: 'page-part', name, label, basedOn: undefined });
+    }
   }
   for (const name of stylesheet.tokens.colors.keys()) {
     entries.push({ family: 'theme', kind: 'color', name, label: undefined, basedOn: undefined });
@@ -104,22 +110,8 @@ export function describeEntry(
       if (entry.label !== undefined) lines.push(['Label', entry.label]);
       lines.push(['Based on', entry.basedOn ?? 'nothing']);
       break;
-    case 'page-template': {
-      const template = [...stylesheet.pageTemplates].find(([name]) => name === entry.name)?.[1];
-      if (template === undefined) break;
-      const { topPt, rightPt, bottomPt, leftPt } = template.margins;
-      lines.push(
-        ['Size', template.size],
-        [
-          'Margins',
-          `${String(topPt)}, ${String(rightPt)}, ${String(bottomPt)}, ${String(leftPt)} pt`,
-        ],
-        ['Header', template.header === undefined ? 'none' : 'yes'],
-        ['Footer', template.footer === undefined ? 'none' : 'yes'],
-        ['Cover', template.cover === undefined ? 'none' : 'yes'],
-      );
+    case 'page-part':
       break;
-    }
     case 'color':
       lines.push(['Value', stylesheet.tokens.colors.get(entry.name) ?? '']);
       break;

@@ -23,6 +23,7 @@ export function nodeStorage(root: string): ProjectStorage {
   const locate = locator(root);
   return {
     readText: async (path) => readFile(locate(path), 'utf8'),
+    readBytes: async (path) => new Uint8Array(await readFile(locate(path))),
     async list(directory): Promise<readonly DirectoryEntry[]> {
       const entries = await readdir(locate(directory), { withFileTypes: true });
       // Links and special files are left out, which also keeps a link loop from being followed.

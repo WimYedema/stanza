@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+Cover pages: a cover laid out like a corporate one, made in the style editor, started from a preset or imported from a Word template.
+
+- A cover can be divided into rows of a height, or into a grid of columns, rows and named areas, with a logo or other images, margins of its own, background colors for rows and areas, and a background image behind the whole page.
+- A title block at the top of the first page, for documents without a cover: a logo, the title and a table of metadata above the text.
+- Headers and footers can be grids too, with a logo or several lines, at a distance from the edge of the page that you choose.
+- The style editor's **Page layout** tab shows the two parts of a layout, **Cover page** and **Body pages**, each with its own preview. Columns, rows and areas are set in the panel, and areas are made by dragging across the cells of the preview; arrows in the preview show what a size field sets.
+- Start a cover from one of five presets: classic, title in the lower third, bands, side band, or a controlled document with a table of its number, version, status, date and classification.
+- `stanza import cover` imports the cover, header and footer of a Word template (`.dotx` or `.docx`): its layout, frames, tables, text boxes, coloured shapes and pictures, with placeholders and content controls as the title, authors and other values.
+- Validating a document warns when its text, such as a long abstract, is too long for its area of the cover, which Word would cut off without a sign.
+- The editor shows the cover and title block of a document as they will look.
+- A change that would lose what was made, such as switching a cover to none, asks first.
+
 ## 0.2.0
 
 The review round in Word: push a document to a review folder, pull the comments back, and work through them beside the text.

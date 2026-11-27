@@ -53,6 +53,7 @@ export {
 export { plainCell, plainCellInlines } from './table-cell.js';
 export { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES, needsId } from './vocabulary.js';
 export { KNOWN_STANZA_KINDS, validateDocument } from './document-validation.js';
+export { coverOverflows, type CoverOverflow } from './cover-fit.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
 export { collectBlockIds, type BlockId } from './document-ids.js';
 export {
@@ -108,7 +109,53 @@ export {
 export { numberHeadings, type HeadingNumbers } from './heading-numbering.js';
 export { maxHeadingLevel } from './heading-levels.js';
 export { slotText, slotValue } from './slot-values.js';
-export { coverBlocks } from './cover.js';
+export {
+  COVER_END_RESERVE_PT,
+  coverAreaHeightPt,
+  coverAreaWidthPt,
+  coverBlocks,
+  coverMargins,
+  coverRowHeightsPt,
+  coverColumnWidthsPt,
+  coverGrid,
+  fillCover,
+  fillGrid,
+  placeAreas,
+  fillEntries,
+  titleBlockBlocks,
+  type CoverItem,
+  type FilledArea,
+  type FilledCoverRow,
+  type GridShape,
+  type PlacedArea,
+} from './cover.js';
+export {
+  areaOrder,
+  entriesGrid,
+  gridEntries,
+  gridRows,
+  insertColumn,
+  insertRow,
+  isAreaName,
+  newAreaName,
+  removeColumn,
+  removeRow,
+  renameArea,
+  setArea,
+  setCells,
+  setColumn,
+  setRow,
+  slotsGrid,
+  type CellRange,
+  type GridEdit,
+} from './grid-edit.js';
+export {
+  naturalWidthPt,
+  readImageInfo,
+  type ImageAsset,
+  type ImageFormat,
+  type ImageInfo,
+} from './image-info.js';
 export {
   HARDCODED_FIELD_NAMES,
   REVIEW_PROTECTIONS,
@@ -126,6 +173,8 @@ export {
 } from './project.js';
 export {
   BUILT_IN_PAGE_TEMPLATE,
+  COVER_ALIGNMENTS,
+  EMPTY_AREA,
   DEFAULT_PAGE_TEMPLATE_NAME,
   DEFAULT_TABLE_OF_CONTENTS,
   PAGINATION_TOKENS,
@@ -133,13 +182,23 @@ export {
   RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
   VARIANT_MARKS,
+  coverEntries,
+  coverImagePaths,
   type Alignment,
   type BandedRows,
   type Border,
   type CharacterStyle,
   type ColorValue,
+  type Cover,
+  type CoverAlignment,
+  type CoverArea,
+  type CoverColumnWidth,
+  type CoverGrid,
   type CoverEntry,
+  type CoverImage,
+  type CoverLayoutRow,
   type CoverRow,
+  type CoverRowHeight,
   type FontValue,
   type HeaderRow,
   type HeaderFooter,

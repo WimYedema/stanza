@@ -16,6 +16,7 @@ const decoder = new TextDecoder('utf-8');
 export function projectStorage(io: FileIo): ProjectStorage {
   return {
     readText: async (path) => io.openText(path) ?? decoder.decode(await io.read(path)),
+    readBytes: (path) => io.read(path),
     list: (directory) => io.list(directory),
     writeFile: (path, content) => io.write(path, content),
     writeText: (path, text) => io.write(path, encoder.encode(text)),

@@ -1,0 +1,168 @@
+stanza-format: 1
+
+# A banded cover (ADR 0093): the cover has no margins, so its colored rows run to the edges of the
+# page: a band at the top, the title centred on white, a thin rule, and a dark band at the bottom with
+# the authors and the organisation in white. Each color is a token; white text comes from the styles.
+
+tokens:
+  colors:
+    ink: '#1F2933'
+    band: '#17607F'
+    deep: '#0F2A3F'
+    rule: '#F2A541'
+    muted: '#6B7280'
+    light: '#D9E6EC'
+    white: '#FFFFFF'
+    surface: '#F4F5F7'
+  fonts:
+    body: ['Aptos', 'Calibri', 'Arial']
+    mono: ['Consolas', 'Courier New']
+
+paragraph-styles:
+  body:
+    font: body
+    size: 11
+    color: ink
+    space-after: 6
+    line-spacing: { multiple: 1.15 }
+    variants:
+      strong: { bold: true }
+      emphasis: { italic: true }
+      code: { font: mono, size: 10 }
+      link: { color: band, underline: true }
+
+  heading-1:
+    based-on: body
+    size: 16
+    bold: true
+    color: band
+    space-before: 18
+    space-after: 6
+    keep-with-next: true
+    variants:
+      strong: false
+      emphasis: { italic: true }
+
+  heading-2:
+    based-on: heading-1
+    size: 13
+
+  heading-3:
+    based-on: heading-2
+    size: 11
+
+  heading-4:
+    based-on: heading-3
+    italic: true
+
+  heading-5:
+    based-on: heading-4
+
+  heading-6:
+    based-on: heading-5
+
+  code:
+    based-on: body
+    font: mono
+    size: 10
+    keep-together: true
+    background: surface
+    variants:
+      strong: false
+      emphasis: false
+      code: false
+      link: false
+
+  list-bulleted:
+    based-on: body
+    space-after: 3
+    indent-left: 36
+    first-line-indent: -18
+
+  list-numbered:
+    based-on: list-bulleted
+
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  header-footer:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+
+  cover-title:
+    based-on: body
+    size: 34
+    color: band
+    alignment: center
+    space-after: 10
+    line-spacing: { multiple: 1 }
+
+  cover-subtitle:
+    based-on: body
+    size: 15
+    color: muted
+    alignment: center
+    space-after: 0
+
+  cover-authors:
+    based-on: body
+    size: 12
+    color: white
+    alignment: center
+    space-after: 4
+
+  cover-organisation:
+    based-on: body
+    size: 10
+    color: light
+    alignment: center
+    space-after: 48
+
+table-styles:
+  table:
+    cell-style: table-cell
+    border:
+      outer: { width: 0.75, color: light }
+      inside-horizontal: { width: 0.5, color: light }
+    header-row:
+      bold: true
+      background: surface
+      repeat: true
+    cell-padding: 4
+
+page-templates:
+  page:
+    size: A4
+    margins: { top: 72, right: 72, bottom: 72, left: 72 }
+    footer:
+      style: header-footer
+      center: '[1](stanza:page)'
+    cover:
+      margins: { top: 0, right: 0, bottom: 0, left: 0 }
+      rows:
+        - height: 130
+          background: band
+        - height: 2fr
+          valign: center
+          content:
+            - style: cover-title
+              text: '[Untitled](stanza:title)'
+            - style: cover-subtitle
+              text: '[](stanza:field:subtitle)'
+        - height: 5
+          background: rule
+        - height: 3fr
+          valign: bottom
+          background: deep
+          content:
+            - style: cover-authors
+              text: '[](stanza:authors)'
+            - style: cover-organisation
+              text: '[](stanza:field:organisation)'
+
+table-of-contents:
+  page-numbers: false

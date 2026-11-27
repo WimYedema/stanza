@@ -1,0 +1,23 @@
+stanza-format: 1
+title: 'Technical note'
+stylesheet: 'styles/note.yaml'
+defaults:
+  classification: 'Internal'
+  authors:
+    - 'Platform Team'
+metadata-fields:
+  subtitle:
+    type: string
+    label: 'Subtitle'
+  document-number:
+    type: string
+    label: 'Document number'
+  status:
+    type: string
+    label: 'Status'
+  date:
+    type: string
+    label: 'Date'
+  reviewers:
+    type: list
+    label: 'Reviewed by'

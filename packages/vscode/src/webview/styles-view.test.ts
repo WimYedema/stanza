@@ -57,7 +57,7 @@ describe('the tabs', () => {
       'Lists (2)',
       'Tables (2)',
       'Character styles (2)',
-      'Pages (2)',
+      'Page layout (2)',
       'Theme (8)',
     ]);
     expect(tab('Paragraphs').getAttribute('aria-selected')).toBe('true');
@@ -105,10 +105,10 @@ describe('the list', () => {
     expect(found?.querySelector('.name')?.textContent).toBe('cover-meta');
   });
 
-  it('says so when a family has nothing, as for page templates of a stylesheet that has none', () => {
+  it('says so when a family has nothing, as for page layouts of a stylesheet that has none', () => {
     view.show(parseStylesheet(SOURCE.slice(0, SOURCE.indexOf('page-templates:'))).stylesheet);
-    tab('Pages').click();
-    expect(items()).toEqual(['No page templates. The built-in A4 page is used.']);
+    tab('Page layout').click();
+    expect(items()).toEqual(['No page layouts. The built-in A4 page is used.']);
   });
 
   it('keeps the selection when the stylesheet changes, and drops it when the style is gone', () => {
@@ -119,8 +119,8 @@ describe('the list', () => {
       expect.objectContaining({ name: 'body' }),
       'paragraphs',
     );
-    tab('Pages').click();
-    choose('page');
+    tab('Page layout').click();
+    choose('Cover page');
     view.show(parseStylesheet(SOURCE.slice(0, SOURCE.indexOf('page-templates:'))).stylesheet);
     expect(selected).toHaveBeenLastCalledWith(undefined, 'pages');
   });

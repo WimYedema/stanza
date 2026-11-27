@@ -70,7 +70,7 @@ export class ProjectDiagnostics implements vscode.Disposable {
     const known = this.projects.get(root.toString());
     if (known !== undefined) return known;
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(root, '**/*.{yaml,yml,stanza.md}'),
+      new vscode.RelativePattern(root, '**/*.{yaml,yml,stanza.md,png,jpg,jpeg}'),
     );
     const invalidate = (): void => {
       this.invalidate(root);

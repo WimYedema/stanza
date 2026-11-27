@@ -1,0 +1,175 @@
+stanza-format: 1
+
+# A classic centred cover on Letter paper: the title a third of the way down, the authors in the
+# middle, and an emblem with the organisation at the bottom (ADR 0089). Everything is centred by
+# the paragraph styles; the rows only say where on the page each part sits.
+
+tokens:
+  colors:
+    ink: '#1F2933'
+    accent: '#226E4A'
+    muted: '#6B7280'
+    rule: '#D2D6DC'
+    surface: '#F4F5F7'
+  fonts:
+    body: ['Georgia', 'Times New Roman']
+    mono: ['Consolas', 'Courier New']
+
+paragraph-styles:
+  body:
+    font: body
+    size: 11
+    color: ink
+    space-after: 8
+    line-spacing: { multiple: 1.2 }
+    variants:
+      strong: { bold: true }
+      emphasis: { italic: true }
+      code: { font: mono, size: 10 }
+      link: { color: accent, underline: true }
+
+  heading-1:
+    based-on: body
+    size: 16
+    bold: true
+    color: accent
+    space-before: 20
+    space-after: 8
+    keep-with-next: true
+    variants:
+      strong: false
+      emphasis: { italic: true }
+
+  heading-2:
+    based-on: heading-1
+    size: 13
+
+  heading-3:
+    based-on: heading-2
+    size: 11
+
+  heading-4:
+    based-on: heading-3
+    italic: true
+
+  heading-5:
+    based-on: heading-4
+
+  heading-6:
+    based-on: heading-5
+
+  code:
+    based-on: body
+    font: mono
+    size: 10
+    keep-together: true
+    background: surface
+    variants:
+      strong: false
+      emphasis: false
+      code: false
+      link: false
+
+  list-bulleted:
+    based-on: body
+    space-after: 3
+    indent-left: 36
+    first-line-indent: -18
+
+  list-numbered:
+    based-on: list-bulleted
+
+  table-cell:
+    based-on: body
+    space-after: 0
+    line-spacing: { multiple: 1 }
+
+  header-footer:
+    based-on: body
+    size: 9
+    color: muted
+    space-after: 0
+
+  cover-title:
+    based-on: body
+    size: 30
+    alignment: center
+    space-after: 12
+    line-spacing: { multiple: 1 }
+
+  cover-subtitle:
+    based-on: body
+    size: 15
+    italic: true
+    color: muted
+    alignment: center
+    space-after: 0
+
+  cover-authors:
+    based-on: body
+    size: 13
+    alignment: center
+    space-after: 0
+
+  cover-emblem:
+    based-on: body
+    alignment: center
+    space-after: 10
+    line-spacing: { multiple: 1 }
+
+  cover-organisation:
+    based-on: body
+    size: 11
+    bold: true
+    color: accent
+    alignment: center
+    space-after: 0
+
+character-styles:
+  term:
+    italic: true
+
+table-styles:
+  table:
+    cell-style: table-cell
+    border:
+      outer: { width: 0.75, color: rule }
+      inside-horizontal: { width: 0.5, color: rule }
+    header-row:
+      bold: true
+      background: surface
+      repeat: true
+    cell-padding: 4
+
+page-templates:
+  page:
+    size: Letter
+    margins: { top: 72, right: 90, bottom: 72, left: 90 }
+    footer:
+      style: header-footer
+      center: '[1](stanza:page)'
+    cover:
+      rows:
+        - height: 2fr
+          valign: bottom
+          content:
+            - style: cover-title
+              text: '[Untitled](stanza:title)'
+            - style: cover-subtitle
+              text: '[](stanza:field:subtitle)'
+        - height: 1fr
+          valign: center
+          content:
+            - style: cover-authors
+              text: '[](stanza:authors)'
+        - height: 2fr
+          valign: bottom
+          content:
+            - image: assets/emblem.png
+              width: 96
+              style: cover-emblem
+            - style: cover-organisation
+              text: '[](stanza:field:organisation)'
+
+table-of-contents:
+  page-numbers: false
