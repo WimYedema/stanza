@@ -53,6 +53,7 @@ export {
 export { plainCell, plainCellInlines } from './table-cell.js';
 export { BLOCK_ATTRIBUTES, MARK_ATTRIBUTES, MARK_TYPES, needsId } from './vocabulary.js';
 export { KNOWN_STANZA_KINDS, validateDocument } from './document-validation.js';
+export { coverOverflows, type CoverOverflow } from './cover-fit.js';
 export { BODY_STYLE, CODE_STYLE, LIST_STYLES, defaultHeadingStyle } from './default-styles.js';
 export { collectBlockIds, type BlockId } from './document-ids.js';
 export {
