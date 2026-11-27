@@ -86,10 +86,13 @@ if (results === undefined) {
 }
 
 const ms = (value) => `${String(Math.round(value))}`;
+// A part with no runs, as after a cancelled measurement, has no number: JSON writes NaN as null.
 const row = (name, spread, budget) =>
-  `  ${name.padEnd(20)} p50 ${ms(spread.p50).padStart(6)}  p95 ${ms(spread.p95).padStart(6)}  ${
-    spread.p95 <= budget ? 'within' : 'OVER  '
-  } ${String(budget)} ms`;
+  typeof spread.p95 !== 'number'
+    ? `  ${name.padEnd(20)} not measured`
+    : `  ${name.padEnd(20)} p50 ${ms(spread.p50).padStart(6)}  p95 ${ms(spread.p95).padStart(6)}  ${
+        spread.p95 <= budget ? 'within' : 'OVER  '
+      } ${String(budget)} ms`;
 for (const result of results.documents) {
   console.log(`\n${result.label}: ${result.path} (${String(result.blocks)} blocks)`);
   console.log(row('cold open, visible', result.summary.coldVisible, BUDGET.coldVisible));

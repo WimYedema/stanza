@@ -61,7 +61,7 @@ Notes:
 
 ## First open in a new window
 
-`node scripts/bench/first-open.mjs <document> --runs 5`. From starting `code` to the document painted, in a new profile with no other extensions installed. Runs here are 5, so p95 is the slowest run.
+`node scripts/bench/first-open.mjs <document> --runs 5`. From starting `code` to the document painted, in a new window of a profile with no other extensions installed. All runs share the profile, and its first start is left out (item 239), so these are later starts of VS Code, not the very first one. Runs here are 5, so p95 is the slowest run.
 
 ### 2026-11-27, `docs/documents/0078-document-startup.stanza.md`, before and after items 238 and 243
 

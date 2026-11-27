@@ -65,6 +65,18 @@ describe('the report', () => {
     ]);
   });
 
+  it('says not measured, not NaN, for opens that a cancelled measurement did not reach', () => {
+    const lines = reportLines([
+      { ...result, cold: [], warm: [], actions: undefined, applied: undefined },
+    ]);
+    expect(lines.slice(1, 4)).toEqual([
+      '  cold open, visible:  not measured',
+      '  cold open, editable: not measured',
+      '  warm open, editable: not measured',
+    ]);
+    expect(lines.join('\n')).not.toContain('NaN');
+  });
+
   it('keeps the durations beside their spreads in the JSON', () => {
     const json = JSON.parse(resultsJson([result], { runs: 2 })) as {
       runs: number;

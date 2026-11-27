@@ -102,8 +102,8 @@ let removedFromOutside = 0;
 const painted = new Set<'visible' | 'editable'>();
 /** Actions are being measured; from then on no change goes to the host, until the editor closes. */
 let measuring = false;
-/** How many transactions the editor has had, to check that a measured action did something. */
-let transactions = 0;
+/** How many changes of the document the editor has had, to check that a measured action did one. */
+let documentChanges = 0;
 let ready = false;
 let metadataPending = false;
 
@@ -348,6 +348,7 @@ function refuse(title: string, reasons: readonly Reason[], canFormat: boolean): 
 }
 
 function onChange(result: ReturnType<StanzaEditor['getDocument']>): void {
+  documentChanges += 1;
   if (result.document === undefined) {
     say(`The content cannot be saved: ${result.diagnostics.map((d) => d.message).join(' ')}`);
     return;
@@ -406,7 +407,6 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     usedIds: () => usedIds,
     editable: message.projectReady,
     onContextChange: () => {
-      transactions += 1;
       toolbar.schedule();
       info.schedule();
       reviewCards.schedule();
@@ -527,7 +527,7 @@ function handle(message: HostMessage): void {
       const content = element('editor').querySelector<HTMLElement>('.ProseMirror');
       if (editor === undefined || content === null || !ready || measuring) return;
       measuring = true;
-      void measureActions(editor, content, message.runs, () => transactions).then((result) => {
+      void measureActions(editor, content, message.runs, () => documentChanges).then((result) => {
         send({ type: 'action-timings', ...result });
       });
       return;

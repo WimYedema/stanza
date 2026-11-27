@@ -7,7 +7,7 @@ import {
 } from '../shared/protocol.js';
 import type { ProjectDiagnostics } from './project-diagnostics.js';
 import { findRoot } from './project-files.js';
-import type { StanzaEditorProvider } from './provider.js';
+import type { MeasuredActions, StanzaEditorProvider } from './provider.js';
 import type { OpenDurations } from './startup-times.js';
 
 /** How often each document is opened cold and warm, and each action is run (ADR 0101). */
@@ -75,9 +75,18 @@ export function reportLines(results: readonly DocumentResult[]): string[] {
       spread(opens.map((open) => open.visible));
     const editable = (opens: readonly OpenDurations[]): Spread =>
       spread(opens.map((open) => open.editable));
-    lines.push(`  cold open, visible:  ${against(visible(result.cold), BUDGETS.coldVisible)}`);
-    lines.push(`  cold open, editable: ${against(editable(result.cold), BUDGETS.coldEditable)}`);
-    lines.push(`  warm open, editable: ${against(editable(result.warm), BUDGETS.warmEditable)}`);
+    // A measurement cancelled before the first open of a document has nothing to report.
+    const line = (name: string, opens: readonly OpenDurations[], value: Spread, budget: number) =>
+      opens.length === 0 ? `  ${name} not measured` : `  ${name} ${against(value, budget)}`;
+    lines.push(
+      line('cold open, visible: ', result.cold, visible(result.cold), BUDGETS.coldVisible),
+    );
+    lines.push(
+      line('cold open, editable:', result.cold, editable(result.cold), BUDGETS.coldEditable),
+    );
+    lines.push(
+      line('warm open, editable:', result.warm, editable(result.warm), BUDGETS.warmEditable),
+    );
     for (const action of MEASURED_ACTIONS) {
       const values = result.actions?.[action] ?? [];
       const applied = result.applied?.[action] ?? 0;
@@ -126,10 +135,16 @@ function withTimeout<T>(promise: Promise<T>, what: string, limit = OPEN_TIMEOUT_
     const timer = setTimeout(() => {
       reject(new Error(`${what} took longer than ${ms(limit)}.`));
     }, limit);
-    void promise.then((value) => {
-      clearTimeout(timer);
-      resolve(value);
-    });
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
   });
 }
 
@@ -198,11 +213,13 @@ async function measure(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log.appendLine(`Stanza measurement failed: ${message}`);
-    // A script waits for the file, so it hears of the failure too.
+    // A script waits for the file, so it hears of the failure too. A person gets a message, which is
+    // not waited for, so that nothing is held up until it is closed.
     if (options.target !== undefined) {
       const text = `${JSON.stringify({ error: message })}\n`;
       await vscode.workspace.fs.writeFile(options.target, new TextEncoder().encode(text));
     }
+    if (options.quit !== true) void vscode.window.showErrorMessage(`Stanza: ${message}`);
   }
   if (options.quit === true) await vscode.commands.executeCommand('workbench.action.quit');
 }
@@ -215,26 +232,35 @@ async function measureProject(
 ): Promise<void> {
   const active = options.document ?? activeDocument();
   const root = active === undefined ? undefined : await findRoot(active);
-  if (root === undefined) {
-    await vscode.window.showErrorMessage(
-      'Stanza: open a document of the project to measure first.',
-    );
-    return;
-  }
+  if (root === undefined) throw new Error('Open a document of the project to measure first.');
   const project = await diagnostics.load(root);
   const chosen = pickDocuments(
     project.documents.map(({ path, document }) => ({ path, blocks: document.blocks.length })),
   );
   const uris = chosen.map((item) => vscode.Uri.joinPath(root, item.path));
+  // The editors of this project are closed, so that none loads it again while the cold opens are
+  // timed: those inside its folder, not in a folder whose name only starts the same.
+  const inProject = root.toString().endsWith('/') ? root.toString() : `${root.toString()}/`;
+  const projectTabs = vscode.window.tabGroups.all
+    .flatMap((group) => group.tabs)
+    .filter(
+      (tab) =>
+        tab.input instanceof vscode.TabInputCustom &&
+        tab.input.uri.toString().startsWith(inProject),
+    );
+  const closing = new Set([
+    ...uris.map((uri) => uri.toString()),
+    ...projectTabs.flatMap((tab) =>
+      tab.input instanceof vscode.TabInputCustom ? [tab.input.uri.toString()] : [],
+    ),
+  ]);
   const dirty = vscode.workspace.textDocuments.filter(
-    (document) =>
-      document.isDirty && uris.some((uri) => uri.toString() === document.uri.toString()),
+    (document) => document.isDirty && closing.has(document.uri.toString()),
   );
   if (dirty.length > 0) {
-    await vscode.window.showErrorMessage(
-      `Stanza: save ${dirty.map((document) => document.fileName).join(', ')} before measuring.`,
+    throw new Error(
+      `Save ${dirty.map((document) => document.fileName).join(', ')} before measuring.`,
     );
-    return;
   }
   const target =
     options.target ??
@@ -242,15 +268,7 @@ async function measureProject(
       title: 'Save the results as JSON (Cancel: the Stanza output channel only)',
       filters: { JSON: ['json'] },
     }));
-  // An editor of the project left open would load it again while the cold opens are timed.
-  for (const tab of vscode.window.tabGroups.all.flatMap((group) => group.tabs)) {
-    if (
-      tab.input instanceof vscode.TabInputCustom &&
-      tab.input.uri.toString().startsWith(root.toString())
-    ) {
-      await vscode.window.tabGroups.close(tab);
-    }
-  }
+  if (projectTabs.length > 0) await vscode.window.tabGroups.close(projectTabs);
   log.show(true);
   log.appendLine(
     `Stanza measurement: ${String(MEASURE_RUNS)} runs, VS Code ${vscode.version}, ${root.fsPath}.`,
@@ -272,21 +290,26 @@ async function measureProject(
         await close(uri);
         const cold: OpenDurations[] = [];
         const warm: OpenDurations[] = [];
-        for (let run = 0; run < MEASURE_RUNS && !cancelled(); run++) {
-          diagnostics.invalidate(root);
-          cold.push(await open(editors, uri));
+        let measured: MeasuredActions | undefined;
+        try {
+          for (let run = 0; run < MEASURE_RUNS && !cancelled(); run++) {
+            diagnostics.invalidate(root);
+            cold.push(await open(editors, uri));
+            await close(uri);
+            await diagnostics.load(root);
+            warm.push(await open(editors, uri));
+            if (run < MEASURE_RUNS - 1) await close(uri);
+          }
+          const measuring = cancelled() ? undefined : editors.measureActions(uri, MEASURE_RUNS);
+          measured =
+            measuring === undefined
+              ? undefined
+              : await withTimeout(measuring, 'Measuring actions', ACTIONS_TIMEOUT_MS);
+        } finally {
+          // Also when measuring failed: the measured editor sends no change any more and holds what
+          // was typed in it. Closing it leaves the file as it was.
           await close(uri);
-          await diagnostics.load(root);
-          warm.push(await open(editors, uri));
-          if (run < MEASURE_RUNS - 1) await close(uri);
         }
-        const measuring = cancelled() ? undefined : editors.measureActions(uri, MEASURE_RUNS);
-        const measured =
-          measuring === undefined
-            ? undefined
-            : await withTimeout(measuring, 'Measuring actions', ACTIONS_TIMEOUT_MS);
-        // The editor sent none of the measured changes; closing it leaves the file as it was.
-        await close(uri);
         done.push({
           ...item,
           cold,

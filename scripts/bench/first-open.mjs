@@ -2,10 +2,13 @@
 //
 //   node scripts/bench/first-open.mjs <document.stanza.md> [--runs 20] [--code code] [--out file.json]
 //
-// Each run starts the installed `code` with a new, empty user data folder and extensions folder of
-// its own, Stanza loaded from packages/vscode (build it first) and the project folder of the
-// document, and waits until VS Code has quit. STANZA_TIMING_FILE makes Stanza write a time stamp at
-// each step and quit once the document is editable. One run before the measured ones is left out.
+// The runs share one new profile, an empty user data folder and extensions folder made for this
+// measurement, with Stanza loaded from packages/vscode (build it first). Each run starts the
+// installed `code` on the project folder of the document and waits until VS Code has quit.
+// STANZA_TIMING_FILE makes Stanza write a time stamp at each step and quit once the document is
+// editable. The first run is the first start of the profile and is left out: VS Code then opens the
+// file as text, since it does not know Stanza's editor yet (item 239), and it fills the caches that
+// any later start of VS Code has. So the runs measure a new window of a profile that was used once.
 // Nothing is sent anywhere; the result is printed, and written to --out when given.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
