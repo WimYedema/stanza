@@ -32,6 +32,7 @@ import {
   without,
   type EntriesContext,
 } from './styles-entries.js';
+import { measures } from './styles-measure.js';
 import { numberFrom } from './styles-properties.js';
 
 /**
@@ -76,6 +77,8 @@ const widthText = (width: CoverColumnWidth): string =>
   width.kind === 'points' ? String(width.pt) : `${String(width.fr)}fr`;
 
 export interface GridContext {
+  /** What the grid is of, for the arrows that show a column or row in the preview. */
+  readonly target: GridTarget;
   readonly entries: EntriesContext;
   /** The area that is selected, in the panel and in the preview. */
   readonly selected: string | undefined;
@@ -88,6 +91,7 @@ export interface GridContext {
 
 /** A list of sizes, each with buttons to insert one after it and to remove it. */
 function sizeList<T>(
+  target: GridTarget,
   label: string,
   sizes: readonly T[],
   text: (size: T) => string,
@@ -106,6 +110,11 @@ function sizeList<T>(
     input.type = 'text';
     input.value = text(size);
     input.placeholder = 'grows';
+    measures(input, {
+      target,
+      what: label === 'Column' ? 'column' : 'row',
+      index,
+    });
     input.addEventListener('change', () => {
       const parsed = parse(input.value);
       if (parsed === undefined) actions.refuse(`"${input.value}" is not a size: ${hint}`);
@@ -132,6 +141,7 @@ export function gridPanel(grid: CoverGrid, context: GridContext): HTMLElement[] 
     else context.refuse(edit.message);
   };
   const columns = sizeList(
+    context.target,
     'Column',
     grid.columns,
     widthText,
@@ -153,6 +163,7 @@ export function gridPanel(grid: CoverGrid, context: GridContext): HTMLElement[] 
     },
   );
   const rows = sizeList(
+    context.target,
     'Row',
     grid.rows,
     heightText,
@@ -312,7 +323,8 @@ export function createBandGridEditor(
     options.send({
       type: 'set-block',
       path: ['page-templates', current.name, band],
-      source: headerFooterSource(spec),
+      // Empty slots without a style or distance are no header or footer at all.
+      source: headerFooterSource(spec) === '' ? null : headerFooterSource(spec),
     });
     // Every field holds the model it was drawn with, so the panel is drawn again after a change.
     if (redraw) draw();
@@ -346,6 +358,7 @@ export function createBandGridEditor(
     }
     element.replaceChildren(
       ...gridPanel(grid, {
+        target: band,
         entries: {
           stylesheet: current.stylesheet,
           images: options.images(),

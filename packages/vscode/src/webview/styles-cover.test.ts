@@ -213,7 +213,18 @@ describe('the cover editor', () => {
     ]);
     buttonOf('Remove the row', 2).click();
     applyLast();
+    // Rows become a list only when the person says so, since the heights go (ADR 0096).
+    const count = sent.length;
     change(kindOf(0), 'list');
+    expect(sent).toHaveLength(count);
+    expect(kindOf(0).value).toBe('rows');
+    expect(editor.element.querySelector('.confirm')?.textContent).toContain(
+      'not the heights, alignment and backgrounds of the 2 rows',
+    );
+    buttonOf('Cancel').click();
+    expect(editor.element.querySelector('.confirm')).toBeNull();
+    change(kindOf(0), 'list');
+    buttonOf('Change').click();
     applyLast();
     cover = templateOf(stylesheetOf(text)).cover;
     expect(cover?.kind === 'list' && cover.entries.map((entry) => entry.kind)).toEqual([
@@ -221,6 +232,10 @@ describe('the cover editor', () => {
       'image',
     ]);
     change(kindOf(0), 'none');
+    expect(editor.element.querySelector('.confirm')?.textContent).toContain(
+      'removes the cover with its 2 entries',
+    );
+    buttonOf('Change').click();
     applyLast();
     expect(templateOf(stylesheetOf(text)).cover).toBeUndefined();
   });
@@ -313,6 +328,7 @@ describe('the cover editor', () => {
     expect(kindOf(0).value).toBe('grid');
     expect(editor.element.querySelector('.status')?.textContent).toContain('one column');
     change(kindOf(0), 'list');
+    buttonOf('Change').click();
     applyLast();
     const cover = templateOf(stylesheetOf(text)).cover;
     expect(cover?.kind === 'list' && cover.entries.map((entry) => entry.kind)).toEqual([

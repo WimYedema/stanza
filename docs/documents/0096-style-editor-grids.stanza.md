@@ -32,6 +32,7 @@ The Pages panel edits a cover of rows (ADR 0091), but a cover grid (ADR 0092) an
 - **A click on an area selects it** in the panel and scrolls to it; a selected area is marked in the preview.
 - A header or footer that is a grid is drawn on the body page at its distance from the edge, and is edited in the same way.
 - **The preview shows what can be done.** A cell under the mouse is lit and has a crosshair, the area under the mouse is outlined, and while a grid is shown a bar above the preview says what a drag and a click do; with a selection, the same bar offers the actions.
+- **The preview shows what a field sizes.** While the cursor is in a field of a size, a red arrow with the length in points spans what it sizes: a column or a row of a grid or of rows, a margin of the cover or the body pages, or the distance of the header or footer from the edge.
 
 <!-- stanza: #gzzv502f0s -->
 ### The layout and its parts
@@ -47,6 +48,8 @@ A page template is the layout of every document that names it, cover included, s
 ### Edits
 
 Every change writes the whole `cover`, `header` or `footer` of the template again in the one form of ADR 0091, with `setBlock`; the writing of a header or footer, with its style, its distance and its grid, is `headerFooterSource` in `format`, which `stanza import cover` also uses. The changes to a grid are functions of `core` that take a grid and give a new one or the reason why not, so the panel and its tests share them. The host refuses a result with an error, as for other edits, and Undo in the editor of the text gives the previous version back.
+
+A change of kind that loses what was made is asked first, in the panel, since a webview cannot show a dialog: a cover that becomes none, rows or a grid that become a list, and a header or footer grid that becomes slots. The question says what goes. Changes that keep everything are made at once: rows become a grid and back, and a list becomes rows or one area.
 
 <!-- stanza: #njyp017cef -->
 ### Out of scope

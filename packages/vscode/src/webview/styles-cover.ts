@@ -2,8 +2,8 @@ import {
   COVER_ALIGNMENTS,
   coverGrid,
   entriesGrid,
-  gridEntries,
   gridRows,
+  coverEntries,
   type CellRange,
   type Cover,
   type CoverEntry,
@@ -23,6 +23,7 @@ import {
 } from './styles-dom.js';
 import {
   button,
+  confirmBox,
   entriesBox,
   heightText,
   itemButtons,
@@ -34,6 +35,7 @@ import {
   type EntriesContext,
 } from './styles-entries.js';
 import { applyCells, gridPanel, markArea, type CellAction } from './styles-grid.js';
+import { measures } from './styles-measure.js';
 import { numberFrom } from './styles-properties.js';
 
 export { heightText, parseHeight } from './styles-entries.js';
@@ -65,6 +67,29 @@ export interface CoverEditor {
   selectArea(name: string | undefined): void;
   /** Shows the cover for the cover page, or the title block for the body pages (ADR 0096). */
   showPart(part: 'cover' | 'body'): void;
+}
+
+/**
+ * What a change of the kind of a cover loses, said to the person before it is made, or nothing
+ * when it keeps everything: rows become a grid and back, and a list becomes rows or one area.
+ */
+export function coverLoss(cover: Cover | undefined, to: string): string | undefined {
+  if (cover === undefined || cover.kind === to) return undefined;
+  const entries = coverEntries(cover).length;
+  const counted = (count: number, one: string, many: string): string =>
+    `${String(count)} ${count === 1 ? one : many}`;
+  if (to === 'none') {
+    if (cover.kind === 'list' && entries === 0) return undefined;
+    return `No cover removes the cover with its ${counted(entries, 'entry', 'entries')}.`;
+  }
+  if (to === 'list' && cover.kind === 'rows') {
+    return `A list keeps the entries, but not the heights, alignment and backgrounds of the ${counted(cover.rows.length, 'row', 'rows')}, nor the margins of the cover.`;
+  }
+  if (to === 'list' && cover.kind === 'grid') {
+    const areas = Object.keys(cover.area).length;
+    return `A list keeps the entries, but not the columns and rows, nor the places, alignment and backgrounds of the ${counted(areas, 'area', 'areas')}.`;
+  }
+  return undefined;
 }
 
 export function createCoverEditor(
@@ -169,6 +194,7 @@ export function createCoverEditor(
       input.step = 'any';
       input.min = '0';
       input.placeholder = template === undefined ? '' : String(template.margins[SIDE_KEYS[side]]);
+      measures(input, { target: 'cover', what: 'margin', side });
       const own = cover.margins?.[SIDE_KEYS[side]];
       input.value = own === undefined ? '' : String(own);
       input.addEventListener('change', () => {
@@ -211,6 +237,7 @@ export function createCoverEditor(
       height.type = 'text';
       height.value = heightText(layoutRow.height);
       height.placeholder = 'grows';
+      measures(height, { target: 'cover', what: 'row', index });
       height.addEventListener('change', () => {
         const parsed = parseHeight(height.value);
         if (parsed === undefined) {
@@ -287,20 +314,13 @@ export function createCoverEditor(
       option('grid', 'A grid of areas'),
     );
     select.value = kind;
-    select.addEventListener('change', () => {
-      const entries =
-        cover === undefined
-          ? []
-          : cover.kind === 'list'
-            ? cover.entries
-            : cover.kind === 'rows'
-              ? cover.rows.flatMap((layoutRow) => layoutRow.content)
-              : gridEntries(cover);
+    const changeKind = (to: string): void => {
+      const entries = cover === undefined ? [] : coverEntries(cover);
       const margins = cover?.kind === 'rows' || cover?.kind === 'grid' ? cover.margins : undefined;
       const withMargins = margins !== undefined ? { margins } : {};
-      if (select.value === 'none') writeCover(undefined, true);
-      else if (select.value === 'list') writeCover({ kind: 'list', entries }, true);
-      else if (select.value === 'grid') {
+      if (to === 'none') writeCover(undefined, true);
+      else if (to === 'list') writeCover({ kind: 'list', entries }, true);
+      else if (to === 'grid') {
         // Rows keep their places as a grid of one column; anything else becomes one area.
         const grid = cover?.kind === 'rows' ? coverGrid(cover) : entriesGrid(entries);
         writeCover({ ...grid, ...withMargins }, true);
@@ -323,8 +343,33 @@ export function createCoverEditor(
           true,
         );
       }
+    };
+    const confirmSlot = el('div');
+    select.addEventListener('change', () => {
+      const to = select.value;
+      const loss = coverLoss(cover, to);
+      if (loss === undefined) {
+        changeKind(to);
+        return;
+      }
+      // A change that loses what was made is asked first, in the panel (ADR 0096).
+      select.value = kind;
+      confirmSlot.replaceChildren(
+        confirmBox(
+          loss,
+          'Change',
+          () => {
+            confirmSlot.replaceChildren();
+            select.value = to;
+            changeKind(to);
+          },
+          () => {
+            confirmSlot.replaceChildren();
+          },
+        ),
+      );
     });
-    const parts: HTMLElement[] = [row('Kind', select)];
+    const parts: HTMLElement[] = [row('Kind', select), confirmSlot];
     if (cover?.kind === 'list') {
       parts.push(
         entriesBox(cover.entries, context(), (entries) => {
@@ -337,6 +382,7 @@ export function createCoverEditor(
       parts.push(
         marginBox(cover),
         ...gridPanel(cover, {
+          target: 'cover',
           entries: context(),
           selected: selectedArea,
           write: (grid, redraw) => {

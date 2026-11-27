@@ -214,4 +214,67 @@ describe('the page panel', () => {
       path: ['page-templates', 'page', 'header', 'distance'],
     });
   });
+
+  it('asks before a header grid becomes slots, which cannot hold its areas (ADR 0096)', () => {
+    const withGrid = parseStylesheet(`stanza-format: 1
+paragraph-styles:
+  body: {}
+page-templates:
+  page:
+    size: A4
+    header:
+      columns: [1fr]
+      areas: ['mark']
+      area:
+        mark:
+          content: []
+`).stylesheet;
+    const part = entriesOf(withGrid).find(
+      (each) => each.kind === 'page-part' && each.name === 'body',
+    );
+    if (part === undefined) throw new Error('No part.');
+    panel.show(part, withGrid);
+    const kind = selectOf('Header', 'Kind');
+    expect(kind.value).toBe('grid');
+    send.mockClear();
+    change(kind, 'slots');
+    expect(send).not.toHaveBeenCalled();
+    expect(kind.value).toBe('grid');
+    const box = root.querySelector('.confirm');
+    expect(box?.textContent).toContain('the 1 area of the grid and their entries are removed');
+    [...(box?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Change')?.click();
+    expect(send).toHaveBeenCalledWith({
+      type: 'set-block',
+      path: ['page-templates', 'page', 'header'],
+      source: null,
+    });
+  });
+
+  it('tells the preview what the field with the cursor sizes, and nothing when it leaves', () => {
+    const measured: unknown[] = [];
+    document.body.replaceChildren();
+    root = document.createElement('div');
+    document.body.append(root);
+    panel = createPagePanel({
+      root,
+      send,
+      preview: {
+        show: () => undefined,
+        setImages: () => undefined,
+        setEditing: () => undefined,
+        select: () => undefined,
+        measure: (measure) => measured.push(measure),
+      },
+    });
+    panel.show(entry('page-part', 'body'), stylesheet);
+    const left = inputOf('Margins', 'Left');
+    left.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(measured.at(-1)).toEqual({ target: 'body', what: 'margin', side: 'left' });
+    inputOf('Header', 'Distance').dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(measured.at(-1)).toEqual({ target: 'header', what: 'distance' });
+    selectOf('Header', 'Style').dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    expect(measured.at(-1)).toBeUndefined();
+    left.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    expect(measured.at(-1)).toBeUndefined();
+  });
 });

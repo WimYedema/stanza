@@ -319,3 +319,23 @@ export function entriesBox(
   box.append(adds);
   return box;
 }
+
+/**
+ * A question in the panel before a change that loses what was made: what it loses, a button that
+ * makes it, and one that keeps things as they are. A webview of VS Code cannot show a dialog.
+ */
+export function confirmBox(
+  message: string,
+  confirm: string,
+  onConfirm: () => void,
+  onCancel: () => void,
+): HTMLElement {
+  const box = el('div', 'confirm');
+  box.setAttribute('role', 'alertdialog');
+  const keep = button('Cancel', 'Leave it as it is', onCancel);
+  box.append(el('p', '', message), button(confirm, message, onConfirm), keep);
+  queueMicrotask(() => {
+    keep.focus();
+  });
+  return box;
+}

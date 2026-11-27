@@ -9,6 +9,8 @@ import { slotSource } from '@stanza/format';
 import type { StylesWebviewMessage, Value } from '../shared/styles-protocol.js';
 import type { CoverPreview } from './styles-cover-preview.js';
 import { createCoverEditor, refuseCover } from './styles-cover.js';
+import { confirmBox } from './styles-entries.js';
+import { measures, parseMeasure } from './styles-measure.js';
 import { createBandGridEditor, type BandGridEditor } from './styles-grid.js';
 import { el, option, simpleRow as row, simpleSection as section } from './styles-dom.js';
 import type { Entry } from './styles-families.js';
@@ -140,6 +142,7 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
       const value = numberFrom(input.value);
       if (value !== undefined) commit(['margins', side], value);
     });
+    measures(input, { target: 'body', what: 'margin', side });
     updates.push((template) => {
       input.value = String(template.margins[`${side}Pt`]);
     });
@@ -197,6 +200,7 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     distance.step = 'any';
     distance.min = '0';
     distance.placeholder = '35.4';
+    measures(distance, { target: band, what: 'distance' });
     distance.addEventListener('change', () => {
       const value = numberFrom(distance.value);
       if (value === undefined) return;
@@ -210,8 +214,29 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     // Three slots, or a grid of areas with a logo or several lines (ADR 0095, ADR 0096).
     const kind = el('select');
     kind.append(option('slots', 'Three slots'), option('grid', 'A grid of areas'));
+    const confirmSlot = el('div');
     kind.addEventListener('change', () => {
       status.textContent = '';
+      const grid = currentTemplate()?.[band]?.grid;
+      if (kind.value === 'slots' && grid !== undefined) {
+        // Slots cannot hold the areas of a grid, so this is asked first (ADR 0096).
+        kind.value = 'grid';
+        const areas = Object.keys(grid.area).length;
+        confirmSlot.replaceChildren(
+          confirmBox(
+            `Three slots start empty: the ${String(areas)} ${areas === 1 ? 'area' : 'areas'} of the grid and their entries are removed.`,
+            'Change',
+            () => {
+              confirmSlot.replaceChildren();
+              bandGrids[band].setKind('slots');
+            },
+            () => {
+              confirmSlot.replaceChildren();
+            },
+          ),
+        );
+        return;
+      }
       bandGrids[band].setKind(kind.value === 'grid' ? 'grid' : 'slots');
     });
     const gridNote = el(
@@ -235,6 +260,7 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     return section(
       titleOf(band),
       row('Kind', kind),
+      confirmSlot,
       hint,
       gridNote,
       row('Style', style),
@@ -250,6 +276,19 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     ...bandSections,
   ];
   root.append(status, layoutBox, coverNote, ...bodySections, covers.element);
+
+  // While the cursor is in a field that sizes something, the preview shows what (ADR 0096).
+  root.addEventListener('focusin', (event) => {
+    const field =
+      event.target instanceof HTMLElement ? event.target.closest('[data-measure]') : null;
+    preview?.measure(
+      field instanceof HTMLElement ? parseMeasure(field.dataset['measure']) : undefined,
+    );
+  });
+  root.addEventListener('focusout', (event) => {
+    const next = event.relatedTarget;
+    if (!(next instanceof Node) || !root.contains(next)) preview?.measure(undefined);
+  });
 
   /** The picker of layouts, or the name of the only one, and what it is used by. */
   function drawLayouts(stylesheet: Stylesheet, name: string): void {
@@ -276,10 +315,14 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     update();
   }
 
-  function update(): void {
-    const template = [...(current?.stylesheet.pageTemplates ?? [])].find(
+  function currentTemplate(): PageTemplate | undefined {
+    return [...(current?.stylesheet.pageTemplates ?? [])].find(
       ([name]) => name === current?.name,
     )?.[1];
+  }
+
+  function update(): void {
+    const template = currentTemplate();
     if (current === undefined || template === undefined) return;
     for (const apply of updates) apply(template, current.stylesheet);
     coverNote.hidden = current.part !== 'cover';

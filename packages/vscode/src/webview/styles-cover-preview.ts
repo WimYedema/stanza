@@ -13,6 +13,7 @@ import {
 import { SCOPE_CLASS } from '@stanza/css';
 import { drawBand, drawCover, drawTitleBlock } from './sheet.js';
 import { GRID_HINT, attachOverlay } from './styles-grid-overlay.js';
+import { drawMeasure, type Measure } from './styles-measure.js';
 import type { CellAction, GridTarget } from './styles-grid.js';
 
 /**
@@ -98,6 +99,8 @@ export interface CoverPreview {
   setEditing(handlers: GridHandlers): void;
   /** Marks the selected area of a grid. */
   select(target: GridTarget, name: string | undefined): void;
+  /** Shows with an arrow what the field with the cursor sizes, or nothing. */
+  measure(measure: Measure | undefined): void;
 }
 
 export function createCoverPreview(elements: CoverPreviewElements): CoverPreview {
@@ -108,6 +111,13 @@ export function createCoverPreview(elements: CoverPreviewElements): CoverPreview
     | { template: PageTemplate | undefined; stylesheet: Stylesheet; part?: 'cover' | 'body' }
     | undefined;
   let handlers: GridHandlers | undefined;
+  let measured: Measure | undefined;
+  const sheets = () => ({
+    cover: elements.cover,
+    body: elements.first,
+    ...(elements.header !== undefined ? { header: elements.header } : {}),
+    ...(elements.footer !== undefined ? { footer: elements.footer } : {}),
+  });
   const selected: Record<GridTarget, string | undefined> = {
     cover: undefined,
     header: undefined,
@@ -220,6 +230,7 @@ export function createCoverPreview(elements: CoverPreviewElements): CoverPreview
     if (part === 'body') elements.cover.hidden = true;
     elements.root.hidden = elements.cover.hidden && elements.first.hidden;
     showHint();
+    drawMeasure(sheets(), measured);
   }
 
   return {
@@ -234,6 +245,10 @@ export function createCoverPreview(elements: CoverPreviewElements): CoverPreview
     setEditing(next) {
       handlers = next;
       draw();
+    },
+    measure(next) {
+      measured = next;
+      drawMeasure(sheets(), measured);
     },
     select(target, name) {
       selected[target] = name;

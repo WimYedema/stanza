@@ -80,6 +80,24 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
     font: 9px sans-serif; color: #ffffff; background: rgba(0, 120, 212, 0.75); }
   .cover-editor .grid-area.selected { border-left-color: #0078d4; }
   #preview-bar .hint { color: #9d9d9d; }
+  .measure { position: absolute; z-index: 6; pointer-events: none; color: #d13438; }
+  .measure.horizontal { height: 0; border-top: 1px solid currentColor; }
+  .measure.vertical { width: 0; border-left: 1px solid currentColor; }
+  .measure::before, .measure::after { content: ''; position: absolute; border: 4px solid transparent; }
+  .measure.horizontal::before { left: 0; top: -5px; border-left-width: 0;
+    border-right: 6px solid currentColor; }
+  .measure.horizontal::after { right: 0; top: -5px; border-right-width: 0;
+    border-left: 6px solid currentColor; }
+  .measure.vertical::before { top: 0; left: -5px; border-top-width: 0;
+    border-bottom: 6px solid currentColor; }
+  .measure.vertical::after { bottom: 0; left: -5px; border-bottom-width: 0;
+    border-top: 6px solid currentColor; }
+  .measure-label { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    padding: 0 3px; background: #ffffff; font: 10px sans-serif; white-space: nowrap; }
+  .side-panel .confirm { margin: 4px 12px 8px; padding: 6px 8px; border-left: 3px solid #cca700;
+    background: rgba(204, 167, 0, 0.12); font-size: 12px; }
+  .side-panel .confirm p { margin: 0 0 6px; }
+  .side-panel .confirm button { margin-right: 6px; }
   .layout-box { padding: 4px 0 8px; border-bottom: 1px solid #3c3c3c; }
   .layout-box .layout-name { font-weight: 600; }
   #preview-header .slots, #preview-footer .slots { display: grid;
