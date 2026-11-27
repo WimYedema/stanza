@@ -21,7 +21,7 @@ With rows and areas (ADR 0089, ADR 0092) the parts of a cover are where they bel
 - **A rule is a thin row or column with a color,** such as a row of 5 points. Covers need no paragraph or cell borders.
 - **Text on a color takes its color from its paragraph style,** such as a style with white text for a dark band. The background does not change the text.
 - **Export:** cell shading of the token's color on the cell of the row or area. **Preview:** the background color of the row or area, in the editor and in the style editor.
-- **The Pages panel** has a background for each row, chosen from the color tokens or none. The background of a grid area is edited in the text until item 230.
+- **The Pages panel** has a background for each row, chosen from the color tokens or none. The background of a grid area is edited in the panel since ADR 0096.
 - A gradient is approximated by one color, or is a background image (item 227).
 
 The stylesheet stays at format version 1.

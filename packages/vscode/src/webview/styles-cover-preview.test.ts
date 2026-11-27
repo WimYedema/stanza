@@ -101,3 +101,73 @@ describe('the cover preview', () => {
     expect(elements.root.hidden).toBe(true);
   });
 });
+
+describe('the preview of grids while they are edited (ADR 0096)', () => {
+  const grids = parseStylesheet(
+    [
+      'stanza-format: 1',
+      'paragraph-styles:',
+      RESERVED,
+      'table-styles:',
+      '  table: {}',
+      'page-templates:',
+      '  page:',
+      '    size: A4',
+      '    header:',
+      '      distance: 20',
+      '      columns: [1fr, 1fr]',
+      "      areas: ['mark .']",
+      '      area:',
+      '        mark:',
+      '          content: []',
+      '    cover:',
+      '      columns: [100, 1fr]',
+      '      rows: [50, 1fr]',
+      "      areas: ['logo .', 'title title']",
+      '      area:',
+      '        logo:',
+      '          content: []',
+      '        title:',
+      '          content: []',
+      '',
+    ].join('\n'),
+  ).stylesheet;
+
+  it('draws empty grids with their cells and areas, and tells which target a drag was on', () => {
+    const header = document.createElement('div');
+    const bar = document.createElement('div');
+    elements.first.append(header);
+    elements.root.append(bar);
+    preview = createCoverPreview({ ...elements, header, bar });
+    const done: unknown[] = [];
+    preview.setEditing({
+      cells: (target, range, action) => done.push([target, range, action]),
+      select: (target, name) => done.push([target, name]),
+    });
+    preview.show(grids.pageTemplates.get('page' as StyleName), grids);
+    expect(elements.cover.hidden).toBe(false);
+    expect(elements.cover.querySelectorAll('.grid-cell')).toHaveLength(4);
+    expect(
+      [...elements.cover.querySelectorAll('.grid-label')].map((label) => label.textContent),
+    ).toEqual(['logo', 'title']);
+    // The header has a grid, so the first page is shown with it, at its distance.
+    expect(elements.first.hidden).toBe(false);
+    expect(header.style.top).toBe('20pt');
+    expect(header.querySelectorAll('.grid-cell')).toHaveLength(2);
+    const cell = header.querySelector<HTMLElement>('.grid-cell[data-column="1"]');
+    cell?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    [...bar.querySelectorAll('button')]
+      .find((button) => button.textContent === 'New area')
+      ?.click();
+    // A click on an empty cell selects no area, and the action names the header.
+    expect(done).toEqual([
+      ['header', undefined],
+      ['header', { row: 0, column: 1, rowSpan: 1, columnSpan: 1 }, { kind: 'new' }],
+    ]);
+    preview.select('cover', 'title');
+    expect(elements.cover.querySelector('.grid-frame.selected')?.getAttribute('data-area')).toBe(
+      'title',
+    );
+  });
+});

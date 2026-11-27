@@ -129,6 +129,26 @@ export {
   type PlacedArea,
 } from './cover.js';
 export {
+  areaOrder,
+  entriesGrid,
+  gridEntries,
+  gridRows,
+  insertColumn,
+  insertRow,
+  isAreaName,
+  newAreaName,
+  removeColumn,
+  removeRow,
+  renameArea,
+  setArea,
+  setCells,
+  setColumn,
+  setRow,
+  slotsGrid,
+  type CellRange,
+  type GridEdit,
+} from './grid-edit.js';
+export {
   naturalWidthPt,
   readImageInfo,
   type ImageAsset,

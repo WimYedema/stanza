@@ -22,7 +22,7 @@ The header and the footer of ADR 0017 are one line in three slots, at the librar
 - **`distance`** gives the distance of the header from the top edge of the page, or of the footer from the bottom edge, in points, for both forms. Left out, it is 1.25 cm, as before.
 - **Export:** the grid is the borderless layout table of the cover, as wide as the text, followed by the paragraph that Word needs at the end of a header or footer, made one line of 1 pt as at the end of a cover. Pictures in headers and footers are numbered with those of the document and marked as decorative, so the output stays the same for the same input.
 - **Preview:** the editor draws the grid in the band of the header or footer, at its distance; page fields show their labels, as in the slots.
-- **Editing:** the Pages panel sets the distance of each; a header or footer that is a grid is edited in the text until item 230.
+- **Editing:** the Pages panel sets the distance of each; a header or footer that is a grid is edited there too since ADR 0096.
 - **The revision of a template** is written with the `version` token, or a custom field, and not with Word's `REVNUM` field, which counts the saves of a file and would differ between builds of the same source.
 
 The stylesheet stays at format version 1.

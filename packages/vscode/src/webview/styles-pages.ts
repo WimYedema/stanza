@@ -3,6 +3,7 @@ import { slotSource } from '@stanza/format';
 import type { StylesWebviewMessage, Value } from '../shared/styles-protocol.js';
 import type { CoverPreview } from './styles-cover-preview.js';
 import { createCoverEditor, refuseCover } from './styles-cover.js';
+import { createBandGridEditor, type BandGridEditor } from './styles-grid.js';
 import { el, option, simpleRow as row, simpleSection as section } from './styles-dom.js';
 import type { Entry } from './styles-families.js';
 import { numberFrom } from './styles-properties.js';
@@ -43,9 +44,40 @@ export interface PagePanel {
 const titleOf = (key: string): string => key.charAt(0).toUpperCase() + key.slice(1);
 
 export function createPagePanel({ root, send, preview }: PagePanelOptions): PagePanel {
-  const covers = createCoverEditor(send);
+  const covers = createCoverEditor(send, (name) => {
+    preview?.select('cover', name);
+  });
   const status = el('p', 'status');
   status.setAttribute('role', 'status');
+  let imagePaths: readonly string[] = [];
+  const bandGrids: Record<(typeof BANDS)[number], BandGridEditor> = {
+    header: createBandGridEditor('header', bandOptions('header')),
+    footer: createBandGridEditor('footer', bandOptions('footer')),
+  };
+  function bandOptions(band: (typeof BANDS)[number]): Parameters<typeof createBandGridEditor>[1] {
+    return {
+      send,
+      images: () => imagePaths,
+      listId: 'cover-images',
+      refuse: (message) => {
+        status.textContent = message;
+      },
+      selected: (name) => {
+        preview?.select(band, name);
+      },
+    };
+  }
+  preview?.setEditing({
+    cells(target, range, action) {
+      status.textContent = '';
+      if (target === 'cover') covers.cells(range, action);
+      else bandGrids[target].cells(range, action);
+    },
+    select(target, name) {
+      if (target === 'cover') covers.selectArea(name);
+      else bandGrids[target].selectArea(name);
+    },
+  });
   let current: { readonly name: string; readonly stylesheet: Stylesheet } | undefined;
   const updates: ((template: PageTemplate, stylesheet: Stylesheet) => void)[] = [];
 
@@ -141,11 +173,17 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
       distance.value = own === undefined ? '' : String(own);
     });
 
-    // A header or a footer that is a grid is edited in the text until item 230.
+    // Three slots, or a grid of areas with a logo or several lines (ADR 0095, ADR 0096).
+    const kind = el('select');
+    kind.append(option('slots', 'Three slots'), option('grid', 'A grid of areas'));
+    kind.addEventListener('change', () => {
+      status.textContent = '';
+      bandGrids[band].setKind(kind.value === 'grid' ? 'grid' : 'slots');
+    });
     const gridNote = el(
       'p',
       'hint',
-      'This is a grid of areas, with a logo or several lines; it is edited in the text of the stylesheet (ADR 0095).',
+      'Alignment comes from the paragraph styles of the entries. The grid is drawn above or below the first page of the preview.',
     );
     const hint = el(
       'p',
@@ -154,6 +192,7 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     );
     updates.push((template) => {
       const isGrid = template[band]?.grid !== undefined;
+      kind.value = isGrid ? 'grid' : 'slots';
       gridNote.hidden = !isGrid;
       hint.hidden = isGrid;
       for (const slotRow of slotRows) slotRow.hidden = isGrid;
@@ -161,11 +200,13 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
 
     return section(
       titleOf(band),
+      row('Kind', kind),
       hint,
       gridNote,
       row('Style', style),
       row('Distance', distance, el('span', 'unit', 'pt')),
       ...slotRows,
+      bandGrids[band].element,
     );
   });
 
@@ -184,6 +225,7 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     if (current === undefined || template === undefined) return;
     for (const apply of updates) apply(template, current.stylesheet);
     covers.update(current.name, template, current.stylesheet);
+    for (const band of BANDS) bandGrids[band].update(current.name, template, current.stylesheet);
     preview?.show(template, current.stylesheet);
   }
 
@@ -204,9 +246,11 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
       status.textContent = message;
       update();
       refuseCover(covers, message);
+      for (const band of BANDS) bandGrids[band].reset();
     },
     setImages(images) {
-      covers.setImages([...images.keys()]);
+      imagePaths = [...images.keys()];
+      covers.setImages(imagePaths);
       preview?.setImages(images);
     },
   };

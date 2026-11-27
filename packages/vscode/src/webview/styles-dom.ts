@@ -35,3 +35,17 @@ export function simpleRow(title: string, ...controls: HTMLElement[]): HTMLElemen
   node.append(el('label', 'title', title), control);
   return node;
 }
+
+/**
+ * Draws a part of a panel again, and puts the focus back on the field at the same place in it, so
+ * that every field holds the model as it is now and the person can go on where they were.
+ */
+export function redrawKeepingFocus(root: HTMLElement, draw: () => void): void {
+  const fields = (): HTMLElement[] => [
+    ...root.querySelectorAll<HTMLElement>('input, select, textarea, button'),
+  ];
+  const active = root.ownerDocument.activeElement;
+  const index = active instanceof HTMLElement ? fields().indexOf(active) : -1;
+  draw();
+  if (index >= 0) fields()[index]?.focus();
+}

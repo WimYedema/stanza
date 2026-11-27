@@ -4,6 +4,7 @@ import type {
   CoverEntry,
   CoverGrid,
   CoverRowHeight,
+  HeaderFooter,
   PageMargins,
 } from '@stanza/core';
 import { slotSource } from './slot-source.js';
@@ -151,5 +152,20 @@ export function coverSource(cover: Cover): string {
   return [
     ...(margins !== undefined ? [`margins: ${margins}`] : []),
     ...(rows.length > 0 ? ['rows:', ...indent(rows, '  ')] : ['rows: []']),
+  ].join('\n');
+}
+
+/**
+ * The value of a `header` or `footer` (ADR 0017, ADR 0095): its style and its distance, then its
+ * grid, or the slots that have text.
+ */
+export function headerFooterSource(band: HeaderFooter): string {
+  const slots = (['left', 'center', 'right'] as const).flatMap((slot) =>
+    band[slot].length > 0 ? [`${slot}: ${quoted(slotSource(band[slot]))}`] : [],
+  );
+  return [
+    ...(band.style !== undefined ? [`style: ${band.style}`] : []),
+    ...(band.distancePt !== undefined ? [`distance: ${String(band.distancePt)}`] : []),
+    ...(band.grid !== undefined ? gridLines(band.grid, undefined) : slots),
   ].join('\n');
 }

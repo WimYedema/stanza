@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Cover, StyleName } from '@stanza/core';
-import { coverSource, entriesSource } from './cover-source.js';
+import { coverSource, entriesSource, headerFooterSource } from './cover-source.js';
 import { setBlock } from './edit-stylesheet.js';
 import { parseStylesheet } from './stylesheet.js';
 
@@ -128,6 +128,20 @@ describe('coverSource and entriesSource', () => {
             if (edited.ok) {
               const again = parseStylesheet(edited.text).stylesheet.pageTemplates.get(template);
               expect(again?.cover).toEqual(page.cover);
+            }
+          }
+          for (const band of ['header', 'footer'] as const) {
+            const spec = page[band];
+            if (spec === undefined) continue;
+            const edited = setBlock(
+              text,
+              ['page-templates', template, band],
+              headerFooterSource(spec),
+            );
+            expect(edited.ok).toBe(true);
+            if (edited.ok) {
+              const again = parseStylesheet(edited.text).stylesheet.pageTemplates.get(template);
+              expect(again?.[band]).toEqual(spec);
             }
           }
           if (page.titleBlock !== undefined) {

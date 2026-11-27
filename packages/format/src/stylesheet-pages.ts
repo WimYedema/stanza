@@ -4,6 +4,7 @@ import {
   PAGE_SIZE_NAMES,
   RESERVED_TABLE_STYLE,
   SLOT_TOKENS,
+  isAreaName,
   type Cover,
   type CoverAlignment,
   type CoverArea,
@@ -181,9 +182,6 @@ function readAlignment(map: Data, path: string, report: Report): CoverAlignment 
   return found;
 }
 
-/** An area name is kebab-case, as a style name; `.` is a cell of no area. */
-const AREA_NAME = /^(?:\.|[a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/;
-
 /** The grid of a cover (ADR 0092): columns, rows of heights, the lines of areas and their content. */
 function readGrid(
   map: Data,
@@ -232,7 +230,7 @@ function readGrid(
       .trim()
       .split(/\s+/)
       .filter((name) => name !== '');
-    const bad = names.find((name) => !AREA_NAME.test(name));
+    const bad = names.find((name) => !isAreaName(name));
     if (bad !== undefined) {
       report(
         'invalid-value',

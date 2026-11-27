@@ -1,5 +1,11 @@
 import { isStyleName } from '@stanza/core';
-import { coverSource, setBlock, setProperty, type StylesheetEdit } from '@stanza/format';
+import {
+  coverSource,
+  headerFooterSource,
+  setBlock,
+  setProperty,
+  type StylesheetEdit,
+} from '@stanza/format';
 import {
   importCoverTemplate,
   type CoverTemplateImport,
@@ -89,13 +95,7 @@ function templateLines(result: CoverTemplateImport): string[] {
   const band = (kind: 'header' | 'footer'): string[] => {
     const spec = result[kind];
     if (spec?.grid === undefined) return [];
-    return [
-      `${kind}:`,
-      ...indent([
-        ...(spec.distancePt !== undefined ? [`distance: ${String(spec.distancePt)}`] : []),
-        ...coverSource(spec.grid).split('\n'),
-      ]),
-    ];
+    return [`${kind}:`, ...indent(headerFooterSource(spec).split('\n'))];
   };
   return [
     `size: ${result.size}`,

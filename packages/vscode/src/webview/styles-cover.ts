@@ -1,20 +1,42 @@
 import {
   COVER_ALIGNMENTS,
-  SLOT_TOKENS,
+  coverGrid,
+  entriesGrid,
+  gridEntries,
+  gridRows,
+  type CellRange,
   type Cover,
   type CoverEntry,
   type CoverLayoutRow,
-  type CoverRowHeight,
   type PageMargins,
   type PageTemplate,
-  type SlotPart,
-  type StyleName,
   type Stylesheet,
 } from '@stanza/core';
-import { coverSource, entriesSource, slotSource } from '@stanza/format';
+import { coverSource, entriesSource } from '@stanza/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
-import { el, option, simpleRow as row, simpleSection as section } from './styles-dom.js';
+import {
+  el,
+  option,
+  redrawKeepingFocus,
+  simpleRow as row,
+  simpleSection as section,
+} from './styles-dom.js';
+import {
+  button,
+  entriesBox,
+  heightText,
+  itemButtons,
+  moved,
+  parseHeight,
+  removed,
+  replaced,
+  without,
+  type EntriesContext,
+} from './styles-entries.js';
+import { applyCells, gridPanel, markArea, type CellAction } from './styles-grid.js';
 import { numberFrom } from './styles-properties.js';
+
+export { heightText, parseHeight } from './styles-entries.js';
 
 /**
  * The cover and the title block of a page template in the Pages panel (ADR 0091). The panel keeps
@@ -27,16 +49,7 @@ import { numberFrom } from './styles-properties.js';
 const SIDES = ['top', 'right', 'bottom', 'left'] as const;
 const SIDE_KEYS = { top: 'topPt', right: 'rightPt', bottom: 'bottomPt', left: 'leftPt' } as const;
 
-/** The text that stands in for a Word field, as in the slots of ADR 0051. */
-const PLACEHOLDER_LABEL: Partial<Record<(typeof SLOT_TOKENS)[number], string>> = {
-  page: '1',
-  pages: '1',
-};
-
-/** The tokens that can be put on a cover; the others depend on pagination (ADR 0019). */
-const COVER_TOKENS = SLOT_TOKENS.filter((token) => !['page', 'pages', 'section'].includes(token));
-
-type Kind = 'none' | 'list' | 'rows';
+type Kind = 'none' | 'list' | 'rows' | 'grid';
 
 export interface CoverEditor {
   readonly element: HTMLElement;
@@ -46,289 +59,17 @@ export interface CoverEditor {
   setImages(paths: readonly string[]): void;
   /** Draws again from the stylesheet, after a change was refused. */
   reset(): void;
+  /** Applies what the preview asks for cells of a grid cover (ADR 0096). */
+  cells(range: CellRange, action: CellAction): void;
+  /** Marks an area of a grid cover, which the preview selected. */
+  selectArea(name: string | undefined): void;
 }
 
-/** Slot text as the person writes it, kept whole. */
-const asText = (source: string): SlotPart[] =>
-  source === '' ? [] : [{ kind: 'text', text: source }];
-
-/** `100` is points, `2fr` is a share, and nothing is a row that grows; undefined for anything else. */
-export function parseHeight(text: string): CoverRowHeight | undefined {
-  const value = text.trim();
-  if (value === '') return { kind: 'auto' };
-  const share = /^(\d+(?:\.\d+)?)fr$/.exec(value);
-  if (share !== null) return { kind: 'share', fr: Number(share[1]) };
-  const points = numberFrom(value);
-  return points === undefined || points === null ? undefined : { kind: 'points', pt: points };
-}
-
-export const heightText = (height: CoverRowHeight): string =>
-  height.kind === 'points'
-    ? String(height.pt)
-    : height.kind === 'share'
-      ? `${String(height.fr)}fr`
-      : '';
-
-/** A list with the item at `index` moved by `by`, or the list itself when it cannot move. */
-function moved<T>(items: readonly T[], index: number, by: -1 | 1): readonly T[] {
-  const target = index + by;
-  if (target < 0 || target >= items.length) return items;
-  const next = [...items];
-  const [item] = next.splice(index, 1);
-  if (item !== undefined) next.splice(target, 0, item);
-  return next;
-}
-
-/** A copy of an object without one of its properties. */
-function without<T extends object, K extends keyof T>(value: T, key: K): Omit<T, K> {
-  return Object.fromEntries(Object.entries(value).filter(([name]) => name !== key)) as Omit<T, K>;
-}
-
-const replaced = <T>(items: readonly T[], index: number, item: T): readonly T[] =>
-  items.map((current, at) => (at === index ? item : current));
-
-const removed = <T>(items: readonly T[], index: number): readonly T[] =>
-  items.filter((_, at) => at !== index);
-
-function button(text: string, title: string, click: () => void): HTMLButtonElement {
-  const created = el('button', 'cover-button', text);
-  created.type = 'button';
-  created.title = title;
-  created.addEventListener('click', click);
-  return created;
-}
-
-/** Up, down and remove, for an item of a list. */
-function itemButtons(
-  label: string,
-  change: (action: 'up' | 'down' | 'remove') => void,
-): HTMLElement {
-  const buttons = el('span', 'cover-buttons');
-  buttons.append(
-    button('↑', `Move the ${label} up`, () => {
-      change('up');
-    }),
-    button('↓', `Move the ${label} down`, () => {
-      change('down');
-    }),
-    button('✕', `Remove the ${label}`, () => {
-      change('remove');
-    }),
-  );
-  return buttons;
-}
-
-function styleSelect(
-  names: Iterable<StyleName>,
-  current: string | undefined,
-  none: string | undefined,
-  change: (value: string | undefined) => void,
-): HTMLSelectElement {
-  const select = el('select');
-  select.append(
-    ...(none === undefined ? [] : [option('', none)]),
-    ...[...names].map((name) => option(name, name)),
-  );
-  select.value = current ?? '';
-  select.addEventListener('change', () => {
-    change(select.value === '' ? undefined : select.value);
-  });
-  return select;
-}
-
-/** A text of a slot, with the list that inserts a value at the cursor (ADR 0051). */
-function slotInput(parts: readonly SlotPart[], change: (parts: SlotPart[]) => void): HTMLElement[] {
-  const input = el('input');
-  input.type = 'text';
-  input.value = slotSource(parts);
-  input.addEventListener('change', () => {
-    change(asText(input.value));
-  });
-  const insert = el('select');
-  insert.title = 'Insert a value that the program fills in';
-  insert.append(
-    option('', 'Insert…'),
-    ...COVER_TOKENS.map((token) => option(token, token)),
-    option('field:', 'field:…'),
-  );
-  insert.addEventListener('change', () => {
-    const chosen = insert.value;
-    insert.value = '';
-    if (chosen === '') return;
-    const token = COVER_TOKENS.find((candidate) => candidate === chosen);
-    const link =
-      token === undefined
-        ? '[](stanza:field:name)'
-        : `[${PLACEHOLDER_LABEL[token] ?? ''}](stanza:${token})`;
-    const start = input.selectionStart ?? input.value.length;
-    const end = input.selectionEnd ?? start;
-    input.value = input.value.slice(0, start) + link + input.value.slice(end);
-    change(asText(input.value));
-  });
-  return [input, insert];
-}
-
-interface EntriesContext {
-  readonly stylesheet: Stylesheet;
-  readonly images: readonly string[];
-  readonly listId: string;
-}
-
-/** The controls of one entry of a cover or a title block. */
-function entryBox(
-  entry: CoverEntry,
-  context: EntriesContext,
-  change: (entry: CoverEntry) => void,
-  action: (action: 'up' | 'down' | 'remove') => void,
-): HTMLElement {
-  const box = el('div', 'cover-entry');
-  const kind =
-    entry.kind === 'paragraph' ? 'Paragraph' : entry.kind === 'table' ? 'Table' : 'Image';
-  const head = el('div', 'cover-head');
-  head.append(el('span', 'cover-kind', kind), itemButtons(kind.toLowerCase(), action));
-  box.append(head);
-  const paragraphStyles = context.stylesheet.paragraphStyles.keys();
-  switch (entry.kind) {
-    case 'paragraph': {
-      box.append(
-        row(
-          'Style',
-          styleSelect(paragraphStyles, entry.style, '(body)', (style) => {
-            const rest = without(entry, 'style');
-            change(style === undefined ? rest : { ...rest, style: style as StyleName });
-          }),
-        ),
-        row(
-          'Text',
-          ...slotInput(entry.text, (text) => {
-            change({ ...entry, text });
-          }),
-        ),
-      );
-      break;
-    }
-    case 'image': {
-      const path = el('input');
-      path.type = 'text';
-      path.value = entry.path;
-      path.setAttribute('list', context.listId);
-      path.placeholder = 'assets/logo.png';
-      path.addEventListener('change', () => {
-        change({ ...entry, path: path.value.trim() });
-      });
-      const width = el('input');
-      width.type = 'number';
-      width.step = 'any';
-      width.min = '0';
-      width.placeholder = 'own size';
-      width.value = entry.widthPt === undefined ? '' : String(entry.widthPt);
-      width.addEventListener('change', () => {
-        const value = numberFrom(width.value);
-        if (value === undefined) return;
-        const rest = without(entry, 'widthPt');
-        change(value === null ? rest : { ...rest, widthPt: value });
-      });
-      box.append(
-        row('File', path),
-        row('Width', width, el('span', 'unit', 'pt')),
-        row(
-          'Style',
-          styleSelect(paragraphStyles, entry.style, '(body)', (style) => {
-            const rest = without(entry, 'style');
-            change(style === undefined ? rest : { ...rest, style: style as StyleName });
-          }),
-        ),
-      );
-      break;
-    }
-    case 'table': {
-      box.append(
-        row(
-          'Style',
-          styleSelect(context.stylesheet.tableStyles.keys(), entry.style, undefined, (style) => {
-            if (style !== undefined) change({ ...entry, style: style as StyleName });
-          }),
-        ),
-      );
-      entry.rows.forEach((tableRow, index) => {
-        const label = el('input');
-        label.type = 'text';
-        label.value = tableRow.label;
-        label.placeholder = 'Label';
-        label.addEventListener('change', () => {
-          change({
-            ...entry,
-            rows: replaced(entry.rows, index, { ...tableRow, label: label.value }),
-          });
-        });
-        const line = el('div', 'cover-table-row');
-        line.append(
-          label,
-          ...slotInput(tableRow.value, (value) => {
-            change({ ...entry, rows: replaced(entry.rows, index, { ...tableRow, value }) });
-          }),
-          button('✕', 'Remove the row', () => {
-            change({ ...entry, rows: removed(entry.rows, index) });
-          }),
-        );
-        box.append(line);
-      });
-      box.append(
-        button('Add a row', 'Add a row of a label and a value', () => {
-          change({ ...entry, rows: [...entry.rows, { label: 'Label', value: [] }] });
-        }),
-      );
-      break;
-    }
-  }
-  return box;
-}
-
-/** The entries of a row, a list cover or a title block, with the buttons that add one. */
-function entriesBox(
-  entries: readonly CoverEntry[],
-  context: EntriesContext,
-  change: (entries: readonly CoverEntry[]) => void,
-): HTMLElement {
-  const box = el('div', 'cover-entries');
-  entries.forEach((entry, index) => {
-    box.append(
-      entryBox(
-        entry,
-        context,
-        (next) => {
-          change(replaced(entries, index, next));
-        },
-        (action) => {
-          if (action === 'remove') change(removed(entries, index));
-          else change(moved(entries, index, action === 'up' ? -1 : 1));
-        },
-      ),
-    );
-  });
-  const table = [...context.stylesheet.tableStyles.keys()][0];
-  const adds = el('div', 'cover-adds');
-  adds.append(
-    el('span', 'unit', 'Add'),
-    button('Paragraph', 'Add a paragraph', () => {
-      change([...entries, { kind: 'paragraph', text: [] }]);
-    }),
-    button('Image', 'Add an image', () => {
-      change([...entries, { kind: 'image', path: context.images[0] ?? 'assets/logo.png' }]);
-    }),
-    ...(table === undefined
-      ? []
-      : [
-          button('Table', 'Add a table of labels and values', () => {
-            change([...entries, { kind: 'table', style: table, rows: [] }]);
-          }),
-        ]),
-  );
-  box.append(adds);
-  return box;
-}
-
-export function createCoverEditor(send: (message: StylesWebviewMessage) => void): CoverEditor {
+export function createCoverEditor(
+  send: (message: StylesWebviewMessage) => void,
+  /** Tells the preview which area of a grid cover is selected. */
+  selected: (name: string | undefined) => void = () => undefined,
+): CoverEditor {
   const element = el('div', 'cover-editor');
   const status = el('p', 'status');
   status.setAttribute('role', 'status');
@@ -356,6 +97,8 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
   );
 
   let images: readonly string[] = [];
+  /** The area of a grid cover that is selected in the panel and the preview. */
+  let selectedArea: string | undefined;
   let current:
     | {
         readonly name: string;
@@ -390,7 +133,9 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
       path: ['page-templates', current.name, 'cover'],
       source: cover === undefined ? null : coverSource(cover),
     });
+    // Every field holds the model it was drawn with, so the panel is drawn again after a change.
     if (redraw) draw();
+    else redrawKeepingFocus(element, draw);
   }
 
   function writeTitleBlock(entries: readonly CoverEntry[] | undefined, redraw: boolean): void {
@@ -404,6 +149,7 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
       source: entries === undefined ? null : entriesSource(entries),
     });
     if (redraw) draw();
+    else redrawKeepingFocus(element, draw);
   }
 
   /** A change of the list of entries redraws only when entries were added, moved or removed. */
@@ -415,7 +161,8 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
         (entry.kind !== 'table' || entry.rows.length === (b[index] as typeof entry).rows.length),
     );
 
-  function drawRows(cover: Cover & { kind: 'rows' }): HTMLElement[] {
+  /** The margins of a cover of rows or a grid; empty takes the margin of the page. */
+  function marginBox(cover: Cover & { kind: 'rows' | 'grid' }): HTMLElement {
     const template = current?.template;
     const margins = SIDES.map((side) => {
       const input = el('input');
@@ -432,16 +179,22 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
         const others: Partial<PageMargins> = without({ ...cover.margins }, key);
         const next: Partial<PageMargins> = value === null ? others : { ...others, [key]: value };
         const rest = without(cover, 'margins');
-        writeCover(Object.keys(next).length === 0 ? rest : { ...rest, margins: next }, false);
+        writeCover(
+          (Object.keys(next).length === 0 ? rest : { ...rest, margins: next }) as Cover,
+          false,
+        );
       });
       return row(side.charAt(0).toUpperCase() + side.slice(1), input, el('span', 'unit', 'pt'));
     });
-    const marginBox = el('div', 'cover-margins');
-    marginBox.append(
+    const box = el('div', 'cover-margins');
+    box.append(
       el('p', 'hint', 'Margins of the cover; empty takes the margin of the page.'),
       ...margins,
     );
+    return box;
+  }
 
+  function drawRows(cover: Cover & { kind: 'rows' }): HTMLElement[] {
     const setRows = (rows: readonly CoverLayoutRow[], redraw: boolean): void => {
       writeCover({ ...cover, rows }, redraw);
     };
@@ -520,34 +273,19 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
         true,
       );
     });
-    return [marginBox, ...rowBoxes, addRow];
+    return [marginBox(cover), ...rowBoxes, addRow];
   }
 
   function draw(): void {
     if (current === undefined) return;
     const cover = current.cover;
-    if (cover?.kind === 'grid') {
-      // Editing a grid is item 230; until then the panel shows it and leaves it as it is.
-      const select = el('select');
-      select.append(option('grid', 'A grid of areas'));
-      select.disabled = true;
-      coverRoot.replaceChildren(
-        row('Kind', select),
-        el(
-          'p',
-          'hint',
-          `The cover is a grid of ${String(cover.columns.length)} columns and ${String(cover.rows.length)} rows with the areas ${Object.keys(cover.area).join(', ') || '(none)'}. It is edited in the text of the stylesheet (ADR 0092).`,
-        ),
-      );
-      drawTitleBlock();
-      return;
-    }
     const kind: Kind = cover === undefined ? 'none' : cover.kind;
     const select = el('select');
     select.append(
       option('none', 'No cover'),
       option('list', 'A list from the top'),
       option('rows', 'Rows'),
+      option('grid', 'A grid of areas'),
     );
     select.value = kind;
     select.addEventListener('change', () => {
@@ -556,15 +294,31 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
           ? []
           : cover.kind === 'list'
             ? cover.entries
-            : cover.rows.flatMap((layoutRow) => layoutRow.content);
+            : cover.kind === 'rows'
+              ? cover.rows.flatMap((layoutRow) => layoutRow.content)
+              : gridEntries(cover);
+      const margins = cover?.kind === 'rows' || cover?.kind === 'grid' ? cover.margins : undefined;
+      const withMargins = margins !== undefined ? { margins } : {};
       if (select.value === 'none') writeCover(undefined, true);
       else if (select.value === 'list') writeCover({ kind: 'list', entries }, true);
-      else {
-        const margins = cover?.kind === 'rows' ? cover.margins : undefined;
+      else if (select.value === 'grid') {
+        // Rows keep their places as a grid of one column; anything else becomes one area.
+        const grid = cover?.kind === 'rows' ? coverGrid(cover) : entriesGrid(entries);
+        writeCover({ ...grid, ...withMargins }, true);
+      } else if (cover?.kind === 'grid') {
+        const rows = gridRows(cover);
+        if (rows === undefined) {
+          select.value = 'grid';
+          status.textContent =
+            'Only a grid of one column, without an area across rows, can become rows; make it a list, or change the grid first.';
+          return;
+        }
+        writeCover({ kind: 'rows', ...withMargins, rows }, true);
+      } else {
         writeCover(
           {
             kind: 'rows',
-            ...(margins !== undefined ? { margins } : {}),
+            ...withMargins,
             rows: [{ height: { kind: 'auto' }, valign: 'top', content: entries }],
           },
           true,
@@ -580,6 +334,25 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
       );
     } else if (cover?.kind === 'rows') {
       parts.push(...drawRows(cover));
+    } else if (cover?.kind === 'grid') {
+      parts.push(
+        marginBox(cover),
+        ...gridPanel(cover, {
+          entries: context(),
+          selected: selectedArea,
+          write: (grid, redraw) => {
+            writeCover(grid, redraw);
+          },
+          refuse: (message) => {
+            status.textContent = message;
+          },
+          select: (name) => {
+            selectedArea = name;
+            markArea(coverRoot, name);
+            selected(name);
+          },
+        }),
+      );
     }
     coverRoot.replaceChildren(...parts);
     drawTitleBlock();
@@ -625,6 +398,22 @@ export function createCoverEditor(send: (message: StylesWebviewMessage) => void)
     setImages(paths) {
       images = paths;
       list.replaceChildren(...paths.map((path) => option(path, path)));
+    },
+    cells(range, action) {
+      const cover = current?.cover;
+      if (cover?.kind !== 'grid') return;
+      const edit = applyCells(cover, range, action);
+      if (!edit.ok) {
+        status.textContent = edit.message;
+        return;
+      }
+      selectedArea = edit.select;
+      writeCover(edit.grid, true);
+      selected(selectedArea);
+    },
+    selectArea(name) {
+      selectedArea = name;
+      markArea(coverRoot, name);
     },
     reset() {
       drawnKey = undefined;

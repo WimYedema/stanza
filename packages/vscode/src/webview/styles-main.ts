@@ -61,6 +61,10 @@ const pages = createPagePanel({
     cover: element('preview-cover'),
     first: element('preview-first'),
     titleBlock: element('preview-title'),
+    header: element('preview-header'),
+    foot: element('preview-foot'),
+    footer: element('preview-footer'),
+    bar: element('preview-bar'),
   }),
 });
 const adder = createAddPanel({

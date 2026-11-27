@@ -15,11 +15,13 @@ import {
   fillGrid,
   fillEntries,
   numberHeadings,
+  placeAreas,
   resolvePageTemplate,
   resolveTableStyle,
   slotValue,
   type Block,
   type CoverAlignment,
+  type CoverGrid,
   type CoverItem,
   type Document,
   type DocumentMeta,
@@ -151,18 +153,9 @@ function drawBand(
   root.replaceChildren();
   if (spec?.grid !== undefined) {
     // Its page fields show their labels, as the slots do.
-    const areas = fillGrid(spec.grid, meta);
-    root.hidden = areas === undefined;
-    if (areas === undefined) return;
-    root.append(
-      gridElement(
-        areas,
-        coverColumnWidthsPt(spec.grid.columns, grid.widthPt),
-        coverRowHeightsPt(spec.grid.rows, 0),
-        grid.stylesheet,
-        grid.images,
-      ),
-    );
+    const layout = drawGrid(spec.grid, grid.widthPt, 0, meta, grid.stylesheet, grid.images);
+    root.hidden = layout === undefined;
+    if (layout !== undefined) root.append(layout);
     return;
   }
   root.hidden =
@@ -273,6 +266,8 @@ export function drawCover(
   meta: DocumentMeta,
   stylesheet: Stylesheet,
   images: ReadonlyMap<string, string>,
+  /** Draws a grid even when it is empty, for the style editor (ADR 0096). */
+  editing = false,
 ): void {
   root.replaceChildren();
   root.style.padding = '';
@@ -291,22 +286,59 @@ export function drawCover(
     );
     return;
   }
-  const grid = coverGrid(cover);
-  const areas = fillGrid(grid, meta);
-  root.hidden = areas === undefined;
-  if (areas === undefined) return;
+  const layout = drawGrid(
+    coverGrid(cover),
+    coverAreaWidthPt(template),
+    coverAreaHeightPt(template),
+    meta,
+    stylesheet,
+    images,
+    editing,
+  );
+  root.hidden = layout === undefined;
+  if (layout === undefined) return;
   const margins = coverMargins(template);
   root.style.padding = [margins.topPt, margins.rightPt, margins.bottomPt, margins.leftPt]
     .map(pt)
     .join(' ');
-  root.append(
-    gridElement(
-      areas,
-      coverColumnWidthsPt(grid.columns, coverAreaWidthPt(template)),
-      coverRowHeightsPt(grid.rows, coverAreaHeightPt(template)),
-      stylesheet,
-      images,
-    ),
+  root.append(layout);
+}
+
+/** The least height of a row that grows, while a grid is edited, so that its cells can be reached. */
+const EDITING_ROW_PT = 14;
+
+/**
+ * A grid with the widths and heights of the export (ADR 0092), filled with the metadata, or nothing
+ * when no area has an entry. While it is edited (ADR 0096) it is drawn even when empty, and a row
+ * that grows is at least one line high.
+ */
+export function drawGrid(
+  grid: CoverGrid,
+  widthPt: number,
+  heightPt: number,
+  meta: DocumentMeta,
+  stylesheet: Stylesheet,
+  images: ReadonlyMap<string, string>,
+  editing = false,
+): HTMLElement | undefined {
+  const filled = fillGrid(grid, meta);
+  const areas =
+    filled ??
+    (editing
+      ? placeAreas(grid.areas, grid.columns.length).areas.map((placed) => ({
+          ...placed,
+          valign: grid.area[placed.name]?.valign ?? 'top',
+          items: [],
+        }))
+      : undefined);
+  if (areas === undefined) return undefined;
+  return gridElement(
+    areas,
+    coverColumnWidthsPt(grid.columns, widthPt),
+    coverRowHeightsPt(grid.rows, heightPt),
+    stylesheet,
+    images,
+    editing ? EDITING_ROW_PT : undefined,
   );
 }
 
@@ -317,14 +349,17 @@ function gridElement(
   heights: readonly (number | undefined)[],
   stylesheet: Stylesheet,
   images: ReadonlyMap<string, string>,
+  /** The least height of a row that grows, if any. */
+  leastRowPt?: number,
 ): HTMLElement {
   const layout = document.createElement('div');
   layout.className = 'cover-grid';
   layout.style.display = 'grid';
   layout.style.setProperty('grid-template-columns', widths.map(pt).join(' '));
+  const grows = leastRowPt === undefined ? 'auto' : `minmax(${pt(leastRowPt)}, auto)`;
   layout.style.setProperty(
     'grid-template-rows',
-    heights.map((height) => (height === undefined ? 'auto' : pt(height))).join(' '),
+    heights.map((height) => (height === undefined ? grows : pt(height))).join(' '),
   );
   for (const area of areas) {
     const element = document.createElement('div');

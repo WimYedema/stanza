@@ -58,7 +58,7 @@ The grid is the borderless layout table of ADR 0089 with a column for each colum
 <!-- stanza: #k6xjv64dbz -->
 ### Preview and editing
 
-The editor and the style editor draw the grid as a CSS grid with the same columns, rows and areas. Editing the grid in the style editor is item 230: until then the Pages panel shows that the cover is a grid, and that it is edited in the text, and does not change it.
+The editor and the style editor draw the grid as a CSS grid with the same columns, rows and areas. Editing the grid in the style editor is ADR 0096. Before it, the Pages panel shows that the cover is a grid, and that it is edited in the text, and does not change it.
 
 <!-- stanza: #a8q600q53b -->
 ### Format
