@@ -47,8 +47,14 @@ import {
   roundStatus,
 } from './review-round.js';
 import { summarizeUsage } from './usage-summary.js';
-import { OpenTimer, type RecordMark } from './startup-times.js';
-import type { ReviewThreadView } from '../shared/protocol.js';
+import { OpenTimer, type OpenDurations, type RecordMark } from './startup-times.js';
+import type { ActionCounts, ActionTimings, ReviewThreadView } from '../shared/protocol.js';
+
+/** The timings of measured actions, and in how many runs each did something (ADR 0101). */
+export interface MeasuredActions {
+  readonly timings: ActionTimings;
+  readonly applied: ActionCounts;
+}
 
 /** After a change, the project is checked again when nothing has changed for this long. */
 const REFRESH_DELAY_MS = 300;
@@ -61,6 +67,8 @@ export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly sessions = new Map<string, EditorSession>();
   /** Blocks to scroll to in documents whose editor is about to open. */
   private readonly waiting = new Map<string, number>();
+  /** Who waits for the next editor of a document to be editable, by its URI (ADR 0101). */
+  private readonly openWaiters = new Map<string, (durations: OpenDurations) => void>();
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -173,7 +181,30 @@ export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
     await this.open(uriInProject(root, destination.path), block);
   }
 
+  /** Who waits for any editor to be editable (ADR 0101). */
+  private readonly anyWaiters: ((uri: vscode.Uri) => void)[] = [];
+
+  /** Resolves with the document of the next editor that has been painted editable. */
+  anyOpen(): Promise<vscode.Uri> {
+    return new Promise((done) => {
+      this.anyWaiters.push(done);
+    });
+  }
+
+  /** Resolves when the next editor of this document has been painted editable (ADR 0101). */
+  nextOpen(uri: vscode.Uri): Promise<OpenDurations> {
+    return new Promise((done) => {
+      this.openWaiters.set(uri.toString(), done);
+    });
+  }
+
+  /** Times actions in the open editor of a document, which then sends no changes (ADR 0101). */
+  measureActions(uri: vscode.Uri, runs: number): Promise<MeasuredActions> | undefined {
+    return this.sessions.get(uri.toString())?.measureActions(runs);
+  }
+
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
+    const key = document.uri.toString();
     const timer = new OpenTimer(
       document.fileName,
       (line) => {
@@ -181,6 +212,12 @@ export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
       },
       this.record,
     );
+    timer.onDone = (durations) => {
+      const waiter = this.openWaiters.get(key);
+      this.openWaiters.delete(key);
+      waiter?.(durations);
+      for (const done of this.anyWaiters.splice(0)) done(document.uri);
+    };
     const session = new EditorSession(
       this.context,
       this.diagnostics,
@@ -192,7 +229,6 @@ export class StanzaEditorProvider implements vscode.CustomTextEditorProvider {
       timer,
       this.record !== undefined,
     );
-    const key = document.uri.toString();
     this.sessions.set(key, session);
     const block = this.waiting.get(key);
     if (block !== undefined) {
@@ -270,6 +306,8 @@ class EditorSession {
   private pushedWatch: { readonly key: string; readonly disposable: vscode.Disposable } | undefined;
   private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
+  /** Who waits for the timings of measured actions (ADR 0101). */
+  private actionsWaiter: ((result: MeasuredActions) => void) | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -328,6 +366,14 @@ class EditorSession {
     });
   }
 
+  /** Asks the webview to time its actions; it sends no changes from then on (ADR 0101). */
+  measureActions(runs: number): Promise<MeasuredActions> {
+    return new Promise((done) => {
+      this.actionsWaiter = done;
+      this.enqueue(() => this.post({ type: 'measure-actions', runs }));
+    });
+  }
+
   /** Asks the webview to open the list of headings for a reference, when the editor is shown. */
   makeReference(): void {
     this.enqueue(async () => {
@@ -355,6 +401,10 @@ class EditorSession {
       case 'ready':
         this.timer.webviewReady();
         await this.sendInit();
+        return;
+      case 'action-timings':
+        this.actionsWaiter?.({ timings: message.timings, applied: message.applied });
+        this.actionsWaiter = undefined;
         return;
       case 'painted':
         if (this.timer.painted(message.stage) && message.stage === 'editable') {

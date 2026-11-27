@@ -16,6 +16,7 @@ import {
   type ReviewThreadView,
   type WebviewMessage,
 } from '../shared/protocol.js';
+import { measureActions } from './measure.js';
 import { createChangesBar } from './changes.js';
 import { createNotices } from './notices.js';
 import { createMetadataPanel } from './metadata.js';
@@ -98,6 +99,10 @@ let waiting: ReturnType<typeof setTimeout> | undefined;
 let removedFromOutside = 0;
 /** The stages of startup whose paint was reported to the host (ADR 0101). */
 const painted = new Set<'visible' | 'editable'>();
+/** Actions are being measured; from then on no change goes to the host, until the editor closes. */
+let measuring = false;
+/** How many transactions the editor has had, to check that a measured action did something. */
+let transactions = 0;
 let ready = false;
 let metadataPending = false;
 
@@ -268,6 +273,8 @@ function flush(): void {
   if (waiting === undefined) return;
   clearTimeout(waiting);
   waiting = undefined;
+  // Measured actions are never sent, so the document stays as it is (ADR 0101).
+  if (measuring) return;
   send({ type: 'change', text: lastText });
 }
 
@@ -352,6 +359,7 @@ function start(message: Extract<HostMessage, { type: 'init' }>): void {
     usedIds: () => usedIds,
     editable: message.projectReady,
     onContextChange: () => {
+      transactions += 1;
       toolbar.schedule();
       info.schedule();
       reviewCards.schedule();
@@ -465,6 +473,15 @@ function handle(message: HostMessage): void {
     case 'make-reference':
       references.open();
       return;
+    case 'measure-actions': {
+      const content = element('editor').querySelector<HTMLElement>('.ProseMirror');
+      if (editor === undefined || content === null || !ready || measuring) return;
+      measuring = true;
+      void measureActions(editor, content, message.runs, () => transactions).then((result) => {
+        send({ type: 'action-timings', ...result });
+      });
+      return;
+    }
     case 'navigation-finished':
       navigation.finish();
       return;

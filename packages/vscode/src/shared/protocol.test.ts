@@ -12,6 +12,29 @@ describe('parseWebviewMessage', () => {
     ).toBeUndefined();
     expect(parseWebviewMessage({ type: 'open-project' })).toEqual({ type: 'open-project' });
   });
+  it('takes action timings only with a list of durations for every measured action', () => {
+    const timings = { type: [1, 2.5], enter: [3], style: [], strong: [0] };
+    const applied = { type: 2, enter: 1, style: 0, strong: 1 };
+    expect(parseWebviewMessage({ type: 'action-timings', timings, applied })).toEqual({
+      type: 'action-timings',
+      timings,
+      applied,
+    });
+    expect(
+      parseWebviewMessage({ type: 'action-timings', timings, applied: { ...applied, type: -1 } }),
+    ).toBeUndefined();
+    for (const bad of [
+      { ...timings, enter: undefined },
+      { ...timings, type: [-1] },
+      { ...timings, style: [Infinity] },
+      { ...timings, strong: ['fast'] },
+      [1, 2],
+    ]) {
+      expect(
+        parseWebviewMessage({ type: 'action-timings', timings: bad, applied }),
+      ).toBeUndefined();
+    }
+  });
   it('takes the painted stages of startup and nothing else', () => {
     expect(parseWebviewMessage({ type: 'painted', stage: 'visible' })).toEqual({
       type: 'painted',
@@ -69,6 +92,15 @@ describe('parseWebviewMessage', () => {
 });
 
 describe('parseHostMessage', () => {
+  it('asks for a whole, bounded number of measured runs', () => {
+    expect(parseHostMessage({ type: 'measure-actions', runs: 20 })).toEqual({
+      type: 'measure-actions',
+      runs: 20,
+    });
+    for (const runs of [0, -1, 2.5, 1001, '20']) {
+      expect(parseHostMessage({ type: 'measure-actions', runs })).toBeUndefined();
+    }
+  });
   it('validates scheme settings on startup and configuration refresh', () => {
     const schemes = { jira: 'https://example.org/{id}' };
     const init = {

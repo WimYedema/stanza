@@ -1,21 +1,25 @@
 // Measures the first open of a Stanza document in a new VS Code window (ADR 0101).
 //
-//   node scripts/measure-first-open.mjs <document.stanza.md> [--runs 20] [--code code] [--out file.json]
+//   node scripts/bench/first-open.mjs <document.stanza.md> [--runs 20] [--code code] [--out file.json]
 //
 // Each run starts the installed `code` with a new, empty user data folder and extensions folder of
 // its own, Stanza loaded from packages/vscode (build it first) and the project folder of the
 // document, and waits until VS Code has quit. STANZA_TIMING_FILE makes Stanza write a time stamp at
 // each step and quit once the document is editable. One run before the measured ones is left out.
 // Nothing is sent anywhere; the result is printed, and written to --out when given.
-import { spawn, execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { cpus, platform, release, tmpdir, totalmem } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { performance } from 'node:perf_hooks';
-import { fileURLToPath } from 'node:url';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import {
+  describeMachine,
+  launch,
+  machine,
+  newProfile,
+  pause,
+  projectFolder,
+  removeProfile,
+  requireBuild,
+} from './vscode.mjs';
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const extension = join(repo, 'packages', 'vscode');
 const RUN_TIMEOUT_MS = 120_000;
 const PAUSE_MS = 3_000;
 
@@ -30,7 +34,7 @@ function options(argv) {
   }
   if (result.document === undefined || !Number.isInteger(result.runs) || result.runs < 1) {
     console.error(
-      'Usage: node scripts/measure-first-open.mjs <document.stanza.md> [--runs 20] [--code code] [--out file.json]',
+      'Usage: node scripts/bench/first-open.mjs <document.stanza.md> [--runs 20] [--code code] [--out file.json]',
     );
     process.exit(2);
   }
@@ -38,61 +42,20 @@ function options(argv) {
     console.error(`No such document: ${result.document}`);
     process.exit(2);
   }
-  if (!existsSync(join(extension, 'dist', 'extension.cjs'))) {
-    console.error('Stanza is not built; run npm run build first.');
-    process.exit(2);
-  }
+  requireBuild();
   return result;
 }
 
-/** The nearest folder up from the document with a stanza.yaml, or the folder of the document. */
-function projectFolder(document) {
-  for (let folder = dirname(document); ; folder = dirname(folder)) {
-    if (existsSync(join(folder, 'stanza.yaml'))) return folder;
-    if (dirname(folder) === folder) return dirname(document);
-  }
-}
-
-// `code.cmd` finds VS Code from its own name, which it cannot when that name is quoted.
-const quote = (value) =>
-  /[\s"&|<>^]/.test(String(value)) ? `"${String(value).replaceAll('"', '\\"')}"` : String(value);
-const now = () => performance.timeOrigin + performance.now();
-const pause = (ms) => new Promise((done) => setTimeout(done, ms));
-
 /** Starts VS Code once and waits for it to quit; the marks Stanza wrote, and when it started. */
 async function run(setup, index) {
-  const marks = join(setup.folder, `marks-${String(index)}.jsonl`);
-  const args = [
-    '--new-window',
-    '--wait',
-    `--user-data-dir=${setup.userData}`,
-    `--extensions-dir=${setup.extensions}`,
-    `--extensionDevelopmentPath=${extension}`,
-    '--disable-workspace-trust',
-    '--skip-welcome',
-    '--skip-release-notes',
-    setup.project,
-    setup.document,
-  ];
-  const started = now();
-  // One command line, so that `code.cmd` runs through the shell on Windows as elsewhere.
-  const child = spawn([setup.code, ...args].map(quote).join(' '), {
-    shell: true,
-    stdio: 'ignore',
-    env: { ...process.env, STANZA_TIMING_FILE: marks },
+  const marks = join(setup.profile.folder, `marks-${String(index)}.jsonl`);
+  const started = await launch({
+    code: setup.code,
+    profile: setup.profile,
+    document: setup.document,
+    env: { STANZA_TIMING_FILE: marks },
+    timeoutMs: RUN_TIMEOUT_MS,
   });
-  const exited = await new Promise((done) => {
-    const timer = setTimeout(() => done(false), RUN_TIMEOUT_MS);
-    child.on('exit', () => {
-      clearTimeout(timer);
-      done(true);
-    });
-  });
-  if (!exited) {
-    throw new Error(
-      `VS Code did not quit within ${String(RUN_TIMEOUT_MS / 1000)} s; close it, then see ${marks}.`,
-    );
-  }
   const at = {};
   if (existsSync(marks)) {
     for (const line of readFileSync(marks, 'utf8').split('\n')) {
@@ -169,68 +132,11 @@ function print(table, count) {
   for (const row of rows) console.log(line(row));
 }
 
-const versionOf = (code) => {
-  try {
-    return execFileSync([code, '--version'].map(quote).join(' '), {
-      shell: true,
-      encoding: 'utf8',
-    }).split('\n')[0];
-  } catch {
-    return 'unknown';
-  }
-};
-const commit = () => {
-  try {
-    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
-      cwd: repo,
-      encoding: 'utf8',
-    }).trim();
-  } catch {
-    return 'unknown';
-  }
-};
-
 const { runs, code, out, document } = options(process.argv.slice(2));
-const folder = mkdtempSync(join(tmpdir(), 'stanza-first-open-'));
-const setup = {
-  code,
-  document,
-  project: projectFolder(document),
-  folder,
-  userData: join(folder, 'user-data'),
-  extensions: join(folder, 'extensions'),
-};
-mkdirSync(setup.extensions);
-// No window from the run before, no start page, and nothing fetched or sent while measuring.
-mkdirSync(join(setup.userData, 'User'), { recursive: true });
-writeFileSync(
-  join(setup.userData, 'User', 'settings.json'),
-  `${JSON.stringify(
-    {
-      'window.restoreWindows': 'none',
-      'workbench.startupEditor': 'none',
-      'update.mode': 'none',
-      'extensions.autoCheckUpdates': false,
-      'extensions.autoUpdate': false,
-      'telemetry.telemetryLevel': 'off',
-      // In a new profile VS Code 1.148 opens a .stanza.md file as text without this.
-      'workbench.editorAssociations': { '*.stanza.md': 'stanza.editor' },
-    },
-    null,
-    2,
-  )}\n`,
-);
-const machine = {
-  cpu: cpus()[0]?.model.trim() ?? 'unknown',
-  memoryGb: Math.round(totalmem() / 2 ** 30),
-  os: `${platform()} ${release()}`,
-  vscode: versionOf(code),
-  commit: commit(),
-};
-console.log(
-  `${machine.cpu}, ${String(machine.memoryGb)} GB, ${machine.os}, VS Code ${machine.vscode}, commit ${machine.commit}`,
-);
-console.log(`Opening ${document} in ${setup.project}`);
+const setup = { code, document, profile: newProfile('stanza-first-open-') };
+const about = machine(code);
+console.log(describeMachine(about));
+console.log(`Opening ${document} in ${projectFolder(document)}`);
 
 const results = [];
 try {
@@ -248,11 +154,7 @@ try {
     await pause(PAUSE_MS);
   }
 } finally {
-  try {
-    rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
-  } catch {
-    console.error(`Could not remove ${folder}; a VS Code window may still be open.`);
-  }
+  removeProfile(setup.profile);
 }
 if (results.length === 0) {
   console.error('No run was measured.');
@@ -263,7 +165,7 @@ print(table, results.length);
 if (out !== undefined) {
   writeFileSync(
     out,
-    `${JSON.stringify({ machine, document, runs: results, summary: table }, null, 2)}\n`,
+    `${JSON.stringify({ machine: about, document, runs: results, summary: table }, null, 2)}\n`,
   );
   console.log(`\nWritten to ${out}`);
 }

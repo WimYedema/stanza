@@ -41,6 +41,11 @@
           "type": "boolean",
           "default": true,
           "description": "Write the DOCX of a document into the build folder of its project when the document is saved."
+        },
+        "stanza.development.measure": {
+          "type": "boolean",
+          "default": false,
+          "description": "For developing Stanza: show the command Stanza: Measure Responsiveness, which opens documents of the project many times and times them (ADR 0101)."
         }
       }
     },
@@ -76,6 +81,10 @@
       ]
     },
     "commands": [
+      {
+        "command": "stanza.measureResponsiveness",
+        "title": "Stanza: Measure Responsiveness"
+      },
       {
         "command": "stanza.editStyles",
         "title": "Stanza: Edit Styles"
@@ -184,6 +193,10 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "stanza.measureResponsiveness",
+          "when": "config.stanza.development.measure"
+        },
         {
           "command": "stanza.moveDocumentUp",
           "when": "false"

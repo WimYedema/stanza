@@ -15,6 +15,7 @@
     "package": "npm run build && npm run package -w stanza-docs",
     "typecheck:tests": "npm run typecheck:tests --workspaces --if-present",
     "test": "vitest run",
+    "bench": "node scripts/bench/bench.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

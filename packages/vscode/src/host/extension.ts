@@ -12,6 +12,7 @@ import { registerGoToLine } from './go-to-line-command.js';
 import { registerImportWord } from './import-word-command.js';
 import { registerPullReview } from './review-pull-command.js';
 import { registerMakeReference } from './make-reference-command.js';
+import { measureOnFirstOpen, registerMeasureResponsiveness } from './measure-command.js';
 import { registerNewDocument } from './new-document-command.js';
 import { registerDocumentListCommands } from './document-list-commands.js';
 import { registerNewProject } from './new-project-command.js';
@@ -60,6 +61,7 @@ export function activate(context: vscode.ExtensionContext): void {
       editors.makeReference(uri);
     }),
     registerStanzaTree(editors, diagnostics),
+    registerMeasureResponsiveness(editors, diagnostics, log),
     registerEditStyles(),
     registerNewProject(),
     registerNewDocument(),
@@ -88,6 +90,7 @@ export function activate(context: vscode.ExtensionContext): void {
   record?.('activate-start', activation.start);
   record?.('activate-end', activation.end);
   log.appendLine(activationLine(activation));
+  measureOnFirstOpen(editors, process.env['STANZA_MEASURE_RESULTS']);
 }
 
 export function deactivate(): void {

@@ -21,7 +21,7 @@ export type RecordMark = (mark: StartupMark, at: number, file?: string) => void;
 
 /**
  * The marks go as JSON lines to the file that `STANZA_TIMING_FILE` names, for
- * `scripts/measure-first-open.mjs`; without it nothing is written. The times stay on this machine.
+ * `scripts/bench/first-open.mjs`; without it nothing is written. The times stay on this machine.
  */
 export function timingFile(path: string | undefined): RecordMark | undefined {
   if (path === undefined || path === '') return undefined;
@@ -47,6 +47,12 @@ export interface Activation {
 export const activationLine = ({ hostStart, loaded, start, end }: Activation): string =>
   `Stanza activation: ${ms(end - start)}, after ${ms(start - loaded)} loading the extension and ${ms(loaded - hostStart)} from the start of the extension host.`;
 
+/** How long after the open request a document was visible and editable, in milliseconds. */
+export interface OpenDurations {
+  readonly visible: number;
+  readonly editable: number;
+}
+
 /**
  * Times one editor from the open request to its painted stages, on the clock of the host, and says
  * each step in the output channel once (ADR 0101).
@@ -56,6 +62,9 @@ export class OpenTimer {
   private ready: number | undefined;
   private sent: number | undefined;
   private readonly seen = new Set<'visible' | 'editable'>();
+  private visibleAfter: number | undefined;
+  /** Called once, when the document was painted both read-only and editable. */
+  onDone: ((durations: OpenDurations) => void) | undefined;
 
   constructor(
     private readonly fileName: string,
@@ -93,6 +102,10 @@ export class OpenTimer {
     ];
     const ready = stage === 'visible' && steps.length > 0 ? ` (${steps.join(', ')})` : '';
     this.log(`Stanza startup: ${stage} after ${ms(at - this.open)}${ready} (${this.fileName}).`);
+    if (stage === 'visible') this.visibleAfter = at - this.open;
+    else if (this.visibleAfter !== undefined) {
+      this.onDone?.({ visible: this.visibleAfter, editable: at - this.open });
+    }
     return true;
   }
 }

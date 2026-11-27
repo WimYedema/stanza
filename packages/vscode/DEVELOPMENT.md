@@ -8,9 +8,16 @@ VS Code extension with two custom editors (document, style editor), bundled by `
 
 Design decisions per feature: link resolution ADR 0077 and 0082, startup ADR 0078 and 0101 (timings in `startup-times.ts` and `load-start.ts`), document list ADR 0079, document properties ADR 0080. See `docs/INDEX.md`. Open items: GitHub block-ID anchors (backlog item 189), checking remote link targets (item 151), generated version and revision metadata (item 29).
 
-## Measuring startup
+## Measuring responsiveness
 
-`node scripts/measure-first-open.mjs <document> [--runs 20] [--out file.json]` measures the first open of a document in a new VS Code window (ADR 0101), after `npm run build`. Each run starts the installed `code` with an empty user data and extensions folder and this extension, and `STANZA_TIMING_FILE` makes the extension write a time stamp at each step and quit VS Code once the document is editable. It prints p50 and p95 of each step: VS Code until the extension host, loading Stanza, activation, the webview, visible and editable. Close nothing while it runs; VS Code windows open and close by themselves.
+The budgets and the reference setup are in ADR 0101; results go in `docs/BENCHMARKS.md`. All of these need `npm run build` first, and none is part of `npm run check`.
+
+- `npm run bench` times the parts that need no editor (configuration, loading a project, parsing, conversion, CSS) on `docs/` and on a generated project.
+- `node scripts/bench/make-corpus.mjs <folder> [--seed 1]` writes that generated project: 500 documents of made-up text and one of 3,000 blocks. The same seed gives the same files.
+- `node scripts/bench/responsiveness.mjs <document> [--out file.json]` starts VS Code once on the project of the document and runs **Stanza: Measure Responsiveness** in it: the shortest, a typical and the longest document opened 20 times cold and 20 times warm, then typing, Enter, a style and Strong 20 times each, against the budgets. In a normal window the command shows with the setting `stanza.development.measure`. The measured changes are never sent to the buffer, so the files stay as they are. `STANZA_MEASURE_RESULTS` makes the extension start it on its own and quit when done.
+- `node scripts/bench/first-open.mjs <document> [--runs 20] [--out file.json]` measures the first open in a new VS Code window, step by step. `STANZA_TIMING_FILE` makes the extension write a time stamp at each step and quit once the document is editable.
+
+The two VS Code scripts start the installed `code` with a new profile, the built-in extensions and this one (`scripts/bench/vscode.mjs`). Leave the windows alone while they run.
 
 ## Releasing
 
