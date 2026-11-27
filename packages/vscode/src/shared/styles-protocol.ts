@@ -14,6 +14,8 @@ export type StylesHostMessage =
   | { readonly type: 'edit-refused'; readonly message: string }
   /** Selects a style, such as the one that the person was looking at in a document. */
   | { readonly type: 'select-style'; readonly kind: StyleKind; readonly name: string }
+  /** The page layout of the document the editor was opened from, and its file name (ADR 0096). */
+  | { readonly type: 'document-layout'; readonly name: string; readonly document: string }
   /** The file is not the stylesheet of a project, and why. */
   | { readonly type: 'refused'; readonly title: string; readonly reasons: readonly Reason[] }
   /**
@@ -158,6 +160,12 @@ export function parseStylesHostMessage(value: unknown): StylesHostMessage | unde
     case 'select-style': {
       const { kind, name } = value;
       return isStyleKind(kind) && isName(name) ? { type: 'select-style', kind, name } : undefined;
+    }
+    case 'document-layout': {
+      const { name, document } = value;
+      return isName(name) && typeof document === 'string'
+        ? { type: 'document-layout', name, document }
+        : undefined;
     }
     case 'images': {
       const images = parseImages(value['images']);

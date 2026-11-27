@@ -69,7 +69,9 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
   .cover-grid.editing { position: relative; user-select: none; }
   .cover-grid.editing .grid-cell { position: relative; z-index: 2; cursor: crosshair;
     outline: 1px dashed rgba(0, 120, 212, 0.35); outline-offset: -1px; }
+  .cover-grid.editing .grid-cell:hover { background: rgba(0, 120, 212, 0.1); }
   .cover-grid.editing .grid-cell.picked { background: rgba(0, 120, 212, 0.2); }
+  .cover-grid.editing .grid-frame.hover { border: 1px solid #0078d4; }
   .cover-grid.editing .grid-frame { position: relative; z-index: 1; pointer-events: none;
     border: 1px solid rgba(0, 120, 212, 0.6); }
   .cover-grid.editing .grid-frame.selected { border: 2px solid #0078d4;
@@ -77,6 +79,13 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
   .cover-grid.editing .grid-label { position: absolute; top: 0; left: 0; padding: 0 3px;
     font: 9px sans-serif; color: #ffffff; background: rgba(0, 120, 212, 0.75); }
   .cover-editor .grid-area.selected { border-left-color: #0078d4; }
+  #preview-bar .hint { color: #9d9d9d; }
+  .layout-box { padding: 4px 0 8px; border-bottom: 1px solid #3c3c3c; }
+  .layout-box .layout-name { font-weight: 600; }
+  #preview-header .slots, #preview-footer .slots { display: grid;
+    grid-template-columns: 1fr auto 1fr; }
+  #preview-header .slot-center, #preview-footer .slot-center { text-align: center; }
+  #preview-header .slot-right, #preview-footer .slot-right { text-align: right; }
   .cover-editor .grid-area-name { font-weight: 600; }
   .cover-editor .cover-row-box, .cover-editor .cover-entry { margin: 4px 12px 8px;
     padding: 4px 0 4px 6px; border-left: 2px solid #3c3c3c; }
@@ -125,8 +134,6 @@ export function buildStylesHtml({ scriptUri, nonce, cspSource }: HtmlInput): str
           <div id="preview-header" hidden></div>
           <div id="preview-title"></div>
           <p class="preview-note">The text of the document follows here.</p>
-        </div>
-        <div id="preview-foot" class="preview-sheet" hidden>
           <div id="preview-footer" hidden></div>
         </div>
       </div>

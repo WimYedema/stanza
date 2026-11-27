@@ -62,7 +62,6 @@ const pages = createPagePanel({
     first: element('preview-first'),
     titleBlock: element('preview-title'),
     header: element('preview-header'),
-    foot: element('preview-foot'),
     footer: element('preview-footer'),
     bar: element('preview-bar'),
   }),
@@ -156,6 +155,9 @@ function handle(message: StylesHostMessage): void {
     case 'select-style':
       view.selectWhenShown(message.kind, message.name);
       if (latest !== undefined) view.show(latest);
+      return;
+    case 'document-layout':
+      pages.setDocumentLayout(message.name, message.document);
       return;
     case 'images':
       pages.setImages(new Map(Object.entries(message.images)));

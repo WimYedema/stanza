@@ -1,4 +1,10 @@
-import { SLOT_TOKENS, type PageSize, type PageTemplate, type Stylesheet } from '@stanza/core';
+import {
+  DEFAULT_PAGE_TEMPLATE_NAME,
+  SLOT_TOKENS,
+  type PageSize,
+  type PageTemplate,
+  type Stylesheet,
+} from '@stanza/core';
 import { slotSource } from '@stanza/format';
 import type { StylesWebviewMessage, Value } from '../shared/styles-protocol.js';
 import type { CoverPreview } from './styles-cover-preview.js';
@@ -9,9 +15,10 @@ import type { Entry } from './styles-families.js';
 import { numberFrom } from './styles-properties.js';
 
 /**
- * The panel of a page template (ADR 0051): the size, the margins, the header and footer with their
- * three slots, and the cover and title block (ADR 0091). Changes go to the host as edits of the text
- * of the stylesheet.
+ * The panel of a page layout, a page template in the stylesheet (ADR 0051, ADR 0096). The Page
+ * layout tab lists its two parts: the cover page (ADR 0091) and the body pages, with their size,
+ * margins, header, footer and title block. The layout itself is chosen at the top of the panel.
+ * Changes go to the host as edits of the text of the stylesheet.
  */
 
 const SIZES: readonly PageSize[] = ['A4', 'Letter'];
@@ -33,8 +40,10 @@ export interface PagePanelOptions {
 }
 
 export interface PagePanel {
-  /** Shows the panel of a page template, or hides it for anything else, and says whether it is shown. */
+  /** Shows the panel of a part of the page layout, or hides it for anything else, and says whether it is shown. */
   show(entry: Entry | undefined, stylesheet: Stylesheet): boolean;
+  /** The layout of the document the style editor was opened from, which it starts on. */
+  setDocumentLayout(name: string, document: string): void;
   /** A change was refused: says why, and shows the stylesheet as it is. */
   refused(message: string): void;
   /** The images of the project as data URLs by path, to choose from and to show. */
@@ -78,7 +87,32 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
       else bandGrids[target].selectArea(name);
     },
   });
-  let current: { readonly name: string; readonly stylesheet: Stylesheet } | undefined;
+  let current:
+    | { readonly name: string; readonly part: 'cover' | 'body'; readonly stylesheet: Stylesheet }
+    | undefined;
+  /** The layout chosen in the panel, and that of the document the editor was opened from. */
+  let chosen: string | undefined;
+  let fromDocument: { readonly name: string; readonly document: string } | undefined;
+
+  /** The layout to show: the one chosen, or the document's, or the default, or the first. */
+  const layoutOf = (stylesheet: Stylesheet): string | undefined => {
+    const names = [...stylesheet.pageTemplates.keys()] as string[];
+    return [chosen, fromDocument?.name, DEFAULT_PAGE_TEMPLATE_NAME, names[0]].find(
+      (name) => name !== undefined && names.includes(name),
+    );
+  };
+
+  const layout = el('select');
+  layout.title = 'The page layout a document uses is named by page-template in its front matter';
+  layout.addEventListener('change', () => {
+    chosen = layout.value;
+    if (current !== undefined) show(current.part, current.stylesheet);
+  });
+  const layoutName = el('span', 'layout-name');
+  const layoutNote = el('p', 'hint');
+  const layoutBox = el('div', 'layout-box');
+  layoutBox.append(row('Layout', layout, layoutName), layoutNote);
+  const coverNote = el('p', 'hint');
   const updates: ((template: PageTemplate, stylesheet: Stylesheet) => void)[] = [];
 
   const commit = (keys: readonly string[], value: Value | null): void => {
@@ -183,7 +217,7 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     const gridNote = el(
       'p',
       'hint',
-      'Alignment comes from the paragraph styles of the entries. The grid is drawn above or below the first page of the preview.',
+      'Alignment comes from the paragraph styles of the entries. Drag across the cells of the band on the page in the preview to make areas.',
     );
     const hint = el(
       'p',
@@ -210,13 +244,37 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     );
   });
 
-  root.append(
-    status,
+  const bodySections = [
     section('Page', row('Size', size)),
     section('Margins', ...margins),
     ...bandSections,
-    covers.element,
-  );
+  ];
+  root.append(status, layoutBox, coverNote, ...bodySections, covers.element);
+
+  /** The picker of layouts, or the name of the only one, and what it is used by. */
+  function drawLayouts(stylesheet: Stylesheet, name: string): void {
+    const names = [...stylesheet.pageTemplates.keys()] as string[];
+    const label = (each: string): string =>
+      each === DEFAULT_PAGE_TEMPLATE_NAME ? `${each} (default)` : each;
+    layout.replaceChildren(...names.map((each) => option(each, label(each))));
+    layout.value = name;
+    layout.hidden = names.length < 2;
+    layoutName.textContent = names.length < 2 ? label(name) : '';
+    layoutNote.textContent = [
+      'These settings shape every document that uses this layout.',
+      ...(fromDocument?.name === name ? [`${fromDocument.document} uses it.`] : []),
+    ].join(' ');
+  }
+
+  function show(part: 'cover' | 'body', stylesheet: Stylesheet): void {
+    const name = layoutOf(stylesheet);
+    if (name === undefined) return;
+    current = { name, part, stylesheet };
+    drawLayouts(stylesheet, name);
+    for (const body of bodySections) body.hidden = part !== 'body';
+    covers.showPart(part);
+    update();
+  }
 
   function update(): void {
     const template = [...(current?.stylesheet.pageTemplates ?? [])].find(
@@ -224,23 +282,29 @@ export function createPagePanel({ root, send, preview }: PagePanelOptions): Page
     )?.[1];
     if (current === undefined || template === undefined) return;
     for (const apply of updates) apply(template, current.stylesheet);
+    coverNote.hidden = current.part !== 'cover';
+    coverNote.textContent = `The cover page is ${template.size}, as the body pages; its margins are its own, or those of the body pages.`;
     covers.update(current.name, template, current.stylesheet);
     for (const band of BANDS) bandGrids[band].update(current.name, template, current.stylesheet);
-    preview?.show(template, current.stylesheet);
+    preview?.show(template, current.stylesheet, current.part);
   }
 
   return {
     show(entry, stylesheet) {
-      if (entry?.kind !== 'page-template') {
+      if (entry?.kind !== 'page-part') {
         current = undefined;
         root.hidden = true;
         preview?.show(undefined, stylesheet);
         return false;
       }
-      current = { name: entry.name, stylesheet };
       root.hidden = false;
-      update();
+      show(entry.name === 'cover' ? 'cover' : 'body', stylesheet);
       return true;
+    },
+    setDocumentLayout(name, document) {
+      fromDocument = { name, document };
+      chosen = undefined;
+      if (current !== undefined) show(current.part, current.stylesheet);
     },
     refused(message) {
       status.textContent = message;

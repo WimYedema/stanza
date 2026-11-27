@@ -63,6 +63,8 @@ export interface CoverEditor {
   cells(range: CellRange, action: CellAction): void;
   /** Marks an area of a grid cover, which the preview selected. */
   selectArea(name: string | undefined): void;
+  /** Shows the cover for the cover page, or the title block for the body pages (ADR 0096). */
+  showPart(part: 'cover' | 'body'): void;
 }
 
 export function createCoverEditor(
@@ -77,24 +79,21 @@ export function createCoverEditor(
   const titleRoot = el('div');
   const list = el('datalist');
   list.id = 'cover-images';
-  element.append(
-    status,
-    list,
-    section(
-      'Cover',
-      el(
-        'p',
-        'hint',
-        'Rows divide the cover page from top to bottom: a height in points, a share such as 2fr, or empty to grow with the content. Values the program fills in are links, such as [](stanza:title).',
-      ),
-      coverRoot,
+  const coverSection = section(
+    'Cover',
+    el(
+      'p',
+      'hint',
+      'A list from the top, rows from top to bottom, or a grid of areas. Heights are points, shares such as 2fr, or empty to grow with the content. Values the program fills in are links, such as [](stanza:title).',
     ),
-    section(
-      'Title block',
-      el('p', 'hint', 'Written at the top of the first page of the body, before its text.'),
-      titleRoot,
-    ),
+    coverRoot,
   );
+  const titleSection = section(
+    'Title block',
+    el('p', 'hint', 'Written at the top of the first page of the body, before its text.'),
+    titleRoot,
+  );
+  element.append(status, list, coverSection, titleSection);
 
   let images: readonly string[] = [];
   /** The area of a grid cover that is selected in the panel and the preview. */
@@ -410,6 +409,10 @@ export function createCoverEditor(
       selectedArea = edit.select;
       writeCover(edit.grid, true);
       selected(selectedArea);
+    },
+    showPart(part) {
+      coverSection.hidden = part !== 'cover';
+      titleSection.hidden = part !== 'body';
     },
     selectArea(name) {
       selectedArea = name;

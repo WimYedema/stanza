@@ -22,8 +22,10 @@ page-templates:
     size: Letter
 `).stylesheet;
 
-const entry = (name: string): Entry => {
-  const found = entriesOf(stylesheet).find((candidate) => candidate.name === name);
+const entry = (kind: Entry['kind'], name: string): Entry => {
+  const found = entriesOf(stylesheet).find(
+    (candidate) => candidate.kind === kind && candidate.name === name,
+  );
   if (found === undefined) throw new Error(`No entry ${name}.`);
   return found;
 };
@@ -37,7 +39,7 @@ beforeEach(() => {
   document.body.append(root);
   send.mockClear();
   panel = createPagePanel({ root, send });
-  panel.show(entry('page'), stylesheet);
+  panel.show(entry('page-part', 'body'), stylesheet);
 });
 afterEach(() => {
   document.body.replaceChildren();
@@ -69,11 +71,39 @@ const change = (field: HTMLInputElement | HTMLSelectElement, value: string): voi
 const status = (): string => root.querySelector('.status')?.textContent ?? '';
 
 describe('the page panel', () => {
-  it('shows only for a page template', () => {
-    expect(panel.show(entry('body'), stylesheet)).toBe(false);
+  it('shows only for a part of the page layout, and only what that part has (ADR 0096)', () => {
+    expect(panel.show(entry('paragraph-style', 'body'), stylesheet)).toBe(false);
     expect(root.hidden).toBe(true);
-    expect(panel.show(entry('plain'), stylesheet)).toBe(true);
+    expect(panel.show(entry('page-part', 'cover'), stylesheet)).toBe(true);
     expect(root.hidden).toBe(false);
+    const shown = (title: string): boolean =>
+      [...root.querySelectorAll('summary')].some(
+        (summary) => summary.textContent === title && summary.closest('[hidden]') === null,
+      );
+    expect(shown('Cover')).toBe(true);
+    expect(shown('Header')).toBe(false);
+    expect(shown('Title block')).toBe(false);
+    panel.show(entry('page-part', 'body'), stylesheet);
+    expect(shown('Cover')).toBe(false);
+    expect(shown('Header')).toBe(true);
+    expect(shown('Title block')).toBe(true);
+  });
+
+  it('starts on the default layout, offers the others, and starts on that of a document', () => {
+    const layout = root.querySelector<HTMLSelectElement>('.layout-box select');
+    if (layout === null) throw new Error('No layout.');
+    expect([...layout.options].map((option) => option.textContent)).toEqual([
+      'page (default)',
+      'plain',
+    ]);
+    expect(layout.value).toBe('page');
+    change(layout, 'plain');
+    expect(selectOf('Page', 'Size').value).toBe('Letter');
+    panel.setDocumentLayout('page', 'memo.stanza.md');
+    expect(layout.value).toBe('page');
+    expect(root.querySelector('.layout-box')?.textContent).toContain('memo.stanza.md uses it.');
+    change(layout, 'plain');
+    expect(root.querySelector('.layout-box')?.textContent).not.toContain('memo.stanza.md');
   });
 
   it('shows the size, the margins and the slots of the template', () => {
@@ -84,7 +114,9 @@ describe('the page panel', () => {
     expect(inputOf('Header', 'Left').value).toBe('[](stanza:title)');
     expect(inputOf('Header', 'Center').value).toBe('');
     expect(inputOf('Header', 'Right').value).toBe('Page [1](stanza:page) of [1](stanza:pages)');
-    panel.show(entry('plain'), stylesheet);
+    const layout = root.querySelector<HTMLSelectElement>('.layout-box select');
+    if (layout === null) throw new Error('No layout.');
+    change(layout, 'plain');
     expect(selectOf('Page', 'Size').value).toBe('Letter');
     expect(inputOf('Header', 'Left').value).toBe('');
     expect(selectOf('Header', 'Style').value).toBe('');

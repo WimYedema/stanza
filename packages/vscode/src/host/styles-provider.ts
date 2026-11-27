@@ -41,6 +41,27 @@ const SELECTION_LIFETIME_MS = 10_000;
 const sessions = new Map<string, StylesSession>();
 const requested = new Map<string, StyleSelection>();
 
+/** The page layout of a document that the style editor was opened from (ADR 0096). */
+export interface DocumentLayout {
+  readonly name: string;
+  readonly document: string;
+}
+
+const layouts = new Map<string, DocumentLayout>();
+
+/**
+ * Tells the style editor of a stylesheet which page layout the document it is opened from uses, at
+ * once if it is open, else when it has started; dropped as a selection is when nothing takes it up.
+ */
+export function requestDocumentLayout(uri: vscode.Uri, layout: DocumentLayout): void {
+  const key = uri.toString();
+  layouts.set(key, layout);
+  setTimeout(() => {
+    if (layouts.get(key) === layout) layouts.delete(key);
+  }, SELECTION_LIFETIME_MS);
+  sessions.get(key)?.deliverSelection();
+}
+
 /**
  * Asks the style editor of a stylesheet to select a style: at once if it is open, else when it has
  * started. A request that nothing took up is dropped, so a later start does not jump to a style.
@@ -143,8 +164,14 @@ class StylesSession {
 
   private async sendSelection(): Promise<void> {
     const key = this.document.uri.toString();
+    if (!this.accepted) return;
+    const layout = layouts.get(key);
+    if (layout !== undefined) {
+      layouts.delete(key);
+      await this.post({ type: 'document-layout', name: layout.name, document: layout.document });
+    }
     const selection = requested.get(key);
-    if (!this.accepted || selection === undefined) return;
+    if (selection === undefined) return;
     requested.delete(key);
     await this.post({ type: 'select-style', kind: selection.kind, name: selection.name });
   }

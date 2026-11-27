@@ -147,6 +147,6 @@ describe('sampleSelector', () => {
     expect(sampleSelector(entry('paragraph-style', 'lists', 'list-numbered'))).toBe(
       '.stanza-li-list-numbered',
     );
-    expect(sampleSelector(entry('page-template', 'pages', 'page'))).toBeUndefined();
+    expect(sampleSelector(entry('page-part', 'pages', 'cover'))).toBeUndefined();
   });
 });

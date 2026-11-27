@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CoverGrid, PageTemplate, StyleName, Stylesheet } from '@stanza/core';
 import { parseStylesheet, setBlock } from '@stanza/format';
 import type { StylesWebviewMessage } from '../shared/styles-protocol.js';
-import { attachOverlay, joinable, rangeOf } from './styles-grid-overlay.js';
+import { GRID_HINT, attachOverlay, joinable, rangeOf } from './styles-grid-overlay.js';
 import { createBandGridEditor, parseWidth } from './styles-grid.js';
 
 const BASE = `stanza-format: 1
@@ -155,7 +155,8 @@ describe('the grid over the preview', () => {
         kind: 'new',
       },
     );
-    expect(bar.hidden).toBe(true);
+    // The bar goes back to saying what can be done.
+    expect(bar.textContent).toBe(GRID_HINT);
   });
 
   it('selects the area of a cell that is clicked', () => {

@@ -14,6 +14,10 @@ import type { CellAction } from './styles-grid.js';
  * clearing them; a click in an area selects it.
  */
 
+/** What can be done with the cells of a grid in the preview. */
+export const GRID_HINT =
+  'Drag across cells to make an area, add them to one or clear them; click an area to edit it.';
+
 export interface OverlayHandlers {
   cells(range: CellRange, action: CellAction): void;
   select(name: string | undefined): void;
@@ -114,8 +118,10 @@ export function attachOverlay(
   const close = (): void => {
     range = undefined;
     mark();
-    bar.hidden = true;
-    bar.replaceChildren();
+    const hint = document.createElement('span');
+    hint.className = 'hint';
+    hint.textContent = GRID_HINT;
+    bar.replaceChildren(hint);
   };
   const offer = (picked: CellRange): void => {
     const size = `${String(picked.columnSpan)} × ${String(picked.rowSpan)}`;
@@ -163,11 +169,19 @@ export function attachOverlay(
     // The drag ends where the button is let go, inside the grid or not.
     layout.ownerDocument.addEventListener('mouseup', finish, { once: true });
   });
+  const frames = [...layout.querySelectorAll<HTMLElement>('.grid-frame')];
   layout.addEventListener('mouseover', (event) => {
     const cell = cellOf(event.target);
-    if (anchor === undefined || cell === undefined) return;
+    if (cell === undefined) return;
+    // The area under the mouse is outlined, to show what a click would select.
+    const name = grid.areas[cell.row]?.[cell.column];
+    for (const frame of frames) frame.classList.toggle('hover', frame.dataset['area'] === name);
+    if (anchor === undefined) return;
     range = rangeOf(anchor, cell);
     mark();
+  });
+  layout.addEventListener('mouseleave', () => {
+    for (const frame of frames) frame.classList.remove('hover');
   });
   function finish(): void {
     if (anchor === undefined || range === undefined) return;

@@ -30,7 +30,18 @@ The Pages panel edits a cover of rows (ADR 0091), but a cover grid (ADR 0092) an
 - While a page template with a grid is shown, the preview draws the lines of the grid over the cover, and the name of each area in its corner. Rows that grow with their content are at least one line high in the preview, so that an empty row can be reached.
 - **A drag across cells selects a rectangle of them.** With a selection, the preview offers: a new area of those cells, adding them to an area when the area and the cells together make a rectangle, and clearing them. Cells taken from another area leave that area; when what is left of it is not a rectangle, the change is refused with that reason, and when nothing is left, the area is removed with its entries.
 - **A click on an area selects it** in the panel and scrolls to it; a selected area is marked in the preview.
-- A header or footer that is a grid is drawn as a band of its own above and below the sheets, at its distance from the edge, and is edited in the same way.
+- A header or footer that is a grid is drawn on the body page at its distance from the edge, and is edited in the same way.
+- **The preview shows what can be done.** A cell under the mouse is lit and has a crosshair, the area under the mouse is outlined, and while a grid is shown a bar above the preview says what a drag and a click do; with a selection, the same bar offers the actions.
+
+<!-- stanza: #gzzv502f0s -->
+### The layout and its parts
+
+A page template is the layout of every document that names it, cover included, so the style editor shows it that way. The product owner added this on the same day, after trying the first version, in which a template showed its cover, title block, header and footer all at once.
+
+- **The tab is Page layout, and it lists the two parts of a layout: Cover page and Body pages.** Each part has its panel and its preview of its own: the cover page shows the kind of cover, its margins and its rows or grid; the body pages show the size, the margins, the header, the footer and the title block, and the preview shows one whole body page with them. The cover page shows the size it shares with the body pages.
+- **The layout is chosen at the top of the panel,** less prominent than the parts. With one layout it is a name; with several it is a list, in which the default layout, the one a document gets without `page-template`, is marked "default". The panel says that its settings shape every document that uses the layout.
+- **The style editor starts on the layout of the document it was opened from** with Edit Styles, and says which document uses it. The layout of a document is its own `page-template`, else the default of the project, else the default layout.
+- The model does not change: the cover stays part of the template, since a document chooses one layout, cover included. Covers that several layouts share would be a change of the model, for when that is needed.
 
 <!-- stanza: #8x8xxb3ytk -->
 ### Edits

@@ -11,15 +11,16 @@ import {
   type Stylesheet,
 } from '@stanza/core';
 import { SCOPE_CLASS } from '@stanza/css';
-import { drawCover, drawGrid, drawTitleBlock } from './sheet.js';
-import { attachOverlay } from './styles-grid-overlay.js';
+import { drawBand, drawCover, drawTitleBlock } from './sheet.js';
+import { GRID_HINT, attachOverlay } from './styles-grid-overlay.js';
 import type { CellAction, GridTarget } from './styles-grid.js';
 
 /**
  * The preview of the cover and title block of a page template in the style editor (ADR 0091): the
  * cover on a sheet of its own, and the top of the first page with the title block, as the document
  * editor draws them (item 222), filled with sample metadata. A grid of the cover, header or footer
- * is drawn with its cells and areas, to edit it (ADR 0096).
+ * is drawn with its cells and areas, to edit it. While a part of the layout is edited, only that
+ * part is shown: the cover page, or a body page with its header and footer (ADR 0096).
  */
 
 export interface CoverPreviewElements {
@@ -28,18 +29,27 @@ export interface CoverPreviewElements {
   readonly cover: HTMLElement;
   readonly first: HTMLElement;
   readonly titleBlock: HTMLElement;
-  /** The header grid at the top of the first page, and a strip of the bottom with the footer grid. */
+  /** The header and the footer, on the first page at their distances from the edges. */
   readonly header?: HTMLElement;
-  readonly foot?: HTMLElement;
   readonly footer?: HTMLElement;
   /** Where the actions for dragged cells are offered. */
   readonly bar?: HTMLElement;
 }
 
+const el = (tag: string, className: string, text: string): HTMLElement => {
+  const element = document.createElement(tag);
+  element.className = className;
+  element.textContent = text;
+  return element;
+};
+
 const pt = (value: number): string => `${String(Math.round(value * 1000) / 1000)}pt`;
 
 /** Where Word puts a header and a footer from the edge of the page without a distance: 1.25 cm. */
 const BAND_DISTANCE_PT = 35.4;
+
+/** What the section field shows in a sample header or footer. */
+const SAMPLE_SECTION = '1 Introduction';
 
 /** The fields that the entries show, each with its name as its sample value. */
 function fieldsOf(entries: readonly CoverEntry[]): Record<string, string> {
@@ -78,8 +88,11 @@ export interface GridHandlers {
 }
 
 export interface CoverPreview {
-  /** Draws the cover and title block of a template, or hides the preview for none. */
-  show(template: PageTemplate | undefined, stylesheet: Stylesheet): void;
+  /**
+   * Draws the cover and title block of a template, or hides the preview for none; with a part, only
+   * the cover page or only a body page.
+   */
+  show(template: PageTemplate | undefined, stylesheet: Stylesheet, part?: 'cover' | 'body'): void;
   setImages(images: ReadonlyMap<string, string>): void;
   /** Draws grids with their cells, and tells `handlers` what is done with them (ADR 0096). */
   setEditing(handlers: GridHandlers): void;
@@ -91,13 +104,28 @@ export function createCoverPreview(elements: CoverPreviewElements): CoverPreview
   const scoped = [elements.cover, elements.titleBlock, elements.header, elements.footer];
   for (const element of scoped) element?.classList.add(SCOPE_CLASS);
   let images: ReadonlyMap<string, string> = new Map();
-  let last: { template: PageTemplate | undefined; stylesheet: Stylesheet } | undefined;
+  let last:
+    | { template: PageTemplate | undefined; stylesheet: Stylesheet; part?: 'cover' | 'body' }
+    | undefined;
   let handlers: GridHandlers | undefined;
   const selected: Record<GridTarget, string | undefined> = {
     cover: undefined,
     header: undefined,
     footer: undefined,
   };
+
+  /** What the bar says while a grid is shown and no cells are selected. */
+  function showHint(): void {
+    const { bar } = elements;
+    if (bar === undefined) return;
+    const grids = (
+      elements.root.hidden ? [] : [...elements.root.querySelectorAll('.cover-grid.editing')]
+    ).filter((grid) => grid.closest('[hidden]') === null);
+    bar.hidden = grids.length === 0;
+    if (bar.childElementCount === 0) {
+      bar.append(el('span', 'hint', GRID_HINT));
+    }
+  }
 
   /** Puts the cells of a grid over its drawing, while the grids are edited. */
   function overlay(root: HTMLElement, target: GridTarget, grid: CoverGrid): void {
@@ -116,60 +144,55 @@ export function createCoverPreview(elements: CoverPreviewElements): CoverPreview
     });
   }
 
-  /** A grid of a header or footer, at its distance from the edge, or nothing for slots. */
-  function drawBandGrid(
+  /** A header or footer, its slots or its grid, at its distance from the edge of the page. */
+  function drawBandOf(
     root: HTMLElement | undefined,
     target: 'header' | 'footer',
     template: PageTemplate,
     stylesheet: Stylesheet,
     meta: DocumentMeta,
-  ): boolean {
-    if (root === undefined) return false;
-    root.replaceChildren();
+  ): void {
+    if (root === undefined) return;
     const spec = template[target];
-    const grid = spec?.grid;
     const { widthPt } = PAGE_SIZES[template.size];
-    const width = widthPt - template.margins.leftPt - template.margins.rightPt;
-    const layout =
-      grid === undefined
-        ? undefined
-        : drawGrid(grid, width, 0, meta, stylesheet, images, handlers !== undefined);
-    root.hidden = layout === undefined;
-    if (layout === undefined || grid === undefined) return false;
-    const margin = target === 'header' ? template.margins.topPt : template.margins.bottomPt;
+    const { margins } = template;
+    drawBand(root, spec, meta, SAMPLE_SECTION, {
+      widthPt: widthPt - margins.leftPt - margins.rightPt,
+      stylesheet,
+      images,
+      editing: handlers !== undefined,
+    });
+    if (root.hidden) return;
+    const margin = target === 'header' ? margins.topPt : margins.bottomPt;
     const distance = spec?.distancePt ?? Math.min(BAND_DISTANCE_PT, margin / 2);
     root.style.position = 'absolute';
-    root.style.left = pt(template.margins.leftPt);
-    root.style.right = pt(template.margins.rightPt);
+    root.style.left = pt(margins.leftPt);
+    root.style.right = pt(margins.rightPt);
     root.style.setProperty(target === 'header' ? 'top' : 'bottom', pt(distance));
-    root.append(layout);
-    overlay(root, target, grid);
-    return true;
+    if (spec?.grid !== undefined) overlay(root, target, spec.grid);
   }
 
   function draw(): void {
     const template = last?.template;
-    if (elements.bar !== undefined) {
-      elements.bar.hidden = true;
-      elements.bar.replaceChildren();
-    }
+    if (elements.bar !== undefined) elements.bar.replaceChildren();
     if (last === undefined || template === undefined) {
       elements.root.hidden = true;
       return;
     }
     const meta = sampleMeta(template);
+    const { part } = last;
     const { widthPt, heightPt } = PAGE_SIZES[template.size];
     const { margins } = template;
-    for (const sheet of [elements.cover, elements.first, elements.foot]) {
-      if (sheet === undefined) continue;
+    for (const sheet of [elements.cover, elements.first]) {
       sheet.style.width = pt(widthPt);
       sheet.style.boxSizing = 'border-box';
       sheet.style.position = 'relative';
     }
     elements.cover.style.minHeight = pt(heightPt);
-    elements.first.style.padding = `${pt(margins.topPt)} ${pt(margins.rightPt)} 24pt ${pt(margins.leftPt)}`;
-    const editing = handlers !== undefined;
-    drawCover(elements.cover, template, meta, last.stylesheet, images, editing);
+    // A body page is shown whole while it is edited; else only its top, with the title block.
+    elements.first.style.minHeight = part === 'body' ? pt(heightPt) : '';
+    elements.first.style.padding = `${pt(margins.topPt)} ${pt(margins.rightPt)} ${part === 'body' ? pt(margins.bottomPt) : '24pt'} ${pt(margins.leftPt)}`;
+    drawCover(elements.cover, template, meta, last.stylesheet, images, handlers !== undefined);
     // A cover of rows has its own margins; a list has those of the page.
     if (elements.cover.style.padding === '') {
       elements.cover.style.padding = [
@@ -183,19 +206,25 @@ export function createCoverPreview(elements: CoverPreviewElements): CoverPreview
     }
     if (template.cover?.kind === 'grid') overlay(elements.cover, 'cover', template.cover);
     drawTitleBlock(elements.titleBlock, template, meta, last.stylesheet, images);
-    const header = drawBandGrid(elements.header, 'header', template, last.stylesheet, meta);
-    const footer = drawBandGrid(elements.footer, 'footer', template, last.stylesheet, meta);
-    if (elements.foot !== undefined) {
-      elements.foot.hidden = !footer;
-      elements.foot.style.height = pt(margins.bottomPt);
+    const bands = part === 'body';
+    if (bands) {
+      drawBandOf(elements.header, 'header', template, last.stylesheet, meta);
+      drawBandOf(elements.footer, 'footer', template, last.stylesheet, meta);
+    } else {
+      for (const band of [elements.header, elements.footer]) {
+        if (band !== undefined) band.hidden = true;
+      }
     }
-    elements.first.hidden = elements.titleBlock.hidden && !header;
-    elements.root.hidden = elements.cover.hidden && elements.first.hidden && !footer;
+    if (part === 'cover') elements.first.hidden = true;
+    else elements.first.hidden = !bands && elements.titleBlock.hidden;
+    if (part === 'body') elements.cover.hidden = true;
+    elements.root.hidden = elements.cover.hidden && elements.first.hidden;
+    showHint();
   }
 
   return {
-    show(template, stylesheet) {
-      last = { template, stylesheet };
+    show(template, stylesheet, part) {
+      last = { template, stylesheet, ...(part !== undefined ? { part } : {}) };
       draw();
     },
     setImages(next) {

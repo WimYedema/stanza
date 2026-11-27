@@ -138,8 +138,11 @@ function slotNodes(
   });
 }
 
-/** The line of a header or a footer, in the three slots, or nothing when all of them are empty. */
-function drawBand(
+/**
+ * The line of a header or a footer, in the three slots, or its grid, or nothing when it is empty.
+ * While the grid is edited in the style editor, it is drawn even when empty (ADR 0096).
+ */
+export function drawBand(
   root: HTMLElement,
   spec: HeaderFooter | undefined,
   meta: DocumentMeta,
@@ -148,12 +151,21 @@ function drawBand(
     readonly widthPt: number;
     readonly stylesheet: Stylesheet;
     readonly images: ReadonlyMap<string, string>;
+    readonly editing?: boolean;
   },
 ): void {
   root.replaceChildren();
   if (spec?.grid !== undefined) {
     // Its page fields show their labels, as the slots do.
-    const layout = drawGrid(spec.grid, grid.widthPt, 0, meta, grid.stylesheet, grid.images);
+    const layout = drawGrid(
+      spec.grid,
+      grid.widthPt,
+      0,
+      meta,
+      grid.stylesheet,
+      grid.images,
+      grid.editing,
+    );
     root.hidden = layout === undefined;
     if (layout !== undefined) root.append(layout);
     return;

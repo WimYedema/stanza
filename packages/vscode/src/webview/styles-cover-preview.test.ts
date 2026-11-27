@@ -144,13 +144,22 @@ describe('the preview of grids while they are edited (ADR 0096)', () => {
       cells: (target, range, action) => done.push([target, range, action]),
       select: (target, name) => done.push([target, name]),
     });
-    preview.show(grids.pageTemplates.get('page' as StyleName), grids);
+    const page = grids.pageTemplates.get('page' as StyleName);
+    preview.show(page, grids, 'cover');
     expect(elements.cover.hidden).toBe(false);
+    expect(elements.first.hidden).toBe(true);
+    expect(bar.textContent).toContain('Drag across cells');
     expect(elements.cover.querySelectorAll('.grid-cell')).toHaveLength(4);
     expect(
       [...elements.cover.querySelectorAll('.grid-label')].map((label) => label.textContent),
     ).toEqual(['logo', 'title']);
-    // The header has a grid, so the first page is shown with it, at its distance.
+    preview.select('cover', 'title');
+    expect(elements.cover.querySelector('.grid-frame.selected')?.getAttribute('data-area')).toBe(
+      'title',
+    );
+    // The body pages: a whole page, with the header grid at its distance, and no cover.
+    preview.show(page, grids, 'body');
+    expect(elements.cover.hidden).toBe(true);
     expect(elements.first.hidden).toBe(false);
     expect(header.style.top).toBe('20pt');
     expect(header.querySelectorAll('.grid-cell')).toHaveLength(2);
@@ -165,9 +174,5 @@ describe('the preview of grids while they are edited (ADR 0096)', () => {
       ['header', undefined],
       ['header', { row: 0, column: 1, rowSpan: 1, columnSpan: 1 }, { kind: 'new' }],
     ]);
-    preview.select('cover', 'title');
-    expect(elements.cover.querySelector('.grid-frame.selected')?.getAttribute('data-area')).toBe(
-      'title',
-    );
   });
 });

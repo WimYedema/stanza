@@ -51,7 +51,8 @@ describe('entriesOf', () => {
   it('lists the other families as the file declares them', () => {
     expect(names('tables')).toEqual(['table', 'table-grid']);
     expect(names('characters')).toEqual(['marker', 'muted']);
-    expect(names('pages')).toEqual(['page', 'page-letter']);
+    // The layouts are chosen in the panel; the list has the two parts of one (ADR 0096).
+    expect(names('pages')).toEqual(['cover', 'body']);
     expect(names('theme')).toEqual([
       'brand',
       'heading',
@@ -92,15 +93,8 @@ describe('describeEntry', () => {
     ]);
   });
 
-  it('gives the page of a template, and the value of a token', () => {
-    expect(describeEntry(entry('page-template', 'page-letter'), stylesheet)).toEqual([
-      ['Name', 'page-letter'],
-      ['Size', 'Letter'],
-      ['Margins', '54, 90, 54, 90 pt'],
-      ['Header', 'yes'],
-      ['Footer', 'yes'],
-      ['Cover', 'yes'],
-    ]);
+  it('gives only the name of a part of the page layout, and the value of a token', () => {
+    expect(describeEntry(entry('page-part', 'cover'), stylesheet)).toEqual([['Name', 'cover']]);
     expect(describeEntry(entry('color', 'brand'), stylesheet)).toContainEqual(['Value', '#2E75B6']);
     expect(describeEntry(entry('font', 'mono'), stylesheet)).toContainEqual([
       'Families',

@@ -116,12 +116,16 @@ describe('parseStylesHostMessage', () => {
     expect(
       parseStylesHostMessage({ type: 'select-style', kind: 'table-style', name: 'table' }),
     ).toEqual({ type: 'select-style', kind: 'table-style', name: 'table' });
+    const layout = { type: 'document-layout', name: 'report', document: 'pump-test.stanza.md' };
+    expect(parseStylesHostMessage(layout)).toEqual(layout);
   });
 
   it.each([
     { type: 'select-style', kind: 'color', name: 'brand' },
     { type: 'select-style', kind: 'table-style' },
     { type: 'select-style', name: 'table' },
+    { type: 'document-layout', name: 'report' },
+    { type: 'document-layout', name: '', document: 'a.stanza.md' },
   ])('refuses %j', (value) => {
     expect(parseStylesHostMessage(value)).toBeUndefined();
   });
