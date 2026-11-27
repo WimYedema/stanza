@@ -36,4 +36,4 @@ ADR 0094 imports the cover of a template from its flow: paragraphs, tables and f
 
 - **Leaving groups out, as the backlog item said.** Ten of the sixteen gallery covers would have lost their bands and text.
 - **Cutting what is behind a text box,** keeping only the largest rectangle of a band. Bands would have holes.
-- **Drawing the shapes that a grid cannot have into the background image.** It would keep curves and gradients, but needs a renderer of DrawingML; that is item 237, after this.
+- **Drawing the shapes that a grid cannot have into the background image.** It would keep curves and gradients, but needs a way to draw them: Word itself, a PDF the person makes, LibreOffice, or a renderer of our own. That is item 237, to consider later.
